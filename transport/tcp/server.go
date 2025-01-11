@@ -12,7 +12,6 @@ import (
 	"runtime"
 	"time"
 
-	gproto "github.com/golang/protobuf/proto"
 	"github.com/yola1107/kratos/v2/internal/endpoint"
 	"github.com/yola1107/kratos/v2/internal/host"
 	"github.com/yola1107/kratos/v2/internal/matcher"
@@ -374,50 +373,37 @@ func (s *Server) RegisterService(sd *ServiceDesc, ss interface{}) (cl *ChanList)
 
 func (s *Server) PushByChannel(sessionID string, ops int32, data []byte) {
 	if channel := s.GetBucket(sessionID).Channel(sessionID); channel != nil {
-		pushBody := &proto.Body{
-			Ops:  ops,
-			Data: data,
-		}
-		var (
-			data []byte
-			err  error
-		)
-		if data, err = gproto.Marshal(pushBody); err != nil {
-			log.Infof("push proto Marshal err:%+v\n", err)
-			return
-		}
 		p := &proto.Payload{
-			Place: 1,
-			Type:  int32(proto.Push),
-			Body:  data,
+			Type:     int32(proto.NODE_TYPE_GS),
+			ServerID: 0,
+			Place:    0,
+			Cmd:      int32(proto.CMD_GAME_DATA),
+			Command:  ops,
+			Body:     data,
+		}
+		if ops == proto.CMD_VOICE_DATA {
+			p.Cmd = int32(proto.CMD_VOICE_DATA)
 		}
 		if err := channel.Push(p); err != nil {
-			log.Infof("channle push err：%+v\n", err)
+			log.Errorf("channle push err：%+v", err)
 		}
 	}
 }
 
 func (s *Server) Operate(ctx context.Context, p *proto.Payload) (err error) {
-	if p.Type == int32(proto.Request) {
-		p.Type = int32(proto.Response)
-	}
-	reqBody := &proto.Body{}
-	if err = gproto.Unmarshal(p.Body, reqBody); err != nil {
+	if p.Type != int32(proto.NODE_TYPE_GS) {
 		return
 	}
+	//if p.Cmd != int32(proto.CMD_GAME_DATA) {
+	//	return
+	//}
 	srv := s.m
-	md, ok := srv.md[reqBody.Ops]
+	md, ok := srv.md[p.Command]
 	if !ok {
 		return
 	}
-	//reply, errCode := md.Handler(srv.server, ctx, reqBody.Data, s.interceptor)
-	//p.Code = int32(ecode.Cause(errCode).Code())
-	reply, errCode := md.Handler(srv.server, ctx, reqBody.Data, s.interceptor)
-	if errCode != nil {
-		log.Errorf("Operate. reqBody=%+v err=%+v", reply, err)
-	}
-	p.Code = 0 // int32(errCode)
-	p.Body = reply
+	_, _ = md.Handler(srv.server, ctx, p.Body, s.interceptor)
+	p.Body = nil
 	return
 }
 

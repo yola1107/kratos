@@ -25,41 +25,6 @@ const (
 
 // StartTCP listen all tcp.bind and start accept connections.
 func (s *Server) StartTCP(accept int) (err error) {
-	var (
-	//bind     string
-	//listener *net.TCPListener
-	//addr     *net.TCPAddr
-	)
-
-	//for _, bind = range s.c.TCP.Bind {
-	//	if addr, err = net.ResolveTCPAddr("tcp", bind); err != nil {
-	//		log.Error("net.ResolveTCPAddr(tcp, %s) error(%v)", bind, err)
-	//		return
-	//	}
-	//	if listener, err = net.ListenTCP("tcp", addr); err != nil {
-	//		log.Error("net.ListenTCP(tcp, %s) error(%v)", bind, err)
-	//		return
-	//	}
-	//	log.Info("start tcp listen: %s", bind)
-	//	// split N core accept
-	//	for i := 0; i < accept; i++ {
-	//		go s.acceptTCP(listener)
-	//	}
-	//}
-
-	//bind = s.address
-	//
-	//if addr, err = net.ResolveTCPAddr("tcp", bind); err != nil {
-	//	log.Error("net.ResolveTCPAddr(tcp, %s) error(%v)", bind, err)
-	//	return
-	//}
-	//if listener, err = net.ListenTCP("tcp", addr); err != nil {
-	//	log.Error("net.ListenTCP(tcp, %s) error(%v)", bind, err)
-	//	return
-	//}
-
-	//log.Info("start tcp listen: %s", bind)
-
 	// split N core accept
 	for i := 0; i < accept; i++ {
 		go s.acceptTCP(s.lis)
@@ -76,7 +41,7 @@ func (s *Server) acceptTCP(lis net.Listener) {
 	for {
 		if conn, err = lis.Accept(); err != nil {
 			// if listener close then return
-			log.Error("listener.Accept(\"%s\") error(%v)", lis.Addr().String(), err)
+			log.Errorf("listener.Accept(\"%s\") error(%v)", lis.Addr().String(), err)
 			return
 		}
 		//if err = conn.SetKeepAlive(s.c.TCP.KeepAlive); err != nil {
@@ -101,7 +66,7 @@ func (s *Server) acceptTCP(lis net.Listener) {
 func (s *Server) serveTCP(conn net.Conn, r int) {
 	defer func() {
 		if err := s.recoveryServer(); err != nil {
-			log.Error("serceTcp %v", err)
+			log.Errorf("serceTcp %v", err)
 			conn.Close()
 		}
 	}()
@@ -138,11 +103,11 @@ func (s *Server) serveTCP(conn net.Conn, r int) {
 	//proxy
 	if s.c.Protocol.Proxy {
 		proxyHeader, err := proxy.Read(rr)
-		//if err == proxy.ErrNoProxyProtocol {
-		//	err = nil
-		//}
+		if err == proxy.ErrNoProxyProtocol {
+			err = nil
+		}
 		if err != nil {
-			log.Errorf("proxy err %v", err)
+			log.Error("proxy err %v", err)
 		} else {
 			lAddr = proxyHeader.LocalAddr().String()
 			rAddr = proxyHeader.RemoteAddr().String()
@@ -161,10 +126,9 @@ func (s *Server) serveTCP(conn net.Conn, r int) {
 	hb = time.Duration(s.c.Protocol.HandshakeTimeout)
 	b = s.GetBucket(ch.Key)
 	b.Put(ch)
-	//md := metadata.new{
-	//
-	//	"remote_ip": ch.IP,
-	//	"mid":       ch.Key,
+	//md := metadata.MD{
+	//	metadata.RemoteIP: ch.IP,
+	//	metadata.Mid:      ch.Key,
 	//}
 	//newCtx := metadata.NewContext(context.Background(), md)
 	md := metadata.New()
@@ -173,6 +137,7 @@ func (s *Server) serveTCP(conn net.Conn, r int) {
 	newCtx := metadata.NewServerContext(context.Background(), md)
 	ctx, cancel := context.WithCancel(newCtx)
 	defer cancel()
+
 	step = 2
 	if err != nil {
 		conn.Close()
@@ -195,8 +160,7 @@ func (s *Server) serveTCP(conn net.Conn, r int) {
 			break
 		}
 		tr.Set(trd, time.Duration(s.c.Protocol.HeartbeatTimeout))
-		if p.Type == int32(proto.Ping) {
-			p.Type = int32(proto.Ping)
+		if p.Type == int32(proto.NODE_TYPE_GD) {
 			p.Body = nil
 			//_metricServerReqCodeTotal.Inc("/Ping", "no_user", "0")
 			step++
@@ -205,11 +169,8 @@ func (s *Server) serveTCP(conn net.Conn, r int) {
 				break
 			}
 		}
-		//response为空的时候dispatchTCP不处理
-		if p.Body != nil || p.Type == int32(proto.Ping) {
-			ch.CliProto.SetAdv()
-			ch.Signal()
-		}
+		ch.CliProto.SetAdv()
+		ch.Signal()
 	}
 	if err != nil && err != io.EOF && !strings.Contains(err.Error(), "closed") {
 		log.Errorf("key: %s server tcp failed error(%v)", ch.Key, err)
@@ -245,13 +206,10 @@ func (s *Server) dispatchTCP(conn net.Conn, wr *bufio.Writer, wp *bytes.Pool, wb
 				if p, err = ch.CliProto.Get(); err != nil {
 					break
 				}
-				if p.Type == int32(proto.Ping) {
-					p.Type = int32(proto.Pong)
+				if p.Type == int32(proto.NODE_TYPE_GD) {
+					p.Cmd = proto.CMD_GAME_DATA
+					p.Command = proto.HallPingRsp
 					if err = p.WriteTCPHeart(wr); err != nil {
-						goto failed
-					}
-				} else if p.Type == int32(proto.Response) {
-					if err = p.WriteTCP(wr); err != nil {
 						goto failed
 					}
 				}

@@ -2,7 +2,6 @@ package tcp
 
 import (
 	"net"
-	"sync"
 	"time"
 
 	gb "github.com/gogo/protobuf/proto"
@@ -11,34 +10,25 @@ import (
 	"github.com/yola1107/kratos/v2/transport/tcp/proto"
 )
 
-type RespMsgHandle func(data []byte, code int32)
-type PushMsgHandle func(data []byte)
+type MessageHandle func(data []byte)
 
 type ClientConfig struct {
-	Addr           string
-	PushHandlers   map[int32]PushMsgHandle
-	RespHandlers   map[int32]RespMsgHandle
-	DisconnectFunc func()
-	Token          string
+	Addr     string
+	Handlers map[int32]MessageHandle
+	Token    string
 }
 
 type Client struct {
-	pushChan       chan *proto.Payload
-	closeChan      chan bool
-	pushHandlers   map[int32]PushMsgHandle
-	respHandlers   map[int32]RespMsgHandle
-	disconnectFunc func()
-	reqOps         sync.Map
+	pushChan  chan *proto.Payload
+	closeChan chan bool
+	handlers  map[int32]MessageHandle
 }
 
-func NewTcpClient(conf *ClientConfig) (c *Client, err error) {
+func NewClient(conf *ClientConfig) (c *Client, err error) {
 	c = &Client{
-		pushChan:       make(chan *proto.Payload, 100),
-		closeChan:      make(chan bool),
-		pushHandlers:   conf.PushHandlers,
-		respHandlers:   conf.RespHandlers,
-		disconnectFunc: conf.DisconnectFunc,
-		reqOps:         sync.Map{},
+		pushChan:  make(chan *proto.Payload, 100),
+		closeChan: make(chan bool),
+		handlers:  conf.Handlers,
 	}
 	conn, err := net.Dial("tcp", conf.Addr)
 	if err != nil {
@@ -56,9 +46,7 @@ func NewTcpClient(conf *ClientConfig) (c *Client, err error) {
 	go func() {
 		for {
 			cc := <-c.closeChan
-			log.Infof("client close conn")
 			if cc {
-				c.disconnectFunc()
 				if err := conn.Close(); err != nil {
 					log.Errorf("close err %v", err)
 				}
@@ -68,34 +56,30 @@ func NewTcpClient(conf *ClientConfig) (c *Client, err error) {
 	return
 }
 
-func (c *Client) auth(token string) (err error) {
-	p := &proto.Payload{
-		Type: int32(proto.Request),
-		Body: []byte(token),
-	}
-	c.pushChan <- p
-	return
-}
-
 func (c *Client) Request(command int32, msg gb.Message) (err error) {
 	var data []byte
 	if data, err = gb.Marshal(msg); err != nil {
 		return
 	}
-	body := &proto.Body{
-		PlayerId: 0,
-		Ops:      command,
-		Data:     data,
-	}
-	var pData []byte
-	if pData, err = gb.Marshal(body); err != nil {
-		return
-	}
 	p := &proto.Payload{
-		Place: 1,
-		Type:  int32(proto.Request),
-		Body:  pData,
-		Op:    command,
+		Op:       0,
+		Type:     int32(proto.NODE_TYPE_GS),
+		ServerID: 0,
+		Place:    0,
+		Cmd:      int32(proto.CMD_GAME_DATA),
+		Command:  command,
+		Body:     data,
+	}
+	c.pushChan <- p
+	return
+}
+
+func (c *Client) auth(token string) (err error) {
+	p := &proto.Payload{
+		Type:    int32(proto.NODE_TYPE_GS),
+		Cmd:     int32(proto.CMD_GAME_DATA),
+		Command: int32(proto.AuthReq),
+		Body:    []byte(token),
 	}
 	c.pushChan <- p
 	return
@@ -108,8 +92,9 @@ func (c *Client) Close() {
 func (c *Client) sendHeart() {
 	for {
 		p := &proto.Payload{
-			Place: 1,
-			Type:  int32(proto.Ping),
+			Type:    int32(proto.NODE_TYPE_GD),
+			Cmd:     int32(proto.CMD_GAME_DATA),
+			Command: int32(proto.HallPingReq),
 		}
 		c.pushChan <- p
 		time.Sleep(time.Second * 5)
@@ -124,44 +109,21 @@ func (c *Client) handles(conn net.Conn, rd *bufio.Reader) {
 			c.closeChan <- true
 			break
 		}
-		if p.Body == nil {
-			continue
-		}
-		if p.Type == int32(proto.Response) {
-			ops, ok := c.reqOps.Load(p.Seq)
+		if p.Type == int32(proto.NODE_TYPE_GS) {
+			handle, ok := c.handlers[p.Command]
 			if !ok {
-				log.Errorf("reqOps seq %d is not exist", p.Seq)
+				log.Errorf("handle func is not exist")
 				continue
 			}
-			c.reqOps.Delete(p.Seq)
-			handle, ok := c.respHandlers[ops.(int32)]
-			if !ok {
-				log.Errorf("respHandlers ops %d func is not exist", ops)
-				continue
-			}
-			handle(p.Body, p.Code)
-		} else if p.Type == int32(proto.Push) {
-			body := &proto.Body{}
-			if err := gb.Unmarshal(p.Body, body); err != nil {
-				log.Errorf("proto type %d Unmarshal err %v", p.Type, err)
-				continue
-			}
-			handle, ok := c.pushHandlers[body.Ops]
-			if !ok {
-				log.Errorf("pushHandlers ops %d func is not exist", body.Ops)
-				continue
-			}
-			handle(body.Data)
+			handle(p.Body)
 		}
 	}
 }
 
 func (c *Client) dispatch(conn net.Conn, wr *bufio.Writer) {
-	seq := int32(0)
 	for {
 		p := <-c.pushChan
-		p.Seq = seq
-		if p.Type == int32(proto.Ping) {
+		if p.Type == int32(proto.NODE_TYPE_GD) {
 			if err := p.WriteTCPHeart(wr); err != nil {
 				log.Errorf("WriteTCPHeart err %v", err)
 				c.closeChan <- true
@@ -173,14 +135,10 @@ func (c *Client) dispatch(conn net.Conn, wr *bufio.Writer) {
 				c.closeChan <- true
 				break
 			}
-			c.reqOps.Store(p.Seq, p.Op)
 		}
 		if err := wr.Flush(); err != nil {
 			log.Errorf("Flush error(%v)", err)
-			c.closeChan <- true
 			break
 		}
-		seq += 1
-		seq %= 65535
 	}
 }

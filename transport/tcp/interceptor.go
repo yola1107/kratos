@@ -14,15 +14,3 @@ type UnaryServerInfo struct {
 type UnaryHandler func(ctx context.Context, req interface{}) ([]byte, error)
 
 type UnaryServerInterceptor func(ctx context.Context, req interface{}, info *UnaryServerInfo, handler UnaryHandler) ([]byte, error)
-
-//// grpc...
-//
-//type UnaryServerInfo struct {
-//	// Server is the service implementation the user provides. This is read-only.
-//	Server any
-//	// FullMethod is the full RPC method string, i.e., /package.service/method.
-//	FullMethod string
-//}
-//
-//type UnaryHandler func(ctx context.Context, req any) (any, error)
-//type UnaryServerInterceptor func(ctx context.Context, req any, info *UnaryServerInfo, handler UnaryHandler) (resp any, err error)
