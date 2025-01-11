@@ -51,6 +51,7 @@ func generateImports(gen *protogen.Plugin, file *protogen.File, g *protogen.Gene
 
 	g.P(`import (`)
 	g.P(`	"context"`)
+	g.P(`	"runtime/debug"`)
 	g.P()
 	g.P(`	"github.com/yola1107/kratos/v2/log"`)
 	g.P(`	"github.com/yola1107/kratos/v2/transport/tcp"`)
