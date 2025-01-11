@@ -5,6 +5,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/yola1107/kratos/v2/internal/matcher"
+	"github.com/yola1107/kratos/v2/middleware"
 	"github.com/yola1107/kratos/v2/transport"
 )
 
@@ -34,6 +36,20 @@ func Address(addr string) ServerOption {
 func Endpoint(endpoint *url.URL) ServerOption {
 	return func(s *Server) {
 		s.endpoint = endpoint
+	}
+}
+
+// Timeout with server timeout.
+func Timeout(timeout time.Duration) ServerOption {
+	return func(s *Server) {
+		s.timeout = timeout
+	}
+}
+
+// Middleware with server middleware.
+func Middleware(m ...middleware.Middleware) ServerOption {
+	return func(s *Server) {
+		s.middleware.Use(m...)
 	}
 }
 
@@ -67,10 +83,11 @@ type methodHandler func(srv interface{}, ctx context.Context, data []byte, inter
 
 // Server is an TCP server wrapper.
 type Server struct {
-	network  string
-	address  string
-	endpoint *url.URL
-	timeout  time.Duration
+	network    string
+	address    string
+	endpoint   *url.URL
+	timeout    time.Duration
+	middleware matcher.Matcher
 }
 
 // NewServer creates an TCP server by options.
@@ -88,6 +105,10 @@ func (s *Server) Stop(context.Context) error {
 
 func (s *Server) Endpoint() (*url.URL, error) {
 	return nil, nil
+}
+
+func (s *Server) Use(handlers ...UnaryServerInterceptor) *Server {
+	return s
 }
 
 func (s *Server) RegisterService(sd *ServiceDesc, ss interface{}) (cl *ChanList) {
