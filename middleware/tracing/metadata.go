@@ -5,6 +5,7 @@ import (
 
 	"go.opentelemetry.io/otel/propagation"
 
+	"github.com/yola1107/kratos/v2"
 	"github.com/yola1107/kratos/v2/metadata"
 )
 
