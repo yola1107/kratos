@@ -112,7 +112,7 @@ func (s *Server) serveTCP(conn net.Conn, r int) {
 		lAddr = conn.LocalAddr().String()
 		rAddr = conn.RemoteAddr().String()
 	)
-	log.Info("start tcp serve \"%s\" with \"%s\"", lAddr, rAddr)
+	log.Infof("start tcp serve \"%s\" with \"%s\"", lAddr, rAddr)
 	var (
 		err error
 		hb  time.Duration
@@ -133,7 +133,7 @@ func (s *Server) serveTCP(conn net.Conn, r int) {
 	trd = tr.Add(time.Duration(s.c.Protocol.HandshakeTimeout), func() {
 		s.disconnectChan <- uid
 		conn.Close()
-		log.Error("key: %s remoteIP: %s step: %d tcp handshake timeout", ch.Key, conn.RemoteAddr().String(), step)
+		log.Errorf("key: %s remoteIP: %s step: %d tcp handshake timeout", ch.Key, conn.RemoteAddr().String(), step)
 	})
 	//proxy
 	if s.c.Protocol.Proxy {
@@ -142,11 +142,11 @@ func (s *Server) serveTCP(conn net.Conn, r int) {
 		//	err = nil
 		//}
 		if err != nil {
-			log.Error("proxy err %v", err)
+			log.Errorf("proxy err %v", err)
 		} else {
 			lAddr = proxyHeader.LocalAddr().String()
 			rAddr = proxyHeader.RemoteAddr().String()
-			log.Info("proxy tcp serve \"%s\" with \"%s\"", lAddr, rAddr)
+			log.Infof("proxy tcp serve \"%s\" with \"%s\"", lAddr, rAddr)
 		}
 	}
 	ch.IP, _, _ = net.SplitHostPort(rAddr)
@@ -179,7 +179,7 @@ func (s *Server) serveTCP(conn net.Conn, r int) {
 		rp.Put(rb)
 		wp.Put(wb)
 		tr.Del(trd)
-		log.Error("key: %s handshake failed error(%v)", ch.Key, err)
+		log.Errorf("key: %s handshake failed error(%v)", ch.Key, err)
 		return
 	}
 	trd.Key = ch.Key
@@ -212,7 +212,7 @@ func (s *Server) serveTCP(conn net.Conn, r int) {
 		}
 	}
 	if err != nil && err != io.EOF && !strings.Contains(err.Error(), "closed") {
-		log.Error("key: %s server tcp failed error(%v)", ch.Key, err)
+		log.Errorf("key: %s server tcp failed error(%v)", ch.Key, err)
 	}
 	s.disconnectChan <- uid
 	b.Del(ch)
@@ -225,7 +225,7 @@ func (s *Server) serveTCP(conn net.Conn, r int) {
 func (s *Server) dispatchTCP(conn net.Conn, wr *bufio.Writer, wp *bytes.Pool, wb *bytes.Buffer, ch *channel.Channel) {
 	defer func() {
 		if err := s.recoveryServer(); err != nil {
-			log.Error("dispatchTCP %v", err)
+			log.Errorf("dispatchTCP %v", err)
 			conn.Close()
 		}
 	}()
@@ -266,13 +266,13 @@ func (s *Server) dispatchTCP(conn net.Conn, wr *bufio.Writer, wp *bytes.Pool, wb
 		}
 		// only hungry flush response
 		if err = wr.Flush(); err != nil {
-			log.Error("Flush error(%v)", err)
+			log.Errorf("Flush error(%v)", err)
 			break
 		}
 	}
 failed:
 	if err != nil {
-		log.Error("key: %s dispatch tcp error(%v)", ch.Key, err)
+		log.Errorf("key: %s dispatch tcp error(%v)", ch.Key, err)
 	}
 	//s.disconnectChan <- ch.Key
 	conn.Close()

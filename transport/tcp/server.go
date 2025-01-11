@@ -288,7 +288,7 @@ func (s *Server) Start(context.Context) error {
 }
 
 func (s *Server) Stop(context.Context) error {
-	log.Info("[TCP] server stopping")
+	log.Infof("[TCP] server stopping")
 	return nil
 }
 
