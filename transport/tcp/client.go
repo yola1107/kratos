@@ -5,10 +5,10 @@ import (
 	"sync"
 	"time"
 
-	gb "github.com/gogo/protobuf/proto"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/transport/tcp/internal/bufio"
 	"github.com/yola1107/kratos/v2/transport/tcp/proto"
+	gb "google.golang.org/protobuf/proto"
 )
 
 type RespMsgHandle func(data []byte, code int32)

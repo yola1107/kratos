@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-tcp v2.8.3
 // - protoc            v3.6.1
-// source: metadata/metadata.proto
+// source: helloworld/v1/greeter.proto
 
-package metadata
+package v1
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the kratos package it is being compiled against.
@@ -79,50 +79,50 @@ func (lp *Loop) PostAndWait(job func() interface{}) interface{} {
 }
 func PostAndWait(job func() interface{}) interface{} { return ins.PostAndWait(job) }
 
-// MetadataTcpServer is the server API for Metadata service.
-type MetadataTCPServer interface {
+// GreeterTcpServer is the server API for Greeter service.
+type GreeterTCPServer interface {
 	SetCometChan(cl *tcp.ChanList, cs *tcp.Server)
 	IsLoopFunc(f string) (isLoop bool)
-	ListServices(context.Context, *ListServicesRequest) (*ListServicesReply, error)
-	GetServiceDesc(context.Context, *GetServiceDescRequest) (*GetServiceDescReply, error)
+	SayHelloReq(context.Context, *HelloRequest) (*HelloReply, error)
+	SayHello2Req(context.Context, *Hello2Request) (*Hello2Reply, error)
 }
 
-func RegisterMetadataTCPServer(s *tcp.Server, srv MetadataTCPServer) {
-	chanList := s.RegisterService(&Metadata_TCP_ServiceDesc, srv)
+func RegisterGreeterTCPServer(s *tcp.Server, srv GreeterTCPServer) {
+	chanList := s.RegisterService(&Greeter_TCP_ServiceDesc, srv)
 	srv.SetCometChan(chanList, s)
 	ins = &Loop{jobs: make(chan func(), 10000), toggle: make(chan byte)}
 	ins.Start()
 }
 
-func _Metadata_ListServices_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
-	in := new(ListServicesRequest)
+func _Greeter_SayHelloReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
+	in := new(HelloRequest)
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		out, err := srv.(MetadataTCPServer).ListServices(ctx, in)
+		out, err := srv.(GreeterTCPServer).SayHelloReq(ctx, in)
 		data, _ := proto.Marshal(out)
 		return data, err
 	}
 	info := &tcp.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/kratos.api.Metadata/ListServices",
+		FullMethod: "/helloworld.v1.Greeter/SayHelloReq",
 	}
 	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
-		out := new(ListServicesReply)
+		out := new(HelloReply)
 		var err error
-		if srv.(MetadataTCPServer).IsLoopFunc("ListServices") {
-			rspChan := make(chan *ListServicesReply)
+		if srv.(GreeterTCPServer).IsLoopFunc("SayHelloReq") {
+			rspChan := make(chan *HelloReply)
 			errChan := make(chan error)
 			ins.Post(func() {
-				resp, err := srv.(MetadataTCPServer).ListServices(ctx, req.(*ListServicesRequest))
+				resp, err := srv.(GreeterTCPServer).SayHelloReq(ctx, req.(*HelloRequest))
 				rspChan <- resp
 				errChan <- err
 			})
 			out = <-rspChan
 			err = <-errChan
 		} else {
-			out, err = srv.(MetadataTCPServer).ListServices(ctx, req.(*ListServicesRequest))
+			out, err = srv.(GreeterTCPServer).SayHelloReq(ctx, req.(*HelloRequest))
 		}
 		if out != nil {
 			data, _ := proto.Marshal(out)
@@ -133,35 +133,35 @@ func _Metadata_ListServices_TCP_Handler(srv interface{}, ctx context.Context, da
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Metadata_GetServiceDesc_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
-	in := new(GetServiceDescRequest)
+func _Greeter_SayHello2Req_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
+	in := new(Hello2Request)
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		out, err := srv.(MetadataTCPServer).GetServiceDesc(ctx, in)
+		out, err := srv.(GreeterTCPServer).SayHello2Req(ctx, in)
 		data, _ := proto.Marshal(out)
 		return data, err
 	}
 	info := &tcp.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/kratos.api.Metadata/GetServiceDesc",
+		FullMethod: "/helloworld.v1.Greeter/SayHello2Req",
 	}
 	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
-		out := new(GetServiceDescReply)
+		out := new(Hello2Reply)
 		var err error
-		if srv.(MetadataTCPServer).IsLoopFunc("GetServiceDesc") {
-			rspChan := make(chan *GetServiceDescReply)
+		if srv.(GreeterTCPServer).IsLoopFunc("SayHello2Req") {
+			rspChan := make(chan *Hello2Reply)
 			errChan := make(chan error)
 			ins.Post(func() {
-				resp, err := srv.(MetadataTCPServer).GetServiceDesc(ctx, req.(*GetServiceDescRequest))
+				resp, err := srv.(GreeterTCPServer).SayHello2Req(ctx, req.(*Hello2Request))
 				rspChan <- resp
 				errChan <- err
 			})
 			out = <-rspChan
 			err = <-errChan
 		} else {
-			out, err = srv.(MetadataTCPServer).GetServiceDesc(ctx, req.(*GetServiceDescRequest))
+			out, err = srv.(GreeterTCPServer).SayHello2Req(ctx, req.(*Hello2Request))
 		}
 		if out != nil {
 			data, _ := proto.Marshal(out)
@@ -172,18 +172,18 @@ func _Metadata_GetServiceDesc_TCP_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
-var Metadata_TCP_ServiceDesc = tcp.ServiceDesc{
-	ServiceName: "kratos.api.Metadata",
-	HandlerType: (*MetadataTCPServer)(nil),
+var Greeter_TCP_ServiceDesc = tcp.ServiceDesc{
+	ServiceName: "helloworld.v1.Greeter",
+	HandlerType: (*GreeterTCPServer)(nil),
 	Methods: []tcp.MethodDesc{
 		{
-			MethodName: "ListServices",
-			Handler:    _Metadata_ListServices_TCP_Handler,
+			MethodName: "SayHelloReq",
+			Handler:    _Greeter_SayHelloReq_TCP_Handler,
 			Ops:        1001,
 		},
 		{
-			MethodName: "GetServiceDesc",
-			Handler:    _Metadata_GetServiceDesc_TCP_Handler,
+			MethodName: "SayHello2Req",
+			Handler:    _Greeter_SayHello2Req_TCP_Handler,
 			Ops:        1003,
 		},
 	},

@@ -56,7 +56,8 @@ func generateImports(gen *protogen.Plugin, file *protogen.File, g *protogen.Gene
 	g.P(`	"github.com/yola1107/kratos/v2/log"`)
 	g.P(`	"github.com/yola1107/kratos/v2/transport/tcp"`)
 	g.P()
-	g.P(`	"github.com/gogo/protobuf/proto"`)
+	//google.golang.org/protobuf/proto
+	g.P(`	"google.golang.org/protobuf/proto"`)
 	g.P(`)`)
 	g.P()
 }
