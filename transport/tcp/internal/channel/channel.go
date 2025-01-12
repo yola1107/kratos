@@ -14,8 +14,8 @@ type Channel struct {
 	signal   chan *proto.Payload
 	Writer   bufio.Writer
 	Reader   bufio.Reader
-	Next     *Channel
-	Prev     *Channel
+	//Next     *Channel
+	//Prev     *Channel
 
 	Mid   int64
 	Key   string

@@ -45,15 +45,15 @@ func (s *Server) acceptTCP(lis net.Listener) {
 			return
 		}
 		//if err = conn.SetKeepAlive(s.c.TCP.KeepAlive); err != nil {
-		//	log.Error("conn.SetKeepAlive() error(%v)", err)
+		//	log.Errorf("conn.SetKeepAlive() error(%v)", err)
 		//	return
 		//}
 		//if err = conn.SetReadBuffer(s.c.TCP.Rcvbuf); err != nil {
-		//	log.Error("conn.SetReadBuffer() error(%v)", err)
+		//	log.Errorf("conn.SetReadBuffer() error(%v)", err)
 		//	return
 		//}
 		//if err = conn.SetWriteBuffer(s.c.TCP.Sndbuf); err != nil {
-		//	log.Error("conn.SetWriteBuffer() error(%v)", err)
+		//	log.Errorf("conn.SetWriteBuffer() error(%v)", err)
 		//	return
 		//}
 		go s.serveTCP(conn, r)
@@ -103,11 +103,11 @@ func (s *Server) serveTCP(conn net.Conn, r int) {
 	//proxy
 	if s.c.Protocol.Proxy {
 		proxyHeader, err := proxy.Read(rr)
-		if err == proxy.ErrNoProxyProtocol {
-			err = nil
-		}
+		//if err == proxy.ErrNoProxyProtocol {
+		//	err = nil
+		//}
 		if err != nil {
-			log.Error("proxy err %v", err)
+			log.Errorf("proxy err %v", err)
 		} else {
 			lAddr = proxyHeader.LocalAddr().String()
 			rAddr = proxyHeader.RemoteAddr().String()
@@ -160,7 +160,8 @@ func (s *Server) serveTCP(conn net.Conn, r int) {
 			break
 		}
 		tr.Set(trd, time.Duration(s.c.Protocol.HeartbeatTimeout))
-		if p.Type == int32(proto.NODE_TYPE_GD) {
+		if p.Type == int32(proto.Ping) {
+			p.Type = int32(proto.Ping)
 			p.Body = nil
 			//_metricServerReqCodeTotal.Inc("/Ping", "no_user", "0")
 			step++
@@ -171,6 +172,11 @@ func (s *Server) serveTCP(conn net.Conn, r int) {
 		}
 		ch.CliProto.SetAdv()
 		ch.Signal()
+		//response为空的时候dispatchTCP不处理
+		if p.Body != nil || p.Type == int32(proto.Ping) {
+			ch.CliProto.SetAdv()
+			ch.Signal()
+		}
 	}
 	if err != nil && err != io.EOF && !strings.Contains(err.Error(), "closed") {
 		log.Errorf("key: %s server tcp failed error(%v)", ch.Key, err)
@@ -183,6 +189,12 @@ func (s *Server) serveTCP(conn net.Conn, r int) {
 	ch.Close()
 }
 
+// 请求/响应处理（dispatchTCP）：
+//
+// 函数dispatchTCP
+// 读取来自客户端的消息，处理它们，并发送适当的响应（例如，PING，PO
+// 处理来自服务器的响应，并通过 将它们写回客户端bufio.Writer。
+// 如果连接关闭或发生错误，它确保正确的
 func (s *Server) dispatchTCP(conn net.Conn, wr *bufio.Writer, wp *bytes.Pool, wb *bytes.Buffer, ch *channel.Channel) {
 	defer func() {
 		if err := s.recoveryServer(); err != nil {
@@ -206,10 +218,13 @@ func (s *Server) dispatchTCP(conn net.Conn, wr *bufio.Writer, wp *bytes.Pool, wb
 				if p, err = ch.CliProto.Get(); err != nil {
 					break
 				}
-				if p.Type == int32(proto.NODE_TYPE_GD) {
-					p.Cmd = proto.CMD_GAME_DATA
-					p.Command = proto.HallPingRsp
+				if p.Type == int32(proto.Ping) {
+					p.Type = int32(proto.Pong)
 					if err = p.WriteTCPHeart(wr); err != nil {
+						goto failed
+					}
+				} else if p.Type == int32(proto.Response) {
+					if err = p.WriteTCP(wr); err != nil {
 						goto failed
 					}
 				}
@@ -237,7 +252,7 @@ failed:
 	wp.Put(wb)
 	// must ensure all channel message discard, for reader won't blocking Signal
 	for !finish {
-		finish = (ch.Ready() == proto.ProtoFinish)
+		finish = ch.Ready() == proto.ProtoFinish
 	}
 	return
 }
@@ -255,7 +270,7 @@ failed:
 //			if reqBody.Ops == proto.AuthOps {
 //				break
 //			} else {
-//				log.Error("tcp request ops(%d) not auth", reqBody.Ops)
+//				log.Errorf("tcp request ops(%d) not auth", reqBody.Ops)
 //			}
 //		}
 //	}

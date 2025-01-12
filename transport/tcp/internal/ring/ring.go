@@ -38,9 +38,10 @@ func (r *Ring) init(num uint64) {
 		}
 		num = num << 1
 	}
-	r.data = make([]proto.Payload, num)
+
 	r.num = num
 	r.mask = r.num - 1
+	r.data = make([]proto.Payload, num)
 }
 
 // Get get a proto from ring.
