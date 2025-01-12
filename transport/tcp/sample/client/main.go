@@ -104,12 +104,8 @@ func (u *user) init() (err error) {
 
 	// 请求回复
 	u.respes = map[int32]tcp.RespMsgHandle{
-		int32(v1.GameCommand_SayHelloReq): func(data []byte, code int32) {
-			log.Printf("[TCP] SayHello. data=%+v code=%d", string(data), code)
-		},
-		int32(v1.GameCommand_SayHello2Req): func(data []byte, code int32) {
-			log.Printf("[TCP] SayHello2. data=%+v code=%d", string(data), code)
-		},
+		int32(v1.GameCommand_SayHelloReq):  func(data []byte, code int32) { log.Printf("[TCP] SayHello. data=%+v code=%d", string(data), code) },
+		int32(v1.GameCommand_SayHello2Req): func(data []byte, code int32) { log.Printf("[TCP] SayHello2. data=%+v code=%d", string(data), code) },
 	}
 
 	u.game, err = tcp.NewTcpClient(&tcp.ClientConfig{
