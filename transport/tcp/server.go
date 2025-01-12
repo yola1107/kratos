@@ -55,7 +55,7 @@ var (
 			Proxy:            false,
 			Timer:            32,
 			TimerSize:        2048,
-			CliProto:         5,
+			CliProto:         10, //5
 			SvrProto:         10,
 			HandshakeTimeout: xtime.Duration(time.Second * 15),
 			HeartbeatTimeout: xtime.Duration(time.Second * 6),

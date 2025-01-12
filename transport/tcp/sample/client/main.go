@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -12,6 +13,10 @@ import (
 	"github.com/yola1107/kratos/v2/transport/tcp"
 	v1 "github.com/yola1107/kratos/v2/transport/tcp/sample/api/helloworld/v1"
 	"google.golang.org/grpc"
+)
+
+var (
+	seed = int64(0)
 )
 
 func main() {
@@ -54,6 +59,7 @@ func main() {
 		callHTTP(connHTTP)
 		callGRPC(connGRPC)
 		callTCP(u)
+		seed++
 
 		time.Sleep(time.Second * 10)
 	}
@@ -78,7 +84,7 @@ func callGRPC(connGRPC *grpc.ClientConn) {
 }
 
 func callTCP(u *user) {
-	err := u.game.Request(int32(v1.GameCommand_SayHello2Req), &v1.Hello2Request{Name: "kratos_tcp"})
+	err := u.game.Request(int32(v1.GameCommand_SayHello2Req), &v1.Hello2Request{Name: fmt.Sprintf("kratos_tcp:%d", seed)})
 	if err != nil {
 		log.Fatal(err)
 	}
