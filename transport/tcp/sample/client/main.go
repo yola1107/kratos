@@ -2,19 +2,20 @@ package main
 
 import (
 	"context"
-	"encoding/json"
+	"log"
 	"time"
 
-	"github.com/yola1107/kratos/v2/log"
+	//"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/middleware/recovery"
+	transgrpc "github.com/yola1107/kratos/v2/transport/grpc"
 	transhttp "github.com/yola1107/kratos/v2/transport/http"
 	"github.com/yola1107/kratos/v2/transport/tcp"
 	v1 "github.com/yola1107/kratos/v2/transport/tcp/sample/api/helloworld/v1"
-	//"github.com/gogo/protobuf/proto"
-	"google.golang.org/protobuf/proto"
+	"google.golang.org/grpc"
 )
 
 func main() {
+	//http
 	connHTTP, err := transhttp.NewClient(
 		context.Background(),
 		transhttp.WithMiddleware(
@@ -27,57 +28,61 @@ func main() {
 	}
 	defer connHTTP.Close()
 
-	for {
-		//callHTTP(connHTTP)
-		callTCP()
+	// grpc
+	connGRPC, err := transgrpc.DialInsecure(
+		context.Background(),
+		transgrpc.WithEndpoint("127.0.0.1:9000"),
+		transgrpc.WithMiddleware(
+			recovery.Recovery(),
+		),
+	)
+	if err != nil {
+		panic(err)
+	}
+	defer connGRPC.Close()
 
-		return
-		time.Sleep(time.Second * 10000)
+	//tcp
+	u := &user{}
+	if err = u.init(); err != nil {
+		panic(err)
+	}
+	defer u.game.Close()
+
+	for {
+
+		log.Printf("-----------\n")
+		callHTTP(connHTTP)
+		callGRPC(connGRPC)
+		callTCP(u)
+
+		time.Sleep(time.Second * 10)
 	}
 }
 
 func callHTTP(connHTTP *transhttp.Client) {
 	client := v1.NewGreeterHTTPClient(connHTTP)
-	reply, err := client.SayHelloReq(context.Background(), &v1.HelloRequest{Name: "kratos"})
+	reply, err := client.SayHelloReq(context.Background(), &v1.HelloRequest{Name: "kratos_http"})
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Infof("[http] SayHello %s", reply.Message)
+	log.Printf("[http] SayHello %s", reply.Message)
 }
 
-var id = int64(0)
-
-func callTCP() {
-
-	id++
-	u := &user{
-		ID:     id,
-		game:   nil,
-		pushes: nil,
-		respes: nil,
-	}
-	u.pushes = map[int32]tcp.PushMsgHandle{}
-	u.respes = map[int32]tcp.RespMsgHandle{
-		int32(v1.GameCommand_SayHelloRsp):  u.OnSayHelloRsp,
-		int32(v1.GameCommand_SayHello2Rsp): u.OnSayHello2Rsp,
-	}
-
-	connTCP, err := tcp.NewTcpClient(&tcp.ClientConfig{
-		Addr:           ":6000",
-		PushHandlers:   u.pushes,
-		RespHandlers:   u.respes,
-		DisconnectFunc: func() { log.Infof("DisconnectFunc %d", u.ID) },
-		Token:          "",
-	})
+func callGRPC(connGRPC *grpc.ClientConn) {
+	client := v1.NewGreeterClient(connGRPC)
+	reply, err := client.SayHelloReq(context.Background(), &v1.HelloRequest{Name: "kratos_grpc"})
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
-	u.game = connTCP
-	defer u.game.Close()
+	log.Printf("[grpc] SayHello %s", reply.Message)
+}
 
-	u.OnSayHello2Req()
-
-	log.Infof("[TCP] SayHello %v", u.ID)
+func callTCP(u *user) {
+	err := u.game.Request(int32(v1.GameCommand_SayHello2Req), &v1.Hello2Request{Name: "kratos_tcp"})
+	if err != nil {
+		log.Fatal(err)
+	}
+	//log.Printf("[TCP] SayHello2Req %v", u.ID)
 }
 
 type user struct {
@@ -89,50 +94,31 @@ type user struct {
 	respes map[int32]tcp.RespMsgHandle
 }
 
-func (u *user) OnSayHello2Req() {
-	//req := v1.HelloRequest{Name: "aaa"}
+func (u *user) init() (err error) {
 
-	//if err := json.Unmarshal([]byte(login), req); err != nil {
-	//	log.Fatal("req failed. %v", err)
-	//}
-
-	//aaa [10 3 97 97 97]
-	//s := ToJSON(v1.HelloRequest{Name: "aaa"})
-	//req := v1.HelloRequest{}
-	//if err := json.Unmarshal([]byte(s), &req); err != nil {
-	//	log.Fatal("req failed. %v", err)
-	//}
-
-	{
-		req := v1.Hello2Request{Name: "aaa"}
-		d, err := proto.Marshal(&req)
-		if err != nil {
-			log.Fatal("req failed. %v", err)
-		}
-		log.Infof("%s %+v", string(d), d)
-
-		tmp := v1.Hello2Request{}
-		if proto.Unmarshal(d, &tmp) != nil {
-			log.Fatal("req failed. %v", err)
-		}
+	//推送消息 push
+	u.pushes = map[int32]tcp.PushMsgHandle{
+		int32(v1.GameCommand_SayHelloRsp):  func(data []byte) { log.Printf("[tcp] SayHello. %v", string(data)) },
+		int32(v1.GameCommand_SayHello2Rsp): func(data []byte) { log.Printf("[tcp] SayHello2. %v", string(data)) },
 	}
 
-	req := v1.Hello2Request{Name: "aaa"}
-	_ = u.game.Request(int32(v1.GameCommand_SayHello2Req), &req)
-}
-
-func (u *user) OnSayHelloRsp(data []byte, code int32) {
-	log.Infof("[TCP] OnSayHelloRsp %d", code)
-}
-
-func (u *user) OnSayHello2Rsp(data []byte, code int32) {
-	log.Infof("[TCP] OnSayHello2Rsp %d", code)
-}
-
-func ToJSON(v interface{}) string {
-	j, err := json.Marshal(v)
-	if err != nil {
-		return err.Error()
+	// 请求回复
+	u.respes = map[int32]tcp.RespMsgHandle{
+		int32(v1.GameCommand_SayHelloReq): func(data []byte, code int32) {
+			log.Printf("[TCP] SayHello. data=%+v code=%d", string(data), code)
+		},
+		int32(v1.GameCommand_SayHello2Req): func(data []byte, code int32) {
+			log.Printf("[TCP] SayHello2. data=%+v code=%d", string(data), code)
+		},
 	}
-	return string(j)
+
+	u.game, err = tcp.NewTcpClient(&tcp.ClientConfig{
+		Addr:           ":6000",
+		PushHandlers:   u.pushes,
+		RespHandlers:   u.respes,
+		DisconnectFunc: func() { log.Printf("DisconnectFunc %d", u.ID) },
+		Token:          "",
+	})
+
+	return err
 }

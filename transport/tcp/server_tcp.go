@@ -181,7 +181,7 @@ func (s *Server) serveTCP(conn net.Conn, r int) {
 	if err != nil && err != io.EOF && !strings.Contains(err.Error(), "closed") {
 		log.Errorf("key: %s server tcp failed error(%v)", ch.Key, err)
 	}
-	log.Infof("disconnect tcp. key=%s", ch.Key)
+	log.Infof("disconnect. key=%s", ch.Key)
 	s.disconnectChan <- uid
 	b.Del(ch)
 	tr.Del(trd)
