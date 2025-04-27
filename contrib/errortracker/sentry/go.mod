@@ -4,7 +4,7 @@ go 1.22
 
 require (
 	github.com/getsentry/sentry-go v0.25.0
-	github.com/yola1107/kratos/v2 v2.8.4
+	github.com/yola1107/kratos/v2 v2.8.6
 )
 
 require (

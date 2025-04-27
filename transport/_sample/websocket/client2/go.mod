@@ -3,7 +3,7 @@ module github.com/yola1107/kratos/v2/transport/_sample/websocket/client2/v2
 go 1.24.2
 
 require (
-	github.com/yola1107/kratos/v2 v2.8.4
+	github.com/yola1107/kratos/v2 v2.8.6
 	google.golang.org/grpc v1.72.0
 )
 

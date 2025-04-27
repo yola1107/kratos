@@ -4,7 +4,7 @@ go 1.24.2
 
 require (
 	github.com/yola1107/kratos/contrib/log/zap/v2 v2.0.0-20250427082233-a2ccf3775b81
-	github.com/yola1107/kratos/v2 v2.8.4
+	github.com/yola1107/kratos/v2 v2.8.6
 	go.uber.org/zap v1.27.0
 )
 

@@ -3,7 +3,7 @@ module github.com/yola1107/kratos/contrib/config/kubernetes/v2
 go 1.22
 
 require (
-	github.com/yola1107/kratos/v2 v2.8.4
+	github.com/yola1107/kratos/v2 v2.8.6
 	k8s.io/api v0.26.3
 	k8s.io/apimachinery v0.26.3
 	k8s.io/client-go v0.26.3

@@ -19,9 +19,7 @@ done
 
 
 
-last:
-20250427 15:45   ==>  v2.8.3
-20250427 17:30   ==>  v2.8.4
+last:     20250427 17:30   ==>  v2.8.6
 
 
 删除远端所有tag
@@ -30,13 +28,13 @@ git tag -l | xargs -n 1 git push --delete origin
 
 
 # 检查本地是否存在tag
-git tag -l | grep 'v2.8.4'
+git tag -l | grep 'v2.8.6'
 
 # 验证远端tag是否存在
-git ls-remote --tags origin v2.8.4
+git ls-remote --tags origin v2.8.6
 
 # 推送tag到远端
-git push origin v2.8.4
+git push origin v2.8.6
 
 
 go clean -modcache

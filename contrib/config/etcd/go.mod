@@ -3,7 +3,7 @@ module github.com/yola1107/kratos/contrib/config/etcd/v2
 go 1.22
 
 require (
-	github.com/yola1107/kratos/v2 v2.8.4
+	github.com/yola1107/kratos/v2 v2.8.6
 	go.etcd.io/etcd/client/v3 v3.5.11
 	google.golang.org/grpc v1.65.0
 )

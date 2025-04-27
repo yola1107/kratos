@@ -4,7 +4,7 @@ go 1.22
 
 require (
 	github.com/hashicorp/consul/api v1.26.1
-	github.com/yola1107/kratos/v2 v2.8.4
+	github.com/yola1107/kratos/v2 v2.8.6
 )
 
 require (
