@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	zap "github.com/yola1107/kratos/contrib/log/zap/v2"
+	"github.com/yola1107/kratos/contrib/log/zap/v2"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/middleware/recovery"
 	"github.com/yola1107/kratos/v2/transport/_sample/api/helloworld/v1"
@@ -14,7 +14,7 @@ import (
 	"github.com/yola1107/kratos/v2/transport/websocket"
 	"google.golang.org/grpc"
 
-	"github.com/yola1107/kratos/contrib/registry/etcd"
+	"github.com/yola1107/kratos/contrib/registry/etcd/v2"
 	etcdv3 "go.etcd.io/etcd/client/v3"
 )
 
