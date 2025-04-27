@@ -77,7 +77,7 @@ func TestJSON_Marshal(t *testing.T) {
 			expect: `{"a":"a","b":"b","c":"c"}`,
 		},
 		{
-			input:  &testData.TestModel{Id: 1, Name: "go-kratos", Hobby: []string{"1", "2"}},
+			input:  &testData.TestModel{Id: 1, Name: "yola1107", Hobby: []string{"1", "2"}},
 			expect: `{"id":"1","name":"go-kratos","hobby":["1","2"],"attrs":{}}`,
 		},
 		{

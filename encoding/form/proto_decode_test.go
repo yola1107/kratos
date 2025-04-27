@@ -15,7 +15,7 @@ import (
 func TestDecodeValues(t *testing.T) {
 	form, err := url.ParseQuery("a=19&age=18&b=true&bool=false&byte=MTIz&bytes=MTIz&count=3&d=22.22&double=12.33&duration=" +
 		"2m0.000000022s&field=1%2C2&float=12.34&id=2233&int32=32&int64=64&numberOne=2233&price=11.23&sex=woman&simples=3344&" +
-		"simples=5566&string=go-kratos&timestamp=1970-01-01T00%3A00%3A20.000000002Z&uint32=32&uint64=64&very_simple.component=5566")
+		"simples=5566&string=yola1107&timestamp=1970-01-01T00%3A00%3A20.000000002Z&uint32=32&uint64=64&very_simple.component=5566")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +80,7 @@ func TestPopulateRepeatedField(t *testing.T) {
 }
 
 func TestPopulateMapField(t *testing.T) {
-	query, err := url.ParseQuery("map%5Bkratos%5D=https://go-kratos.dev/")
+	query, err := url.ParseQuery("map%5Bkratos%5D=https://yola1107.dev/")
 	if err != nil {
 		t.Fatal(err)
 	}

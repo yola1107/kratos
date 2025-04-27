@@ -109,7 +109,7 @@ func TestApp_Metadata(t *testing.T) {
 }
 
 func TestApp_Endpoint(t *testing.T) {
-	v := []string{"https://go-kratos.dev", "localhost"}
+	v := []string{"https://yola1107.dev", "localhost"}
 	var endpoints []*url.URL
 	for _, urlStr := range v {
 		if endpoint, err := url.Parse(urlStr); err != nil {
@@ -144,7 +144,7 @@ func TestApp_buildInstance(t *testing.T) {
 			"a": "1",
 			"b": "2",
 		},
-		endpoints: []string{"https://go-kratos.dev", "localhost"},
+		endpoints: []string{"https://yola1107.dev", "localhost"},
 	}
 	var endpoints []*url.URL
 	for _, urlStr := range want.endpoints {
@@ -201,7 +201,7 @@ func TestApp_Context(t *testing.T) {
 		{
 			id:       "1",
 			name:     "kratos-v1",
-			instance: &registry.ServiceInstance{Endpoints: []string{"https://go-kratos.dev", "localhost"}},
+			instance: &registry.ServiceInstance{Endpoints: []string{"https://yola1107.dev", "localhost"}},
 			metadata: map[string]string{},
 			version:  "v1",
 			want: struct {
@@ -211,7 +211,7 @@ func TestApp_Context(t *testing.T) {
 				endpoint []string
 				metadata map[string]string
 			}{
-				id: "1", version: "v1", name: "kratos-v1", endpoint: []string{"https://go-kratos.dev", "localhost"},
+				id: "1", version: "v1", name: "kratos-v1", endpoint: []string{"https://yola1107.dev", "localhost"},
 				metadata: map[string]string{},
 			},
 		},

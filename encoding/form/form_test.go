@@ -163,7 +163,7 @@ func TestProtoEncodeDecode(t *testing.T) {
 		Price:   11.23,
 		D:       22.22,
 		Byte:    []byte("123"),
-		Map:     map[string]string{"kratos": "https://go-kratos.dev/", "kratos_start": "https://go-kratos.dev/en/docs/getting-started/start/"},
+		Map:     map[string]string{"kratos": "https://yola1107.dev/", "kratos_start": "https://go-kratos.dev/en/docs/getting-started/start/"},
 
 		Timestamp: timestamppb.New(time.Date(1970, 1, 1, 0, 0, 20, 2, time.Local)),
 		Duration:  &durationpb.Duration{Seconds: 120, Nanos: 22},

@@ -3,6 +3,7 @@ module github.com/yola1107/kratos/v2/transport/_sample/websocket/client2/v2
 go 1.24.2
 
 require (
+	//github.com/yola1107/kratos/contrib/log/zap/v2 v2.8.3
 	github.com/yola1107/kratos/contrib/log/zap/v2 v2.0.0-20250427034823-9ba475d8f614
 	github.com/yola1107/kratos/contrib/registry/etcd/v2 v2.0.0-20250427034823-9ba475d8f614
 	github.com/yola1107/kratos/v2 v2.8.4
