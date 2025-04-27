@@ -1,0 +1,45 @@
+
+# kratos
+kratos learn
+
+
+kratos new helloworld -r https://github.com/yola1107/kratos-layout.git
+
+kratos new helloworld
+
+
+
+
+for modfile in $(find . -name "go.mod"); do
+  dir=$(dirname "$modfile")
+  echo "Tidying $dir"
+  (cd "$dir" && go mod tidy)
+done
+
+
+
+
+
+change  ->  20250427 15:00
+
+
+删除远端所有tag
+git fetch --tags
+git tag -l | xargs -n 1 git push --delete origin
+
+
+# 检查本地是否存在tag
+git tag -l | grep 'v2.8.4'
+
+# 推送tag到远端
+git push origin v2.8.4
+
+# 验证远端tag是否存在
+git ls-remote --tags origin v2.8.4
+
+
+
+改动：
+polaris 升级go.mod
+zap 添加telegram
+
