@@ -2,8 +2,6 @@ module github.com/yola1107/kratos/contrib/registry/discovery/v2
 
 go 1.22
 
-toolchain go1.24.2
-
 require (
 	github.com/go-resty/resty/v2 v2.11.0
 	github.com/pkg/errors v0.9.1

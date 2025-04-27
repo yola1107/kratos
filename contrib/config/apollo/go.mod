@@ -2,8 +2,6 @@ module github.com/yola1107/kratos/contrib/config/apollo/v2
 
 go 1.22
 
-toolchain go1.24.2
-
 require (
 	github.com/apolloconfig/agollo/v4 v4.3.1
 	github.com/yola1107/kratos/v2 v2.8.3

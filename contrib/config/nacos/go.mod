@@ -2,8 +2,6 @@ module github.com/yola1107/kratos/contrib/config/nacos/v2
 
 go 1.22
 
-toolchain go1.24.2
-
 require (
 	github.com/nacos-group/nacos-sdk-go v1.0.9
 	github.com/yola1107/kratos/v2 v2.8.3

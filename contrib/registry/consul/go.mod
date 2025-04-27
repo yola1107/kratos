@@ -2,8 +2,6 @@ module github.com/yola1107/kratos/contrib/registry/consul/v2
 
 go 1.22
 
-toolchain go1.24.2
-
 require (
 	github.com/hashicorp/consul/api v1.26.1
 	github.com/yola1107/kratos/v2 v2.8.3

@@ -2,8 +2,6 @@ module github.com/yola1107/kratos/contrib/registry/servicecomb/v2
 
 go 1.22
 
-toolchain go1.24.2
-
 require (
 	github.com/go-chassis/cari v0.6.0
 	github.com/go-chassis/sc-client v0.6.1-0.20210615014358-a45e9090c751

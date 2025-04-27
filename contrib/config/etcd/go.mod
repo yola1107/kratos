@@ -2,8 +2,6 @@ module github.com/yola1107/kratos/contrib/config/etcd/v2
 
 go 1.22
 
-toolchain go1.24.2
-
 require (
 	github.com/yola1107/kratos/v2 v2.8.3
 	go.etcd.io/etcd/client/v3 v3.5.11

@@ -2,8 +2,6 @@ module github.com/yola1107/kratos/contrib/opensergo/v2
 
 go 1.22
 
-toolchain go1.24.2
-
 require (
 	github.com/opensergo/opensergo-go v0.0.0-20220331070310-e5b01fee4d1c
 	golang.org/x/net v0.34.0

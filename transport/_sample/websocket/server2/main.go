@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	zap "github.com/yola1107/kratos/contrib/log/zap/v2"
 	"github.com/yola1107/kratos/v2"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/middleware/recovery"
@@ -18,7 +17,8 @@ import (
 	"github.com/yola1107/kratos/v2/transport/websocket"
 	"go.uber.org/zap/zapcore"
 
-	etcd "github.com/yola1107/kratos/contrib/registry/etcd/v2"
+	"github.com/yola1107/kratos/contrib/log/zap/v2"
+	"github.com/yola1107/kratos/contrib/registry/etcd/v2"
 	etcdv3 "go.etcd.io/etcd/client/v3"
 )
 

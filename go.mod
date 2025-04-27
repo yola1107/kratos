@@ -2,8 +2,6 @@ module github.com/yola1107/kratos/v2
 
 go 1.22
 
-toolchain go1.24.2
-
 require (
 	dario.cat/mergo v1.0.0
 	github.com/fsnotify/fsnotify v1.6.0
