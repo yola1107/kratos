@@ -28,13 +28,13 @@ git tag -l | xargs -n 1 git push --delete origin
 
 
 # 检查本地是否存在tag
-git tag -l | grep 'v2.8.4'
+git tag -l | grep 'v2.8.3'
 
 # 推送tag到远端
-git push origin v2.8.4
+git push origin v2.8.3
 
 # 验证远端tag是否存在
-git ls-remote --tags origin v2.8.4
+git ls-remote --tags origin v2.8.3
 
 
 

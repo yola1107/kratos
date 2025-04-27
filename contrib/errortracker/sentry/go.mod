@@ -6,7 +6,7 @@ toolchain go1.24.2
 
 require (
 	github.com/getsentry/sentry-go v0.25.0
-	github.com/yola1107/kratos/v2 v2.8.4
+	github.com/yola1107/kratos/v2 v2.8.3
 )
 
 require (

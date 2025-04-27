@@ -6,7 +6,7 @@ toolchain go1.24.2
 
 require (
 	github.com/json-iterator/go v1.1.12
-	github.com/yola1107/kratos/v2 v2.8.4
+	github.com/yola1107/kratos/v2 v2.8.3
 	k8s.io/api v0.24.3
 	k8s.io/apimachinery v0.24.3
 	k8s.io/client-go v0.24.3

@@ -6,7 +6,7 @@ toolchain go1.24.2
 
 require (
 	github.com/tencentcloud/tencentcloud-cls-sdk-go v1.0.2
-	github.com/yola1107/kratos/v2 v2.8.4
+	github.com/yola1107/kratos/v2 v2.8.3
 	google.golang.org/protobuf v1.36.6
 )
 

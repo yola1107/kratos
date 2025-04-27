@@ -6,7 +6,7 @@ require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.5-20250307204501-0409229c3780.1
 	github.com/bufbuild/protovalidate-go v0.9.2
 	github.com/envoyproxy/protoc-gen-validate v1.2.1
-	github.com/yola1107/kratos/v2 v2.8.4
+	github.com/yola1107/kratos/v2 v2.8.3
 	google.golang.org/protobuf v1.36.6
 )
 

@@ -8,7 +8,7 @@ require (
 	github.com/go-kratos/aegis v0.2.0
 	github.com/google/uuid v1.6.0
 	github.com/polarismesh/polaris-go v1.3.0
-	github.com/yola1107/kratos/v2 v2.8.4
+	github.com/yola1107/kratos/v2 v2.8.3
 	google.golang.org/protobuf v1.36.6
 )
 
