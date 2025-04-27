@@ -7,19 +7,22 @@ const (
 	OpProtoFinish = int32(2)
 )
 
-type Pattern byte
-
 const (
-	Push Pattern = iota
-	Request
-	Response
-	Ping
-	Pong
-	Sub
-	Unsub
-	Pub
+	OpPush     = int32(0)
+	OpPing     = int32(1)
+	OpPong     = int32(2)
+	OpRequest  = int32(3)
+	OpResponse = int32(4)
+	OpSub      = int32(5)
+	OpUnsub    = int32(6)
+	OpPub      = int32(7)
 )
 
 const (
 	AuthOps = -1
+)
+
+const (
+	PlaceClient = 0
+	PlaceServer = 1
 )

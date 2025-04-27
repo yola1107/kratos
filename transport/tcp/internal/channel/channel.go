@@ -3,7 +3,9 @@ package channel
 import (
 	"sync"
 
+	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/transport/tcp/internal/bufio"
+	"github.com/yola1107/kratos/v2/transport/tcp/internal/errors"
 	"github.com/yola1107/kratos/v2/transport/tcp/internal/ring"
 	"github.com/yola1107/kratos/v2/transport/tcp/proto"
 )
@@ -14,8 +16,8 @@ type Channel struct {
 	signal   chan *proto.Payload
 	Writer   bufio.Writer
 	Reader   bufio.Reader
-	//Next     *Channel
-	//Prev     *Channel
+	// Next     *Channel
+	// Prev     *Channel
 
 	Mid   int64
 	Key   string
@@ -36,6 +38,8 @@ func (c *Channel) Push(p *proto.Payload) (err error) {
 	select {
 	case c.signal <- p:
 	default:
+		log.Warnf("channel push overflow. signal cap: %d ", cap(c.signal))
+		return errors.ErrSignalFullMsgDropped
 	}
 	return
 }

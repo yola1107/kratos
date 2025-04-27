@@ -1,0 +1,69 @@
+syntax = "proto3";
+package kratos.api;
+
+option go_package = "zap/conf;conf";
+
+import "google/protobuf/duration.proto";
+import "validate/validate.proto";
+
+enum MODE {
+    DEV  = 0;
+    PROD = 1;
+}
+
+message bootstrap {
+    // 日志配置
+    Log log = 1 [(validate.rules).message.required = true];
+}
+
+message Log {
+    Logger logger     = 1 [(validate.rules).message.required = true];
+    Alerter alerter   = 2 [(validate.rules).message.required = true];
+    Telegram telegram = 3 [(validate.rules).message.required = true];
+}
+
+message Logger {
+    // 0:dev 1:prod
+    MODE mode = 1;
+    // 应用名称
+    string appName = 2;
+    // 日志级别 "debug", "info", "warn", "error"
+    string level = 3 [(validate.rules).string = { in: [ "debug", "info", "warn", "error" ] }];
+    // 日志输出目录路径
+    string directory = 4;
+    // 输出格式 文件是否按json格式输出
+    bool formatJson = 5;
+    // 是否开启记录 error+ 日志文件
+    bool errorFile = 6;
+    // 敏感词（如 password、token）
+    repeated string sensitive = 7 [(validate.rules).repeated = { unique: true }];
+    // Rotate日志轮转控制配置
+    Rotate rotate = 8 [(validate.rules).message.required = true];
+}
+
+message Rotate {
+    // 每个日志文件的最大大小;（MB）>0
+    int32 maxSizeMB = 1 [(validate.rules).int32 = { gt: 0 }];
+    // 最多保留的旧日志文件数量; back>=0 0:表示不保存旧的分割日志
+    int32 maxBackups = 2 [(validate.rules).int32 = { gte: 0 }];
+    // 日志文件最长保存天数; days>0 0:日志文件永久保留
+    int32 maxAgeDays = 3 [(validate.rules).int32 = { gt: 0 }];
+    // 是否启用 gzip 压缩旧文件
+    bool compress = 4;
+    // 是否使用本地时间（否则使用 UTC）
+    bool localTime = 5;
+}
+
+message Alerter {
+    // 启用/关闭告警发送
+    bool enabled = 1;
+    // 告警消息前缀（如服务名标识）
+    string prefix = 2;
+    // 默认html，可选json
+    string format = 3 [(validate.rules).string = { pattern: "^(html|json)?$" }];
+}
+
+message Telegram {
+    string token  = 1;
+    string chatID = 2;
+}

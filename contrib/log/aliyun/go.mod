@@ -1,6 +1,6 @@
 module github.com/yola1107/kratos/contrib/log/aliyun/v2
 
-go 1.22
+go 1.24.2
 
 require (
 	github.com/aliyun/aliyun-log-go-sdk v0.1.99
@@ -18,8 +18,8 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
-	golang.org/x/net v0.34.0 // indirect
-	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
+	golang.org/x/net v0.41.0 // indirect
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 )
 
 replace github.com/yola1107/kratos/v2 => ../../../
