@@ -4,7 +4,7 @@ go 1.22
 
 require (
 	github.com/fluent/fluent-logger-golang v1.9.0
-	github.com/yola1107/kratos/v2 v2.8.3
+	github.com/yola1107/kratos/v2 v2.8.4
 )
 
 require (

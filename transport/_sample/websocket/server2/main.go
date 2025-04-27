@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/yola1107/kratos/contrib/log/zap/v2"
 	"github.com/yola1107/kratos/v2"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/middleware/recovery"
@@ -17,9 +18,9 @@ import (
 	"github.com/yola1107/kratos/v2/transport/websocket"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/yola1107/kratos/contrib/log/zap/v2"
-	"github.com/yola1107/kratos/contrib/registry/etcd/v2"
-	etcdv3 "go.etcd.io/etcd/client/v3"
+	//"github.com/yola1107/kratos/contrib/log/zap/v2"
+	//"github.com/yola1107/kratos/contrib/registry/etcd/v2"
+	//etcdv3 "go.etcd.io/etcd/client/v3"
 )
 
 // go build -ldflags "-X main.Version=x.y.z"
@@ -66,13 +67,13 @@ func (s *server) OnCloseFunc(session *websocket.Session) {
 
 func main() {
 
-	etcdClient, err := etcdv3.New(etcdv3.Config{
-		Endpoints: []string{"127.0.0.1:2379"},
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer etcdClient.Close()
+	//etcdClient, err := etcdv3.New(etcdv3.Config{
+	//	Endpoints: []string{"127.0.0.1:2379"},
+	//})
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//defer etcdClient.Close()
 
 	// 生产环境配置
 	zapLogger := zap.New(&zap.Config{
@@ -137,8 +138,8 @@ func main() {
 			grpcSrv,
 			wsSrv,
 		),
-		kratos.Logger(zapLogger),               // 使用自定义 Logger
-		kratos.Registrar(etcd.New(etcdClient)), // 注册中心 ETCD
+		kratos.Logger(zapLogger), // 使用自定义 Logger
+		//kratos.Registrar(etcd.New(etcdClient)), // 注册中心 ETCD
 	)
 
 	//zapLogger.Close() //调试

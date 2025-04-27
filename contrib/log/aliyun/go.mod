@@ -4,7 +4,7 @@ go 1.22
 
 require (
 	github.com/aliyun/aliyun-log-go-sdk v0.1.99
-	github.com/yola1107/kratos/v2 v2.8.3
+	github.com/yola1107/kratos/v2 v2.8.4
 	google.golang.org/protobuf v1.36.6
 )
 

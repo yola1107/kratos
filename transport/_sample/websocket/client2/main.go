@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yola1107/kratos/contrib/log/zap/v2"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/middleware/recovery"
 	"github.com/yola1107/kratos/v2/transport/_sample/api/helloworld/v1"
@@ -14,8 +13,8 @@ import (
 	"github.com/yola1107/kratos/v2/transport/websocket"
 	"google.golang.org/grpc"
 
-	"github.com/yola1107/kratos/contrib/registry/etcd/v2"
-	etcdv3 "go.etcd.io/etcd/client/v3"
+	//"github.com/yola1107/kratos/contrib/registry/etcd/v2"
+	//etcdv3 "go.etcd.io/etcd/client/v3"
 )
 
 var (
@@ -36,27 +35,27 @@ func main() {
 	//})
 	//defer zapLogger.Close()
 
-	zapLogger := zap.New(nil)
-	defer zapLogger.Close()
-
-	log.SetLogger(zapLogger)
-	log.Infof("start clients.")
-	defer log.Infof("stop clients.")
-
-	etcdClient, err := etcdv3.New(etcdv3.Config{
-		Endpoints: []string{"127.0.0.1:2379"},
-	})
-	if err != nil {
-		panic(err)
-	}
-	r := etcd.New(etcdClient)
+	//zapLogger := zap.New(nil)
+	//defer zapLogger.Close()
+	//
+	//log.SetLogger(zapLogger)
+	//log.Infof("start clients.")
+	//defer log.Infof("stop clients.")
+	//
+	//etcdClient, err := etcdv3.New(etcdv3.Config{
+	//	Endpoints: []string{"127.0.0.1:2379"},
+	//})
+	//if err != nil {
+	//	panic(err)
+	//}
+	//r := etcd.New(etcdClient)
 
 	//http
 	connHTTP, err := transhttp.NewClient(
 		context.Background(),
-		//transhttp.WithEndpoint("127.0.0.1:8000"),
-		transhttp.WithEndpoint("discovery:///helloworld"),
-		transhttp.WithDiscovery(r),
+		transhttp.WithEndpoint("127.0.0.1:8000"),
+		//transhttp.WithEndpoint("discovery:///helloworld"),
+		//transhttp.WithDiscovery(r),
 		transhttp.WithMiddleware(
 			recovery.Recovery(),
 		),
@@ -69,9 +68,9 @@ func main() {
 	// grpc
 	connGRPC, err := transgrpc.DialInsecure(
 		context.Background(),
-		//transgrpc.WithEndpoint("127.0.0.1:9000"),
-		transgrpc.WithEndpoint("discovery:///helloworld"),
-		transgrpc.WithDiscovery(r),
+		transgrpc.WithEndpoint("127.0.0.1:9000"),
+		//transgrpc.WithEndpoint("discovery:///helloworld"),
+		//transgrpc.WithDiscovery(r),
 		transgrpc.WithMiddleware(
 			recovery.Recovery(),
 		),

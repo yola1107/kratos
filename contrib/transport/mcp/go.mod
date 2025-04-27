@@ -4,7 +4,7 @@ go 1.23
 
 require (
 	github.com/mark3labs/mcp-go v0.23.0
-	github.com/yola1107/kratos/v2 v2.8.3
+	github.com/yola1107/kratos/v2 v2.8.4
 )
 
 require (

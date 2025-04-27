@@ -19,8 +19,9 @@ done
 
 
 
-change:
+last:
 20250427 15:45   ==>  v2.8.3
+20250427 17:10   ==>  v2.8.4
 
 
 删除远端所有tag
@@ -29,17 +30,11 @@ git tag -l | xargs -n 1 git push --delete origin
 
 
 # 检查本地是否存在tag
-git tag -l | grep 'v2.8.3'
-
-# 推送tag到远端
-git push origin v2.8.3
+git tag -l | grep 'v2.8.4'
 
 # 验证远端tag是否存在
-git ls-remote --tags origin v2.8.3
+git ls-remote --tags origin v2.8.4
 
-
-
-改动：
-polaris 升级go.mod
-zap 添加telegram
+# 推送tag到远端
+git push origin v2.8.4
 
