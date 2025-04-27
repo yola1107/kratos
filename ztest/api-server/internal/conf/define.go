@@ -1,0 +1,62 @@
+package conf
+
+import (
+	"flag"
+	"os"
+	"time"
+)
+
+const Name = "api-server"
+const Version = "v0.0.1"
+const GameID = 130
+
+var ArenaID = 1   // 场ID: 1 2 3 4
+var ServerID = "" // 房间ID
+
+func init() {
+	flag.IntVar(&ArenaID, "aid", 1, "specify the arena ID. base.StrToInt(os.Getenv(\"ARENAID\"))")
+	flag.StringVar(&ServerID, "sid", os.Getenv("HOSTNAME"), "specify the server ID.")
+}
+
+const (
+	StWait          = 0  // 等待
+	StPrepare       = 1  // 准备
+	StSendCard      = 2  // 发牌
+	StAction        = 3  // 操作
+	StCompare       = 4  // 比牌
+	StWaitSiderShow = 5  // 等待比牌
+	StSiderShow     = 6  // 比牌中
+	StWaitEnd       = 7  // 等待结束
+	StEnd           = 10 // 游戏结束
+)
+
+const (
+	StPrepareTimeout  = 2  // 准备时间  (s)
+	StSendCardTimeout = 3  // 发牌时间 (s)
+	StActionTimeout   = 12 // 操作时间 (s)
+	StCompareTimeout  = 1  // 比牌动画时间 (s)
+	StWaitEndTimeout  = 1  // 等待结束时间 (s)
+	StEndTimeout      = 3  // 结束等待下一个阶段时间 (s)
+)
+
+func GetStageTimeout(s int32) time.Duration {
+	switch s {
+	case StPrepare:
+		return StPrepareTimeout
+	case StSendCard:
+		return StSendCardTimeout
+	case StAction:
+		return StActionTimeout
+	case StCompare:
+		return StCompareTimeout
+	case StWaitSiderShow:
+		return StCompareTimeout
+	case StSiderShow:
+		return StCompareTimeout
+	case StWaitEnd:
+		return StWaitEndTimeout
+	case StEnd:
+		return StEndTimeout
+	}
+	return 0
+}

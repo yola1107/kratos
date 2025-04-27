@@ -3,10 +3,11 @@
 kratos learn
 
 
-kratos new helloworld -r https://github.com/yola1107/kratos-layout.git
-
 kratos new helloworld
 
+kratos new helloworld -r https://github.com/yola1107/kratos-layout.git
+
+kratos new helloworld --repo-url=https://github.com/yola1107/kratos-layout.git
 
 
 
@@ -18,14 +19,9 @@ done
 
 
 
-
-last:     20250427 17:30   ==>  v2.8.6
-
-
 删除远端所有tag
 git fetch --tags
 git tag -l | xargs -n 1 git push --delete origin
-
 
 # 检查本地是否存在tag
 git tag -l | grep 'v2.8.6'
@@ -36,6 +32,31 @@ git ls-remote --tags origin v2.8.6
 # 推送tag到远端
 git push origin v2.8.6
 
+# 删除远端分支
+git push origin --delete dev2
+
+# git rebase 合并提交记录
+git rebase -i --autosquash HEAD~20
+:%s/^pick/squash/g
+git rebase --continue
 
 go clean -modcache
 go install github.com/go-delve/delve/cmd/dlv@master
+
+
+# -A5 表示往下多显示 5 行
+grep -A5 "\[config\] \"room.game\" updated" /var/log/myapp.log
+# 变更发生在 2025/06/14 16:55 这一分钟
+grep "2025/06/14 16:55" /var/log/myapp.log
+
+
+lsof -i -P | grep -E ':3102|:3103|:3104'
+watch -n 2 'ss -lntp | awk '\''/:(8000|9000|3102)/ {print $0}'\'
+
+tail -F logs/ws-*.log | grep --color=always -E '[a-zA-Z0-9_/.-]+\.go:[0-9]+\]|$'
+
+
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o app main.go
+nohup ./cmd -conf configs/ > /dev/null 2>&1 &
+nohup ./app -conf configs/ >> app.log 2>&1 &
+

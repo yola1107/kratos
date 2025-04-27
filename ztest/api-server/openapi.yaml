@@ -1,0 +1,384 @@
+# Generated with protoc-gen-openapi
+# https://github.com/google/gnostic/tree/master/cmd/protoc-gen-openapi
+
+openapi: 3.0.3
+info:
+    title: Greeter API
+    description: The greeting service definition.
+    version: 0.0.1
+paths:
+    /greeter/OnChatOrFaceReq:
+        post:
+            tags:
+                - Greeter
+            operationId: Greeter_OnChatReq
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/helloworld.v1.ChatReq'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/helloworld.v1.ChatRsp'
+    /greeter/OnForwardReq:
+        post:
+            tags:
+                - Greeter
+            operationId: Greeter_OnForwardReq
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/helloworld.v1.ForwardReq'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/helloworld.v1.ForwardRsp'
+    /greeter/OnHostingReq:
+        post:
+            tags:
+                - Greeter
+            operationId: Greeter_OnHostingReq
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/helloworld.v1.HostingReq'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/helloworld.v1.HostingRsp'
+    /greeter/OnLoginReq:
+        post:
+            tags:
+                - Greeter
+            operationId: Greeter_OnLoginReq
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/helloworld.v1.LoginReq'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/helloworld.v1.LoginRsp'
+    /greeter/OnLogoutReq:
+        post:
+            tags:
+                - Greeter
+            operationId: Greeter_OnLogoutReq
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/helloworld.v1.LogoutReq'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/helloworld.v1.LogoutRsp'
+    /greeter/OnReadyReq:
+        post:
+            tags:
+                - Greeter
+            operationId: Greeter_OnReadyReq
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/helloworld.v1.ReadyReq'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/helloworld.v1.ReadyRsp'
+    /greeter/OnSceneReq:
+        post:
+            tags:
+                - Greeter
+            operationId: Greeter_OnSceneReq
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/helloworld.v1.SceneReq'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/helloworld.v1.SceneRsp'
+    /greeter/OnSwitchChairReq:
+        post:
+            tags:
+                - Greeter
+            operationId: Greeter_OnSwitchChairReq
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/helloworld.v1.SwitchChairReq'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/helloworld.v1.SwitchChairRsp'
+    /helloworld/{name}:
+        get:
+            tags:
+                - Greeter
+            description: Sends a greeting
+            operationId: Greeter_SayHelloReq
+            parameters:
+                - name: name
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/helloworld.v1.HelloReply'
+components:
+    schemas:
+        helloworld.v1.ChatReq:
+            type: object
+            properties:
+                userID:
+                    type: integer
+                    format: int32
+                opType:
+                    type: integer
+                    format: int32
+                faceID:
+                    type: integer
+                    format: int32
+                msg:
+                    type: string
+        helloworld.v1.ChatRsp:
+            type: object
+            properties:
+                userID:
+                    type: integer
+                    format: int32
+                opType:
+                    type: integer
+                    format: int32
+                faceID:
+                    type: integer
+                    format: int32
+                msg:
+                    type: string
+            description: 服务器广播表情
+        helloworld.v1.ForwardReq:
+            type: object
+            properties:
+                Type:
+                    type: integer
+                    format: int32
+                Msg:
+                    type: string
+        helloworld.v1.ForwardRsp:
+            type: object
+            properties:
+                Type:
+                    type: integer
+                    format: int32
+                Msg:
+                    type: string
+        helloworld.v1.HelloReply:
+            type: object
+            properties:
+                message:
+                    type: string
+            description: The response message containing the greetings
+        helloworld.v1.HostingReq:
+            type: object
+            properties:
+                isHosting:
+                    type: boolean
+        helloworld.v1.HostingRsp:
+            type: object
+            properties:
+                chairId:
+                    type: integer
+                    format: int32
+                status:
+                    type: integer
+                    format: int32
+                aiNum:
+                    type: integer
+                    format: int32
+                playTimes:
+                    type: integer
+                    format: int32
+        helloworld.v1.LoginReq:
+            type: object
+            properties:
+                userID:
+                    type: string
+                token:
+                    type: string
+                type:
+                    type: integer
+                    format: int32
+                tableID:
+                    type: integer
+                    format: int32
+                chairID:
+                    type: integer
+                    format: int32
+        helloworld.v1.LoginRsp:
+            type: object
+            properties:
+                code:
+                    type: integer
+                    format: int32
+                msg:
+                    type: string
+                userID:
+                    type: string
+                tableID:
+                    type: integer
+                    format: int32
+                chairID:
+                    type: integer
+                    format: int32
+                arenaID:
+                    type: integer
+                    format: int32
+        helloworld.v1.LogoutReq:
+            type: object
+            properties:
+                userDBID:
+                    type: string
+        helloworld.v1.LogoutRsp:
+            type: object
+            properties:
+                code:
+                    type: integer
+                    format: int32
+                msg:
+                    type: string
+        helloworld.v1.PlayerScene:
+            type: object
+            properties:
+                userID:
+                    type: string
+                chairId:
+                    type: integer
+                    format: int32
+                hands:
+                    type: array
+                    items:
+                        type: integer
+                        format: int32
+                outCards:
+                    type: array
+                    items:
+                        type: integer
+                        format: int32
+                isHosting:
+                    type: boolean
+                isOffline:
+                    type: boolean
+        helloworld.v1.ReadyReq:
+            type: object
+            properties:
+                userID:
+                    type: string
+                isReady:
+                    type: boolean
+            description: 准备
+        helloworld.v1.ReadyRsp:
+            type: object
+            properties:
+                userID:
+                    type: string
+                isReady:
+                    type: boolean
+        helloworld.v1.SceneReq:
+            type: object
+            properties:
+                userID:
+                    type: string
+        helloworld.v1.SceneRsp:
+            type: object
+            properties:
+                stage:
+                    type: integer
+                    format: int32
+                activeChairId:
+                    type: integer
+                    format: int32
+                leftNum:
+                    type: integer
+                    format: int32
+                timeOut:
+                    type: integer
+                    format: int32
+                bankerId:
+                    type: integer
+                    format: int32
+                players:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/helloworld.v1.PlayerScene'
+                arenaID:
+                    type: integer
+                    format: int32
+                SN:
+                    type: integer
+                    format: int32
+        helloworld.v1.SwitchChairReq:
+            type: object
+            properties:
+                userID:
+                    type: string
+                chairId:
+                    type: integer
+                    format: int32
+        helloworld.v1.SwitchChairRsp:
+            type: object
+            properties:
+                code:
+                    type: integer
+                    format: int32
+                userID:
+                    type: string
+                chairId:
+                    type: integer
+                    format: int32
+tags:
+    - name: Greeter

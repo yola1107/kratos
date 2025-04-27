@@ -92,7 +92,7 @@ func (c *Client) Request(command int32, msg gb.Message) (err error) {
 		return
 	}
 	p := &proto.Payload{
-		Place: 1,
+		Place: 0,
 		Type:  int32(proto.Request),
 		Body:  pData,
 		Op:    command,
@@ -108,7 +108,7 @@ func (c *Client) Close() {
 func (c *Client) sendHeart() {
 	for {
 		p := &proto.Payload{
-			Place: 1,
+			Place: 0,
 			Type:  int32(proto.Ping),
 		}
 		c.pushChan <- p
@@ -124,23 +124,13 @@ func (c *Client) handles(conn net.Conn, rd *bufio.Reader) {
 			c.closeChan <- true
 			break
 		}
-		if p.Body == nil {
-			continue
-		}
-		if p.Type == int32(proto.Response) {
-			ops, ok := c.reqOps.Load(p.Seq)
-			if !ok {
-				log.Errorf("reqOps seq %d is not exist", p.Seq)
-				continue
-			}
-			c.reqOps.Delete(p.Seq)
-			handle, ok := c.respHandlers[ops.(int32)]
-			if !ok {
-				log.Errorf("respHandlers ops %d func is not exist", ops)
-				continue
-			}
-			handle(p.Body, p.Code)
-		} else if p.Type == int32(proto.Push) {
+
+		// log.Infof("recv. p={op:%d place:%d type:%d seq:%d code:%d body:%+v}", p.Op, p.Place, p.Type, p.Seq, p.Code, p.Body)
+
+		switch p.Type {
+		case int32(proto.Pong):
+
+		case int32(proto.Push):
 			body := &proto.Body{}
 			if err := gb.Unmarshal(p.Body, body); err != nil {
 				log.Errorf("proto type %d Unmarshal err %v", p.Type, err)
@@ -152,6 +142,28 @@ func (c *Client) handles(conn net.Conn, rd *bufio.Reader) {
 				continue
 			}
 			handle(body.Data)
+
+		case int32(proto.Response):
+			ops, ok := c.reqOps.Load(p.Seq)
+			if !ok {
+				log.Errorf("reqOps seq %d is not exist", p.Seq)
+				continue
+			}
+			c.reqOps.Delete(p.Seq)
+			handle, ok := c.respHandlers[ops.(int32)]
+			if !ok {
+				log.Errorf("respHandlers ops %d func is not exist", ops)
+				continue
+			}
+			body := &proto.Body{}
+			if err := gb.Unmarshal(p.Body, body); err != nil {
+				log.Errorf("proto type %d Unmarshal err %v", p.Type, err)
+				continue
+			}
+			handle(body.Data, p.Code)
+
+		default:
+			log.Warnf("client handles unknown payload.Type: %v", p.Type)
 		}
 	}
 }
@@ -161,20 +173,27 @@ func (c *Client) dispatch(conn net.Conn, wr *bufio.Writer) {
 	for {
 		p := <-c.pushChan
 		p.Seq = seq
-		if p.Type == int32(proto.Ping) {
+
+		switch p.Type {
+		case int32(proto.Ping):
 			if err := p.WriteTCPHeart(wr); err != nil {
 				log.Errorf("WriteTCPHeart err %v", err)
 				c.closeChan <- true
 				break
 			}
-		} else {
+
+		case int32(proto.Request):
 			if err := p.WriteTCP(wr); err != nil {
 				log.Errorf("WriteTCP err %v", err)
 				c.closeChan <- true
 				break
 			}
 			c.reqOps.Store(p.Seq, p.Op)
+
+		default:
+			log.Warnf("client dispatch unknown payload.Type: %v", p.Type)
 		}
+
 		if err := wr.Flush(); err != nil {
 			log.Errorf("Flush error(%v)", err)
 			c.closeChan <- true

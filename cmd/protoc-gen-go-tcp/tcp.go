@@ -8,7 +8,7 @@ import (
 	"google.golang.org/protobuf/types/descriptorpb"
 )
 
-// generateFile generates a _tcp.pb.go file containing kratos errors definitions.
+// generateFile generates a _tcp.pb.go file containing kratos TCP service definitions.
 func generateFile(gen *protogen.Plugin, file *protogen.File) *protogen.GeneratedFile {
 	if len(file.Services) == 0 {
 		return nil
@@ -18,7 +18,6 @@ func generateFile(gen *protogen.Plugin, file *protogen.File) *protogen.Generated
 
 	generateFileHeader(gen, file, g)
 	generateImports(gen, file, g)
-	generateLoop(g)
 
 	for _, service := range file.Services {
 		genService(gen, file, g, service)
@@ -51,71 +50,14 @@ func generateImports(gen *protogen.Plugin, file *protogen.File, g *protogen.Gene
 
 	g.P(`import (`)
 	g.P(`	"context"`)
-	//g.P(`	"runtime/debug"`)
 	g.P()
-	//g.P(`	"github.com/yola1107/kratos/v2/log"`)
-	g.P(`	"github.com/yola1107/kratos/v2/library/task"`)
+	g.P(`	"github.com/yola1107/kratos/v2/library/work"`)
 	g.P(`	"github.com/yola1107/kratos/v2/transport/tcp"`)
 	g.P()
-	//google.golang.org/protobuf/proto
+	g.P(`	"google.golang.org/grpc/codes"`)
+	g.P(`	"google.golang.org/grpc/status"`)
 	g.P(`	"google.golang.org/protobuf/proto"`)
 	g.P(`)`)
-	g.P()
-}
-
-func generateLoop(g *protogen.GeneratedFile) {
-	g.P()
-	g.P(`var tcpLoopIns *task.Loop`)
-	g.P(`func GetLoopTcp() *task.Loop { return tcpLoopIns }`)
-	//g.P(`type Loop struct {`)
-	//g.P(`jobs   chan func()`)
-	//g.P(`toggle chan byte}`)
-	//
-	//g.P(`func RecoverFromError(cb func()) {`)
-	//g.P(`if e := recover(); e != nil {`)
-	//g.P(`log.Error("Recover => %s:%s\n", e, debug.Stack())`)
-	//g.P(`if cb != nil {`)
-	//g.P(`cb()`)
-	//g.P(`}}}`)
-	//
-	//g.P(`func (lp *Loop) Start() { `)
-	//g.P(`log.Info("loop routine start.")`)
-	//g.P(`go func() {`)
-	//g.P(`defer RecoverFromError(func() {`)
-	//g.P(`lp.Start() })`)
-	//g.P(`for {`)
-	//g.P(`select {`)
-	//g.P(`case <-lp.toggle:`)
-	//g.P(`log.Info("Loop routine stop.")`)
-	//g.P(`return`)
-	//g.P(`case job := <-lp.jobs:job()}`)
-	//g.P(`}}()}`)
-	//
-	//g.P(`func (lp *Loop) Stop() {`)
-	//g.P(`go func() {`)
-	//g.P(`lp.toggle <- 1`)
-	//g.P(`}()}`)
-	//g.P(`func Stop() { ins.Stop() }`)
-	//
-	//g.P(`func (lp *Loop) Jobs() int {`)
-	//g.P(`return len(lp.jobs)`)
-	//g.P(`}`)
-	//g.P(`func Jobs() int { return ins.Jobs() }`)
-	//
-	//g.P(`func (lp *Loop) Post(job func()) {`)
-	//g.P(`go func() {`)
-	//g.P(`lp.jobs <- job`)
-	//g.P(`}()}`)
-	//g.P(`func Post(job func()) { ins.Post(job) }`)
-	//
-	//g.P(`func (lp *Loop) PostAndWait(job func() interface{}) interface{} {`)
-	//g.P(`ch := make(chan interface{})`)
-	//g.P(`go func() {`)
-	//g.P(`lp.jobs <- func() {`)
-	//g.P(`ch <- job()`)
-	//g.P(`}}()`)
-	//g.P(`return <-ch}`)
-	//g.P(`func PostAndWait(job func() interface{}) interface{} { return ins.PostAndWait(job) }`)
 	g.P()
 }
 
@@ -128,35 +70,20 @@ func genService(gen *protogen.Plugin, file *protogen.File, g *protogen.Generated
 	}
 
 	var (
-		serviceName    = service.GoName                                         //Greeter
-		serviceDescVar = fmt.Sprintf("%s_TCP_ServiceDesc", serviceName)         //Greeter_TCP_ServiceDesc
-		fullServName   = fmt.Sprintf("%s.%s", file.Desc.Package(), serviceName) //ServiceName: "helloworld.v1.Greeter"
+		serviceName    = service.GoName
+		serviceDescVar = fmt.Sprintf("%s_TCP_ServiceDesc", serviceName)
+		fullServName   = fmt.Sprintf("%s.%s", file.Desc.Package(), serviceName)
 	)
 
 	// 生成 TCP 服务器接口
-	generateTCPInterface(gen, file, g, service)
+	generateTCPInterface(g, serviceName, service)
 
-	// 生成 TCP 服务器注册代码 RegisterGreeterTCPServer
+	// 生成 TCP 服务器注册代码
 	g.P("func Register", serviceName, "TCPServer(s *tcp.Server, srv ", serviceName, "TCPServer) {")
-	//g.P("	s.RegisterService(&", serviceName, "_TCP_ServiceDesc, srv)")
 	g.P(`	chanList := s.RegisterService(&`, serviceDescVar, `, srv)`)
 	g.P("	srv.SetCometChan(chanList, s)")
-	g.P(`	tcpLoopIns = task.NewLoop(10000)`)
-	g.P(`	tcpLoopIns.Start()`)
-	//g.P(`	ins = &Loop{ jobs:   make(chan func(), 10000), toggle: make(chan byte),}`)
-	//g.P("	ins.Start()")
-
 	g.P("}")
 	g.P()
-
-	// 生成 TCP 服务器处理函数 和 请求code
-	//handlerNames, gameCommand := generateServerMethods(gen, file, g, service, serviceDescVar)
-	//// 生成 TCP 服务器处理函数
-	//for _, method := range service.Methods {
-	//	g.P("func _", serviceName, "_", method.GoName, "0_TCP", "_Handler(srv interface{}", "TCPServer, ctx context.Context, req *", method.Input.GoIdent, ") (*", method.Output.GoIdent, ", error) {")
-	//	g.P("return srv.", method.GoName, "(ctx, req)")
-	//	g.P("}")
-	//}
 
 	// 生成 TCP 服务器处理函数
 	var handlerNames []string
@@ -172,13 +99,11 @@ func genService(gen *protogen.Plugin, file *protogen.File, g *protogen.Generated
 			continue
 		}
 		for _, v := range enum.Values {
-			// GameCommand,OnLoginReq,1001
 			gameCommand[string(v.Desc.Name())] = fmt.Sprintf("%d", v.Desc.Number())
 		}
 	}
 
 	// 生成Service descriptor
-	//g.P(`var `, serviceName, `_TCP_ServiceDesc`, ` = tcp.ServiceDesc{`)
 	g.P(`var `, serviceDescVar, ` = tcp.ServiceDesc{`)
 	g.P(`	ServiceName: `, strconv.Quote(fullServName), `,`)
 	g.P(`	HandlerType: (*`, serviceName, `TCPServer)(nil),`)
@@ -194,120 +119,80 @@ func genService(gen *protogen.Plugin, file *protogen.File, g *protogen.Generated
 	g.P(`}`)
 }
 
-//	 生成server接口:
-//		type GreeterTCPServer interface {
-//			SayHello(context.Context, *HelloRequest) (*HelloReply, error)
-//			SayHello2(context.Context, *Hello2Request) (*Hello2Reply, error)
-//		}
-func generateTCPInterface(gen *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile, service *protogen.Service) int {
-
-	//// 生成 TCP 服务器接口
-	//g.P("type ", serviceName, "TCPServer interface {")
-	//for _, method := range service.Methods {
-	//	g.P("	", method.GoName, "(context.Context, *", method.Input.GoIdent, ") (*", method.Output.GoIdent, ", error)")
-	//}
-	//g.P("}")
-
-	count := 0
-	serviceName := service.GoName
-	g.P("// " + serviceName + "TcpServer is the server API for " + serviceName + " service.")
-
+// 生成TCP服务接口
+func generateTCPInterface(g *protogen.GeneratedFile, serviceName string, service *protogen.Service) {
+	g.P("// ", serviceName, "TCPServer is the server API for ", serviceName, " service.")
 	g.P("type ", serviceName, "TCPServer interface {")
-	g.P(`SetCometChan(cl *tcp.ChanList, cs *tcp.Server)`)
-	g.P(`IsLoopFunc(f string) (isLoop bool)`)
+	g.P(`	GetTCPLoop() work.ITaskLoop`)
+	g.P(`	SetCometChan(cl *tcp.ChanList, cs *tcp.Server)`)
+
 	for _, method := range service.Methods {
-		//if !t.ShouldGenForMethod(file, service, method) {
-		//	continue
-		//}
-		//count++
-		//t.generateInterfaceMethod(file, service, method, comments)
-		//g.P()
 		if method.Desc.IsStreamingClient() || method.Desc.IsStreamingServer() {
 			continue
 		}
 		g.P("	", method.GoName, "(context.Context, *", method.Input.GoIdent, ") (*", method.Output.GoIdent, ", error)")
-		count++
 	}
 	g.P(`}`)
 	g.P()
-	return count
 }
 
-//func generateServerMethods(gen *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile, service *protogen.Service, serviceName string) ([]string, map[string]string) {
-//	//// 生成 TCP 服务器处理函数
-//	//for _, method := range service.Methods {
-//	//	g.P("func _", serviceName, "_", method.GoName, "0_TCP", "_Handler(srv interface{}", "TCPServer, ctx context.Context, req *", method.Input.GoIdent, ") (*", method.Output.GoIdent, ", error) {")
-//	//	g.P("return srv.", method.GoName, "(ctx, req)")
-//	//	g.P("}")
-//	//}
-//
-//	// 生成 TCP 服务器处理函数
-//	var handlerNames []string
-//	for _, method := range service.Methods {
-//		hname := generateServerMethod(g, serviceName, method)
-//		handlerNames = append(handlerNames, hname)
-//	}
-//
-//	// 生成 TCP 服务器处理函数的Ops (请求协议code)
-//	gameCommand := make(map[string]string)
-//	for _, enum := range file.Enums {
-//		if enum.Desc.Name() != "GameCommand" {
-//			continue
-//		}
-//		for _, v := range enum.Values {
-//			// GameCommand,OnLoginReq,1001
-//			gameCommand[string(v.Desc.Name())] = fmt.Sprintf("%d", v.Desc.Number())
-//		}
-//	}
-//	return handlerNames, gameCommand
-//}
-
-// _Metadata_GetServiceDesc_TCP_Handler
+// 生成服务器方法处理函数
 func generateServerMethod(g *protogen.GeneratedFile, servName, fullServName string, method *protogen.Method) string {
 	methName := method.GoName
 	hname := fmt.Sprintf("_%s_%s_TCP_Handler", servName, methName)
 	inputType := method.Input.Desc.Name()
-	outputType := method.Output.Desc.Name()
+
 	g.P(`func `, hname, `(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {`)
 	g.P(`	in := new(`, inputType, `)`)
 	g.P(`	if err := proto.Unmarshal(data, in); err != nil {`)
 	g.P(`		return nil, err`)
 	g.P(`	}`)
-	g.P(`	if interceptor == nil {`)
-	g.P(`		out, err := srv.(`, servName, `TCPServer).`, methName, `(ctx, in)`)
-	g.P(`		data, _ := proto.Marshal(out)`)
-	g.P(`			return data, err`)
+	// g.P()
+
+	// 核心处理逻辑
+	g.P(`	doFunc := func(ctx context.Context, req *`, inputType, `) ([]byte, error) {`)
+	g.P(`		doRequest := func() ([]byte, error) {`)
+	g.P(`			resp, err := srv.(`, servName, `TCPServer).`, methName, `(ctx, req)`)
+	g.P(`			if err != nil || resp == nil {`)
+	g.P(`				return nil, err`)
+	g.P(`			}`)
+	g.P(`			return proto.Marshal(resp)`)
+	g.P(`		}`)
+	// g.P()
+	g.P(`		if loop := srv.(`, servName, `TCPServer).GetTCPLoop(); loop != nil {`)
+	g.P(`			return loop.PostAndWaitCtx(ctx, doRequest)`)
+	g.P(`		}`)
+	g.P(`		return doRequest()`)
 	g.P(`	}`)
+	// g.P()
+
+	// 无拦截器时直接处理
+	g.P(`	if interceptor == nil {`)
+	g.P(`		return doFunc(ctx, in)`)
+	g.P(`	}`)
+	// g.P()
+
+	// 配置拦截器信息
 	g.P(`	info := &tcp.UnaryServerInfo{`)
 	g.P(`		Server:     srv,`)
-	//g.P(`		FullMethod: `, strconv.Quote(fmt.Sprintf("/%s/%s", hname, methName)), `,`)
 	g.P(`		FullMethod: `, strconv.Quote(fmt.Sprintf("/%s/%s", fullServName, methName)), `,`)
 	g.P(`	}`)
+	// g.P()
+
+	// 拦截器处理函数
 	g.P(`	handler := func(ctx context.Context, req interface{}) ([]byte, error) {`)
-	g.P(`		out := new(`, outputType, `)`)
-	g.P(`		var err error`)
-	g.P(`		if srv.(`, servName, `TCPServer).IsLoopFunc("`, methName, `") {`)
-	g.P(`			rspChan := make(chan *`, outputType, `)`)
-	g.P(`			errChan := make(chan error)`)
-	g.P(`			tcpLoopIns.Post(func() {`)
-	g.P(`				resp, err := srv.(`, servName, `TCPServer).`, methName, `(ctx, req.(*`, inputType, `))`)
-	g.P(`				rspChan <- resp`)
-	g.P(`				errChan <- err`)
-	g.P(`			})`)
-	g.P(`			out = <- rspChan`)
-	g.P(`			err = <- errChan`)
-	g.P(`		} else {`)
-	g.P(`			out, err = srv.(`, servName, `TCPServer).`, methName, `(ctx, req.(*`, inputType, `))`)
+	g.P(`		r, ok := req.(*`, inputType, `)`)
+	g.P(`		if !ok {`)
+	g.P(`			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *`, inputType, `, Not: %T", req)`)
 	g.P(`		}`)
-	g.P(`		if out != nil {`)
-	g.P(`			data, _ := proto.Marshal(out)`)
-	g.P(`			return data, err`)
-	g.P(`		}`)
-	g.P(`		return nil, err`)
+	g.P(`		return doFunc(ctx, r)`)
 	g.P(`	}`)
+	// g.P()
+
 	g.P(`	return interceptor(ctx, in, info, handler)`)
 	g.P(`}`)
 	g.P()
+
 	return hname
 }
 

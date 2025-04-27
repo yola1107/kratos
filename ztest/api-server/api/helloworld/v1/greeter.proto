@@ -1,0 +1,261 @@
+syntax = "proto3";
+
+package helloworld.v1;
+
+import "google/api/annotations.proto";
+
+option go_package           = "api-server/api/helloworld/v1;v1";
+option java_multiple_files  = true;
+option java_package         = "dev.kratos.api.helloworld.v1";
+option java_outer_classname = "HelloworldProtoV1";
+
+enum GameCommand {
+    Nothing     = 0;  //
+    SayHelloReq = 1;  //
+    SayHelloRsp = 2;
+
+    // request
+    OnLoginReq       = 1001;  //登录
+    OnLoginRsp       = 1002;
+    OnLogoutReq      = 1003;  //登出
+    OnLogoutRsp      = 1004;
+    OnReadyReq       = 1005;  //准备
+    OnReadyRsp       = 1006;
+    OnSwitchChairReq = 1007;  //换位
+    OnSwitchChairRsp = 1008;
+    OnSceneReq       = 1009;  //场景信息
+    OnSceneRsp       = 1010;
+    OnChatReq        = 1011;  //聊天
+    OnChatRsp        = 1012;
+    OnHostingReq     = 1013;  //托管
+    OnHostingRsp     = 1014;
+    OnForwardReq     = 1015;  //转发
+    OnForwardRsp     = 1016;
+
+    // push
+    OnConfigPush       = 2001;  //配置信息
+    OnResultPush       = 2002;  //结算
+    OnUserInfoPush     = 2003;  //玩家信息
+    OnEmojiConfigPush  = 2004;  //表情道具配置
+    OnPlayerQuitPush   = 2005;  //玩家退出
+    OnUserOfflinePush  = 2006;  //用户断线通知
+    OnUpRoomOwnerPush  = 2007;  //房主信息
+    OnUpRoomNumberPush = 2008;  //房间人数
+
+    // game push
+    OnSetBankerPush = 2100;  //庄家通知
+    OnSendCardPush  = 2101;  //发牌通知
+    OnActivePush    = 2102;  //活动玩家通知
+
+    //    //
+    //    SERVER_LOGIN_SUCC_BC     = 4001;  // 玩家入座消息
+    //    SERVER_LOGOUT_SUCC_BC    = 4004;  // 登出处理
+    //    SERVER_TABLE_INFO_UC     = 4006;  // 房间信息
+    //    SERVER_READY_SUCC_BC     = 4007;  // 准备
+    //    SERVER_GAME_START_BC     = 4009;  // 游戏开始
+    //    SERVER_NEXT_BET_BC       = 4010;  // 通知操作
+    //    SERVER_BET_SUCC_BC       = 4011;  // 操作成功
+    //    SERVER_BET_SUCC_UC       = 4012;  // 操作看牌
+    //    SERVER_GAME_END_BC       = 4014;  // 游戏结束
+    //    SERVER_CHAT_BC           = 4016;  // 聊天
+    //    SERVER_Auto_Call_SUCC_UC = 4025;  // 自动跟注操作返回
+    //
+    //    SERVER_SHOWCARD_INFORM     = 5002;  //通知亮牌
+    //    SM_SLIDE_SHOW_RETURN       = 5020;  //告知客户端提前比牌是否成功
+    //    SM_PRE_SLIDE_SHOW_RETURN   = 5021;  //通知前一个看牌的人比牌
+    //    SM_AJECT_SLIDE_SHOW_RETURN = 5022;  //对方拒绝比牌
+    //    SM_SLIDE_BET_BC_RETURN     = 5025;  //提前比牌下注广播
+    //    GM_NOTIFY_BUY_REQUEST      = 5026;  //通知服务端自己正在充值
+    //    SM_BUY_BC_RETURN           = 5027;  //玩家充值状态广播
+    //    SM_SHOW_ALLCARD_RETURN     = 5028;  //展示剩下人的牌数据包
+    //    SM_AGREE_SLIDE_SHOW        = 5029;  //对方同意比牌
+    //    GM_BUY_SUCCESS_REQ         = 5050;  //通知服务端充值成功
+    //    GM_BUY_SUCCESS_RSP         = 5051;  //服务端充值成功返回
+    //
+    //    SM_NOTIFY_BOTTON_INFO = 6030;
+}
+
+// The greeting service definition.
+service Greeter {
+    // Sends a greeting
+    rpc SayHelloReq(HelloRequest) returns (HelloReply) {
+        option (google.api.http) = {
+            get: "/helloworld/{name}"
+        };
+    }
+
+    rpc OnLoginReq(LoginReq) returns (LoginRsp) {
+        option (google.api.http) = {
+            post: "/greeter/OnLoginReq"
+            body: "*"
+        };
+    }
+    rpc OnLogoutReq(LogoutReq) returns (LogoutRsp) {
+        option (google.api.http) = {
+            post: "/greeter/OnLogoutReq"
+            body: "*"
+        };
+    }
+    rpc OnReadyReq(ReadyReq) returns (ReadyRsp) {
+        option (google.api.http) = {
+            post: "/greeter/OnReadyReq"
+            body: "*"
+        };
+    }
+
+    rpc OnSwitchChairReq(SwitchChairReq) returns (SwitchChairRsp) {
+        option (google.api.http) = {
+            post: "/greeter/OnSwitchChairReq"
+            body: "*"
+        };
+    }
+    rpc OnSceneReq(SceneReq) returns (SceneRsp) {
+        option (google.api.http) = {
+            post: "/greeter/OnSceneReq"
+            body: "*"
+        };
+    }
+    rpc OnChatReq(ChatReq) returns (ChatRsp) {
+        option (google.api.http) = {
+            post: "/greeter/OnChatOrFaceReq"
+            body: "*"
+        };
+    }
+    rpc OnHostingReq(HostingReq) returns (HostingRsp) {
+        option (google.api.http) = {
+            post: "/greeter/OnHostingReq"
+            body: "*"
+        };
+    }
+    rpc OnForwardReq(ForwardReq) returns (ForwardRsp) {
+        option (google.api.http) = {
+            post: "/greeter/OnForwardReq"
+            body: "*"
+        };
+    }
+}
+
+// The request message containing the user's name.
+message HelloRequest {
+    string name = 1;
+}
+
+// The response message containing the greetings
+message HelloReply {
+    string message = 1;
+}
+
+//
+message LoginReq {
+    int64 userID  = 1;  //ID
+    string token  = 2;  //token
+    int32 type    = 3;  //0:创建，1：加入 2:快速加入
+    int32 tableID = 4;  //桌子号
+    int32 chairID = 5;  //椅子号
+}
+
+message LoginRsp {
+    int32 code    = 1;  //错误码
+    string msg    = 2;  //错误信息
+    int64 userID  = 3;  //ID
+    int32 tableID = 4;
+    int32 chairID = 5;
+    int32 arenaID = 6;
+}
+
+//
+message LogoutReq {
+    int64 userDBID = 1;
+}
+
+message LogoutRsp {
+    int32 code = 1;  //错误码 0:成功
+    string msg = 2;  //错误信息 主动/踢人
+}
+
+// 准备
+message ReadyReq {
+    int64 userID = 1;
+    bool isReady = 2;
+}
+
+message ReadyRsp {
+    int64 userID = 1;
+    bool isReady = 2;
+}
+
+//
+message SwitchChairReq {
+    int64 userID  = 1;
+    int32 chairId = 2;
+}
+
+message SwitchChairRsp {
+    int32 code    = 1;
+    int64 userID  = 2;
+    int32 chairId = 3;
+}
+
+//
+message SceneReq {
+    int64 userID = 1;
+}
+
+message SceneRsp {
+    int32 stage                  = 1;   //牌局状态
+    int32 activeChairId          = 2;   //当前操作位置
+    int32 leftNum                = 4;   //剩余牌
+    int32 timeOut                = 5;   //剩余时间
+    int32 bankerId               = 6;   //庄家位置
+    repeated PlayerScene players = 7;   //玩家信息
+    int32 arenaID                = 9;   //场id
+    int32 SN                     = 10;  //房间号
+}
+
+message PlayerScene {
+    int64 userID            = 1;  //玩家ID
+    int32 chairId           = 2;  //玩家座位号
+    repeated int32 hands    = 3;  //手牌
+    repeated int32 outCards = 4;  //出牌
+    bool isHosting          = 6;  //是否托管
+    bool isOffline          = 7;  //是否断线
+}
+
+//
+message ChatReq {
+    int32 userID = 1;  //玩家ID
+    int32 opType = 2;  //0表情 1快捷文字 2自定义文字
+    int32 faceID = 3;  //表情or聊天ID
+    string msg   = 4;  //聊天信息
+}
+
+//服务器广播表情
+message ChatRsp {
+    int32 userID = 1;  //玩家ID
+    int32 opType = 2;  //0表情 1快捷文字 2自定义文字
+    int32 faceID = 3;  //表情or聊天ID
+    string msg   = 4;  //聊天信息
+}
+
+//
+message HostingReq {
+    bool isHosting = 1;  // true 托管； false 取消托管
+}
+
+message HostingRsp {
+    int32 chairId   = 1;  //座位号
+    int32 status    = 2;  //1:正常  2:托管
+    int32 aiNum     = 3;  //玩家（非断线）超时引起的当前局的托管次数
+    int32 playTimes = 4;  //操作时间
+}
+
+//
+message ForwardReq {
+    int32 Type = 1;
+    string Msg = 2;
+}
+
+message ForwardRsp {
+    int32 Type = 1;
+    string Msg = 2;
+}
