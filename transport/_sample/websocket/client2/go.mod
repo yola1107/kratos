@@ -2,8 +2,6 @@ module github.com/yola1107/kratos/v2/transport/_sample/websocket/client2/v2
 
 go 1.24.2
 
-replace github.com/yola1107/kratos/v2 => ../../../../
-
 require (
 	github.com/yola1107/kratos/contrib/log/zap/v2 v2.0.0-20250427034823-9ba475d8f614
 	github.com/yola1107/kratos/contrib/registry/etcd/v2 v2.0.0-20250427034823-9ba475d8f614
@@ -38,3 +36,5 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/yola1107/kratos/v2 => ../../../../
