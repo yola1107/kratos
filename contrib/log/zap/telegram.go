@@ -1,7 +1,6 @@
 package zap
 
 import (
-	"bytes"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -33,10 +32,7 @@ type AlertCore struct {
 	zapcore.LevelEnabler
 	enc      zapcore.Encoder
 	fields   []zapcore.Field
-	pool     sync.Pool
 	notifier Notifier
-
-	writeMu sync.Mutex // 全局写入锁 保证消息顺序
 }
 
 // NewAlertCore 创建报警核心
@@ -48,10 +44,7 @@ func NewAlertCore(enabler zapcore.LevelEnabler, enc zapcore.Encoder, cfg *Telegr
 	return &AlertCore{
 		LevelEnabler: enabler,
 		enc:          enc,
-		pool: sync.Pool{
-			New: func() interface{} { return new(bytes.Buffer) },
-		},
-		notifier: n,
+		notifier:     n,
 	}
 }
 
@@ -61,10 +54,7 @@ func (c *AlertCore) With(fields []zapcore.Field) zapcore.Core {
 	clone := &AlertCore{
 		LevelEnabler: c.LevelEnabler,
 		enc:          c.enc,
-		pool: sync.Pool{
-			New: c.pool.New, // 复用原New函数
-		},
-		notifier: c.notifier,
+		notifier:     c.notifier,
 	}
 
 	// 完全拷贝所有字段
@@ -85,13 +75,6 @@ func (c *AlertCore) Check(ent zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.
 
 // Write 写入日志
 func (c *AlertCore) Write(ent zapcore.Entry, fields []zapcore.Field) error {
-	c.writeMu.Lock()
-	defer c.writeMu.Unlock()
-
-	buf := c.pool.Get().(*bytes.Buffer)
-	buf.Reset()
-	defer c.pool.Put(buf)
-
 	entryBuf, err := c.enc.EncodeEntry(ent, append(c.fields, fields...))
 	if err != nil {
 		return err
@@ -254,8 +237,14 @@ func NewTelegramNotifier(cfg *TelegramConfig) Notifier {
 		return nil
 	}
 	tn := &telegramNotifier{
-		config:        cfg,
-		client:        &http.Client{Timeout: 5 * time.Second},
+		config: cfg,
+		client: &http.Client{
+			Timeout: 5 * time.Second,
+			Transport: &http.Transport{
+				MaxIdleConns:       10,
+				IdleConnTimeout:    10 * time.Second,
+				DisableCompression: true,
+			}},
 		ring:          newRingBuffer(cfg.QueueSize, cfg.MaxBatchCnt),
 		closeChan:     make(chan struct{}),
 		forceSendChan: make(chan struct{}),
@@ -308,19 +297,26 @@ func (tn *telegramNotifier) processor() {
 	}
 }
 
+var bufPool = sync.Pool{New: func() interface{} { return new(strings.Builder) }}
+
 // sendBatch 批量发送
 func (tn *telegramNotifier) sendBatch(messages []string) {
 	if len(messages) == 0 {
 		return
 	}
 
+	sb := bufPool.Get().(*strings.Builder)
+	defer func() {
+		sb.Reset()
+		bufPool.Put(sb)
+	}()
+
 	// 合并消息
-	var sb strings.Builder
 	for _, msg := range messages {
 		sb.WriteString(tn.config.Prefix)
 		sb.WriteString(msg)
-		//sb.WriteByte('\n')
 	}
+	sb.WriteString("\n\n---------\n\n")
 
 	// 带重试的发送
 	for i := 0; i < tn.config.MaxRetries; i++ {
@@ -335,7 +331,6 @@ func (tn *telegramNotifier) sendBatch(messages []string) {
 
 // send 实际发送请求
 func (tn *telegramNotifier) send(content string) error {
-	//go func() {
 	//fmt.Printf("=========>%+v send content: \n%+v", time.Now().Format("2006-01-02 15:04:05.000"), content)
 	//return nil
 	_, err := tn.client.PostForm(
@@ -349,8 +344,6 @@ func (tn *telegramNotifier) send(content string) error {
 		fmt.Printf(" %v\n", err)
 	}
 	return err
-	//}()
-
 }
 
 // Close 安全关闭
