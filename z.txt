@@ -21,7 +21,7 @@ done
 
 last:
 20250427 15:45   ==>  v2.8.3
-20250427 17:10   ==>  v2.8.4
+20250427 17:30   ==>  v2.8.4
 
 
 删除远端所有tag
@@ -38,3 +38,6 @@ git ls-remote --tags origin v2.8.4
 # 推送tag到远端
 git push origin v2.8.4
 
+
+go clean -modcache
+go install github.com/go-delve/delve/cmd/dlv@master
