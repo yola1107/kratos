@@ -1,6 +1,6 @@
 module github.com/yola1107/kratos/cmd/protoc-gen-go-websocket/v2
 
-go 1.24
+go 1.23
 
 require google.golang.org/protobuf v1.36.6
 
