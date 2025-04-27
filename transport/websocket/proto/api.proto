@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package websocket.proto;
+
+option go_package = "websocket/proto;proto";
+
+message Body {
+    int64 playerId = 1;  // 玩家ID
+    int32 ops      = 2;  // 操作码
+    bytes data     = 3;  // 额外的数据
+}
+
+message Payload {
+    int32 op    = 1;  // 操作类型
+    int32 place = 2;  // 占位，无用
+    int32 type  = 3;  // 消息类型：Push、Request、Response、Ping、Pong、Sub、Unsub、Pub
+    int32 seq   = 4;  // 序列号，回包需对应
+    int32 code  = 5;  // 错误码，回包参数
+    bytes body  = 6;  // 包体
+}
