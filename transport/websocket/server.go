@@ -9,23 +9,21 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
-	"runtime"
-	"sync"
+	"strings"
 	"time"
 
-	gproto "github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
+	kerrors "github.com/yola1107/kratos/v2/errors"
+	ic "github.com/yola1107/kratos/v2/internal/context"
 	"github.com/yola1107/kratos/v2/internal/endpoint"
 	"github.com/yola1107/kratos/v2/internal/host"
 	"github.com/yola1107/kratos/v2/internal/matcher"
-	"github.com/yola1107/kratos/v2/library/task"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/middleware"
 	"github.com/yola1107/kratos/v2/transport"
 	"github.com/yola1107/kratos/v2/transport/websocket/proto"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	gproto "google.golang.org/protobuf/proto"
 )
 
 var (
@@ -33,145 +31,114 @@ var (
 	_ transport.Endpointer = (*Server)(nil)
 )
 
+const (
+	CtxSessionKey   = "session"
+	CtxSessionIDKey = "sessionID"
+)
+
 // ServerOption is a Websocket server option.
 type ServerOption func(*Server)
 
 func Network(network string) ServerOption {
-	return func(s *Server) { s.opts.network = network }
+	return func(o *Server) { o.network = network }
 }
 func Address(addr string) ServerOption {
-	return func(s *Server) { s.opts.address = addr }
+	return func(o *Server) { o.address = addr }
+}
+func Path(path string) ServerOption {
+	return func(o *Server) { o.path = path }
 }
 func Endpoint(u *url.URL) ServerOption {
-	return func(s *Server) { s.opts.endpoint = u }
+	return func(o *Server) { o.endpoint = u }
+}
+func TlsConf(tlsConfig *tls.Config) ServerOption {
+	return func(o *Server) { o.tlsConf = tlsConfig }
+}
+func MaxConnLimit(maxConnLimit int32) ServerOption {
+	return func(o *Server) { o.maxConnLimit = maxConnLimit }
 }
 func Timeout(d time.Duration) ServerOption {
-	return func(s *Server) { s.opts.timeout = d }
+	return func(o *Server) { o.timeout = d }
+}
+func SessionConf(c *SessionConfig) ServerOption {
+	return func(o *Server) { o.sessionConf = c }
+}
+func Heartbeat(readDeadline, pingInterval, writeTimeout time.Duration) ServerOption {
+	return func(o *Server) {
+		o.sessionConf.ReadDeadline = readDeadline
+		o.sessionConf.PingInterval = pingInterval
+		o.sessionConf.WriteTimeout = writeTimeout
+	}
+}
+func SentChanSize(size int) ServerOption {
+	return func(o *Server) { o.sessionConf.SendChanSize = size }
 }
 func Middleware(m ...middleware.Middleware) ServerOption {
-	return func(s *Server) { s.middleware.Use(m...) }
-}
-func HeartInterval(d time.Duration) ServerOption {
-	return func(s *Server) { s.opts.heartInterval = d }
-}
-func HeartDeadline(d time.Duration) ServerOption {
-	return func(s *Server) { s.opts.heartDeadline = d }
-}
-func HeartThreshold(d time.Duration) ServerOption {
-	return func(s *Server) { s.opts.heartThreshold = d }
-}
-func JobsCnt(cnt int) ServerOption {
-	return func(s *Server) { s.opts.maxJobsCnt = cnt }
-}
-func MaxConnections(max int32) ServerOption {
-	return func(s *Server) { s.opts.maxConnections = max }
-}
-func OnOpenFunc(f func(*Session)) ServerOption {
-	return func(s *Server) { s.OnOpenFunc = f }
-}
-func OnCloseFunc(f func(*Session)) ServerOption {
-	return func(s *Server) { s.OnCloseFunc = f }
-}
-
-type serverOptions struct {
-	network          string
-	address          string
-	endpoint         *url.URL
-	timeout          time.Duration
-	lis              net.Listener
-	tlsConf          *tls.Config
-	writeTimeout     time.Duration
-	readTimeout      time.Duration
-	heartInterval    time.Duration
-	heartDeadline    time.Duration
-	heartThreshold   time.Duration
-	maxJobsCnt       int
-	maxConnections   int32
-	closeGracePeriod time.Duration //= 2 * time.Second
-	sendChannelSize  time.Duration //= 256
-	shutdownTimeout  time.Duration //= 5 * time.Second
-	maxMessageSize   int64         //= 10 * 1024 * 1024 // 10MB
-	rateLimit        int           //= 1000             // 每秒消息数
-	burstLimit       int           //= 500              // 突发消息数
+	return func(o *Server) { o.middleware.Use(m...) }
 }
 
 // Server is a Websocket server wrapper.
 type Server struct {
-	*http.Server // 内嵌标准HTTP服务器
-
-	err        error
-	opts       serverOptions       // 配置选项
-	middleware matcher.Matcher     // 中间件
-	upgrader   *websocket.Upgrader // WebSocket升级器
-	sessionMgr *SessionManager     // 会话管理
-
-	register   chan *Session // 注册通道
-	unregister chan *Session // 注销通道
-
-	handlers []UnaryServerInterceptor // 拦截器链
-	m        *service                 // 注册的服务
-
-	loop *task.Loop // 任务处理池
-
-	OnOpenFunc  func(*Session) // 连接建立回调
-	OnCloseFunc func(*Session) // 连接关闭回调
+	*http.Server
+	baseCtx      context.Context
+	lis          net.Listener
+	tlsConf      *tls.Config
+	endpoint     *url.URL
+	err          error
+	path         string
+	network      string
+	address      string
+	timeout      time.Duration
+	maxConnLimit int32
+	sessionConf  *SessionConfig
+	middleware   matcher.Matcher          // 中间件
+	upgrader     *websocket.Upgrader      // WebSocket升级器
+	sessionMgr   *SessionManager          // 会话管理
+	unaryInts    []UnaryServerInterceptor // 拦截器链
+	m            *service                 // 注册的服务
 }
 
 // NewServer creates a Websocket server by options.
 func NewServer(opts ...ServerOption) *Server {
-	s := &Server{
-		opts: serverOptions{
-			network:          "tcp",
-			address:          ":0",
-			timeout:          1 * time.Second,
-			lis:              nil,
-			tlsConf:          nil,
-			writeTimeout:     15 * time.Second,
-			readTimeout:      30 * time.Second,
-			heartInterval:    10 * time.Second,
-			heartDeadline:    60 * time.Second,
-			heartThreshold:   30 * time.Second,
-			maxJobsCnt:       10000,
-			maxConnections:   10000,
-			closeGracePeriod: 2 * time.Second,
-			sendChannelSize:  256,
-			shutdownTimeout:  5 * time.Second,
-			maxMessageSize:   10 * 1024 * 1024, // 10MB
-			rateLimit:        1000,             // 每秒消息数
-			burstLimit:       500,              // 突发消息数
-		},
-		err:        nil,
+	srv := &Server{
+		baseCtx:    context.Background(),
+		network:    "tcp",
+		address:    ":0",
+		path:       "/",
+		timeout:    5 * time.Second,
 		middleware: matcher.New(),
+		sessionConf: &SessionConfig{
+			WriteTimeout: 10 * time.Second,
+			PingInterval: 15 * time.Second,
+			ReadDeadline: 60 * time.Second,
+			SendChanSize: 128,
+		},
+		maxConnLimit: 10000,
 		upgrader: &websocket.Upgrader{
 			ReadBufferSize:  4096,
 			WriteBufferSize: 4096,
 			CheckOrigin:     func(r *http.Request) bool { return true },
 		},
 		sessionMgr: NewSessionManager(),
-		register:   make(chan *Session, 100),
-		unregister: make(chan *Session, 100),
 	}
-
 	for _, o := range opts {
-		o(s)
+		o(srv)
 	}
-
-	s.loop = task.NewLoop(s.opts.maxJobsCnt)
-	s.loop.Start()
-
-	s.Use(s.recovery())
-	return s
+	srv.Server = &http.Server{
+		Addr:      srv.address,
+		TLSConfig: srv.tlsConf,
+	}
+	// 使用CORS中间件包装处理函数
+	http.Handle(srv.path, CORS(srv.handleConnections()))
+	srv.Use(srv.unaryServerInterceptor())
+	return srv
 }
 
 func (s *Server) Use(handlers ...UnaryServerInterceptor) *Server {
-	finalSize := len(s.handlers) + len(handlers)
-	if finalSize >= math.MaxInt8/2 {
+	if len(s.unaryInts)+len(handlers) > math.MaxInt8/2 {
 		panic("websocket: server use too many handlers")
 	}
-	mergedHandlers := make([]UnaryServerInterceptor, finalSize)
-	copy(mergedHandlers, s.handlers)
-	copy(mergedHandlers[len(s.handlers):], handlers)
-	s.handlers = mergedHandlers
+	s.unaryInts = append(s.unaryInts, handlers...)
 	return s
 }
 
@@ -179,29 +146,25 @@ func (s *Server) Endpoint() (*url.URL, error) {
 	if err := s.listenAndEndpoint(); err != nil {
 		return nil, err
 	}
-	return s.opts.endpoint, nil
-}
-
-func (s *Server) GetLoop() *task.Loop {
-	return s.loop
+	return s.endpoint, nil
 }
 
 func (s *Server) listenAndEndpoint() error {
-	if s.opts.lis == nil {
-		lis, err := net.Listen(s.opts.network, s.opts.address)
+	if s.lis == nil {
+		lis, err := net.Listen(s.network, s.address)
 		if err != nil {
 			s.err = err
 			return err
 		}
-		s.opts.lis = lis
+		s.lis = lis
 	}
-	if s.opts.endpoint == nil {
-		addr, err := host.Extract(s.opts.address, s.opts.lis)
+	if s.endpoint == nil {
+		addr, err := host.Extract(s.address, s.lis)
 		if err != nil {
 			s.err = err
 			return err
 		}
-		s.opts.endpoint = endpoint.NewEndpoint(endpoint.Scheme("ws", s.opts.tlsConf != nil), addr)
+		s.endpoint = endpoint.NewEndpoint(endpoint.Scheme("ws", s.tlsConf != nil), addr)
 	}
 	return s.err
 }
@@ -211,158 +174,97 @@ func (s *Server) Start(ctx context.Context) error {
 	if err := s.listenAndEndpoint(); err != nil {
 		return err
 	}
-
-	go s.serve()
-	go s.manageSessions()
-	go s.keepHeartbeat(ctx)
-
-	return s.err
-}
-
-func (s *Server) serve() {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", s.handleConnections())
-
-	s.Server = &http.Server{
-		Addr:    s.opts.address,
-		Handler: mux,
+	s.baseCtx = ctx
+	s.BaseContext = func(net.Listener) context.Context {
+		return ctx
 	}
-	log.Infof("[websocket] server listening on: %s", s.opts.lis.Addr().String())
-	if s.err = s.Server.Serve(s.opts.lis); s.err != nil && !errors.Is(s.err, http.ErrServerClosed) {
-		log.Errorf("server error: %v", s.err)
+	log.Infof("[websocket] server listening on: %s", s.lis.Addr().String())
+	var err error
+	if s.tlsConf != nil {
+		err = s.ServeTLS(s.lis, "", "")
+	} else {
+		err = s.Serve(s.lis)
 	}
-}
-
-func (s *Server) manageSessions() {
-	for {
-		select {
-		case sess := <-s.register:
-			s.sessionMgr.Add(sess)
-			if s.OnOpenFunc != nil {
-				s.OnOpenFunc(sess)
-			}
-		case sess := <-s.unregister:
-			s.sessionMgr.Delete(sess)
-			if s.OnCloseFunc != nil {
-				s.OnCloseFunc(sess)
-			}
-		}
+	if !errors.Is(err, http.ErrServerClosed) {
+		return err
 	}
+	return nil
 }
 
 func (s *Server) handleConnections() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// 连接数限制
-		if cnt := s.sessionMgr.Len(); cnt >= s.opts.maxConnections {
+		if cnt := s.sessionMgr.Len(); cnt >= s.maxConnLimit {
 			w.WriteHeader(http.StatusServiceUnavailable)
-			log.Warnf("StatusServiceUnavailable. over maxConnections(%d)", cnt)
+			log.Warnf("[websocket] StatusServiceUnavailable. over maxConnections(%d)", cnt)
 			return
 		}
 
 		conn, err := s.upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			log.Errorf("upgrade error: %v", err)
+			log.Errorf("[websocket] upgrade error: %v", err)
 			return
 		}
 
-		sess := NewSession(s, conn)
-		sess.listen()
-		s.register <- sess
-	}
-}
-
-// server检查所有session心跳
-func (s *Server) keepHeartbeat(ctx context.Context) {
-	defer func() {
-		if err := s.recoveryServer(); err != nil {
-			log.Error("keepHeartbeat %v", err)
-		}
-	}()
-
-	ticker := time.NewTicker(s.opts.heartInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			cutoff := time.Now().Add(-1 * s.opts.heartDeadline)
-			threshold := time.Now().Add(-1 * s.opts.heartThreshold)
-			s.sessionMgr.Range(func(sess *Session) {
-				if sess.LastActive().Before(cutoff) {
-					log.Warnf("key %s heartbeat dead line.", sess.id)
-					sess.Close()
-				} else if sess.LastActive().Before(threshold) {
-					log.Warnf("key %s heartbeat threshold. send ping", sess.id)
-					_ = sess.Send(mustMarshal(&proto.Payload{Type: int32(proto.Ping)}))
-				}
-			})
-		}
+		_ = NewSession(s, conn, s.sessionConf)
 	}
 }
 
 // Stop stop the Websocket server.
 func (s *Server) Stop(ctx context.Context) error {
-	// 1. 停止HTTP服务器
-	if err := s.Shutdown(ctx); err != nil {
-		return err
-	}
-
-	// 2. 关闭所有会话
-	var wg sync.WaitGroup
-	s.sessionMgr.Range(func(sess *Session) {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			sess.Close()
-		}()
-	})
-
-	// 3. 等待会话关闭完成
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
-	select {
-	case <-done:
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-
-	// 4. 关闭任务循环
-	s.loop.Stop()
-
 	log.Info("[webSocket] server stopping")
-	return nil
+
+	// 停止HTTP服务器
+	err := s.Shutdown(ctx)
+
+	// 关闭所有会话
+	s.sessionMgr.CloseAllSessions()
+
+	return err
 }
 
-// Dispatch 消息分发
-func (s *Server) dispatchMessage(sess *Session, data []byte) error {
+func (s *Server) OnSessionOpen(sess *Session) {
+	s.sessionMgr.Add(sess)
+	if s.m.connectFunc != nil {
+		s.m.connectFunc(sess)
+	}
+}
+
+func (s *Server) OnSessionClose(sess *Session) {
+	if s.m.disconnectFunc != nil {
+		s.m.disconnectFunc(sess)
+	}
+	s.sessionMgr.Delete(sess)
+}
+
+// DispatchMessage 消息分发
+func (s *Server) DispatchMessage(sess *Session, data []byte) error {
 	var err error
 	var p proto.Payload
 	if err = gproto.Unmarshal(data, &p); err != nil {
 		return err
 	}
-	ctx := context.WithValue(context.Background(), "session", sess)
 
-	switch p.Type {
-	case int32(proto.Ping):
-		p.Op = 1
-		p.Type = int32(proto.Pong)
+	// 通过context传递给session等数据给调用方
+	ctx := context.WithValue(s.baseCtx, CtxSessionKey, sess)
+	ctx = context.WithValue(ctx, CtxSessionIDKey, sess.id)
+
+	switch p.Op {
+	case proto.OpPing:
+		p.Op = proto.OpPong
 		p.Body = nil
-		err = sess.Send(mustMarshal(&p)) //sess.sendPayload(&p)
+		err = sess.SendPayload(&p)
 
-	case int32(proto.Push):
-		err = sess.Send(mustMarshal(&p))
+	case proto.OpPong:
+		// 回pong包. 不处理
 
-	case int32(proto.Request):
-		p.Type = int32(proto.Response)
+	case proto.OpPush:
+		// 收到push. 不处理
+
+	case proto.OpRequest:
 		err = s.operate(ctx, sess, &p)
 
 	default:
-		log.Warnf("Unkonwn Payload type(%+v). key %s body=%+v", p.Type, sess.id, string(p.Body))
+		log.Warnf("[websocket] Unkonwn Payload op(%+v). key=%s ", p.Op, sess.id)
 	}
 
 	return err
@@ -375,94 +277,108 @@ func (s *Server) dispatchMessage(sess *Session, data []byte) error {
 	|                |
 	|<-- cmd:1002 ---|  // LoginResp（自动由 reqCmd=1001 映射）
 */
-// Operate 执行操作 {type:Request seq:1 body{ops:1001 Data:dataReq}} ->  {type:Push seq:0 body{ops:1002 Data:dataRsp}} + {type:Respond seq:1 body{ops:1001 Data:dataRsp}}
+// Operate 执行操作 {type:Request seq:1 ops:1001 body{dataReq}} ->  {type:Push seq:0 ops:1002 body{dataRsp}} + {type:Respond seq:1 ops:1001 body{dataRsp}}
 func (s *Server) operate(ctx context.Context, sess *Session, p *proto.Payload) (err error) {
-	if p.Type == int32(proto.Request) {
-		p.Type = int32(proto.Response)
+	p.Op = proto.OpResponse
+	p.Place = proto.PlaceServer
+
+	srv := s.m
+	md, ok := srv.md[p.Command]
+	if !ok {
+		p.Code = int32(codes.Unimplemented) // 	Unimplemented Code = 12 或自定义错误码503
+		log.Warnf("[websocket] Unimplemented Command=%+v code=%d", p.Command, p.Code)
+		return sess.SendPayload(p)
 	}
 
-	reqBody := &proto.Body{}
-	if err = gproto.Unmarshal(p.Body, reqBody); err != nil {
-		return
-	}
-	srv := s.m
-	md, ok := srv.md[reqBody.Ops]
-	if !ok {
-		log.Warnf("Unkonwn Ops(%+v) ", reqBody.Ops)
-		// 返回错误响应给客户端
-		p.Code = 505 // 或自定义错误码
-		return sess.Send(mustMarshal(p))
-	}
-	reply, errCode := md.Handler(srv.server, ctx, reqBody.Data, s.interceptor)
+	reply, errCode := md.Handler(srv.server, ctx, p.Body, s.interceptor)
 	if errCode != nil {
-		log.Errorf("errCord=%+v p:%+v", errCode, p)
+		e := kerrors.FromError(errCode)
+		p.Code = e.Code
+		p.Body = nil
+		err = e
+	} else {
+		p.Code = 0
+		p.Body = reply
 	}
-	p.Code = 0
-	p.Body = reply
 
 	// send. 将回调handle的结果send给client
-	err = sess.Send(mustMarshal(p))
-	return
+	return errors.Join(err, sess.SendPayload(p))
 }
 
+// 迭代方式执行拦截器链
 func (s *Server) interceptor(ctx context.Context, req interface{}, args *UnaryServerInfo, handler UnaryHandler) ([]byte, error) {
-	var (
-		i     int
-		chain UnaryHandler
-	)
-	n := len(s.handlers)
-	if n == 0 {
-		return handler(ctx, req)
+	chain := handler
+	// 反向包装中间件
+	for i := len(s.unaryInts) - 1; i >= 0; i-- {
+		chain = wrap(s.unaryInts[i], chain, args)
 	}
-	chain = func(ic context.Context, ir interface{}) ([]byte, error) {
-		if i == n-1 {
-			return handler(ic, ir)
-		}
-		i++
-		return s.handlers[i](ic, ir, args, chain)
-	}
-	return s.handlers[0](ctx, req, args, chain)
+	return chain(ctx, req)
 }
 
-func (s *Server) recoveryServer() (err error) {
-	if rerr := recover(); rerr != nil {
-		const size = 64 << 10
-		buf := make([]byte, size)
-		rs := runtime.Stack(buf, false)
-		if rs > size {
-			rs = size
-		}
-		buf = buf[:rs]
-		pl := fmt.Sprintf("panic: %v\n%s\n", rerr, buf)
-		fmt.Fprintf(os.Stderr, pl)
-		err = fmt.Errorf(pl)
+func wrap(h UnaryServerInterceptor, next UnaryHandler, args *UnaryServerInfo) UnaryHandler {
+	return func(ctx context.Context, req interface{}) ([]byte, error) {
+		return h(ctx, req, args, next)
 	}
-	return
 }
 
-// recovery is a server interceptor that recovers from any panics.
-func (s *Server) recovery() UnaryServerInterceptor {
-	return func(ctx context.Context, req interface{}, info *UnaryServerInfo, handler UnaryHandler) ([]byte, error) {
-		var (
-			err  error
-			resp []byte
-		)
-		defer func() {
-			if rerr := recover(); rerr != nil {
-				const size = 64 << 10
-				buf := make([]byte, size)
-				rs := runtime.Stack(buf, false)
-				if rs > size {
-					rs = size
-				}
-				buf = buf[:rs]
-				pl := fmt.Sprintf("websocket server panic: %v\n%v\n%s\n", req, rerr, buf)
-				fmt.Fprintf(os.Stderr, pl)
-				log.Error(pl)
-				err = status.Errorf(codes.Unknown, "server err")
+func (s *Server) unaryServerInterceptor() UnaryServerInterceptor {
+	return func(ctx context.Context, req any, info *UnaryServerInfo, handler UnaryHandler) ([]byte, error) {
+		ctx, cancel := ic.Merge(ctx, s.baseCtx)
+		defer cancel()
+		if s.timeout > 0 {
+			ctx, cancel = context.WithTimeout(ctx, s.timeout)
+			defer cancel()
+		}
+		h := func(ctx context.Context, req any) (any, error) {
+			return handler(ctx, req)
+		}
+		if next := s.middleware.Match(info.FullMethod); len(next) > 0 {
+			h = middleware.Chain(next...)(h)
+		}
+		reply, err := h(ctx, req)
+		if err != nil {
+			if strings.HasPrefix(err.Error(), "panic:") ||
+				errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				e := kerrors.FromError(err) // st, _ := status.FromError(err)
+				log.Errorf("[websocket] [%s] unexpected err. st.Code=%d st.Message=%v", info.FullMethod, e.Code, e.Message)
 			}
-		}()
-		resp, err = handler(ctx, req)
+			return nil, err
+		}
+		data, ok := reply.([]byte)
+		if !ok {
+			return nil, fmt.Errorf("[websocket] [%s] must return []byte, got %T", info.FullMethod, reply)
+		}
+		return data, nil
+	}
+}
+
+// 示例：日志拦截器
+func (s *Server) loggingInterceptor() UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *UnaryServerInfo, handler UnaryHandler) ([]byte, error) {
+		log.Info("<logging>请求开始:", info.FullMethod)
+		resp, err := handler(ctx, req)
+		log.Info("<logging>请求结束:", info.FullMethod)
 		return resp, err
 	}
+}
+
+func CORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 添加 CORS 相关头部
+		origin := r.Header.Get("Origin")
+		if origin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+		}
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE, UPDATE")
+		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Length, X-CSRF-Token, Token, session")
+		w.Header().Set("Access-Control-Expose-Headers", "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }

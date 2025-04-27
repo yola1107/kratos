@@ -3,317 +3,278 @@ package websocket
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	gproto "github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/transport/websocket/proto"
-	"golang.org/x/time/rate"
+	gproto "google.golang.org/protobuf/proto"
 )
 
 var (
-	errSessionClosed     = errors.New("session is closed")
-	errWriteTimeout      = errors.New("write timeout")
-	errRateLimitExceeded = errors.New("rate limit exceeded")
+	errSessionClosed = errors.New("session: closed")
+	errNilPayload    = errors.New("session: nil payload")
 )
 
-// Session 表示一个WebSocket连接会话
-type Session struct {
-	id       string
-	server   *Server
-	conn     *websocket.Conn
-	connMu   sync.RWMutex
-	values   sync.Map
-	sendChan chan []byte
-
-	ctx       context.Context
-	cancel    context.CancelFunc
-	closeCh   chan struct{}
-	closed    atomic.Bool
-	closeOnce sync.Once
-	wg        sync.WaitGroup
-
-	lastActive  atomic.Value // time.Time
-	rateLimiter *rate.Limiter
+type iHandler interface {
+	OnSessionOpen(sess *Session)
+	OnSessionClose(sess *Session)
+	DispatchMessage(sess *Session, data []byte) error
 }
 
-// NewSession 创建新的WebSocket会话
-func NewSession(server *Server, conn *websocket.Conn) *Session {
+type SessionConfig struct {
+	WriteTimeout time.Duration
+	PingInterval time.Duration
+	ReadDeadline time.Duration
+	SendChanSize int
+}
+
+type Session struct {
+	id        string
+	conn      *websocket.Conn
+	h         iHandler
+	config    *SessionConfig
+	ctx       context.Context
+	cancel    context.CancelFunc
+	sendChan  chan []byte
+	lastAct   atomic.Value
+	closed    atomic.Bool
+	closeOnce sync.Once
+	connMu    sync.Mutex
+}
+
+func NewSession(h iHandler, conn *websocket.Conn, cfg *SessionConfig) *Session {
 	ctx, cancel := context.WithCancel(context.Background())
-
 	s := &Session{
-		id:          uuid.New().String(),
-		server:      server,
-		conn:        conn,
-		values:      sync.Map{},
-		sendChan:    make(chan []byte, server.opts.sendChannelSize),
-		ctx:         ctx,
-		cancel:      cancel,
-		closeCh:     make(chan struct{}),
-		rateLimiter: rate.NewLimiter(rate.Limit(server.opts.rateLimit), server.opts.burstLimit),
+		id:       uuid.NewString(),
+		conn:     conn,
+		h:        h,
+		config:   cfg,
+		ctx:      ctx,
+		cancel:   cancel,
+		sendChan: make(chan []byte, cfg.SendChanSize),
 	}
-	s.lastActive.Store(time.Now())
-
-	// 设置连接参数
-	conn.SetReadLimit(server.opts.maxMessageSize)
-	conn.SetPongHandler(func(string) error {
-		s.updateHeartbeat()
-		return nil
-	})
-
+	s.lastAct.Store(time.Now())
+	h.OnSessionOpen(s)
+	go s.readLoop()
+	go s.writeLoop()
+	go s.heartbeat()
 	return s
 }
 
-// ID 返回会话唯一标识
-func (s *Session) ID() string {
-	return s.id
-}
+func (s *Session) ID() string            { return s.id }
+func (s *Session) Closed() bool          { return s.closed.Load() }
+func (s *Session) LastActive() time.Time { return s.lastAct.Load().(time.Time) }
+func (s *Session) GetRemoteIP() string   { return s.conn.RemoteAddr().String() }
 
-// Set 设置会话键值对
-func (s *Session) Set(key string, value interface{}) {
-	s.values.Store(key, value)
-}
-
-// Get 获取会话值
-func (s *Session) Get(key string) (interface{}, bool) {
-	return s.values.Load(key)
-}
-
-// Metadata 获取所有元数据
-func (s *Session) Metadata() map[string]interface{} {
-	metadata := make(map[string]interface{})
-	s.values.Range(func(k, v interface{}) bool {
-		metadata[k.(string)] = v
-		return true
-	})
-	return metadata
-}
-
-// listen 启动会话监听
-func (s *Session) listen() {
-	s.wg.Add(2)
-	go s.writePump()
-	go s.readPump()
-}
-
-// Send 发送消息到客户端
-func (s *Session) Send(message []byte) error {
+func (s *Session) Send(data []byte) error {
 	if s.Closed() {
 		return errSessionClosed
 	}
 
-	if !s.rateLimiter.Allow() {
-		return errRateLimitExceeded
-	}
-
 	select {
-	case s.sendChan <- message:
+	case s.sendChan <- data:
 		return nil
-	case <-s.closeCh:
+	case <-s.ctx.Done():
 		return errSessionClosed
-	case <-time.After(s.server.opts.writeTimeout):
-		return errWriteTimeout
+	default:
+		// 防止卡死或丢包时阻塞
+		log.Warnf("sessionID=%q sendChan full, dropping message", s.id)
+		return errSessionClosed
 	}
 }
 
-func (s *Session) writePump() {
-	defer s.wg.Done()
-	defer s.Close()
-
-	for {
-		select {
-		case <-s.closeCh:
-			return
-
-		case data, ok := <-s.sendChan:
-			if !ok {
-				return
-			}
-
-			s.connMu.RLock()
-			err := s.writeMessageLocked(data)
-			s.connMu.RUnlock()
-
-			if err != nil {
-				log.Errorf("write error: %v", err)
-				return
-			}
-		}
+func (s *Session) SendPayload(payload *proto.Payload) error {
+	if payload == nil {
+		return errNilPayload
 	}
+	data, err := gproto.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	return s.Send(data)
 }
 
-func (s *Session) readPump() {
-	defer s.wg.Done()
-	defer s.Close()
-
-	for {
-		s.connMu.RLock()
-		err := s.conn.SetReadDeadline(time.Now().Add(s.server.opts.heartDeadline))
-		s.connMu.RUnlock()
-		if err != nil {
-			log.Errorf("set read deadline error: %v", err)
-			return
-		}
-
-		messageType, data, err := s.conn.ReadMessage()
-		if err != nil {
-			if !websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-				log.Warnf("unexpected close: %v", err)
-			}
-			return
-		}
-
-		//log.Infof("recv. data=%+v type=%+v ", data, messageType)
-
-		s.updateHeartbeat()
-
-		switch messageType {
-		case websocket.BinaryMessage:
-			if err := s.server.dispatchMessage(s, data); err != nil {
-				log.Errorf("dispatch error: %v", err)
-			}
-
-		case websocket.PingMessage:
-			s.connMu.RLock()
-			_ = s.conn.WriteMessage(websocket.PongMessage, nil)
-			s.connMu.RUnlock()
-
-		case websocket.CloseMessage:
-			return
-
-		default:
-			log.Warnf("unsupported message type: %d", messageType)
-		}
+func (s *Session) Push(cmd int32, msg gproto.Message) error {
+	if msg == nil {
+		return errNilPayload
 	}
-}
-
-// Push 发送protobuf格式的推送消息
-func (s *Session) Push(ops int32, msg gproto.Message) error {
-	body := &proto.Body{
-		Ops:  ops,
-		Data: mustMarshal(msg),
+	body, err := gproto.Marshal(msg)
+	if err != nil {
+		return err
 	}
-	payload := &proto.Payload{
-		Type: int32(proto.Push),
-		Body: mustMarshal(body),
-	}
-	return s.Send(mustMarshal(payload))
-}
-
-// Close 优雅关闭会话
-func (s *Session) Close() {
-	s.closeOnce.Do(func() {
-		s.closed.Store(true)
-
-		// 1. 关闭chan
-		close(s.sendChan)
-		close(s.closeCh)
-
-		// 2. 取消上下文
-		s.cancel()
-
-		// 3. 发送关闭帧
-		s.sendCloseFrame()
-
-		// 4. 等待协程退出
-		s.waitForGoroutines()
-
-		// 5. 关闭底层连接
-		s.closeUnderlyingConn()
-
-		// 6. 从服务器注销
-		s.unregisterFromServer()
+	return s.SendPayload(&proto.Payload{
+		Op:      proto.OpPush,
+		Place:   proto.PlaceServer,
+		Command: cmd,
+		Body:    body,
 	})
 }
 
-// Closed 检查会话是否已关闭
-func (s *Session) Closed() bool {
-	return s.closed.Load()
-}
+func (s *Session) readLoop() {
+	defer ext.RecoverFromError(nil)
+	defer s.Close(false)
 
-// LastActive 返回最后活跃时间
-func (s *Session) LastActive() time.Time {
-	return s.lastActive.Load().(time.Time)
-}
-
-func (s *Session) sendCloseFrame() {
-	done := make(chan struct{})
-	go func() {
-		s.connMu.Lock()
-		defer s.connMu.Unlock()
-		defer close(done)
-
-		if s.conn != nil {
-			_ = s.conn.WriteControl(
-				websocket.CloseMessage,
-				websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
-				time.Now().Add(s.server.opts.writeTimeout),
-			)
+	for {
+		if s.Closed() {
+			return
 		}
-	}()
-	select {
-	case <-done:
-	case <-time.After(s.server.opts.closeGracePeriod):
-		log.Warnf("key %+v close frame timeout", s.id)
+		_ = s.conn.SetReadDeadline(time.Now().Add(s.config.ReadDeadline))
+		msgType, data, err := s.conn.ReadMessage()
+		if err != nil {
+			if !isNetworkClosedError(err) {
+				log.Warnf("sessionID=%q, %v", s.id, err)
+			}
+			return
+		}
+		s.lastAct.Store(time.Now())
+
+		switch msgType {
+		case websocket.BinaryMessage:
+			if err := s.h.DispatchMessage(s, data); err != nil {
+				log.Warnf("sessionID=%q dispatch error: %v", s.id, err)
+			}
+		case websocket.PingMessage:
+			_ = s.writeControl(websocket.PongMessage, data)
+		case websocket.PongMessage:
+		case websocket.CloseMessage:
+			return
+		default:
+			log.Warnf("sessionID=%q unsupported message type: %d", s.id, msgType)
+		}
 	}
 }
 
-func (s *Session) waitForGoroutines() {
-	done := make(chan struct{})
-	go func() {
-		s.wg.Wait()
-		close(done)
-	}()
-	select {
-	case <-done:
-	case <-time.After(s.server.opts.shutdownTimeout):
-		log.Warnf("key: %s close timeout", s.id)
+func (s *Session) writeLoop() {
+	defer s.Close(false)
+
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case msg, ok := <-s.sendChan:
+			if !ok {
+				return
+			}
+			if err := s.writeMessage(websocket.BinaryMessage, msg); err != nil {
+				if !isNetworkClosedError(err) {
+					log.Warnf("sessionID=%q, %v", s.id, err)
+				}
+				return
+			}
+		}
 	}
 }
 
-func (s *Session) closeUnderlyingConn() {
+func (s *Session) heartbeat() {
+	ticker := time.NewTicker(s.config.PingInterval)
+	defer ticker.Stop()
+
+	pingData, _ := gproto.Marshal(&proto.Payload{Op: proto.OpPing})
+
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case <-ticker.C:
+			if s.Closed() {
+				return
+			}
+			if time.Since(s.LastActive()) > s.config.ReadDeadline {
+				log.Warnf("sessionID=%q heartbeat timeout", s.id)
+				s.Close(true, "Heartbeat Timeout")
+				return
+			}
+			if err := s.writeMessage(websocket.BinaryMessage, pingData); err != nil {
+				if !isNetworkClosedError(err) {
+					log.Errorf("sessionID=%q heartbeat write error: %v", s.id, err)
+				}
+				s.Close(false)
+				return
+			}
+		}
+	}
+}
+
+func (s *Session) writeMessage(msgType int, data []byte) error {
+	if s.Closed() {
+		return errSessionClosed
+	}
 	s.connMu.Lock()
 	defer s.connMu.Unlock()
 
-	if s.conn != nil {
-		_ = s.conn.Close()
-		s.conn = nil
-	}
-}
-
-func (s *Session) unregisterFromServer() {
-	select {
-	case s.server.unregister <- s:
-	case <-time.After(s.server.opts.shutdownTimeout):
-		log.Warnf("key: %s unregister timeout", s.id)
-	}
-}
-
-func (s *Session) writeMessageLocked(data []byte) error {
-	if s.conn == nil {
-		return errSessionClosed
-	}
-
-	if err := s.conn.SetWriteDeadline(time.Now().Add(s.server.opts.writeTimeout)); err != nil {
+	if err := s.conn.SetWriteDeadline(time.Now().Add(s.config.WriteTimeout)); err != nil {
 		return err
 	}
-
-	return s.conn.WriteMessage(websocket.BinaryMessage, data)
+	return s.conn.WriteMessage(msgType, data)
 }
 
-func (s *Session) updateHeartbeat() {
-	s.lastActive.Store(time.Now())
-}
-
-func mustMarshal(pb gproto.Message) []byte {
-	data, err := gproto.Marshal(pb)
-	if err != nil {
-		log.Errorf("marshal error: %+v", err)
-		return nil
+func (s *Session) writeControl(msgType int, data []byte) error {
+	if s.Closed() {
+		return errSessionClosed
 	}
-	return data
+	s.connMu.Lock()
+	defer s.connMu.Unlock()
+	return s.conn.WriteControl(msgType, data, time.Now().Add(s.config.WriteTimeout))
+}
+
+func (s *Session) Close(force bool, msg ...string) bool {
+	closed := false
+	s.closeOnce.Do(func() {
+		closed = true
+		s.closed.Store(true)
+		s.cancel()
+
+		// 避免sendChan竞争 由ctx关闭send调用
+		// close(s.sendChan)
+
+		reason := websocket.FormatCloseMessage(websocket.CloseNormalClosure, closeReason(s, force, msg...))
+
+		s.connMu.Lock()
+		_ = s.conn.WriteControl(websocket.CloseMessage, reason, time.Now().Add(s.config.WriteTimeout))
+		_ = s.conn.Close()
+		s.connMu.Unlock()
+
+		s.h.OnSessionClose(s)
+	})
+	return closed
+}
+
+func closeReason(s *Session, force bool, msg ...string) string {
+	reason := "Normal Close"
+	if force {
+		reason = "Force Close"
+	}
+	if len(msg) > 0 {
+		return reason + ": " + strings.Join(msg, "; ")
+	}
+	return reason
+}
+
+// 判断错误是否为连接已关闭或断开的错误。
+func isNetworkClosedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+
+	return errors.Is(err, errSessionClosed) || // 自定义的 session 已关闭错误
+		// gorilla/websocket 标准的关闭错误码，表示连接关闭流程中的正常状态
+		websocket.IsCloseError(err,
+			websocket.CloseGoingAway,       // 对端关闭连接，例如浏览器关闭页面
+			websocket.CloseNormalClosure,   // 正常关闭
+			websocket.CloseAbnormalClosure, // 异常关闭，但属于关闭流程
+		) ||
+		// 低层网络错误，通常为写操作时对端关闭连接导致
+		strings.Contains(msg, "broken pipe") || // 断开的管道，写时连接断开
+		strings.Contains(msg, "connection reset") || // 连接被重置，通常对端关闭
+		strings.Contains(msg, "use of closed network") || // 使用已关闭的连接
+		strings.Contains(msg, "connection closed") || // 连接关闭
+		strings.Contains(msg, "close sent") || // 已发送关闭帧
+		strings.Contains(msg, "EOF") // 读到文件末尾，连接关闭
 }

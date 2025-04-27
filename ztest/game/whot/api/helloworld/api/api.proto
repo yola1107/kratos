@@ -1,0 +1,236 @@
+syntax = "proto3";
+package api;
+
+option go_package = "whot/api/helloworld/api;api";
+
+// 游戏命令类型枚举
+enum GameCommand {
+    NONE = 0;
+
+    // 服务器主动推送（1~19）
+    MsRoomInfoPush      = 1;  // 房间信息推送
+    MsUserEnterRoomPush = 2;  // 玩家进入房间推送
+    MsFaPush            = 3;  // 发牌阶段推送
+    MsActivePush        = 4;  // 当前玩家操作推送
+    MsResultPush        = 5;  // 结算结果推送
+    MsMarketResultPush  = 6;  // 市场结果推送
+
+    // 客户端请求（20~39）
+    MsBetScoreReq   = 20;  // 下注请求
+    MsLastCardReq   = 21;  // 请求最后一张牌
+    MsUserActionReq = 22;  // 玩家操作请求
+    MsLeaveRoomReq  = 23;  // 退出房间请求
+
+    // 服务器响应（120~139）
+    MsBetScoreRsp   = 120;  // 下注响应
+    MsLastCardRsp   = 121;  // 最后一张牌响应
+    MsUserActionRsp = 122;  // 玩家操作响应
+    MsLeaveRoomRsp  = 123;  // 退出房间响应
+}
+
+// 玩家可执行操作类型
+enum ACTION {
+    ACTION_NULL  = 0;  // 无操作
+    PLAY_CARD    = 1;  // 出牌
+    DRAW_CARD    = 2;  // 抓牌
+    DECLARE_SUIT = 3;  // 变更花色
+    SKIP_TURN    = 4;  // 跳过回合
+}
+
+// 花色类型
+enum SUIT_TYPE {
+    SUIT_NONE     = 0;  // 无花色
+    SUIT_CIRCLE   = 1;  // 圆圈
+    SUIT_CROSS    = 2;  // 十字
+    SUIT_TRIANGLE = 3;  // 三角
+    SUIT_STAR     = 4;  // 星星
+    SUIT_WHOT     = 5;  // Whot牌特殊花色
+}
+
+// 牌效果类型
+enum CARD_EFFECT {
+    EFFECT_NORMAL      = 0;  // 普通效果
+    EFFECT_EXTRA_TURN  = 1;  // 额外出牌机会
+    EFFECT_DRAW_TWO    = 2;  // 让下一家抓两张牌
+    EFFECT_SKIP_NEXT   = 3;  // 跳过下一家出牌
+    EFFECT_MARKET_PICK = 4;  // 市场抽牌效果
+    EFFECT_WILD_CARD   = 5;  // 万能牌效果
+}
+
+// 房间信息推送，通知所有玩家当前房间状态
+message RoomInfoPush {
+    repeated UserEnterRoomPush playerInfo = 1;   // 房间内玩家信息列表
+    int64 banner                          = 2;   // 横幅信息（预留）
+    int64 curUid                          = 3;   // 当前轮到玩家的uid
+    int64 ticker                          = 4;   // 游戏计时器
+    double baseScore                      = 5;   // 底分
+    int32 currCard                        = 6;   // 当前出的牌
+    SUIT_TYPE declareSuit                 = 7;   // 当前声明花色
+    int32 leftNum                         = 8;   // 剩余牌数
+    Pending pending                       = 9;   // 待处理效果信息
+    int32 gameState                       = 10;  // 当前游戏状态
+}
+
+// 玩家进入房间推送，通知其他玩家新玩家加入
+message UserEnterRoomPush {
+    int64 uid                   = 1;  // 玩家ID
+    int32 head                  = 2;  // 玩家头像索引
+    string userName             = 3;  // 玩家昵称
+    int32 seat                  = 4;  // 座位号
+    int64 score                 = 5;  // 当前积分
+    repeated ActionOption canOp = 6;  // 当前可执行操作选项
+    int32 gameState             = 7;  // 游戏状态
+    ResultPush resultInfo       = 8;  // 结算信息（若有）
+}
+
+// 发牌阶段推送，通知当前发牌信息
+message StageFaPush {
+    int64 bankerUid        = 1;  // 庄家UID
+    int32 firstCard        = 2;  // 第一张牌
+    int32 leftNum          = 3;  // 剩余牌数
+    repeated FaBet userBet = 4;  // 玩家下注列表
+}
+
+// 玩家下注信息
+message FaBet {
+    int64 uid            = 1;  // 玩家ID
+    int64 betscore       = 2;  // 当前下注分数
+    int64 score          = 3;  // 玩家当前积分
+    int32 handsNum       = 4;  // 手牌数量
+    repeated int32 cards = 5;  // 手牌列表
+}
+
+// 当前活动玩家信息推送
+message ActivePush {
+    int64 time                  = 1;  // 操作剩余时间
+    int64 uid                   = 2;  // 当前操作玩家UID
+    int32 currCard              = 3;  // 当前出的牌
+    SUIT_TYPE declareSuit       = 4;  // 声明的花色
+    repeated ActionOption canOp = 5;  // 可操作选项列表
+}
+
+// 结算结果推送
+message ResultPush {
+    int64 winUid                     = 1;  // 胜利玩家UID
+    int64 winScore                   = 2;  // 赢得分数
+    int32 finishType                 = 3;  // 结算类型
+    repeated PlayerResult PlayerInfo = 4;  // 玩家结算详细信息
+}
+
+// 玩家结算详情
+message PlayerResult {
+    int64 uid                = 1;  // 玩家ID
+    bool isWinner            = 2;  // 是否赢家
+    double winScore          = 3;  // 赢得积分
+    repeated int32 handCards = 4;  // 剩余手牌
+    int32 handCardsScore     = 5;  // 手牌分数
+}
+
+// 市场抽牌结果推送
+message MarketResultPush {
+    int64 uid            = 1;  // 玩家ID
+    int32 chairID        = 2;  // 座位号
+    int32 drawNum        = 3;  // 抽牌数量
+    int32 handsNum       = 4;  // 手牌数量
+    repeated int32 draw  = 5;  // 抽到的牌
+    repeated int32 cards = 6;  // 手牌列表
+    int32 leftNum        = 7;  // 剩余牌数
+}
+
+// 待处理效果信息
+message Pending {
+    CARD_EFFECT effect = 1;  // 效果类型
+    int64 initiator    = 2;  // 发起者UID
+    int64 target       = 3;  // 目标玩家UID
+    int32 quantity     = 4;  // 数量（如抽牌张数）
+}
+
+// 玩家可执行操作选项
+message ActionOption {
+    ACTION action            = 1;  // 操作类型
+    repeated int32 cards     = 2;  // 相关牌
+    int32 drawCount          = 3;  // 抓牌数
+    repeated SUIT_TYPE suits = 4;  // 相关花色
+}
+
+// ---------------- 客户端请求 + 服务器响应 ----------------
+
+// 下注请求
+message UserBetScoreReq {
+    int64 uid      = 1;  // 玩家ID
+    int64 betScore = 2;  // 下注分数
+}
+
+// 下注响应
+message UserBetScoreRsp {
+    int32 code     = 1;  // 状态码，0表示成功
+    string msg     = 2;  // 状态消息
+    int64 uid      = 3;  // 玩家ID
+    int64 newScore = 4;  // 玩家下注后新分数
+}
+
+// 请求最后一张牌
+message LastCardReq {
+    int64 uid = 1;  // 玩家ID
+}
+
+// 最后一张牌响应
+message LastCardRsp {
+    int32 code = 1;  // 状态码
+    int64 uid  = 2;  // 玩家ID
+}
+
+// 玩家操作请求
+message UserActionReq {
+    int64 uid             = 1;  // 玩家ID
+    ACTION action         = 2;  // 操作类型
+    int32 outCard         = 3;  // 出牌值（若出牌操作）
+    SUIT_TYPE declareSuit = 4;  // 申明花色（若申明花色操作）
+}
+
+// 玩家操作响应
+message UserActionRsp {
+    int32 code     = 1;  // 状态码
+    string msg     = 2;  // 状态消息
+    int64 uid      = 3;  // 玩家ID
+    int32 seat     = 4;  // 玩家座位号
+    ACTION action  = 5;  // 玩家执行的操作
+    int32 leftNum  = 6;  // 剩余牌数
+    Pending effect = 7;  // 当前牌效
+
+    PlayCardResult playResult       = 8;   // 出牌结果
+    DrawCardResult drawResult       = 9;   // 抓牌结果
+    DeclareSuitResult declareResult = 10;  // 变更花色结果
+}
+
+// 出牌结果
+message PlayCardResult {
+    int32 card           = 1;  // 出牌值
+    int32 handsNum       = 2;  // 剩余手牌数
+    repeated int32 cards = 3;  // 当前手牌列表
+}
+
+// 抓牌结果
+message DrawCardResult {
+    int32 drawNum        = 1;  // 抓牌张数
+    int32 handsNum       = 2;  // 剩余手牌数
+    repeated int32 drawn = 3;  // 抓到的牌
+    repeated int32 cards = 4;  // 当前手牌列表
+}
+
+// 变更花色结果
+message DeclareSuitResult {
+    SUIT_TYPE suit = 1;  // 新声明的花色
+}
+
+// 退出房间请求
+message LeaveRoomReq {
+    int64 uid = 1;  // 玩家ID
+}
+
+// 退出房间响应
+message LeaveRoomRsp {
+    int32 code = 1;  // 状态码
+    string msg = 2;  // 状态消息
+    int64 uid  = 3;  // 玩家ID
+}

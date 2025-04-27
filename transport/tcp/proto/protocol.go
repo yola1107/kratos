@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"github.com/yola1107/kratos/v2/transport/tcp/internal/bufio"
-	"github.com/yola1107/kratos/v2/transport/tcp/internal/websocket"
 )
 
 const (
@@ -14,26 +13,31 @@ const (
 )
 
 const (
-	//size
-	_packSize      = 2
-	_placeSize     = 1
-	_typeSize      = 1
-	_seqSize       = 2
-	_heartSeqSize  = 1
-	_codeSize      = 2
-	_reqHeaderSize = _packSize + _placeSize + _typeSize
-	_maxPackSize   = int32(_reqHeaderSize) + int32(_seqSize) + MaxBodySize
+	// size
+	_packSize      = 4
+	_headerSize    = 2
+	_opSize        = 4
+	_placeSize     = 4
+	_typeSize      = 4
+	_seqSize       = 4
+	_codeSize      = 4
+	_rawHeaderSize = _packSize + _headerSize + _opSize + _placeSize + _typeSize + _seqSize + _codeSize
+	_maxPackSize   = MaxBodySize + int32(_rawHeaderSize)
 	// offset
-	_packOffset  = 0
-	_placeOffset = _packOffset + _packSize
-	_typeOffset  = _placeOffset + _placeSize
-	_seqOffset   = _typeOffset + _typeSize
-	_codeOffset  = _seqOffset + _codeSize
+	_packOffset   = 0
+	_headerOffset = _packOffset + _packSize
+	_opOffset     = _headerOffset + _headerSize
+	_placeOffset  = _opOffset + _opSize
+	_typeOffset   = _placeOffset + _placeSize
+	_seqOffset    = _typeOffset + _typeSize
+	_codeOffset   = _seqOffset + _seqSize
 )
 
 var (
 	// ErrProtoPackLen proto packet len error
 	ErrProtoPackLen = errors.New("default server codec pack length error")
+	// ErrProtoHeaderLen proto header len error
+	ErrProtoHeaderLen = errors.New("default server codec header length error")
 )
 
 var (
@@ -45,71 +49,53 @@ var (
 
 func (p *Payload) ReadTCP(rr *bufio.Reader) (err error) {
 	var (
-		bodyLen int
-		packLen int32
-		buf     []byte
+		bodyLen   int
+		headerLen int16
+		packLen   int32
+		buf       []byte
 	)
-	if buf, err = rr.Pop(_reqHeaderSize); err != nil {
+	if buf, err = rr.Pop(_rawHeaderSize); err != nil {
 		return
 	}
-	packLen = int32(binary.LittleEndian.Uint16(buf[_packOffset:_placeOffset]))
-	p.Place = int32(buf[_placeOffset])
-	p.Type = int32(buf[_typeOffset])
+	packLen = int32(binary.LittleEndian.Uint32(buf[_packOffset:_headerOffset])) // [0:4] 包长度=headLen+bodyLen
+	headerLen = int16(binary.LittleEndian.Uint16(buf[_headerOffset:_opOffset])) // [4:6]
+	p.Op = int32(binary.LittleEndian.Uint32(buf[_opOffset:_placeOffset]))       // [6:10]
+	p.Place = int32(binary.LittleEndian.Uint32(buf[_placeOffset:_typeOffset]))  // [10:14]
+	p.Type = int32(binary.LittleEndian.Uint32(buf[_typeOffset:_seqOffset]))     // [14:18]
+	p.Seq = int32(binary.LittleEndian.Uint32(buf[_seqOffset:_codeOffset]))      // [18:22]
+	p.Code = int32(binary.LittleEndian.Uint32(buf[_codeOffset:]))               // [22:]
+
 	if packLen > _maxPackSize {
 		return ErrProtoPackLen
 	}
-	bodyLen = int(packLen - int32(_placeSize) - int32(_typeSize))
-	if bodyLen < 1 {
-		return
+	if headerLen != _rawHeaderSize {
+		return ErrProtoHeaderLen
 	}
-	if buf, err = rr.Pop(bodyLen); err != nil {
-		return
-	}
-	if p.Type == int32(Ping) || p.Type == int32(Pong) {
-		p.Seq = int32(buf[0])
+	if bodyLen = int(packLen - int32(headerLen)); bodyLen > 0 {
+		p.Body, err = rr.Pop(bodyLen)
+	} else {
 		p.Body = nil
-	} else if p.Type == int32(Push) {
-		p.Body = buf
-	} else if p.Type == int32(Request) && bodyLen > _seqSize {
-		p.Seq = int32(binary.LittleEndian.Uint16(buf[0:]))
-		p.Body = buf[_seqSize:]
-	} else if p.Type == int32(Response) && bodyLen > _reqHeaderSize {
-		p.Seq = int32(binary.LittleEndian.Uint16(buf[0:]))
-		p.Code = int32(binary.LittleEndian.Uint16(buf[_seqSize:]))
-		p.Body = buf[_seqSize+_codeSize:]
 	}
 	return
 }
 
 func (p *Payload) WriteTCP(wr *bufio.Writer) (err error) {
 	var (
-		buf        []byte
-		packLen    int
-		headerSize int
+		buf     []byte
+		packLen int32
 	)
-	if Pattern(p.Type) == Response {
-		headerSize = _placeSize + _typeSize + _seqSize + _codeSize
-	} else if Pattern(p.Type) == Request {
-		headerSize = _placeSize + _typeSize + _seqSize
-	} else {
-		headerSize = _placeSize + _typeSize
-	}
-	if len(p.Body) > int(MaxBodySize) {
-		return ErrProtoPackLen
-	}
-	packLen = headerSize + len(p.Body)
-	if buf, err = wr.Peek(headerSize + _packSize); err != nil {
+	packLen = _rawHeaderSize + int32(len(p.Body))
+	if buf, err = wr.Peek(_rawHeaderSize); err != nil {
 		return
 	}
-	binary.LittleEndian.PutUint16(buf[_packOffset:], uint16(packLen))
-	buf[_placeOffset] = byte(1)
-	buf[_typeOffset] = byte(p.Type)
-	if Pattern(p.Type) == Response {
-		binary.LittleEndian.PutUint16(buf[_seqOffset:], uint16(p.Seq))
-		binary.LittleEndian.PutUint16(buf[_codeOffset:], uint16(p.Code))
-	} else if Pattern(p.Type) == Request {
-		binary.LittleEndian.PutUint16(buf[_seqOffset:], uint16(p.Seq))
-	}
+	// 按顺序写入固定长度字段
+	binary.LittleEndian.PutUint32(buf[_packOffset:], uint32(packLen))          // [0:4]
+	binary.LittleEndian.PutUint16(buf[_headerOffset:], uint16(_rawHeaderSize)) // [4:6]
+	binary.LittleEndian.PutUint32(buf[_opOffset:], uint32(p.Op))               // [6:10]
+	binary.LittleEndian.PutUint32(buf[_placeOffset:], uint32(p.Place))         // [10:14]
+	binary.LittleEndian.PutUint32(buf[_typeOffset:], uint32(p.Type))           // [14:18]
+	binary.LittleEndian.PutUint32(buf[_seqOffset:], uint32(p.Seq))             // [18:22]
+	binary.LittleEndian.PutUint32(buf[_codeOffset:], uint32(p.Code))           // [22:]
 	if p.Body != nil {
 		_, err = wr.Write(p.Body)
 	}
@@ -119,102 +105,103 @@ func (p *Payload) WriteTCP(wr *bufio.Writer) (err error) {
 func (p *Payload) WriteTCPHeart(wr *bufio.Writer) (err error) {
 	var (
 		buf     []byte
-		packLen int
+		packLen int32
 	)
-	packLen = _placeSize + _typeSize + _heartSeqSize
-	dataLen := _packSize + packLen
-	if buf, err = wr.Peek(dataLen); err != nil {
+	packLen = _rawHeaderSize
+	if buf, err = wr.Peek(_rawHeaderSize); err != nil {
 		return
 	}
-	// header
-	binary.LittleEndian.PutUint16(buf[_packOffset:], uint16(packLen))
-	buf[_placeOffset] = byte(1)
-	buf[_typeOffset] = byte(p.Type)
-	buf[_seqOffset] = byte(p.Seq)
+	binary.LittleEndian.PutUint32(buf[_packOffset:], uint32(packLen))          // [0:4]
+	binary.LittleEndian.PutUint16(buf[_headerOffset:], uint16(_rawHeaderSize)) // [4:6]
+	binary.LittleEndian.PutUint32(buf[_opOffset:], uint32(p.Op))               // [6:10]
+	binary.LittleEndian.PutUint32(buf[_placeOffset:], uint32(p.Place))         // [10:14]
+	binary.LittleEndian.PutUint32(buf[_typeOffset:], uint32(p.Type))           // [14:18]
+	binary.LittleEndian.PutUint32(buf[_seqOffset:], uint32(p.Seq))             // [18:22]
+	binary.LittleEndian.PutUint32(buf[_codeOffset:], uint32(p.Code))           // [22:]
 	return
 }
 
-// ReadWebsocket read a proto from websocket connection.
-func (p *Payload) ReadWebsocket(ws *websocket.Conn) (err error) {
-	var (
-		buf []byte
-	)
-	if _, buf, err = ws.ReadMessage(); err != nil {
-		return
-	}
-
-	dataLen := len(buf)
-	if dataLen < (_reqHeaderSize - _heartSeqSize) {
-		return ErrProtoPackLen
-	}
-	p.Place = int32(buf[0])
-	p.Type = int32(buf[_placeSize])
-	seqPos := _placeSize + _typeSize
-	if p.Type == int32(Ping) {
-		p.Seq = int32(buf[seqPos])
-		p.Body = nil
-	} else if p.Type == int32(Push) {
-		p.Body = buf[seqPos:]
-	} else if dataLen > _reqHeaderSize {
-		p.Seq = int32(binary.LittleEndian.Uint16(buf[seqPos:]))
-		pos := seqPos + _seqSize
-		p.Body = buf[pos:]
-	}
-	return
-}
-
-// WriteWebsocket write a proto to websocket connection.
-func (p *Payload) WriteWebsocket(ws *websocket.Conn) (err error) {
-	var (
-		buf        []byte
-		packLen    int
-		headerSize int
-	)
-	if Pattern(p.Type) == Response {
-		headerSize = _placeSize + _typeSize + _seqSize + _codeSize
-	} else {
-		headerSize = _placeSize + _typeSize
-	}
-	packLen = headerSize + len(p.Body)
-	if err = ws.WriteHeader(websocket.BinaryMessage, packLen); err != nil {
-		return
-	}
-	if buf, err = ws.Peek(headerSize); err != nil {
-		return
-	}
-	buf[0] = byte(1)
-	buf[_placeSize] = byte(p.Type)
-	if Pattern(p.Type) == Response {
-		pos := _placeSize + _typeSize
-		binary.LittleEndian.PutUint16(buf[pos:], uint16(p.Seq))
-		pos += _seqSize
-		binary.LittleEndian.PutUint16(buf[pos:], uint16(p.Code))
-	}
-	if p.Body != nil {
-		err = ws.WriteBody(p.Body)
-	}
-	return
-}
-
-// WriteWebsocketHeart write websocket heartbeat with room online.
-func (p *Payload) WriteWebsocketHeart(wr *websocket.Conn) (err error) {
-	var (
-		buf     []byte
-		packLen int
-	)
-	packLen = _placeSize + _typeSize + _heartSeqSize
-	// websocket header
-	if err = wr.WriteHeader(websocket.BinaryMessage, packLen); err != nil {
-		return
-	}
-	if buf, err = wr.Peek(packLen); err != nil {
-		return
-	}
-	// header
-	buf[0] = byte(1)
-	pos := _placeSize
-	buf[pos] = byte(Pong)
-	pos += _typeSize
-	buf[pos] = byte(p.Seq)
-	return
-}
+// // ReadWebsocket read a proto from websocket connection.
+// func (p *Payload) ReadWebsocket(ws *websocket.Conn) (err error) {
+//	var (
+//		buf []byte
+//	)
+//	if _, buf, err = ws.ReadMessage(); err != nil {
+//		return
+//	}
+//
+//	dataLen := len(buf)
+//	if dataLen < (_reqHeaderSize - _heartSeqSize) {
+//		return ErrProtoPackLen
+//	}
+//	p.Place = int32(buf[0])
+//	p.Type = int32(buf[_placeSize])
+//	seqPos := _placeSize + _typeSize
+//	if p.Type == int32(Ping) {
+//		p.Seq = int32(buf[seqPos])
+//		p.Body = nil
+//	} else if p.Type == int32(Push) {
+//		p.Body = buf[seqPos:]
+//	} else if dataLen > _reqHeaderSize {
+//		p.Seq = int32(binary.LittleEndian.Uint16(buf[seqPos:]))
+//		pos := seqPos + _seqSize
+//		p.Body = buf[pos:]
+//	}
+//	return
+// }
+//
+// // WriteWebsocket write a proto to websocket connection.
+// func (p *Payload) WriteWebsocket(ws *websocket.Conn) (err error) {
+//	var (
+//		buf        []byte
+//		packLen    int
+//		headerSize int
+//	)
+//	if Pattern(p.Type) == Response {
+//		headerSize = _placeSize + _typeSize + _seqSize + _codeSize
+//	} else {
+//		headerSize = _placeSize + _typeSize
+//	}
+//	packLen = headerSize + len(p.Body)
+//	if err = ws.WriteHeader(websocket.BinaryMessage, packLen); err != nil {
+//		return
+//	}
+//	if buf, err = ws.Peek(headerSize); err != nil {
+//		return
+//	}
+//	buf[0] = byte(1)
+//	buf[_placeSize] = byte(p.Type)
+//	if Pattern(p.Type) == Response {
+//		pos := _placeSize + _typeSize
+//		binary.LittleEndian.PutUint16(buf[pos:], uint16(p.Seq))
+//		pos += _seqSize
+//		binary.LittleEndian.PutUint16(buf[pos:], uint16(p.Code))
+//	}
+//	if p.Body != nil {
+//		err = ws.WriteBody(p.Body)
+//	}
+//	return
+// }
+//
+// // WriteWebsocketHeart write websocket heartbeat with room online.
+// func (p *Payload) WriteWebsocketHeart(wr *websocket.Conn) (err error) {
+//	var (
+//		buf     []byte
+//		packLen int
+//	)
+//	packLen = _placeSize + _typeSize + _heartSeqSize
+//	// websocket header
+//	if err = wr.WriteHeader(websocket.BinaryMessage, packLen); err != nil {
+//		return
+//	}
+//	if buf, err = wr.Peek(packLen); err != nil {
+//		return
+//	}
+//	// header
+//	buf[0] = byte(1)
+//	pos := _placeSize
+//	buf[pos] = byte(Pong)
+//	pos += _typeSize
+//	buf[pos] = byte(p.Seq)
+//	return
+// }
