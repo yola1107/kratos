@@ -3,13 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"runtime/debug"
 	"sync"
-	"time"
 
-	"github.com/yola1107/kratos/contrib/log/zap/v2"
 	"github.com/yola1107/kratos/v2"
+	"github.com/yola1107/kratos/v2/library/log/config"
+	"github.com/yola1107/kratos/v2/library/log/zap"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/middleware/recovery"
 	v1 "github.com/yola1107/kratos/v2/transport/_sample/api/helloworld/v1"
@@ -17,7 +16,6 @@ import (
 	"github.com/yola1107/kratos/v2/transport/http"
 	"github.com/yola1107/kratos/v2/transport/websocket"
 	"go.uber.org/zap/zapcore"
-
 	//"github.com/yola1107/kratos/contrib/log/zap/v2"
 	//"github.com/yola1107/kratos/contrib/registry/etcd/v2"
 	//etcdv3 "go.etcd.io/etcd/client/v3"
@@ -67,6 +65,19 @@ func (s *server) OnCloseFunc(session *websocket.Session) {
 
 func main() {
 
+	//logger := log.With(log.NewStdLogger(os.Stdout),
+	//	//"ts", log.DefaultTimestamp,
+	//	"ts", log.Timestamp("2006-01-02 15:04:05.000"),
+	//	"caller", log.DefaultCaller,
+	//
+	//	//"service.id", id,
+	//	"service.name", Name,
+	//	//"service.version", Version,
+	//	"trace.id", tracing.TraceID(),
+	//	"span.id", tracing.SpanID(),
+	//)
+	//log.SetLogger(logger)
+
 	//etcdClient, err := etcdv3.New(etcdv3.Config{
 	//	Endpoints: []string{"127.0.0.1:2379"},
 	//})
@@ -76,24 +87,32 @@ func main() {
 	//defer etcdClient.Close()
 
 	// 生产环境配置
-	zapLogger := zap.New(&zap.Config{
-		Mode:          zap.Development, //zap.Production,    // os.Getenv("APP_ENV")
+	zapLogger := zap.New(&config.Config{
+		Mode:          config.Production, //zap.Production,    // os.Getenv("APP_ENV")
 		Level:         "debug",
 		Directory:     "./logs",
 		Filename:      "app.log",
 		ErrorFilename: "app-error.log",
 		MaxSize:       500,
 		MaxAge:        30,
-		Telegram: &zap.TelegramConfig{
-			Enabled:     true,
-			ChatID:      "-4587116707",
-			Token:       "7587951172:AAGjhHeHE4kKmj3FtOxas0B9MlgQaKoqk9M",
-			Threshold:   zapcore.ErrorLevel,
-			QueueSize:   1000,
-			RateLimit:   3 * time.Second,
-			MaxBatchCnt: 20,
-			MaxRetries:  2,
-			Prefix:      "<" + Name + ">" + " ",
+		Alert: &config.Alert{
+			Enabled: true,
+			Batch: config.Batch{
+				Enabled:     true,
+				MaxSize:     10,
+				MaxInterval: 3,
+			},
+			RateLimit: config.RateLimit{
+				Enabled:  false,
+				Interval: 0,
+				Burst:    0,
+			},
+			Telegram: config.Telegram{
+				Enabled:   true,
+				Token:     "abc123",
+				ChatID:    "def456",
+				Threshold: zapcore.ErrorLevel,
+			},
 		},
 	})
 	defer zapLogger.Close()
@@ -142,10 +161,45 @@ func main() {
 		//kratos.Registrar(etcd.New(etcdClient)), // 注册中心 ETCD
 	)
 
+	//log.SetLogger(zapLogger)
+
 	//zapLogger.Close() //调试
 	{
-		for i := 0; i < rand.Int()%1000; i++ {
-			//time.Sleep(time.Millisecond * time.Duration(rand.Int()%1000+500))
+
+		//log.SetLogger(zapLogger.With(
+		//	"service.name", Name,
+		//	"trace.id", "",
+		//	"span.id", "",
+		//))
+
+		//logger := log.With(zapLogger, "k1", Name)
+		//logger.Log(log.LevelInfo, "start", "2")
+		//log.Info("test zap with 1.")
+		//
+		//log.SetLogger(zapLogger.With("service.name", Name))
+		//log.Info("test zap with 2")
+		//
+		//log.SetLogger(zapLogger)
+
+		log.SetLogger(log.GetLogger().(*zap.Logger).With("k1", "v1"))
+		log.Info("hello world 1")
+		log.Info("hello world 2")
+
+		//help1 := log.NewHelper(log.With(log.GetLogger(), "a", "0"))
+		//help1.Info("hello world 3")
+		//help1.Info("hello world 4")
+
+		helper := log.GetLogger().(*zap.Logger).NewHelper("pwd", "auth")
+		helper.Info("help test 1")
+		log.Info("help test 2")
+		helper.Debugf("help test 3")
+
+		// 设置level
+		log.Debugf("this is the debug log(1)")
+		log.GetLogger().(*zap.Logger).SetLevel("info")
+		log.Debugf("this is the debug log(2)")
+
+		for i := 0; i < 50; i++ {
 			log.Errorf("测试消息(%d)", i)
 		}
 		log.Errorf("测试消息(end)")

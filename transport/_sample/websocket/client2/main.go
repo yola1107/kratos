@@ -13,7 +13,7 @@ import (
 	"github.com/yola1107/kratos/v2/transport/websocket"
 	"google.golang.org/grpc"
 
-	"github.com/yola1107/kratos/contrib/log/zap/v2"
+	"github.com/yola1107/kratos/v2/library/log/zap"
 	//"github.com/yola1107/kratos/contrib/registry/etcd/v2"
 	//etcdv3 "go.etcd.io/etcd/client/v3"
 )
