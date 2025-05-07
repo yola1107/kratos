@@ -34,10 +34,11 @@ type Config struct {
 type Alert struct {
 	Enabled     bool
 	Threshold   zapcore.Level // 触发日志级别
-	QueueSize   int           // 队列大小
 	MaxInterval time.Duration // 发送间隔
+	QueueSize   int           // 队列大小
 	MaxBatchCnt int           // 最大批量数
 	MaxRetries  int           // 最大重试
+	Prefix      string        // 消息前缀
 	Telegram    Telegram
 }
 

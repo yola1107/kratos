@@ -3,6 +3,7 @@ package alert
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/yola1107/kratos/v2/library/log/config"
@@ -40,20 +41,21 @@ func (t *TelegramSender) Send(messages []string) error {
 	}
 	content += "\n\n---------\n\n"
 
-	fmt.Printf("=========>%+v send content: \n%+v", time.Now().Format("2006-01-02 15:04:05.000"), content)
-	return nil
+	//fmt.Printf("=========>%+v send content: \n%+v", time.Now().Format("2006-01-02 15:04:05.000"), content)
+	//return nil
 
-	//_, err := t.client.PostForm(
-	//	"https://api.telegram.org/bot"+t.config.Token+"/sendMessage",
-	//	url.Values{
-	//		"chat_id": {t.config.ChatID},
-	//		"text":    {"content"},
-	//	},
-	//)
-	//if err != nil {
-	//	fmt.Printf(" %v\n", err)
-	//}
-	//return err
+	_, err := t.client.PostForm(
+		"https://api.telegram.org/bot"+t.config.Token+"/sendMessage",
+		url.Values{
+			"chat_id": {t.config.ChatID},
+			"text":    {"content"},
+		},
+	)
+	if err != nil {
+		//log.Warnf(" %v cnt=%d \n%+v", err, len(messages), messages)
+		fmt.Printf(" %v cnt=%d \n", err, len(messages))
+	}
+	return err
 }
 
 func (t *TelegramSender) Close() error {

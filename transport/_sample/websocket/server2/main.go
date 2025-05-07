@@ -103,6 +103,7 @@ func main() {
 			MaxInterval: 3 * time.Second,
 			MaxBatchCnt: 20,
 			MaxRetries:  1,
+			Prefix:      fmt.Sprintf("<%s> ", Name),
 			Telegram: config.Telegram{
 				Enabled: true,
 				Token:   "abc123",

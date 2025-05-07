@@ -105,7 +105,7 @@ func (a *Alerter) Write(ent zapcore.Entry, fields []zapcore.Field) error {
 		return fmt.Errorf("failed to encode entry: %w", err)
 	}
 
-	msg := truncateMessage(entryBuf.String(), maxTelegramMsgSize)
+	msg := truncateMessage(a.conf.Prefix+entryBuf.String(), maxTelegramMsgSize)
 	return a.enqueueMessage(msg)
 }
 
@@ -158,7 +158,7 @@ func (a *Alerter) process() {
 		if len(batch) > 0 {
 			a.sendWithRetry(batch)
 		}
-		batchPool.Put(batch[:0])
+		batchPool.Put(batch[:0:cap(batch)])
 	}()
 
 	for {
