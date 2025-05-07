@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"runtime/debug"
 	"sync"
+	"time"
+
+	"go.uber.org/zap/zapcore"
 
 	"github.com/yola1107/kratos/v2"
 	"github.com/yola1107/kratos/v2/library/log/config"
@@ -15,7 +18,6 @@ import (
 	"github.com/yola1107/kratos/v2/transport/grpc"
 	"github.com/yola1107/kratos/v2/transport/http"
 	"github.com/yola1107/kratos/v2/transport/websocket"
-	"go.uber.org/zap/zapcore"
 	//"github.com/yola1107/kratos/contrib/log/zap/v2"
 	//"github.com/yola1107/kratos/contrib/registry/etcd/v2"
 	//etcdv3 "go.etcd.io/etcd/client/v3"
@@ -99,13 +101,14 @@ func main() {
 			Enabled: true,
 			Batch: config.Batch{
 				Enabled:     true,
-				MaxSize:     10,
-				MaxInterval: 3,
+				MaxSize:     3,
+				MaxInterval: 5 * time.Second,
+				QueueSize:   10,
 			},
 			RateLimit: config.RateLimit{
-				Enabled:  false,
-				Interval: 0,
-				Burst:    0,
+				Enabled:  true,
+				Interval: 3 * time.Second,
+				Burst:    1,
 			},
 			Telegram: config.Telegram{
 				Enabled:   true,
@@ -227,7 +230,7 @@ func main() {
 				//log.Errorf("==>案发时发生分解拉萨附近爱上了放假哦文件 书法家欧萨附件是浪费十六分静安寺分厘卡撒酒疯 发生panic:%v , \n%s", r, debug.Stack())
 			}
 		}()
-		//panic("abc")
+		panic("abc")
 	}
 
 	if err := app.Run(); err != nil {

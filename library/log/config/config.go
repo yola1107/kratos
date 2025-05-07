@@ -42,6 +42,7 @@ type Batch struct {
 	Enabled     bool
 	MaxSize     int
 	MaxInterval time.Duration
+	QueueSize   int
 }
 
 type RateLimit struct {

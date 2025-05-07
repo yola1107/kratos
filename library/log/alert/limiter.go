@@ -4,8 +4,9 @@ import (
 	"context"
 	"sync"
 
-	"github.com/yola1107/kratos/v2/library/log/config"
 	"golang.org/x/time/rate"
+
+	"github.com/yola1107/kratos/v2/library/log/config"
 )
 
 // RateLimiter 速率限制器

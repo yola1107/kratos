@@ -3,8 +3,9 @@ package alert
 import (
 	"fmt"
 	"net/http"
-	"net/url"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/yola1107/kratos/v2/library/log/config"
 	"github.com/yola1107/kratos/v2/log"
@@ -44,21 +45,44 @@ func (t *TelegramSender) Send(messages []string) error {
 	fmt.Printf("=========>%+v send content: \n%+v", time.Now().Format("2006-01-02 15:04:05.000"), content)
 	return nil
 
-	_, err := t.client.PostForm(
-		"https://api.telegram.org/bot"+t.config.Token+"/sendMessage",
-		url.Values{
-			"chat_id": {t.config.ChatID},
-			"text":    {"content"},
-		},
-	)
-	if err != nil {
-		fmt.Printf(" %v\n", err)
-	}
-	return err
+	//_, err := t.client.PostForm(
+	//	"https://api.telegram.org/bot"+t.config.Token+"/sendMessage",
+	//	url.Values{
+	//		"chat_id": {t.config.ChatID},
+	//		"text":    {"content"},
+	//	},
+	//)
+	//if err != nil {
+	//	fmt.Printf(" %v\n", err)
+	//}
+	//return err
 }
 
 func (t *TelegramSender) Close() error {
 	t.client.CloseIdleConnections()
 	log.Infof("telegram closed")
 	return nil
+}
+
+const (
+	maxMessageSize = 4096 - 100 // Telegram消息最大长度 4k
+)
+
+// truncateMessage 消息截断
+func truncateMessage(text string) string {
+	if utf8.RuneCountInString(text) <= maxMessageSize {
+		return text
+	}
+
+	// 优先在换行符处截断
+	if idx := strings.LastIndex(text[:maxMessageSize], "\n"); idx > 0 {
+		return text[:idx] + "\n...(truncated)"
+	}
+
+	// 按字符截断
+	runes := []rune(text)
+	if len(runes) > maxMessageSize {
+		runes = runes[:maxMessageSize-100]
+	}
+	return string(runes) + "...(truncated)"
 }

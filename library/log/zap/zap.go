@@ -8,12 +8,12 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/yola1107/kratos/v2/library/log/alert"
-	"github.com/yola1107/kratos/v2/library/log/config"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
 
+	"github.com/yola1107/kratos/v2/library/log/alert"
+	"github.com/yola1107/kratos/v2/library/log/config"
 	"github.com/yola1107/kratos/v2/log"
 )
 
@@ -140,16 +140,15 @@ func createCore(cfg *config.Config, level zap.AtomicLevel, encoderConfig zapcore
 	}
 
 	//alert core
-	if alerter := alert.NewAlerter(cfg.Alert); alerter != nil {
-		alertCore := zapcore.NewCore(
-			zapcore.NewJSONEncoder(encoderConfig),
-			zapcore.AddSync(alerter),
-			zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
-				return lvl >= cfg.Alert.Telegram.Threshold
-			}),
-		)
-		cores = append(cores, alertCore)
-		resources = append(resources, alerter)
+	if cfg.Alert != nil && cfg.Alert.Enabled {
+		alerter := alert.NewAlerter(
+			zap.LevelEnablerFunc(func(lvl zapcore.Level) bool { return lvl >= cfg.Alert.Telegram.Threshold }),
+			zapcore.NewConsoleEncoder(encoderConfig),
+			cfg.Alert)
+		if alerter != nil {
+			cores = append(cores, alerter)
+			resources = append(resources, alerter)
+		}
 	}
 
 	// Always add console core
