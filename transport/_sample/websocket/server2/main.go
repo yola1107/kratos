@@ -181,7 +181,7 @@ func main() {
 		//log.GetLogger().(*zap.Logger).SetLevel("info")
 		//log.Debugf("this is the debug log(2)")
 		//
-		for i := 0; i < 50; i++ {
+		for i := 0; i < 100; i++ {
 			log.Errorf("测试消息(%d)", i)
 		}
 		log.Errorf("测试消息(end)")

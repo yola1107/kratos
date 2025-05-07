@@ -1,7 +1,6 @@
 package alert
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -15,7 +14,7 @@ import (
 )
 
 const (
-	maxTelegramMsgSize = 4096 - 100 // Telegram消息最大长度 4k，保留100字节余量
+	maxTelegramMsgSize = 4096 - 100 // Telegram消息最大长度 4k
 )
 
 // Sender 发送接口
@@ -30,12 +29,16 @@ type Alerter struct {
 	enc    zapcore.Encoder
 	fields []zapcore.Field
 
-	conf   *config.Alert
-	sender Sender
-	queue  *BufferQueue[string]
-	mu     sync.RWMutex
+	conf     *config.Alert
+	sender   Sender
+	msgChan  chan string
+	stopChan chan struct{}
+	wg       sync.WaitGroup
+	mu       sync.RWMutex
+	isClosed bool
 }
 
+// NewAlerter 创建报警器
 func NewAlerter(enabler zapcore.LevelEnabler, enc zapcore.Encoder, conf *config.Alert) *Alerter {
 	if conf == nil || !conf.Enabled {
 		return nil
@@ -52,14 +55,12 @@ func NewAlerter(enabler zapcore.LevelEnabler, enc zapcore.Encoder, conf *config.
 		enc:          enc,
 		conf:         conf,
 		sender:       sender,
+		msgChan:      make(chan string, conf.QueueSize),
+		stopChan:     make(chan struct{}),
 	}
 
-	a.queue = NewBufferQueue[string](
-		conf,
-		func(batch []string) {
-			a.sendWithRetry(batch)
-		},
-	)
+	a.wg.Add(1)
+	go a.process()
 
 	return a
 }
@@ -90,9 +91,14 @@ func (a *Alerter) Check(ent zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.Ch
 	return ce
 }
 
+// Write 写入日志
 func (a *Alerter) Write(ent zapcore.Entry, fields []zapcore.Field) error {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
+	if a.isClosed {
+		return fmt.Errorf("alerter is closed")
+	}
 
 	entryBuf, err := a.enc.EncodeEntry(ent, append(a.fields, fields...))
 	if err != nil {
@@ -100,17 +106,102 @@ func (a *Alerter) Write(ent zapcore.Entry, fields []zapcore.Field) error {
 	}
 
 	msg := truncateMessage(entryBuf.String(), maxTelegramMsgSize)
-	return a.queue.Push(msg)
+	return a.enqueueMessage(msg)
 }
 
+// Sync 同步日志
 func (a *Alerter) Sync() error { return nil }
 
+// Close 关闭
 func (a *Alerter) Close() error {
-	a.queue.Close()
+	a.mu.Lock()
+	if a.isClosed {
+		a.mu.Unlock()
+		return nil
+	}
+	a.isClosed = true
+	close(a.stopChan)
+	a.mu.Unlock()
+
+	a.wg.Wait()
+
 	if err := a.sender.Close(); err != nil {
 		return fmt.Errorf("failed to close sender: %w", err)
 	}
 	return nil
+}
+
+func (a *Alerter) enqueueMessage(msg string) error {
+	select {
+	case a.msgChan <- msg:
+		return nil
+	default:
+		return fmt.Errorf("queue full (capacity=%d)", a.conf.QueueSize)
+	}
+}
+
+func (a *Alerter) process() {
+	defer a.wg.Done()
+
+	var (
+		batchPool = sync.Pool{
+			New: func() interface{} {
+				return make([]string, 0, a.conf.MaxBatchCnt)
+			},
+		}
+		batch     = batchPool.Get().([]string)
+		batchSize int
+		ticker    = time.NewTicker(a.conf.MaxInterval)
+	)
+	defer func() {
+		ticker.Stop()
+		if len(batch) > 0 {
+			a.sendWithRetry(batch)
+		}
+		batchPool.Put(batch[:0])
+	}()
+
+	for {
+		select {
+		case <-a.stopChan:
+			a.drainQueue(&batch, &batchSize)
+			return
+
+		case msg := <-a.msgChan:
+			if a.shouldFlush(len(msg), batchSize, len(batch)) {
+				a.sendWithRetry(batch)
+				batch, batchSize = batch[:0], 0
+			}
+			batch = append(batch, msg)
+			batchSize += len(msg)
+
+		case <-ticker.C:
+			if len(batch) > 0 {
+				a.sendWithRetry(batch)
+				batch, batchSize = batch[:0], 0
+			}
+		}
+	}
+}
+
+func (a *Alerter) shouldFlush(msgLen, batchSize, batchCount int) bool {
+	return (msgLen+batchSize > maxTelegramMsgSize) || (batchCount >= a.conf.MaxBatchCnt)
+}
+
+func (a *Alerter) drainQueue(batch *[]string, batchSize *int) {
+	for {
+		select {
+		case msg := <-a.msgChan:
+			if a.shouldFlush(len(msg), *batchSize, len(*batch)) {
+				a.sendWithRetry(*batch)
+				*batch, *batchSize = (*batch)[:0], 0
+			}
+			*batch = append(*batch, msg)
+			*batchSize += len(msg)
+		default:
+			return
+		}
+	}
 }
 
 func (a *Alerter) sendWithRetry(msgs []string) {
@@ -118,164 +209,15 @@ func (a *Alerter) sendWithRetry(msgs []string) {
 		return
 	}
 
-	var lastErr error
 	for i := 0; i < a.conf.MaxRetries; i++ {
 		if err := a.sender.Send(msgs); err == nil {
 			return
-		} else {
-			lastErr = err
 		}
 
 		if i < a.conf.MaxRetries-1 {
 			time.Sleep(time.Duration(i+1) * time.Second)
 		}
 	}
-
-	log.Errorf("Failed to send alert batch after %d retries: %v", a.conf.MaxRetries, lastErr)
-}
-
-// BufferQueue 实现缓冲批处理队列
-type BufferQueue[T any] struct {
-	ch       chan T
-	stopChan chan struct{}
-	wg       sync.WaitGroup
-
-	batchSize int
-	maxWait   time.Duration
-	handler   func([]T)
-
-	mu         sync.Mutex
-	buffer     []T
-	bufferSize int
-	timer      *time.Timer
-	pool       sync.Pool
-}
-
-func NewBufferQueue[T any](conf *config.Alert, handler func([]T)) *BufferQueue[T] {
-	q := &BufferQueue[T]{
-		ch:        make(chan T, conf.QueueSize),
-		stopChan:  make(chan struct{}),
-		batchSize: conf.MaxBatchCnt,
-		maxWait:   conf.MaxInterval,
-		handler:   handler,
-		timer:     time.NewTimer(conf.MaxInterval),
-		pool: sync.Pool{
-			New: func() interface{} {
-				return make([]T, 0, conf.MaxBatchCnt)
-			},
-		},
-	}
-
-	q.wg.Add(1)
-	go q.process()
-
-	return q
-}
-
-func (q *BufferQueue[T]) Push(item T) error {
-	select {
-	case q.ch <- item:
-		return nil
-	case <-q.stopChan:
-		return context.Canceled
-	default:
-		return fmt.Errorf("queue full (capacity=%d)", cap(q.ch))
-	}
-}
-
-func (q *BufferQueue[T]) Close() {
-	close(q.stopChan)
-	q.wg.Wait()
-}
-
-func (q *BufferQueue[T]) process() {
-	defer q.wg.Done()
-	defer q.timer.Stop()
-
-	for {
-		select {
-		case item := <-q.ch:
-			q.mu.Lock()
-			q.buffer = append(q.buffer, item)
-			shouldFlush := len(q.buffer) >= q.batchSize //|| (len(q.buffer) > 0 && len(item)+len(q.buffer[0]) > maxTelegramMsgSize)
-
-			q.mu.Unlock()
-
-			if shouldFlush {
-				q.flush()
-			} else {
-				q.resetTimer()
-			}
-
-		case <-q.timer.C:
-			q.flush()
-
-		case <-q.stopChan:
-			q.drain()
-			return
-		}
-	}
-}
-
-func (q *BufferQueue[T]) flush() {
-	q.mu.Lock()
-	if len(q.buffer) == 0 {
-		q.mu.Unlock()
-		return
-	}
-
-	// 从内存池获取切片
-	batch := q.pool.Get().([]T)[:0]
-	batch = append(batch, q.buffer...)
-	q.buffer = q.buffer[:0]
-	q.mu.Unlock()
-
-	q.handler(batch)
-
-	// 归还切片到内存池
-	q.pool.Put(batch[:0])
-	q.resetTimer()
-}
-
-func (q *BufferQueue[T]) drain() {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-
-	// 处理剩余消息
-	for {
-		select {
-		case item := <-q.ch:
-			q.buffer = append(q.buffer, item)
-			if len(q.buffer) >= q.batchSize {
-				batch := q.pool.Get().([]T)[:0]
-				batch = append(batch, q.buffer...)
-				q.buffer = q.buffer[:0]
-				q.handler(batch)
-				q.pool.Put(batch[:0])
-			}
-		default:
-			if len(q.buffer) > 0 {
-				batch := q.pool.Get().([]T)[:0]
-				batch = append(batch, q.buffer...)
-				q.handler(batch)
-				q.pool.Put(batch[:0])
-			}
-			return
-		}
-	}
-}
-
-func (q *BufferQueue[T]) resetTimer() {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-
-	if !q.timer.Stop() {
-		select {
-		case <-q.timer.C:
-		default:
-		}
-	}
-	q.timer.Reset(q.maxWait)
 }
 
 // truncateMessage 消息截断
