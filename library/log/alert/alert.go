@@ -14,8 +14,13 @@ import (
 )
 
 const (
-	maxTelegramMsgSize = 4096 - 100 // Telegram消息最大长度 4k
-	retryInterval      = 1 * time.Second
+	maxTelegramMsgSize   = 4096 - 100 // Telegram消息最大长度 4k
+	defaultRetryInterval = 1 * time.Second
+	defaultMaxRetries    = 3
+	defaultQueueSize     = 100
+	defaultMaxInterval   = 5 * time.Second
+	defaultMaxBatchCnt   = 10
+	//sizeSafetyMargin     = 200 // 安全余量，防止刚好超过限制
 )
 
 // Sender 发送接口
@@ -34,30 +39,21 @@ type Alerter struct {
 	msgChan  chan string
 	stopChan chan struct{}
 	wg       sync.WaitGroup
-	mu       sync.Mutex
+	mu       sync.RWMutex
 	isClosed bool
 
 	sender Sender
 }
 
 // NewAlerter 创建报警器
-func NewAlerter(enabler zapcore.LevelEnabler, enc zapcore.Encoder, config *config.Alert) *Alerter {
-	if config == nil || !config.Enabled {
+func NewAlerter(enabler zapcore.LevelEnabler, enc zapcore.Encoder, conf *config.Alert) *Alerter {
+	if conf == nil || !conf.Enabled {
 		return nil
 	}
 
-	// 设置默认值
-	if config.QueueSize <= 0 {
-		config.QueueSize = 100
-	}
-	if config.MaxInterval <= 0 {
-		config.MaxInterval = 5 * time.Second
-	}
-	if config.MaxBatchCnt <= 0 {
-		config.MaxBatchCnt = 10
-	}
+	conf = validateConfig(conf)
 
-	sender, err := NewTelegramSender(config.Telegram)
+	sender, err := NewTelegramSender(conf.Telegram)
 	if err != nil {
 		log.Errorf("Failed to create Telegram sender: %v", err)
 		return nil
@@ -66,9 +62,9 @@ func NewAlerter(enabler zapcore.LevelEnabler, enc zapcore.Encoder, config *confi
 	a := &Alerter{
 		LevelEnabler: enabler,
 		enc:          enc,
-		conf:         config,
+		conf:         conf,
 		sender:       sender,
-		msgChan:      make(chan string, config.QueueSize),
+		msgChan:      make(chan string, conf.QueueSize),
 		stopChan:     make(chan struct{}),
 	}
 
@@ -78,27 +74,39 @@ func NewAlerter(enabler zapcore.LevelEnabler, enc zapcore.Encoder, config *confi
 	return a
 }
 
+// validateConfig 验证并设置默认配置
+func validateConfig(conf *config.Alert) *config.Alert {
+	if conf.QueueSize <= 0 {
+		conf.QueueSize = defaultQueueSize
+	}
+	if conf.MaxInterval <= 0 {
+		conf.MaxInterval = defaultMaxInterval
+	}
+	if conf.MaxBatchCnt <= 0 {
+		conf.MaxBatchCnt = defaultMaxBatchCnt
+	}
+	if conf.MaxRetries <= 0 {
+		conf.MaxRetries = defaultMaxRetries
+	}
+	return conf
+}
+
 // With 添加字段
 func (a *Alerter) With(fields []zapcore.Field) zapcore.Core {
 	if len(fields) == 0 {
 		return a
 	}
 
-	clone := &Alerter{
-		LevelEnabler: a.LevelEnabler,
-		enc:          a.enc.Clone(),
-		conf:         a.conf,
-		sender:       a.sender,
-		msgChan:      a.msgChan,
-		stopChan:     a.stopChan,
-		wg:           a.wg,
-	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
 
-	clone.fields = make([]zapcore.Field, len(a.fields))
+	clone := *a
+	clone.enc = a.enc.Clone()
+	clone.fields = make([]zapcore.Field, len(a.fields), len(a.fields)+len(fields))
 	copy(clone.fields, a.fields)
 	clone.fields = append(clone.fields, fields...)
 
-	return clone
+	return &clone
 }
 
 // Check 检查日志级别
@@ -111,8 +119,8 @@ func (a *Alerter) Check(ent zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.Ch
 
 // Write 写入日志
 func (a *Alerter) Write(ent zapcore.Entry, fields []zapcore.Field) error {
-	a.mu.Lock()
-	defer a.mu.Unlock()
+	a.mu.RLock()
+	defer a.mu.RUnlock()
 
 	if a.isClosed {
 		return fmt.Errorf("alerter is closed")
@@ -162,64 +170,79 @@ func (a *Alerter) process() {
 	defer a.wg.Done()
 
 	var (
-		batch     = make([]string, 0, a.conf.MaxBatchCnt)
+		batchPool = sync.Pool{
+			New: func() interface{} {
+				return make([]string, 0, a.conf.MaxBatchCnt)
+			},
+		}
+		batch     = batchPool.Get().([]string)
 		batchSize int
 		ticker    = time.NewTicker(a.conf.MaxInterval)
 	)
-	defer ticker.Stop()
-
-	maxSendRetries := a.conf.MaxRetries // 最大重试次数
-	sendWithRetry := func(msgs []string) {
-		for i := 0; i < maxSendRetries; i++ {
-			if err := a.sender.Send(msgs); err == nil {
-				return
-			}
-			if i < maxSendRetries-1 {
-				time.Sleep(retryInterval)
-			}
-		}
-		log.Errorf("Failed to send batch after %d retries", maxSendRetries)
-	}
-
-	flushBatch := func() {
+	defer func() {
+		ticker.Stop()
 		if len(batch) > 0 {
-			sendWithRetry(batch)
-			batch = batch[:0] // 重用slice
-			batchSize = 0
+			a.sendWithRetry(batch)
 		}
-	}
-
-	drainQueue := func() {
-		for {
-			select {
-			case msg := <-a.msgChan:
-				if len(msg)+batchSize > maxTelegramMsgSize || len(batch) >= a.conf.MaxBatchCnt {
-					flushBatch()
-				}
-				batch = append(batch, msg)
-				batchSize += len(msg)
-			default:
-				flushBatch()
-				return
-			}
-		}
-	}
+		batchPool.Put(batch[:0])
+	}()
 
 	for {
 		select {
 		case <-a.stopChan:
-			drainQueue()
+			a.drainQueue(&batch, &batchSize)
 			return
 
 		case msg := <-a.msgChan:
-			if len(msg)+batchSize > maxTelegramMsgSize || len(batch) >= a.conf.MaxBatchCnt {
-				flushBatch()
+			if a.shouldFlush(len(msg), batchSize, len(batch)) {
+				a.sendWithRetry(batch)
+				batch, batchSize = batch[:0], 0
 			}
 			batch = append(batch, msg)
 			batchSize += len(msg)
 
 		case <-ticker.C:
-			flushBatch()
+			if len(batch) > 0 {
+				a.sendWithRetry(batch)
+				batch, batchSize = batch[:0], 0
+			}
+		}
+	}
+}
+
+func (a *Alerter) shouldFlush(msgLen, batchSize, batchCount int) bool {
+	return (msgLen+batchSize > maxTelegramMsgSize) ||
+		(batchCount >= a.conf.MaxBatchCnt)
+}
+
+func (a *Alerter) drainQueue(batch *[]string, batchSize *int) {
+	for {
+		select {
+		case msg := <-a.msgChan:
+			if a.shouldFlush(len(msg), *batchSize, len(*batch)) {
+				a.sendWithRetry(*batch)
+				*batch, *batchSize = (*batch)[:0], 0
+			}
+			*batch = append(*batch, msg)
+			*batchSize += len(msg)
+		default:
+			return
+		}
+	}
+}
+
+func (a *Alerter) sendWithRetry(msgs []string) {
+	if len(msgs) == 0 {
+		return
+	}
+
+	for i := 0; i < a.conf.MaxRetries; i++ {
+		if err := a.sender.Send(msgs); err == nil {
+			return
+		}
+
+		if i < a.conf.MaxRetries-1 {
+			time.Sleep(time.Duration(i+1) * defaultRetryInterval)
 		}
 	}
 }

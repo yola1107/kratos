@@ -99,9 +99,9 @@ func main() {
 		Alert: &config.Alert{
 			Enabled:     true,
 			Threshold:   zapcore.ErrorLevel,
-			QueueSize:   10,
-			MaxInterval: 5 * time.Second,
-			MaxBatchCnt: 3,
+			QueueSize:   100,
+			MaxInterval: 3 * time.Second,
+			MaxBatchCnt: 10,
 			MaxRetries:  1,
 			Telegram: config.Telegram{
 				Enabled: true,
@@ -167,52 +167,39 @@ func main() {
 		//	"span.id", "",
 		//))
 
-		//logger := log.With(zapLogger, "k1", Name)
-		//logger.Log(log.LevelInfo, "start", "2")
-		//log.Info("test zap with 1.")
+		//log.SetLogger(log.GetLogger().(*zap.Logger).With("k1", "v1"))
+		//log.Info("hello world 1")
+		//log.Info("hello world 2")
 		//
-		//log.SetLogger(zapLogger.With("service.name", Name))
-		//log.Info("test zap with 2")
+		//helper := log.GetLogger().(*zap.Logger).NewHelper("pwd", "auth")
+		//helper.Info("help test 1")
+		//log.Info("help test 2")
+		//helper.Debugf("help test 3")
 		//
-		//log.SetLogger(zapLogger)
-
-		log.SetLogger(log.GetLogger().(*zap.Logger).With("k1", "v1"))
-		log.Info("hello world 1")
-		log.Info("hello world 2")
-
-		//help1 := log.NewHelper(log.With(log.GetLogger(), "a", "0"))
-		//help1.Info("hello world 3")
-		//help1.Info("hello world 4")
-
-		helper := log.GetLogger().(*zap.Logger).NewHelper("pwd", "auth")
-		helper.Info("help test 1")
-		log.Info("help test 2")
-		helper.Debugf("help test 3")
-
-		// 设置level
-		log.Debugf("this is the debug log(1)")
-		log.GetLogger().(*zap.Logger).SetLevel("info")
-		log.Debugf("this is the debug log(2)")
-
+		//// 设置level
+		//log.Debugf("this is the debug log(1)")
+		//log.GetLogger().(*zap.Logger).SetLevel("info")
+		//log.Debugf("this is the debug log(2)")
+		//
 		for i := 0; i < 50; i++ {
 			log.Errorf("测试消息(%d)", i)
 		}
 		log.Errorf("测试消息(end)")
 
 		//count := 0
-		//for count < 10 {
+		//for count < 1 {
 		//	go func() {
-		//		for i := 0; i < rand.Int()%10; i++ {
+		//		for i := 0; i < 10; i++ {
 		//			//time.Sleep(time.Millisecond * time.Duration(rand.Int()%1000+500))
-		//			log.Errorf("group(%d) 测试消息(%d) %+v", count, i, time.Now().Nanosecond()/1000)
-		//			//log.Errorf("group(%d) 测试消息(%d) %+v", count, i, time.Now().Format("05.000"))
+		//			//log.Errorf("group(%d) 测试消息(%d) %+v", count, i, time.Now().Nanosecond())
+		//			log.Errorf("group(%d) 测试消息(%d) %+v", count, i, time.Now().Format("05.000000"))
 		//
-		//			time.Sleep(time.Millisecond * time.Duration(rand.Int()%5))
+		//			time.Sleep(time.Millisecond * time.Duration(rand.Int()%500))
 		//		}
 		//		count++
-		//		time.Sleep(time.Second * time.Duration(rand.Int()%2))
+		//		time.Sleep(time.Second * time.Duration(rand.Int()%10))
 		//	}()
-		//	log.Errorf("测试消息(end)")
+		//	//log.Errorf("测试消息(end)")
 		//}
 
 		defer func() {
