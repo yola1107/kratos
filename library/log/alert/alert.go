@@ -15,9 +15,10 @@ import (
 
 const (
 	maxTelegramMsgSize = 4096 - 100 // Telegram消息最大长度 4k
+	retryInterval      = 1 * time.Second
 )
 
-// Sender 发送接口，由具体实现提供
+// Sender 发送接口
 type Sender interface {
 	Send(messages []string) error
 	Close() error
@@ -33,6 +34,8 @@ type Alerter struct {
 	msgChan  chan string
 	stopChan chan struct{}
 	wg       sync.WaitGroup
+	mu       sync.Mutex
+	isClosed bool
 
 	sender Sender
 }
@@ -42,11 +45,24 @@ func NewAlerter(enabler zapcore.LevelEnabler, enc zapcore.Encoder, config *confi
 	if config == nil || !config.Enabled {
 		return nil
 	}
+
+	// 设置默认值
+	if config.QueueSize <= 0 {
+		config.QueueSize = 100
+	}
+	if config.MaxInterval <= 0 {
+		config.MaxInterval = 5 * time.Second
+	}
+	if config.MaxBatchCnt <= 0 {
+		config.MaxBatchCnt = 10
+	}
+
 	sender, err := NewTelegramSender(config.Telegram)
 	if err != nil {
-		log.Infof("TelegramSender error: %+v", err)
+		log.Errorf("Failed to create Telegram sender: %v", err)
 		return nil
 	}
+
 	a := &Alerter{
 		LevelEnabler: enabler,
 		enc:          enc,
@@ -68,20 +84,17 @@ func (a *Alerter) With(fields []zapcore.Field) zapcore.Core {
 		return a
 	}
 
-	// 即使 fields 为空也返回新实例
 	clone := &Alerter{
 		LevelEnabler: a.LevelEnabler,
-		enc:          a.enc,
+		enc:          a.enc.Clone(),
 		conf:         a.conf,
 		sender:       a.sender,
 		msgChan:      a.msgChan,
 		stopChan:     a.stopChan,
+		wg:           a.wg,
 	}
 
-	//clone := *a
-
-	// 完全拷贝所有字段
-	clone.fields = make([]zapcore.Field, len(a.fields), len(a.fields)+len(fields))
+	clone.fields = make([]zapcore.Field, len(a.fields))
 	copy(clone.fields, a.fields)
 	clone.fields = append(clone.fields, fields...)
 
@@ -98,9 +111,16 @@ func (a *Alerter) Check(ent zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.Ch
 
 // Write 写入日志
 func (a *Alerter) Write(ent zapcore.Entry, fields []zapcore.Field) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if a.isClosed {
+		return fmt.Errorf("alerter is closed")
+	}
+
 	entryBuf, err := a.enc.EncodeEntry(ent, append(a.fields, fields...))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to encode entry: %w", err)
 	}
 
 	msg := truncateMessage(entryBuf.String(), maxTelegramMsgSize)
@@ -112,9 +132,21 @@ func (a *Alerter) Sync() error { return nil }
 
 // Close 关闭
 func (a *Alerter) Close() error {
+	a.mu.Lock()
+	if a.isClosed {
+		a.mu.Unlock()
+		return nil
+	}
+	a.isClosed = true
 	close(a.stopChan)
+	a.mu.Unlock()
+
 	a.wg.Wait()
-	return a.sender.Close()
+
+	if err := a.sender.Close(); err != nil {
+		return fmt.Errorf("failed to close sender: %w", err)
+	}
+	return nil
 }
 
 func (a *Alerter) enqueueMessage(msg string) error {
@@ -130,44 +162,65 @@ func (a *Alerter) process() {
 	defer a.wg.Done()
 
 	var (
-		ticker  = time.NewTicker(a.conf.MaxInterval)
-		ticker2 = time.NewTicker(time.Millisecond * 200)
+		batch     = make([]string, 0, a.conf.MaxBatchCnt)
+		batchSize int
+		ticker    = time.NewTicker(a.conf.MaxInterval)
 	)
 	defer ticker.Stop()
-	defer ticker2.Stop()
+
+	maxSendRetries := a.conf.MaxRetries // 最大重试次数
+	sendWithRetry := func(msgs []string) {
+		for i := 0; i < maxSendRetries; i++ {
+			if err := a.sender.Send(msgs); err == nil {
+				return
+			}
+			if i < maxSendRetries-1 {
+				time.Sleep(retryInterval)
+			}
+		}
+		log.Errorf("Failed to send batch after %d retries", maxSendRetries)
+	}
+
+	flushBatch := func() {
+		if len(batch) > 0 {
+			sendWithRetry(batch)
+			batch = batch[:0] // 重用slice
+			batchSize = 0
+		}
+	}
+
+	drainQueue := func() {
+		for {
+			select {
+			case msg := <-a.msgChan:
+				if len(msg)+batchSize > maxTelegramMsgSize || len(batch) >= a.conf.MaxBatchCnt {
+					flushBatch()
+				}
+				batch = append(batch, msg)
+				batchSize += len(msg)
+			default:
+				flushBatch()
+				return
+			}
+		}
+	}
 
 	for {
 		select {
 		case <-a.stopChan:
-			// 处理剩余消息
-			for len(a.msgChan) > 0 {
-				a.sendBatch()
+			drainQueue()
+			return
+
+		case msg := <-a.msgChan:
+			if len(msg)+batchSize > maxTelegramMsgSize || len(batch) >= a.conf.MaxBatchCnt {
+				flushBatch()
 			}
-		case <-ticker2.C:
-			a.sendBatch()
+			batch = append(batch, msg)
+			batchSize += len(msg)
+
 		case <-ticker.C:
-			a.sendBatch()
+			flushBatch()
 		}
-	}
-}
-
-func (a *Alerter) sendBatch() {
-	if len(a.msgChan) <= 0 {
-		return
-	}
-
-	batchSize := 0
-	batch := make([]string, 0, a.conf.MaxBatchCnt)
-
-	for i := 0; i < a.conf.MaxBatchCnt; i++ {
-		msg := <-a.msgChan
-		if len(msg)+batchSize > maxTelegramMsgSize || len(batch) >= a.conf.MaxBatchCnt {
-			_ = a.sender.Send(batch)
-			batch = batch[:0] // 重用slice
-			batchSize = 0
-		}
-		batch = append(batch, msg)
-		batchSize += len(msg)
 	}
 }
 

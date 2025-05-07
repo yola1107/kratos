@@ -142,7 +142,7 @@ func createCore(cfg *config.Config, level zap.AtomicLevel, encoderConfig zapcore
 	//alert core
 	if cfg.Alert != nil && cfg.Alert.Enabled {
 		alerter := alert.NewAlerter(
-			zap.LevelEnablerFunc(func(lvl zapcore.Level) bool { return lvl >= cfg.Alert.Telegram.Threshold }),
+			zap.LevelEnablerFunc(func(lvl zapcore.Level) bool { return lvl >= cfg.Alert.Threshold }),
 			zapcore.NewConsoleEncoder(encoderConfig),
 			cfg.Alert)
 		if alerter != nil {
