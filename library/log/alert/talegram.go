@@ -3,9 +3,7 @@ package alert
 import (
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/yola1107/kratos/v2/library/log/config"
 	"github.com/yola1107/kratos/v2/log"
@@ -62,27 +60,4 @@ func (t *TelegramSender) Close() error {
 	t.client.CloseIdleConnections()
 	log.Infof("telegram closed")
 	return nil
-}
-
-const (
-	maxMessageSize = 4096 - 100 // Telegram消息最大长度 4k
-)
-
-// truncateMessage 消息截断
-func truncateMessage(text string) string {
-	if utf8.RuneCountInString(text) <= maxMessageSize {
-		return text
-	}
-
-	// 优先在换行符处截断
-	if idx := strings.LastIndex(text[:maxMessageSize], "\n"); idx > 0 {
-		return text[:idx] + "\n...(truncated)"
-	}
-
-	// 按字符截断
-	runes := []rune(text)
-	if len(runes) > maxMessageSize {
-		runes = runes[:maxMessageSize-100]
-	}
-	return string(runes) + "...(truncated)"
 }
