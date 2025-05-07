@@ -101,7 +101,7 @@ func main() {
 			Threshold:   zapcore.ErrorLevel,
 			QueueSize:   100,
 			MaxInterval: 3 * time.Second,
-			MaxBatchCnt: 10,
+			MaxBatchCnt: 20,
 			MaxRetries:  1,
 			Telegram: config.Telegram{
 				Enabled: true,

@@ -58,6 +58,6 @@ func (t *TelegramSender) Send(messages []string) error {
 
 func (t *TelegramSender) Close() error {
 	t.client.CloseIdleConnections()
-	log.Infof("telegram closed")
+	log.Infof("Telegram closed")
 	return nil
 }
