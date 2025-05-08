@@ -8,6 +8,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/time/rate"
 
@@ -114,6 +115,11 @@ func (a *Alerter) Write(ent zapcore.Entry, fields []zapcore.Field) error {
 		return fmt.Errorf("failed to encode entry: %w", err)
 	}
 
+	// 空消息过滤
+	if len(strings.TrimSpace(entryBuf.String())) == 0 {
+		return nil
+	}
+
 	msg := truncateMessage(a.conf.Prefix+entryBuf.String(), maxTelegramMsgSize)
 	return a.enqueueMessage(msg)
 }
@@ -129,15 +135,14 @@ func (a *Alerter) Close() error {
 		return nil
 	}
 	a.isClosed = true
-	close(a.stopChan)
+	close(a.stopChan) // 先关闭stopChan
 	a.mu.Unlock()
 
-	a.wg.Wait()
+	a.wg.Wait() // 等待处理协程退出
 
-	if err := a.sender.Close(); err != nil {
-		return fmt.Errorf("failed to close sender: %w", err)
-	}
-	return nil
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.sender.Close() // 最后关闭sender
 }
 
 func (a *Alerter) enqueueMessage(msg string) error {
@@ -154,7 +159,12 @@ func (a *Alerter) enqueueMessage(msg string) error {
 }
 
 func (a *Alerter) process() {
-	defer a.wg.Done()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error("alerter process panic", zap.Any("recover", r))
+		}
+		a.wg.Done()
+	}()
 
 	var (
 		batchPool = sync.Pool{
@@ -217,19 +227,17 @@ func (a *Alerter) drainQueue(batch *[]string, batchSize *int) {
 	}
 }
 
-func (a *Alerter) sendWithRetry(msgs []string) {
-	if len(msgs) == 0 {
+func (a *Alerter) sendWithRetry(batch []string) {
+	if len(batch) == 0 {
 		return
 	}
-
 	// 限速控制：阻塞直到可以发送一批
 	if err := a.limiter.Wait(context.Background()); err != nil {
 		log.Errorf("Rate limiter wait error: %v", err)
 		return
 	}
-
 	for i := 0; i < a.conf.MaxRetries; i++ {
-		if err := a.sender.Send(msgs); err == nil {
+		if err := a.sender.Send(batch); err == nil {
 			return
 		}
 		if i < a.conf.MaxRetries-1 {
@@ -239,20 +247,20 @@ func (a *Alerter) sendWithRetry(msgs []string) {
 }
 
 // truncateMessage 消息截断
-func truncateMessage(text string, maxMessageSize int) string {
-	if utf8.RuneCountInString(text) <= maxMessageSize {
+func truncateMessage(text string, maxSize int) string {
+	if utf8.RuneCountInString(text) <= maxSize {
 		return text
 	}
 
 	// 优先在换行符处截断
-	if idx := strings.LastIndex(text[:maxMessageSize], "\n"); idx > 0 {
+	if idx := strings.LastIndex(text[:maxSize], "\n"); idx > 0 {
 		return text[:idx] + "\n...(truncated)"
 	}
 
 	// 按字符截断
 	runes := []rune(text)
-	if len(runes) > maxMessageSize {
-		runes = runes[:maxMessageSize-100]
+	if len(runes) > maxSize {
+		runes = runes[:maxSize-100]
 	}
 	return string(runes) + "...(truncated)"
 }

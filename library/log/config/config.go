@@ -39,7 +39,7 @@ type Alert struct {
 	MaxBatchCnt int           // 最大批量数
 	MaxRetries  int           // 最大重试
 	Prefix      string        // 消息前缀
-	Telegram    Telegram
+	Telegram    *Telegram
 }
 
 type Telegram struct {
@@ -67,11 +67,12 @@ func DefaultConfig() *Config {
 		Alert: &Alert{
 			Enabled:     false,
 			Threshold:   zapcore.ErrorLevel,
-			QueueSize:   100,
 			MaxInterval: 3 * time.Second,
+			QueueSize:   100,
 			MaxBatchCnt: 10,
 			MaxRetries:  1,
-			Telegram: Telegram{
+			Prefix:      "",
+			Telegram: &Telegram{
 				Enabled: false,
 				Token:   "",
 				ChatID:  "",

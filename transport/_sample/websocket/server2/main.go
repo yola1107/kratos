@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/zap/zapcore"
+
 	"github.com/yola1107/kratos/v2"
 	"github.com/yola1107/kratos/v2/library/log/config"
 	"github.com/yola1107/kratos/v2/library/log/zap"
@@ -16,7 +18,6 @@ import (
 	"github.com/yola1107/kratos/v2/transport/grpc"
 	"github.com/yola1107/kratos/v2/transport/http"
 	"github.com/yola1107/kratos/v2/transport/websocket"
-	"go.uber.org/zap/zapcore"
 	//"github.com/yola1107/kratos/contrib/log/zap/v2"
 	//"github.com/yola1107/kratos/contrib/registry/etcd/v2"
 	//etcdv3 "go.etcd.io/etcd/client/v3"
@@ -100,11 +101,11 @@ func main() {
 			Enabled:     true,
 			Threshold:   zapcore.ErrorLevel,
 			QueueSize:   100,
-			MaxInterval: 3 * time.Second,
+			MaxInterval: 5 * time.Second,
 			MaxBatchCnt: 20,
 			MaxRetries:  1,
 			Prefix:      fmt.Sprintf("<%s> ", Name),
-			Telegram: config.Telegram{
+			Telegram: &config.Telegram{
 				Enabled: true,
 				Token:   "abc123",
 				ChatID:  "def456",
