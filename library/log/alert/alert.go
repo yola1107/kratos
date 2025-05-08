@@ -3,6 +3,7 @@ package alert
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -119,12 +120,43 @@ func (a *Alerter) Write(ent zapcore.Entry, fields []zapcore.Field) error {
 		return nil
 	}
 
-	msg := truncateMessage(a.conf.Prefix+entryBuf.String(), maxTelegramMsgSize)
+	x := a.formatMessage(ent)
+	msg := truncateMessage(a.conf.Prefix+x, maxTelegramMsgSize)
+	//msg := truncateMessage(a.conf.Prefix+entryBuf.String(), maxTelegramMsgSize)
 	qm := tagMessage{
 		content: msg,
 		length:  utf8.RuneCountInString(msg),
 	}
 	return a.enqueueMessage(qm)
+}
+
+// formatMessage 统一格式化日志消息
+func (a *Alerter) formatMessage(ent zapcore.Entry) string {
+	// 1. 基础组件
+	timestamp := time.Now().Format("2006-01-02 15:04:05.000")
+	level := fmt.Sprintf("[%s]", strings.ToUpper(ent.Level.String()))
+	caller := fmt.Sprintf("[%s]", filepath.ToSlash(ent.Caller.FullPath()))
+
+	// 2. 颜色处理（仅终端有效）
+	var colorized string
+
+	const (
+		colorRed    = "\033[31m"
+		colorYellow = "\033[33m"
+		colorBlue   = "\033[34m"
+		colorReset  = "\033[0m"
+	)
+
+	colorized = fmt.Sprintf("%s%s%s %s%s%s",
+		colorRed, level, colorReset,
+		colorBlue, caller, colorReset)
+
+	// 3. 结构化输出
+	return fmt.Sprintf("%s %s\n%s",
+		timestamp,
+		colorized,
+		ent.Message,
+	)
 }
 
 // Sync 同步日志

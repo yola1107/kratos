@@ -65,6 +65,8 @@ func (s *server) OnCloseFunc(session *websocket.Session) {
 	s.sessionsMap.Delete(session.ID())
 }
 
+// GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o app main.go
+
 func main() {
 
 	//logger := log.With(log.NewStdLogger(os.Stdout),
@@ -102,7 +104,7 @@ func main() {
 			Threshold:   zapcore.ErrorLevel,
 			QueueSize:   100,
 			MaxInterval: 5 * time.Second,
-			MaxBatchCnt: 20,
+			MaxBatchCnt: 10,
 			MaxRetries:  1,
 			Prefix:      fmt.Sprintf("<%s> ", Name),
 			Telegram: &config.Telegram{
@@ -168,21 +170,21 @@ func main() {
 		//	"span.id", "",
 		//))
 
-		log.SetLogger(log.GetLogger().(*zap.Logger).With("k1", "v1"))
-		log.Info("hello world 1")
-		log.Info("hello world 2")
+		//log.SetLogger(log.GetLogger().(*zap.Logger).With("k1", "v1"))
+		//log.Info("hello world 1")
+		//log.Info("hello world 2")
+		//
+		//helper := log.GetLogger().(*zap.Logger).NewHelper("pwd", "auth")
+		//helper.Info("help test 1")
+		//log.Info("help test 2")
+		//helper.Debugf("help test 3")
+		//
+		//// 设置level
+		//log.Debugf("this is the debug log(1)")
+		//log.GetLogger().(*zap.Logger).SetLevel("info")
+		//log.Debugf("this is the debug log(2)")
 
-		helper := log.GetLogger().(*zap.Logger).NewHelper("pwd", "auth")
-		helper.Info("help test 1")
-		log.Info("help test 2")
-		helper.Debugf("help test 3")
-
-		// 设置level
-		log.Debugf("this is the debug log(1)")
-		log.GetLogger().(*zap.Logger).SetLevel("info")
-		log.Debugf("this is the debug log(2)")
-
-		for i := 0; i < 100; i++ {
+		for i := 0; i < 5; i++ {
 			log.Errorf("测试消息(%d)", i)
 		}
 		log.Errorf("测试消息(end)")
