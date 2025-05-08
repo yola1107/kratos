@@ -16,7 +16,7 @@ type TelegramSender struct {
 }
 
 func NewTelegramSender(config *config.Telegram) (*TelegramSender, error) {
-	if config == nil || !config.Enabled {
+	if config == nil {
 		return nil, fmt.Errorf("telegram sender is disabled")
 	}
 	if config.Token == "" || config.ChatID == "" {

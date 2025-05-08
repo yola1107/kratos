@@ -106,9 +106,8 @@ func main() {
 			MaxRetries:  1,
 			Prefix:      fmt.Sprintf("<%s> ", Name),
 			Telegram: &config.Telegram{
-				Enabled: true,
-				Token:   "abc123",
-				ChatID:  "def456",
+				Token:  "7945687310:AAHA9tkUPV1ELEsVSLoDZe_Cc76wp7YdDVI",
+				ChatID: "-4672893880",
 			},
 		},
 	})
@@ -169,40 +168,24 @@ func main() {
 		//	"span.id", "",
 		//))
 
-		//log.SetLogger(log.GetLogger().(*zap.Logger).With("k1", "v1"))
-		//log.Info("hello world 1")
-		//log.Info("hello world 2")
-		//
-		//helper := log.GetLogger().(*zap.Logger).NewHelper("pwd", "auth")
-		//helper.Info("help test 1")
-		//log.Info("help test 2")
-		//helper.Debugf("help test 3")
-		//
-		//// 设置level
-		//log.Debugf("this is the debug log(1)")
-		//log.GetLogger().(*zap.Logger).SetLevel("info")
-		//log.Debugf("this is the debug log(2)")
-		//
+		log.SetLogger(log.GetLogger().(*zap.Logger).With("k1", "v1"))
+		log.Info("hello world 1")
+		log.Info("hello world 2")
+
+		helper := log.GetLogger().(*zap.Logger).NewHelper("pwd", "auth")
+		helper.Info("help test 1")
+		log.Info("help test 2")
+		helper.Debugf("help test 3")
+
+		// 设置level
+		log.Debugf("this is the debug log(1)")
+		log.GetLogger().(*zap.Logger).SetLevel("info")
+		log.Debugf("this is the debug log(2)")
+
 		for i := 0; i < 100; i++ {
 			log.Errorf("测试消息(%d)", i)
 		}
 		log.Errorf("测试消息(end)")
-
-		//count := 0
-		//for count < 1 {
-		//	go func() {
-		//		for i := 0; i < 10; i++ {
-		//			//time.Sleep(time.Millisecond * time.Duration(rand.Int()%1000+500))
-		//			//log.Errorf("group(%d) 测试消息(%d) %+v", count, i, time.Now().Nanosecond())
-		//			log.Errorf("group(%d) 测试消息(%d) %+v", count, i, time.Now().Format("05.000000"))
-		//
-		//			time.Sleep(time.Millisecond * time.Duration(rand.Int()%500))
-		//		}
-		//		count++
-		//		time.Sleep(time.Second * time.Duration(rand.Int()%10))
-		//	}()
-		//	//log.Errorf("测试消息(end)")
-		//}
 
 		defer func() {
 			if r := recover(); r != nil {

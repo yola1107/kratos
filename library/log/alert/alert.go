@@ -3,6 +3,7 @@ package alert
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -37,7 +38,7 @@ type Alerter struct {
 	msgChan  chan tagMessage
 	stopChan chan struct{}
 	wg       sync.WaitGroup
-	mu       sync.RWMutex
+	closeMu  sync.RWMutex
 	isClosed bool
 	limiter  *rate.Limiter // 限速器
 }
@@ -81,9 +82,6 @@ func (a *Alerter) With(fields []zapcore.Field) zapcore.Core {
 		return a
 	}
 
-	a.mu.Lock()
-	defer a.mu.Unlock()
-
 	clone := *a
 	clone.enc = a.enc.Clone()
 	clone.fields = make([]zapcore.Field, len(a.fields), len(a.fields)+len(fields))
@@ -103,10 +101,11 @@ func (a *Alerter) Check(ent zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.Ch
 
 // Write 写入日志
 func (a *Alerter) Write(ent zapcore.Entry, fields []zapcore.Field) error {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
+	a.closeMu.Lock()
+	closed := a.isClosed
+	a.closeMu.Unlock()
 
-	if a.isClosed {
+	if closed {
 		return fmt.Errorf("alerter is closed")
 	}
 
@@ -121,7 +120,11 @@ func (a *Alerter) Write(ent zapcore.Entry, fields []zapcore.Field) error {
 	}
 
 	msg := truncateMessage(a.conf.Prefix+entryBuf.String(), maxTelegramMsgSize)
-	return a.enqueueMessage(msg)
+	qm := tagMessage{
+		content: msg,
+		length:  utf8.RuneCountInString(msg),
+	}
+	return a.enqueueMessage(qm)
 }
 
 // Sync 同步日志
@@ -129,29 +132,22 @@ func (a *Alerter) Sync() error { return nil }
 
 // Close 关闭
 func (a *Alerter) Close() error {
-	a.mu.Lock()
+	a.closeMu.Lock()
+	defer a.closeMu.Unlock()
+
 	if a.isClosed {
-		a.mu.Unlock()
 		return nil
 	}
 	a.isClosed = true
 	close(a.stopChan) // 先关闭stopChan
-	a.mu.Unlock()
 
-	a.wg.Wait() // 等待处理协程退出
-
-	a.mu.Lock()
-	defer a.mu.Unlock()
+	a.wg.Wait()
 	return a.sender.Close() // 最后关闭sender
 }
 
-func (a *Alerter) enqueueMessage(msg string) error {
-	qm := tagMessage{
-		content: msg,
-		length:  utf8.RuneCountInString(msg),
-	}
+func (a *Alerter) enqueueMessage(msg tagMessage) error {
 	select {
-	case a.msgChan <- qm:
+	case a.msgChan <- msg:
 		return nil
 	default:
 		return fmt.Errorf("queue full (capacity=%d)", a.conf.QueueSize)
@@ -161,7 +157,7 @@ func (a *Alerter) enqueueMessage(msg string) error {
 func (a *Alerter) process() {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Error("alerter process panic", zap.Any("recover", r))
+			log.Error("alerter process panic", zap.Any("recover", r), zap.ByteString("stack", debug.Stack()))
 		}
 		a.wg.Done()
 	}()
@@ -181,7 +177,7 @@ func (a *Alerter) process() {
 		if len(batch) > 0 {
 			a.sendWithRetry(batch)
 		}
-		batchPool.Put(batch[:0:cap(batch)])
+		batchPool.Put(batch[:0])
 	}()
 
 	for {
