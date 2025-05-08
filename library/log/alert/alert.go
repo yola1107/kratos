@@ -1,6 +1,7 @@
 package alert
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -8,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/time/rate"
 
 	"github.com/yola1107/kratos/v2/library/log/config"
 	"github.com/yola1107/kratos/v2/log"
@@ -31,11 +33,17 @@ type Alerter struct {
 
 	conf     *config.Alert
 	sender   Sender
-	msgChan  chan string
+	msgChan  chan tagMessage
 	stopChan chan struct{}
 	wg       sync.WaitGroup
 	mu       sync.RWMutex
 	isClosed bool
+	limiter  *rate.Limiter // 限速器
+}
+
+type tagMessage struct {
+	content string
+	length  int
 }
 
 // NewAlerter 创建报警器
@@ -55,8 +63,9 @@ func NewAlerter(enabler zapcore.LevelEnabler, enc zapcore.Encoder, conf *config.
 		enc:          enc,
 		conf:         conf,
 		sender:       sender,
-		msgChan:      make(chan string, conf.QueueSize),
+		msgChan:      make(chan tagMessage, conf.QueueSize),
 		stopChan:     make(chan struct{}),
+		limiter:      rate.NewLimiter(rate.Every(300*time.Millisecond), 1),
 	}
 
 	a.wg.Add(1)
@@ -132,8 +141,12 @@ func (a *Alerter) Close() error {
 }
 
 func (a *Alerter) enqueueMessage(msg string) error {
+	qm := tagMessage{
+		content: msg,
+		length:  utf8.RuneCountInString(msg),
+	}
 	select {
-	case a.msgChan <- msg:
+	case a.msgChan <- qm:
 		return nil
 	default:
 		return fmt.Errorf("queue full (capacity=%d)", a.conf.QueueSize)
@@ -168,12 +181,12 @@ func (a *Alerter) process() {
 			return
 
 		case msg := <-a.msgChan:
-			if a.shouldFlush(len(msg), batchSize, len(batch)) {
+			if a.shouldFlush(msg.length, batchSize, len(batch)) {
 				a.sendWithRetry(batch)
 				batch, batchSize = batch[:0], 0
 			}
-			batch = append(batch, msg)
-			batchSize += len(msg)
+			batch = append(batch, msg.content)
+			batchSize += msg.length
 
 		case <-ticker.C:
 			if len(batch) > 0 {
@@ -192,12 +205,12 @@ func (a *Alerter) drainQueue(batch *[]string, batchSize *int) {
 	for {
 		select {
 		case msg := <-a.msgChan:
-			if a.shouldFlush(len(msg), *batchSize, len(*batch)) {
+			if a.shouldFlush(msg.length, *batchSize, len(*batch)) {
 				a.sendWithRetry(*batch)
 				*batch, *batchSize = (*batch)[:0], 0
 			}
-			*batch = append(*batch, msg)
-			*batchSize += len(msg)
+			*batch = append(*batch, msg.content)
+			*batchSize += msg.length
 		default:
 			return
 		}
@@ -209,11 +222,16 @@ func (a *Alerter) sendWithRetry(msgs []string) {
 		return
 	}
 
+	// 限速控制：阻塞直到可以发送一批
+	if err := a.limiter.Wait(context.Background()); err != nil {
+		log.Errorf("Rate limiter wait error: %v", err)
+		return
+	}
+
 	for i := 0; i < a.conf.MaxRetries; i++ {
 		if err := a.sender.Send(msgs); err == nil {
 			return
 		}
-
 		if i < a.conf.MaxRetries-1 {
 			time.Sleep(time.Duration(i+1) * time.Second)
 		}
