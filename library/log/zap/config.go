@@ -3,6 +3,7 @@ package zap
 import (
 	"time"
 
+	"github.com/yola1107/kratos/v2/log"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -16,7 +17,14 @@ const (
 type Option func(*Config)
 
 func WithMode(m Mode) Option {
-	return func(c *Config) { c.Mode = m }
+	return func(c *Config) {
+		switch m {
+		case Development, Production:
+			c.Mode = m
+		default:
+			log.Warnf("Unknow Logger Mode(%v)", m)
+		}
+	}
 }
 
 func WithLevel(level string) Option {
@@ -31,41 +39,65 @@ func WithFilename(filename string) Option {
 	return func(c *Config) { c.Filename = filename }
 }
 
-func WithErrorFileName(filename string) Option {
+func WithErrorFilename(filename string) Option {
 	return func(c *Config) { c.ErrorFilename = filename }
+}
+
+func WithCompress(compress bool) Option {
+	return func(c *Config) { c.Compress = compress }
 }
 
 func WithThreshold(lv zapcore.Level) Option {
 	return func(c *Config) { c.Alert.Threshold = lv }
 }
 
+func WithMaxInterval(maxInterval time.Duration) Option {
+	return func(c *Config) { c.Alert.MaxInterval = maxInterval }
+}
+
+func WithAlertQueueSize(queueSize int) Option {
+	return func(c *Config) { c.Alert.QueueSize = queueSize }
+}
+
+func WithMaxBatchCnt(maxBatchCnt int) Option {
+	return func(c *Config) { c.Alert.MaxBatchCnt = maxBatchCnt }
+}
+
+func WithMaxRetries(maxRetries int) Option {
+	return func(c *Config) { c.Alert.MaxRetries = maxRetries }
+}
+
 func WithPrefix(prefix string) Option {
 	return func(c *Config) { c.Alert.Prefix = prefix }
 }
 
-func WithTelegramToken(token string) Option {
+func WithRateLimiter(rate time.Duration) Option {
+	return func(c *Config) { c.Alert.Limiter = rate }
+}
+
+func WithToken(token string) Option {
 	return func(c *Config) { c.Alert.Telegram.Token = token }
 }
 
-func WithTelegramChatID(chatID string) Option {
+func WithChatID(chatID string) Option {
 	return func(c *Config) { c.Alert.Telegram.ChatID = chatID }
 }
 
 type Config struct {
-	Mode          Mode
-	Level         string
-	Directory     string
-	Filename      string
-	ErrorFilename string
-	MaxSize       int
-	MaxAge        int
-	MaxBackups    int
-	FlushInterval time.Duration
-	Compress      bool
-	QueueSize     int
-	PoolSize      int
-	LocalTime     bool
-	Alert         Alert
+	Mode          Mode          // 日志模式：Development("dev") / Production("prod")
+	Level         string        // 日志级别：debug/info/warn/error/dpanic/panic/fatal
+	Directory     string        // 日志目录，开发模式默认"./logs"，生产建议"/var/log/app"
+	Filename      string        // 普通日志文件名，默认"app.log"
+	ErrorFilename string        // 错误日志文件名，默认"app_error.log"（存储error及以上级别日志）
+	MaxSize       int           // 单个日志文件最大大小(MB)，默认200
+	MaxAge        int           // 日志保留天数，默认7
+	MaxBackups    int           // 保留的旧日志文件数量，默认10
+	FlushInterval time.Duration // 日志刷盘间隔，默认3s
+	Compress      bool          // 是否压缩旧日志，默认true
+	QueueSize     int           // 异步日志队列大小，默认2048
+	PoolSize      int           // 内存对象池大小，默认512
+	LocalTime     bool          // 是否使用本地时间命名日志，默认true (false 则使用 UTC 时间）
+	Alert         Alert         // 日志告警配置
 }
 
 type Alert struct {
@@ -75,6 +107,7 @@ type Alert struct {
 	MaxBatchCnt int           // 最大批量数
 	MaxRetries  int           // 最大重试
 	Prefix      string        // 消息前缀
+	Limiter     time.Duration // 限流速率
 	Telegram    Telegram
 }
 
@@ -90,43 +123,10 @@ func DefaultConfig(opts ...Option) *Config {
 		Directory:     "./logs",        //
 		Filename:      "app.log",       // "app.log",
 		ErrorFilename: "app_error.log", // "app_error.log",
-		MaxSize:       50,              // 较小文件大小
-		MaxAge:        7,               // 保留7天
-		MaxBackups:    3,               // 保留3个备份
-		FlushInterval: 1 * time.Second, //
-		Compress:      false,           // 开发环境不压缩
-		LocalTime:     true,            //
-		QueueSize:     512,             // 较小队列
-		PoolSize:      128,
-		//SensitiveKeys: []string{"password", "token", "secret"},
-		Alert: Alert{
-			Threshold:   zapcore.ErrorLevel,
-			MaxInterval: 3 * time.Second,
-			QueueSize:   100,
-			MaxBatchCnt: 10,
-			MaxRetries:  1,
-			Prefix:      "",
-			Telegram:    Telegram{},
-		},
-	}
-	// 应用所有选项
-	for _, opt := range opts {
-		opt(cfg)
-	}
-	return cfg
-}
-
-func DefaultProductionConfig(opts ...Option) *Config {
-	cfg := &Config{
-		Mode:          Production,
-		Level:         "info",          // 生产环境默认info级别
-		Directory:     "/var/log/app",  // "/var/log/app",
-		Filename:      "app.log",       // "app.log",
-		ErrorFilename: "app_error.log", // "app_error.log",
 		MaxSize:       200,             // 单个日志文件最大200MB
 		MaxAge:        7,               // 保留7天
 		MaxBackups:    10,              // 保留10个备份
-		FlushInterval: 3 * time.Second, //
+		FlushInterval: 3 * time.Second, // 刷新间隔
 		Compress:      true,            // 启用压缩
 		LocalTime:     true,            //
 		QueueSize:     2048,            // 增大队列缓冲
@@ -134,15 +134,15 @@ func DefaultProductionConfig(opts ...Option) *Config {
 		//SensitiveKeys: []string{"password", "token", "secret"},
 		Alert: Alert{
 			Threshold:   zapcore.ErrorLevel,
-			MaxInterval: 5 * time.Second,
+			MaxInterval: 3 * time.Second,
 			QueueSize:   2048,
 			MaxBatchCnt: 10,
 			MaxRetries:  1,
 			Prefix:      "",
+			Limiter:     300 * time.Millisecond,
 			Telegram:    Telegram{},
 		},
 	}
-	// 应用所有选项
 	for _, opt := range opts {
 		opt(cfg)
 	}

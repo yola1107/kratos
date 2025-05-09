@@ -139,7 +139,7 @@ func createCore(cfg *Config, level zap.AtomicLevel, encoderConfig zapcore.Encode
 	//alert core
 	if alerter := NewAlerter(
 		zap.LevelEnablerFunc(func(lvl zapcore.Level) bool { return lvl >= cfg.Alert.Threshold }),
-		zapcore.NewConsoleEncoder(encoderConfig),
+		zapcore.NewJSONEncoder(encoderConfig),
 		cfg.Alert); alerter != nil {
 		cores = append(cores, alerter)
 		resources = append(resources, alerter)

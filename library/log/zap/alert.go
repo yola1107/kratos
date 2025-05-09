@@ -7,6 +7,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 
@@ -29,18 +30,17 @@ type Sender interface {
 
 // Alerter 报警器核心
 type Alerter struct {
-	zapcore.LevelEnabler
-	enc    zapcore.Encoder
-	fields []zapcore.Field
+	zapcore.LevelEnabler                 // 日志级别过滤器
+	enc                  zapcore.Encoder // 日志编码器
+	fields               []zapcore.Field // 附加字段
 
-	conf     Alert
-	sender   Sender
-	msgChan  chan tagMessage
-	stopChan chan struct{}
-	wg       sync.WaitGroup
-	closeMu  sync.RWMutex
-	isClosed bool
-	limiter  *rate.Limiter // 限速器
+	conf     Alert            // 告警配置
+	sender   Sender           // 消息发送器（如Telegram）
+	msgChan  chan *tagMessage // 消息队列（带长度标记）
+	stopChan chan struct{}    // 关闭信号
+	wg       sync.WaitGroup   // 协程同步
+	closed   int32            // 是否已关闭
+	limiter  *rate.Limiter    // 限速器（防止消息轰炸）
 }
 
 type tagMessage struct {
@@ -61,9 +61,9 @@ func NewAlerter(enabler zapcore.LevelEnabler, enc zapcore.Encoder, conf Alert) *
 		enc:          enc,
 		conf:         conf,
 		sender:       sender,
-		msgChan:      make(chan tagMessage, conf.QueueSize),
+		msgChan:      make(chan *tagMessage, conf.QueueSize),
 		stopChan:     make(chan struct{}),
-		limiter:      rate.NewLimiter(rate.Every(300*time.Millisecond), 1),
+		limiter:      rate.NewLimiter(rate.Every(conf.Limiter), 1),
 	}
 
 	a.wg.Add(1)
@@ -97,11 +97,7 @@ func (a *Alerter) Check(ent zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.Ch
 
 // Write 写入日志
 func (a *Alerter) Write(ent zapcore.Entry, fields []zapcore.Field) error {
-	a.closeMu.Lock()
-	closed := a.isClosed
-	a.closeMu.Unlock()
-
-	if closed {
+	if atomic.LoadInt32(&a.closed) == 1 {
 		return fmt.Errorf("alerter is closed")
 	}
 
@@ -110,54 +106,45 @@ func (a *Alerter) Write(ent zapcore.Entry, fields []zapcore.Field) error {
 		return nil
 	}
 
-	//entryBuf, err := a.enc.EncodeEntry(ent, append(a.fields, fields...))
-	//if err != nil {
-	//	return fmt.Errorf("failed to encode entry: %w", err)
-	//}
-	//msg := truncateMessage(a.conf.Prefix+entryBuf.String(), maxTelegramMsgSize)
-
 	msg := truncateMessage(a.formatMessage(ent, append(a.fields, fields...)), maxTelegramMsgSize)
-	qm := tagMessage{
-		content: msg,
-		length:  utf8.RuneCountInString(msg),
+
+	select {
+	case a.msgChan <- &tagMessage{content: msg, length: utf8.RuneCountInString(msg)}:
+		return nil
+	default:
+		return fmt.Errorf("queue full (capacity=%d)", a.conf.QueueSize)
 	}
-	return a.enqueueMessage(qm)
 }
 
 // formatMessage 统一格式化日志消息
 func (a *Alerter) formatMessage(ent zapcore.Entry, fields []zapcore.Field) string {
+	var sb strings.Builder
+	sb.Grow(256) // 预分配内存
 
-	// 基础组件
-	timestamp := time.Now().Format("2006-01-02 15:04:05.000")
-	level := fmt.Sprintf("[%s]", strings.ToUpper(ent.Level.String()))
-	caller := fmt.Sprintf("[%s]", filepath.ToSlash(ent.Caller.FullPath()))
-
-	prefix := ""
 	if a.conf.Prefix != "" {
-		prefix = a.conf.Prefix + "  "
+		sb.WriteString("<" + a.conf.Prefix + ">   ")
 	}
 
-	fieldsMsg := ""
+	sb.WriteString(time.Now().Format("2006-01-02 15:04:05.000"))
+	sb.WriteString("    [")
+	sb.WriteString(strings.ToUpper(ent.Level.String()))
+	sb.WriteString("]    [")
+	sb.WriteString(filepath.ToSlash(ent.Caller.FullPath()))
+	sb.WriteString("]\n")
+	sb.WriteString(ent.Message)
+
 	if len(fields) > 0 {
-		fieldsMsg = "{"
-		for i, field := range fields {
-			fieldsMsg += fmt.Sprintf("\"%s\": \"%s\"", field.Key, field.String)
+		sb.WriteString("\n{")
+		for i, f := range fields {
+			sb.WriteString(fmt.Sprintf(`"%s":"%s"`, f.Key, f.String))
 			if i < len(fields)-1 {
-				fieldsMsg += ", "
+				sb.WriteString(", ")
 			}
 		}
-		fieldsMsg += "}"
+		sb.WriteString("}")
 	}
 
-	// 结构化输出
-	return fmt.Sprintf("%s%s    %s    %s\n%s    %s",
-		prefix,
-		timestamp,
-		level,
-		caller,
-		ent.Message,
-		fieldsMsg,
-	)
+	return sb.String()
 }
 
 // Sync 同步日志
@@ -165,62 +152,41 @@ func (a *Alerter) Sync() error { return nil }
 
 // Close 关闭
 func (a *Alerter) Close() error {
-	a.closeMu.Lock()
-	defer a.closeMu.Unlock()
-
-	if a.isClosed {
+	if !atomic.CompareAndSwapInt32(&a.closed, 0, 1) {
 		return nil
 	}
-	a.isClosed = true
 	close(a.stopChan) // 先关闭stopChan
-
 	a.wg.Wait()
 	return a.sender.Close() // 最后关闭sender
-}
-
-func (a *Alerter) enqueueMessage(msg tagMessage) error {
-	select {
-	case a.msgChan <- msg:
-		return nil
-	default:
-		return fmt.Errorf("queue full (capacity=%d)", a.conf.QueueSize)
-	}
 }
 
 func (a *Alerter) process() {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Error("alerter process panic", zap.Any("recover", r), zap.ByteString("stack", debug.Stack()))
+			log.Errorf("alerter panic. recover: %+v, %+v", r, debug.Stack())
 		}
 		a.wg.Done()
 	}()
 
 	var (
-		batchPool = sync.Pool{
-			New: func() interface{} {
-				return make([]string, 0, a.conf.MaxBatchCnt)
-			},
-		}
+		batchPool = sync.Pool{New: func() interface{} { return make([]string, 0, a.conf.MaxBatchCnt) }}
 		batch     = batchPool.Get().([]string)
 		batchSize int
-		ticker    = time.NewTicker(a.conf.MaxInterval)
 	)
-	defer func() {
-		ticker.Stop()
-		if len(batch) > 0 {
-			a.sendWithRetry(batch)
-		}
-		batchPool.Put(batch[:0])
-	}()
+	defer batchPool.Put(batch[:0])
+
+	ticker := time.NewTicker(a.conf.MaxInterval)
+	defer ticker.Stop()
 
 	for {
 		select {
 		case <-a.stopChan:
 			a.drainQueue(&batch, &batchSize)
+			a.sendWithRetry(batch)
 			return
 
 		case msg := <-a.msgChan:
-			if a.shouldFlush(msg.length, batchSize, len(batch)) {
+			if a.needFlush(msg.length, batchSize, len(batch)) {
 				a.sendWithRetry(batch)
 				batch, batchSize = batch[:0], 0
 			}
@@ -236,7 +202,7 @@ func (a *Alerter) process() {
 	}
 }
 
-func (a *Alerter) shouldFlush(msgLen, batchSize, batchCount int) bool {
+func (a *Alerter) needFlush(msgLen, batchSize, batchCount int) bool {
 	return (msgLen+batchSize > maxTelegramMsgSize) || (batchCount >= a.conf.MaxBatchCnt)
 }
 
@@ -244,7 +210,7 @@ func (a *Alerter) drainQueue(batch *[]string, batchSize *int) {
 	for {
 		select {
 		case msg := <-a.msgChan:
-			if a.shouldFlush(msg.length, *batchSize, len(*batch)) {
+			if a.needFlush(msg.length, *batchSize, len(*batch)) {
 				a.sendWithRetry(*batch)
 				*batch, *batchSize = (*batch)[:0], 0
 			}
@@ -260,17 +226,24 @@ func (a *Alerter) sendWithRetry(batch []string) {
 	if len(batch) == 0 {
 		return
 	}
-	// 限速控制：阻塞直到可以发送一批
-	if err := a.limiter.Wait(context.Background()); err != nil {
-		log.Errorf("Rate limiter wait error: %v", err)
-		return
-	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
 	for i := 0; i < a.conf.MaxRetries; i++ {
+		if err := a.limiter.Wait(ctx); err != nil {
+			log.Error("rate limit exceeded", zap.Error(err))
+			break
+		}
+
 		if err := a.sender.Send(batch); err == nil {
 			return
 		}
-		if i < a.conf.MaxRetries-1 {
-			time.Sleep(time.Duration(i+1) * time.Second)
+
+		select {
+		case <-time.After(time.Duration(i+1) * time.Second): // 指数退避
+		case <-ctx.Done():
+			return
 		}
 	}
 }

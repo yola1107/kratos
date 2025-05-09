@@ -17,7 +17,7 @@ type TelegramSender struct {
 
 func NewTelegramSender(config Telegram) (*TelegramSender, error) {
 	if config.Token == "" || config.ChatID == "" {
-		return nil, fmt.Errorf("token or ChatID is empty")
+		return nil, fmt.Errorf("telegram Token or ChatID is empty")
 	}
 
 	return &TelegramSender{
@@ -37,7 +37,7 @@ func NewTelegramSender(config Telegram) (*TelegramSender, error) {
 
 func newHttpProxy() *http.Client {
 
-	proxyURL, err := url.Parse("socks5h://192.168.1.100:7890")
+	proxyURL, err := url.Parse("socks5h://192.168.1.101:7890")
 	if err != nil {
 		fmt.Printf("Invalid proxy URL: %v\n", err)
 		return &http.Client{
@@ -88,6 +88,6 @@ func (t *TelegramSender) Send(messages []string) error {
 
 func (t *TelegramSender) Close() error {
 	t.client.CloseIdleConnections()
-	log.Infof("Telegram closed")
+	log.Infof("Telegram stop.")
 	return nil
 }

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 	"runtime/debug"
 	"sync"
 
@@ -87,32 +86,19 @@ func main() {
 	//}
 	//defer etcdClient.Close()
 
-	//// 生产环境配置
-	//zapLogger := zap.New(&zap.Config{
-	//	Mode:          zap.Production, //zap.Production,    // os.Getenv("APP_ENV")
-	//	Level:         "debug",
-	//	Directory:     "./logs",
-	//	Filename:      "app.log",
-	//	ErrorFilename: "app-error.log",
-	//	MaxSize:       500,
-	//	MaxAge:        30,
-	//	Alert: &zap.Alert{
-	//		Enabled:     true,
-	//		Threshold:   zapcore.ErrorLevel,
-	//		QueueSize:   100,
-	//		MaxInterval: 5 * time.Second,
-	//		MaxBatchCnt: 10,
-	//		MaxRetries:  1,
-	//		Prefix:      fmt.Sprintf("<%s> ", Name),
-	//		Telegram: &zap.Telegram{
-	//			Token:  "7945687310:AAHA9tkUPV1ELEsVSLoDZe_Cc76wp7YdDVI",
-	//			ChatID: "-4672893880",
-	//		},
-	//	},
-	//})
-	//defer zapLogger.Close()
-
-	zapLogger := initLogger()
+	zapLogger := zap.New(zap.DefaultConfig(
+		zap.WithMode(zap.Development),
+		zap.WithDirectory("./logs"),
+		zap.WithFilename(Name+".log"),
+		zap.WithErrorFilename(Name+"_error.log"),
+		zap.WithPrefix(Name),
+		//zap.WithToken(os.Getenv("TG_TOKEN")),
+		//zap.WithChatID(os.Getenv("TG_CHAT_ID")),
+		zap.WithToken("7945687310:AAHA9tkUPV1ELEsVSLoDZe_Cc76wp7YdDVI"),
+		zap.WithChatID("-4672893880"),
+		//zap.WithMaxBatchCnt(1),
+		//zap.WithRateLimiter(time.Second*5),
+	))
 	defer zapLogger.Close()
 
 	//// zap logger
@@ -205,118 +191,41 @@ func main() {
 	}
 }
 
-func initLogger() *zap.Logger {
-	c := zap.DefaultProductionConfig(
-		zap.WithMode(zap.Production),
-		zap.WithDirectory("./logs"),
-		zap.WithFilename(Name+".log"),
-		zap.WithErrorFileName(Name+"_error.log"),
-		zap.WithPrefix("<"+Name+">"+" "),
-		zap.WithTelegramToken(os.Getenv("TG_TOKEN")),
-		zap.WithTelegramChatID(os.Getenv("TG_CHAT_ID")),
-	)
-	zapLogger := zap.New(c)
-	return zapLogger
-}
-
-//	// 生产环境配置
-//	zapLogger := zap.New(&zap.Options{
-//		Mode:          zap.Production, // os.Getenv("APP_ENV")
-//		Level:         "debug",
-//		Directory:     "./logs",
-//		Filename:      "app.log",
-//		ErrorFilename: "app-error.log",
-//		MaxSize:       500,
-//		MaxAge:        30,
-//	})
-//	defer zapLogger.Close()
-
-//	log.With(log.GetLogger(),
-//		"service", "your_service_name",
-//		"version", "v1.0.0",
+//func initLogger() *zap.Logger {
+//	//// 生产环境配置
+//	//zapLogger := zap.New(&zap.Config{
+//	//	Mode:          zap.Production, //zap.Production,    // os.Getenv("APP_ENV")
+//	//	Level:         "debug",
+//	//	Directory:     "./logs",
+//	//	Filename:      "app.log",
+//	//	ErrorFilename: "app-error.log",
+//	//	MaxSize:       500,
+//	//	MaxAge:        30,
+//	//	Alert: zap.Alert{
+//	//
+//	//		Threshold:   zapcore.ErrorLevel,
+//	//		QueueSize:   100,
+//	//		MaxInterval: 5 * time.Second,
+//	//		MaxBatchCnt: 10,
+//	//		MaxRetries:  1,
+//	//		Prefix:      fmt.Sprintf("<%s> ", Name),
+//	//		Telegram: zap.Telegram{
+//	//			Token:  "7945687310:AAHA9tkUPV1ELEsVSLoDZe_Cc76wp7YdDVI",
+//	//			ChatID: "-4672893880",
+//	//		},
+//	//	},
+//	//})
+//	//return zapLogger
+//
+//	c := zap.DefaultConfig(
+//		zap.WithMode(zap.Development), // os.Getenv("APP_ENV")
+//		zap.WithDirectory("./logs"),
+//		zap.WithFilename(Name+".log"),
+//		zap.WithErrorFilename(Name+"_error.log"),
+//		zap.WithPrefix(Name),
+//		zap.WithToken(os.Getenv("TG_TOKEN")),
+//		zap.WithChatID(os.Getenv("TG_CHAT_ID")),
 //	)
-
-//func LoadOptions() (*Options, error) {
-//	opts := DefaultOptions()
-//
-//	// 1. 环境变量覆盖
-//	if err := env.Parse(opts); err != nil {
-//		return nil, fmt.Errorf("parse env config failed: %w", err)
-//	}
-//
-//	// 2. 配置文件加载（示例使用viper）
-//	if err := viper.UnmarshalKey("logging", opts); err != nil {
-//		return nil, fmt.Errorf("unmarshal config failed: %w", err)
-//	}
-//
-//	// 3. 安全校验
-//	if err := opts.Validate(); err != nil {
-//		return nil, fmt.Errorf("config validation failed: %w", err)
-//	}
-//
-//	// 4. 路径标准化
-//	opts.Directory = filepath.Clean(opts.Directory)
-//	if !filepath.IsAbs(opts.Directory) {
-//		opts.Directory = filepath.Join(defaultBaseDir, opts.Directory)
-//	}
-//
-//	return opts, nil
-//}
-//
-//func InitLogger() *zap.Config {
-//	m := os.Getenv("APP_LOGGER_MODE")
-//
-//	////生产服
-//	if m == "pord" {
-//		return &zap.Config{
-//			Mode:          zap.Production,
-//			Level:         "info", // 生产环境默认info级别
-//			Directory:     "/var/log/app",
-//			Filename:      "app.log",
-//			ErrorFilename: "error.log",
-//			MaxSize:       200, // 单个日志文件最大200MB
-//			MaxAge:        7,   // 保留7天
-//			MaxBackups:    10,  // 保留10个备份
-//			FlushInterval: 3 * time.Second,
-//			Compress:      true, // 启用压缩
-//			LocalTime:     true,
-//			QueueSize:     2048, // 增大队列缓冲
-//			PoolSize:      512,  // 更大的对象池
-//			SensitiveKeys: []string{"password", "token", "secret"},
-//			Telegram: &zap.TelegramConfig{
-//				Enabled:   true,
-//				Token:     os.Getenv("TG_PROD_TOKEN"),
-//				ChatID:    os.Getenv("TG_PROD_CHAT_ID"),
-//				Threshold: zapcore.ErrorLevel,
-//				QueueSize: 2048,            // 更大的报警队列
-//				RateLimit: 5 * time.Second, // 消息报错间隔
-//			},
-//		}
-//	}
-//
-//	return &zap.Config{
-//		Mode:          zap.Development,
-//		Level:         "debug", // 开发环境更详细日志
-//		Directory:     "./logs",
-//		Filename:      "app.log",
-//		ErrorFilename: "error.log",
-//		MaxSize:       50, // 较小文件大小
-//		MaxAge:        7,  // 保留7天
-//		MaxBackups:    3,  // 保留3个备份
-//		FlushInterval: 1 * time.Second,
-//		Compress:      false, // 开发环境不压缩
-//		LocalTime:     true,
-//		QueueSize:     512, // 较小队列
-//		PoolSize:      128,
-//		SensitiveKeys: []string{"password"},
-//		Telegram: &zap.TelegramConfig{
-//			Enabled:   true,
-//			Token:     os.Getenv("TG_DEV_TOKEN"),
-//			ChatID:    os.Getenv("TG_DEV_CHAT_ID"),
-//			Threshold: zapcore.ErrorLevel,
-//			QueueSize: 100,
-//			RateLimit: 3000 * time.Millisecond,
-//		},
-//	}
-//
+//	zapLogger := zap.New(c)
+//	return zapLogger
 //}
