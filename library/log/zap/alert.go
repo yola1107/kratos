@@ -2,8 +2,8 @@ package zap
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -39,7 +39,7 @@ type Alerter struct {
 	msgChan  chan *tagMessage // 消息队列（带长度标记）
 	stopChan chan struct{}    // 关闭信号
 	wg       sync.WaitGroup   // 协程同步
-	closed   int32            // 是否已关闭
+	closed   atomic.Bool      // 是否已关闭
 	limiter  *rate.Limiter    // 限速器（防止消息轰炸）
 }
 
@@ -80,9 +80,7 @@ func (a *Alerter) With(fields []zapcore.Field) zapcore.Core {
 
 	clone := *a
 	clone.enc = a.enc.Clone()
-	clone.fields = make([]zapcore.Field, len(a.fields), len(a.fields)+len(fields))
-	copy(clone.fields, a.fields)
-	clone.fields = append(clone.fields, fields...)
+	clone.fields = append(append([]zapcore.Field{}, a.fields...), fields...)
 
 	return &clone
 }
@@ -97,7 +95,7 @@ func (a *Alerter) Check(ent zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.Ch
 
 // Write 写入日志
 func (a *Alerter) Write(ent zapcore.Entry, fields []zapcore.Field) error {
-	if atomic.LoadInt32(&a.closed) == 1 {
+	if a.closed.Load() {
 		return fmt.Errorf("alerter is closed")
 	}
 
@@ -106,7 +104,11 @@ func (a *Alerter) Write(ent zapcore.Entry, fields []zapcore.Field) error {
 		return nil
 	}
 
-	msg := truncateMessage(a.formatMessage(ent, append(a.fields, fields...)), maxTelegramMsgSize)
+	entryBuf, err := a.enc.EncodeEntry(ent, append(append(a.fields, fields...), zap.String("prefix", a.conf.Prefix)))
+	if err != nil {
+		return fmt.Errorf("failed to encode entry: %w", err)
+	}
+	msg := truncateMessage(formatJSONString(entryBuf.String()), maxTelegramMsgSize)
 
 	select {
 	case a.msgChan <- &tagMessage{content: msg, length: utf8.RuneCountInString(msg)}:
@@ -116,35 +118,17 @@ func (a *Alerter) Write(ent zapcore.Entry, fields []zapcore.Field) error {
 	}
 }
 
-// formatMessage 统一格式化日志消息
-func (a *Alerter) formatMessage(ent zapcore.Entry, fields []zapcore.Field) string {
-	var sb strings.Builder
-	sb.Grow(256) // 预分配内存
-
-	if a.conf.Prefix != "" {
-		sb.WriteString("<" + a.conf.Prefix + ">   ")
+func formatJSONString(input string) string {
+	var obj interface{}
+	if err := json.Unmarshal([]byte(input), &obj); err != nil {
+		return input // 不是JSON则原样返回
 	}
 
-	sb.WriteString(time.Now().Format("2006-01-02 15:04:05.000"))
-	sb.WriteString("    [")
-	sb.WriteString(strings.ToUpper(ent.Level.String()))
-	sb.WriteString("]    [")
-	sb.WriteString(filepath.ToSlash(ent.Caller.FullPath()))
-	sb.WriteString("]\n")
-	sb.WriteString(ent.Message)
-
-	if len(fields) > 0 {
-		sb.WriteString("\n{")
-		for i, f := range fields {
-			sb.WriteString(fmt.Sprintf(`"%s":"%s"`, f.Key, f.String))
-			if i < len(fields)-1 {
-				sb.WriteString(", ")
-			}
-		}
-		sb.WriteString("}")
+	prettyJSON, err := json.MarshalIndent(obj, "", "  ")
+	if err != nil {
+		return input
 	}
-
-	return sb.String()
+	return string(prettyJSON)
 }
 
 // Sync 同步日志
@@ -152,7 +136,7 @@ func (a *Alerter) Sync() error { return nil }
 
 // Close 关闭
 func (a *Alerter) Close() error {
-	if !atomic.CompareAndSwapInt32(&a.closed, 0, 1) {
+	if !a.closed.CompareAndSwap(false, true) {
 		return nil
 	}
 	close(a.stopChan) // 先关闭stopChan
@@ -163,7 +147,7 @@ func (a *Alerter) Close() error {
 func (a *Alerter) process() {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Errorf("alerter panic. recover: %+v, %+v", r, debug.Stack())
+			log.Errorf("alerter panic in process goroutine: %+v\n%s", r, debug.Stack())
 		}
 		a.wg.Done()
 	}()
@@ -264,5 +248,5 @@ func truncateMessage(text string, maxSize int) string {
 	if len(runes) > maxSize {
 		runes = runes[:maxSize-100]
 	}
-	return string(runes) + "...(truncated)"
+	return string(runes) + fmt.Sprintf("...(truncated, length=%d)", len(runes))
 }
