@@ -353,6 +353,7 @@ func (c *Client) readPump() {
 				log.Warnf("read error: %v", err)
 				c.safeReconnect()
 			}
+			log.Warnf("close client by an err: %v", err)
 			return
 		}
 

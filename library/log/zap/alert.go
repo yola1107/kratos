@@ -99,11 +99,6 @@ func (a *Alerter) Write(ent zapcore.Entry, fields []zapcore.Field) error {
 		return fmt.Errorf("alerter is closed")
 	}
 
-	// 空消息过滤
-	if len(strings.TrimSpace(ent.Message)) == 0 {
-		return nil
-	}
-
 	entryBuf, err := a.enc.EncodeEntry(ent, append(append(a.fields, fields...), zap.String("prefix", a.conf.Prefix)))
 	if err != nil {
 		return fmt.Errorf("failed to encode entry: %w", err)

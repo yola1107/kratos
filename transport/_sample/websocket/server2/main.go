@@ -86,7 +86,21 @@ func main() {
 	//}
 	//defer etcdClient.Close()
 
-	zapLogger := loadLogger()
+	//zapLogger := loadLogger()
+	zapLogger := zap.New(zap.DefaultConfig(
+		zap.WithMode(zap.Production),
+		zap.WithDirectory("./logs"),
+		zap.WithFilename(Name+".log"),
+		zap.WithErrorFilename(Name+"_error.log"),
+		zap.WithPrefix(Name),
+		//zap.WithToken(os.Getenv("TG_TOKEN")),
+		//zap.WithChatID(os.Getenv("TG_CHAT_ID")),
+		zap.WithToken("7945687310:AAHA9tkUPV1ELEsVSLoDZe_Cc76wp7YdDVI"),
+		zap.WithChatID("-4672893880"),
+		//zap.WithMaxBatchCnt(1),
+		//zap.WithRateLimiter(time.Second*5),
+		//zap.WithThreshold(zapcore.WarnLevel),
+	))
 	defer zapLogger.Close()
 
 	//// zap logger
@@ -168,7 +182,6 @@ func main() {
 			if r := recover(); r != nil {
 				x := fmt.Sprintf("==>案发时发生分解拉萨附近爱上了放假哦文件 书法家欧萨附件是浪费十六分静安寺分厘卡撒酒疯 发生panic:%v , \n%s", r, debug.Stack())
 				log.Errorf("%s", x)
-				//log.Errorf("==>案发时发生分解拉萨附近爱上了放假哦文件 书法家欧萨附件是浪费十六分静安寺分厘卡撒酒疯 发生panic:%v , \n%s", r, debug.Stack())
 			}
 		}()
 		//panic("abc")

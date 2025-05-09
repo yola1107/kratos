@@ -36,7 +36,22 @@ func main() {
 	//})
 	//defer zapLogger.Close()
 
-	zapLogger := zap.New(nil)
+	//zapLogger := zap.New(nil)
+	Name := "ws-cli"
+	zapLogger := zap.New(zap.DefaultConfig(
+		zap.WithMode(zap.Development),
+		zap.WithDirectory("./logs"),
+		zap.WithFilename(Name+".log"),
+		zap.WithErrorFilename(Name+"_error.log"),
+		zap.WithPrefix(Name),
+		//zap.WithToken(os.Getenv("TG_TOKEN")),
+		//zap.WithChatID(os.Getenv("TG_CHAT_ID")),
+		zap.WithToken("7945687310:AAHA9tkUPV1ELEsVSLoDZe_Cc76wp7YdDVI"),
+		zap.WithChatID("-4672893880"),
+		//zap.WithMaxBatchCnt(1),
+		//zap.WithRateLimiter(time.Second*5),
+		//zap.WithThreshold(zapcore.WarnLevel),
+	))
 	defer zapLogger.Close()
 
 	log.SetLogger(zapLogger)
