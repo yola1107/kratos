@@ -23,15 +23,15 @@ func NewTelegramSender(config Telegram) (*TelegramSender, error) {
 	return &TelegramSender{
 		Token:  config.Token,
 		ChatID: config.ChatID,
-		//client: &http.Client{
-		//	Timeout: 5 * time.Second,
-		//	Transport: &http.Transport{
-		//		MaxIdleConns:       10,
-		//		IdleConnTimeout:    10 * time.Second,
-		//		DisableCompression: true,
-		//	}},
+		client: &http.Client{
+			Timeout: 5 * time.Second,
+			Transport: &http.Transport{
+				MaxIdleConns:       10,
+				IdleConnTimeout:    10 * time.Second,
+				DisableCompression: true,
+			}},
 
-		client: newHttpProxy(),
+		//client: newHttpProxy(),
 	}, nil
 }
 
