@@ -1,4 +1,4 @@
-package alert
+package zap
 
 import (
 	"context"
@@ -14,7 +14,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/time/rate"
 
-	"github.com/yola1107/kratos/v2/library/log/config"
 	"github.com/yola1107/kratos/v2/log"
 )
 
@@ -34,7 +33,7 @@ type Alerter struct {
 	enc    zapcore.Encoder
 	fields []zapcore.Field
 
-	conf     *config.Alert
+	conf     Alert
 	sender   Sender
 	msgChan  chan tagMessage
 	stopChan chan struct{}
@@ -50,14 +49,10 @@ type tagMessage struct {
 }
 
 // NewAlerter 创建报警器
-func NewAlerter(enabler zapcore.LevelEnabler, enc zapcore.Encoder, conf *config.Alert) *Alerter {
-	if conf == nil || !conf.Enabled {
-		return nil
-	}
-
+func NewAlerter(enabler zapcore.LevelEnabler, enc zapcore.Encoder, conf Alert) *Alerter {
 	sender, err := NewTelegramSender(conf.Telegram)
 	if err != nil {
-		log.Errorf("Failed to create Telegram sender: %v", err)
+		log.Warnf("Failed to create Alerter: %v", err)
 		return nil
 	}
 
@@ -110,19 +105,18 @@ func (a *Alerter) Write(ent zapcore.Entry, fields []zapcore.Field) error {
 		return fmt.Errorf("alerter is closed")
 	}
 
-	entryBuf, err := a.enc.EncodeEntry(ent, append(a.fields, fields...))
-	if err != nil {
-		return fmt.Errorf("failed to encode entry: %w", err)
-	}
-
 	// 空消息过滤
-	if len(strings.TrimSpace(entryBuf.String())) == 0 {
+	if len(strings.TrimSpace(ent.Message)) == 0 {
 		return nil
 	}
 
-	x := a.formatMessage(ent)
-	msg := truncateMessage(a.conf.Prefix+x, maxTelegramMsgSize)
+	//entryBuf, err := a.enc.EncodeEntry(ent, append(a.fields, fields...))
+	//if err != nil {
+	//	return fmt.Errorf("failed to encode entry: %w", err)
+	//}
 	//msg := truncateMessage(a.conf.Prefix+entryBuf.String(), maxTelegramMsgSize)
+
+	msg := truncateMessage(a.formatMessage(ent, append(a.fields, fields...)), maxTelegramMsgSize)
 	qm := tagMessage{
 		content: msg,
 		length:  utf8.RuneCountInString(msg),
@@ -131,31 +125,38 @@ func (a *Alerter) Write(ent zapcore.Entry, fields []zapcore.Field) error {
 }
 
 // formatMessage 统一格式化日志消息
-func (a *Alerter) formatMessage(ent zapcore.Entry) string {
-	// 1. 基础组件
+func (a *Alerter) formatMessage(ent zapcore.Entry, fields []zapcore.Field) string {
+
+	// 基础组件
 	timestamp := time.Now().Format("2006-01-02 15:04:05.000")
 	level := fmt.Sprintf("[%s]", strings.ToUpper(ent.Level.String()))
 	caller := fmt.Sprintf("[%s]", filepath.ToSlash(ent.Caller.FullPath()))
 
-	// 2. 颜色处理（仅终端有效）
-	var colorized string
+	prefix := ""
+	if a.conf.Prefix != "" {
+		prefix = a.conf.Prefix + "  "
+	}
 
-	const (
-		colorRed    = "\033[31m"
-		colorYellow = "\033[33m"
-		colorBlue   = "\033[34m"
-		colorReset  = "\033[0m"
-	)
+	fieldsMsg := ""
+	if len(fields) > 0 {
+		fieldsMsg = "{"
+		for i, field := range fields {
+			fieldsMsg += fmt.Sprintf("\"%s\": \"%s\"", field.Key, field.String)
+			if i < len(fields)-1 {
+				fieldsMsg += ", "
+			}
+		}
+		fieldsMsg += "}"
+	}
 
-	colorized = fmt.Sprintf("%s%s%s %s%s%s",
-		colorRed, level, colorReset,
-		colorBlue, caller, colorReset)
-
-	// 3. 结构化输出
-	return fmt.Sprintf("%s %s\n%s",
+	// 结构化输出
+	return fmt.Sprintf("%s%s    %s    %s\n%s    %s",
+		prefix,
 		timestamp,
-		colorized,
+		level,
+		caller,
 		ent.Message,
+		fieldsMsg,
 	)
 }
 

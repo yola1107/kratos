@@ -3,14 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"runtime/debug"
 	"sync"
-	"time"
-
-	"go.uber.org/zap/zapcore"
 
 	"github.com/yola1107/kratos/v2"
-	"github.com/yola1107/kratos/v2/library/log/config"
 	"github.com/yola1107/kratos/v2/library/log/zap"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/middleware/recovery"
@@ -90,29 +87,32 @@ func main() {
 	//}
 	//defer etcdClient.Close()
 
-	// 生产环境配置
-	zapLogger := zap.New(&config.Config{
-		Mode:          config.Production, //zap.Production,    // os.Getenv("APP_ENV")
-		Level:         "debug",
-		Directory:     "./logs",
-		Filename:      "app.log",
-		ErrorFilename: "app-error.log",
-		MaxSize:       500,
-		MaxAge:        30,
-		Alert: &config.Alert{
-			Enabled:     true,
-			Threshold:   zapcore.ErrorLevel,
-			QueueSize:   100,
-			MaxInterval: 5 * time.Second,
-			MaxBatchCnt: 10,
-			MaxRetries:  1,
-			Prefix:      fmt.Sprintf("<%s> ", Name),
-			Telegram: &config.Telegram{
-				Token:  "7945687310:AAHA9tkUPV1ELEsVSLoDZe_Cc76wp7YdDVI",
-				ChatID: "-4672893880",
-			},
-		},
-	})
+	//// 生产环境配置
+	//zapLogger := zap.New(&zap.Config{
+	//	Mode:          zap.Production, //zap.Production,    // os.Getenv("APP_ENV")
+	//	Level:         "debug",
+	//	Directory:     "./logs",
+	//	Filename:      "app.log",
+	//	ErrorFilename: "app-error.log",
+	//	MaxSize:       500,
+	//	MaxAge:        30,
+	//	Alert: &zap.Alert{
+	//		Enabled:     true,
+	//		Threshold:   zapcore.ErrorLevel,
+	//		QueueSize:   100,
+	//		MaxInterval: 5 * time.Second,
+	//		MaxBatchCnt: 10,
+	//		MaxRetries:  1,
+	//		Prefix:      fmt.Sprintf("<%s> ", Name),
+	//		Telegram: &zap.Telegram{
+	//			Token:  "7945687310:AAHA9tkUPV1ELEsVSLoDZe_Cc76wp7YdDVI",
+	//			ChatID: "-4672893880",
+	//		},
+	//	},
+	//})
+	//defer zapLogger.Close()
+
+	zapLogger := initLogger()
 	defer zapLogger.Close()
 
 	//// zap logger
@@ -184,7 +184,8 @@ func main() {
 		//log.GetLogger().(*zap.Logger).SetLevel("info")
 		//log.Debugf("this is the debug log(2)")
 
-		for i := 0; i < 5; i++ {
+		log.Errorf("")
+		for i := 0; i < 10; i++ {
 			log.Errorf("测试消息(%d)", i)
 		}
 		log.Errorf("测试消息(end)")
@@ -192,7 +193,7 @@ func main() {
 		defer func() {
 			if r := recover(); r != nil {
 				x := fmt.Sprintf("==>案发时发生分解拉萨附近爱上了放假哦文件 书法家欧萨附件是浪费十六分静安寺分厘卡撒酒疯 发生panic:%v , \n%s", r, debug.Stack())
-				log.Errorf("%d %s", len(x), x)
+				log.Errorf("%s", x)
 				//log.Errorf("==>案发时发生分解拉萨附近爱上了放假哦文件 书法家欧萨附件是浪费十六分静安寺分厘卡撒酒疯 发生panic:%v , \n%s", r, debug.Stack())
 			}
 		}()
@@ -202,6 +203,20 @@ func main() {
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func initLogger() *zap.Logger {
+	c := zap.DefaultProductionConfig(
+		zap.WithMode(zap.Production),
+		zap.WithDirectory("./logs"),
+		zap.WithFilename(Name+".log"),
+		zap.WithErrorFileName(Name+"_error.log"),
+		zap.WithPrefix("<"+Name+">"+" "),
+		zap.WithTelegramToken(os.Getenv("TG_TOKEN")),
+		zap.WithTelegramChatID(os.Getenv("TG_CHAT_ID")),
+	)
+	zapLogger := zap.New(c)
+	return zapLogger
 }
 
 //	// 生产环境配置

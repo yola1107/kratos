@@ -1,4 +1,4 @@
-package alert
+package zap
 
 import (
 	"fmt"
@@ -6,25 +6,23 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/yola1107/kratos/v2/library/log/config"
 	"github.com/yola1107/kratos/v2/log"
 )
 
 type TelegramSender struct {
-	config *config.Telegram
+	Token  string
+	ChatID string
 	client *http.Client
 }
 
-func NewTelegramSender(config *config.Telegram) (*TelegramSender, error) {
-	if config == nil {
-		return nil, fmt.Errorf("telegram sender is disabled")
-	}
+func NewTelegramSender(config Telegram) (*TelegramSender, error) {
 	if config.Token == "" || config.ChatID == "" {
 		return nil, fmt.Errorf("token or ChatID is empty")
 	}
 
 	return &TelegramSender{
-		config: config,
+		Token:  config.Token,
+		ChatID: config.ChatID,
 		//client: &http.Client{
 		//	Timeout: 5 * time.Second,
 		//	Transport: &http.Transport{
@@ -39,7 +37,7 @@ func NewTelegramSender(config *config.Telegram) (*TelegramSender, error) {
 
 func newHttpProxy() *http.Client {
 
-	proxyURL, err := url.Parse("socks5h://192.168.1.101:7890")
+	proxyURL, err := url.Parse("socks5h://192.168.1.100:7890")
 	if err != nil {
 		fmt.Printf("Invalid proxy URL: %v\n", err)
 		return &http.Client{
@@ -62,16 +60,6 @@ func newHttpProxy() *http.Client {
 	}
 	return client
 }
-func (t *TelegramSender) sendToTelegram(msg string) error {
-	apiURL := fmt.Sprintf(
-		"https://api.telegram.org/bot%s/sendMessage?chat_id=%s&parse_mode=HTML&text=%s",
-		t.config.Token,
-		t.config.ChatID,
-		url.QueryEscape(msg),
-	)
-	_, err := http.Get(apiURL)
-	return err
-}
 
 func (t *TelegramSender) Send(messages []string) error {
 	content := ""
@@ -85,11 +73,10 @@ func (t *TelegramSender) Send(messages []string) error {
 	//return nil
 
 	_, err := t.client.PostForm(
-		"https://api.telegram.org/bot"+t.config.Token+"/sendMessage",
+		"https://api.telegram.org/bot"+t.Token+"/sendMessage",
 		url.Values{
-			"chat_id": {t.config.ChatID},
+			"chat_id": {t.ChatID},
 			"text":    {content},
-			//"parse_mode": {"HTML"},
 		},
 	)
 	if err != nil {

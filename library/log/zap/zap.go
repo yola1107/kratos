@@ -12,8 +12,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
 
-	"github.com/yola1107/kratos/v2/library/log/alert"
-	"github.com/yola1107/kratos/v2/library/log/config"
 	"github.com/yola1107/kratos/v2/log"
 )
 
@@ -33,7 +31,7 @@ type Logger struct {
 }
 
 // New creates a new Logger instance. Panics on initialization errors.
-func New(cfg *config.Config) *Logger {
+func New(cfg *Config) *Logger {
 	logger, err := newZapLogger(cfg)
 	if err != nil {
 		panic(fmt.Sprintf("failed to create logger: %v", err))
@@ -42,13 +40,13 @@ func New(cfg *config.Config) *Logger {
 }
 
 // NewWithError creates a new Logger instance and returns any initialization error.
-func NewWithError(cfg *config.Config) (*Logger, error) {
+func NewWithError(cfg *Config) (*Logger, error) {
 	return newZapLogger(cfg)
 }
 
-func newZapLogger(cfg *config.Config) (*Logger, error) {
+func newZapLogger(cfg *Config) (*Logger, error) {
 	if cfg == nil {
-		cfg = config.DefaultConfig()
+		cfg = DefaultConfig()
 		log.Warnf("logger config is empty, use default config")
 	}
 
@@ -56,7 +54,6 @@ func newZapLogger(cfg *config.Config) (*Logger, error) {
 	level := zap.NewAtomicLevel()
 	if err := level.UnmarshalText([]byte(cfg.Level)); err != nil {
 		level.SetLevel(zap.InfoLevel)
-
 	}
 
 	// 创建编码器
@@ -75,7 +72,7 @@ func newZapLogger(cfg *config.Config) (*Logger, error) {
 		EncodeCaller:     zapcore.FullCallerEncoder,
 		ConsoleSeparator: " ",
 	}
-	if cfg.Mode == config.Development {
+	if cfg.Mode == Development {
 		encoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 		encoderConfig.EncodeCaller = zapcore.FullCallerEncoder
 	}
@@ -102,14 +99,14 @@ func newZapLogger(cfg *config.Config) (*Logger, error) {
 	}, nil
 }
 
-func createCore(cfg *config.Config, level zap.AtomicLevel, encoderConfig zapcore.EncoderConfig) ([]zapcore.Core, []io.Closer, error) {
+func createCore(cfg *Config, level zap.AtomicLevel, encoderConfig zapcore.EncoderConfig) ([]zapcore.Core, []io.Closer, error) {
 	var (
 		cores     []zapcore.Core
 		resources []io.Closer
 	)
 
 	// Production mode core
-	if cfg.Mode == config.Production {
+	if cfg.Mode == Production {
 		if err := os.MkdirAll(cfg.Directory, 0750); err != nil {
 			return nil, nil, fmt.Errorf("failed to create log directory: %w", err)
 		}
@@ -140,15 +137,12 @@ func createCore(cfg *config.Config, level zap.AtomicLevel, encoderConfig zapcore
 	}
 
 	//alert core
-	if cfg.Alert != nil && cfg.Alert.Enabled {
-		alerter := alert.NewAlerter(
-			zap.LevelEnablerFunc(func(lvl zapcore.Level) bool { return lvl >= cfg.Alert.Threshold }),
-			zapcore.NewConsoleEncoder(encoderConfig),
-			cfg.Alert)
-		if alerter != nil {
-			cores = append(cores, alerter)
-			resources = append(resources, alerter)
-		}
+	if alerter := NewAlerter(
+		zap.LevelEnablerFunc(func(lvl zapcore.Level) bool { return lvl >= cfg.Alert.Threshold }),
+		zapcore.NewConsoleEncoder(encoderConfig),
+		cfg.Alert); alerter != nil {
+		cores = append(cores, alerter)
+		resources = append(resources, alerter)
 	}
 
 	// Always add console core
