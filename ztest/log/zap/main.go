@@ -45,8 +45,9 @@ func main() {
 }
 
 func loadLog() *zap.Logger {
-	zapLogger := zap.New(zap.DefaultConfig(
-		zap.WithMode(zap.Development),
+	zapLogger, err := zap.NewLogger(
+		//zap.WithMode(zap.Development),
+		zap.WithDevelopment(),
 		zap.WithLevel("debug"),
 		zap.WithDirectory("./logs"),
 		zap.WithFilename(Name+".log"),
@@ -59,7 +60,10 @@ func loadLog() *zap.Logger {
 		//zap.WithMaxBatchCnt(1),
 		//zap.WithRateLimiter(time.Second*5),
 		//zap.WithThreshold(zapcore.WarnLevel),
-	))
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
 	return zapLogger
 }
 
@@ -100,7 +104,7 @@ func testLog(zapLogger *zap.Logger) {
 	//log.Fatal("fatal")
 
 	// 测试消息
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 10; i++ {
 		log.Errorf("测试消息(%d)", i)
 	}
 	log.Errorf("测试消息(end)")

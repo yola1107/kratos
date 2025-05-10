@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -27,28 +26,42 @@ type Logger struct {
 	*zap.Logger
 	level     zap.AtomicLevel
 	resources []io.Closer
-	fieldPool *sync.Pool
+	fieldPool *fieldSlicePool
 	closeOnce sync.Once
 }
 
-// New creates a new Logger instance. Panics on initialization errors.
-func New(cfg *Config) *Logger {
-	logger, err := newZapLogger(cfg)
-	if err != nil {
-		panic(fmt.Sprintf("failed to create logger: %v", err))
+type fieldSlicePool struct {
+	pool sync.Pool
+}
+
+func newFieldSlicePool() *fieldSlicePool {
+	return &fieldSlicePool{
+		pool: sync.Pool{
+			New: func() interface{} {
+				return make([]zap.Field, 0, defaultFieldCapacity)
+			},
+		},
 	}
-	return logger
 }
 
-// NewWithError creates a new Logger instance and returns any initialization error.
-func NewWithError(cfg *Config) (*Logger, error) {
-	return newZapLogger(cfg)
+func (p *fieldSlicePool) Get() []zap.Field {
+	return p.pool.Get().([]zap.Field)
 }
 
-func newZapLogger(cfg *Config) (*Logger, error) {
-	if cfg == nil {
-		cfg = DefaultConfig()
-		log.Warnf("logger config is empty, use default config")
+func (p *fieldSlicePool) Put(fields []zap.Field) {
+	fields = fields[:0]
+	p.pool.Put(fields)
+}
+
+// NewLogger creates a new Logger instance. Panics on initialization errors.
+func NewLogger(opts ...Option) (*Logger, error) {
+	cfg := defaultConfig()
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
+	if err := cfg.validate(); err != nil {
+		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
 	// 设置日志级别
@@ -58,6 +71,36 @@ func newZapLogger(cfg *Config) (*Logger, error) {
 	}
 
 	// 创建编码器
+	encoderConfig := buildEncoderConfig(cfg)
+	cores, resources, err := createCore(cfg, level, encoderConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create log cores: %w", err)
+	}
+
+	options := []zap.Option{
+		zap.AddCaller(),
+		zap.AddCallerSkip(2),
+		zap.AddStacktrace(zap.PanicLevel),
+	}
+
+	if cfg.Mode == Development {
+		options = append(options, zap.Development())
+	}
+
+	logger := &Logger{
+		Logger: zap.New(
+			zapcore.NewTee(cores...),
+			options...,
+		),
+		level:     level,
+		resources: resources,
+		fieldPool: newFieldSlicePool(),
+	}
+	log.Infof("zap logger initialized with config: %+v", cfg)
+	return logger, nil
+}
+
+func buildEncoderConfig(cfg *Config) zapcore.EncoderConfig {
 	encoderConfig := zapcore.EncoderConfig{
 		TimeKey:          "ts",
 		LevelKey:         "level",
@@ -67,38 +110,19 @@ func newZapLogger(cfg *Config) (*Logger, error) {
 		MessageKey:       "msg",
 		StacktraceKey:    "stack",
 		LineEnding:       zapcore.DefaultLineEnding,
-		EncodeLevel:      customLevelEncoder, // zapcore.LowercaseLevelEncoder,
-		EncodeTime:       customTimeEncoder,  //zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000"),
+		EncodeLevel:      customLevelEncoder,
+		EncodeTime:       customTimeEncoder,
 		EncodeDuration:   zapcore.StringDurationEncoder,
 		EncodeCaller:     customCallerEncoder,
 		ConsoleSeparator: " ",
 	}
+
 	if cfg.Mode == Development {
-		encoderConfig.EncodeLevel = customColorLevelEncoder //zapcore.CapitalColorLevelEncoder //customColorLevelEncoder
+		encoderConfig.EncodeLevel = customColorLevelEncoder
 		encoderConfig.EncodeCaller = zapcore.FullCallerEncoder
 	}
 
-	cores, resources, err := createCore(cfg, level, encoderConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create log cores: %w", err)
-	}
-
-	log.Infof("zap logger created, cores=%d conf=%+v ", len(cores), cfg)
-	return &Logger{
-		Logger: zap.New(
-			zapcore.NewTee(cores...),
-			zap.AddCaller(),
-			zap.AddCallerSkip(2),
-			zap.AddStacktrace(zap.PanicLevel),
-		),
-		level:     level,
-		resources: resources,
-		fieldPool: &sync.Pool{
-			New: func() interface{} {
-				return make([]zap.Field, 0, defaultFieldCapacity)
-			},
-		},
-	}, nil
+	return encoderConfig
 }
 
 func createCore(cfg *Config, level zap.AtomicLevel, encoderConfig zapcore.EncoderConfig) ([]zapcore.Core, []io.Closer, error) {
@@ -107,29 +131,13 @@ func createCore(cfg *Config, level zap.AtomicLevel, encoderConfig zapcore.Encode
 		resources []io.Closer
 	)
 
-	// Production mode core
+	// 生产模式核心
 	if cfg.Mode == Production {
-		if err := os.MkdirAll(cfg.Directory, 0750); err != nil {
-			return nil, nil, fmt.Errorf("failed to create log directory: %w", err)
+		infoWriter, errorWriter, err := buildWriters(cfg)
+		if err != nil {
+			return nil, nil, err
 		}
-
-		infoWriter := &lumberjack.Logger{
-			Filename:   filepath.Join(cfg.Directory, cfg.Filename),
-			MaxSize:    cfg.MaxSize,
-			MaxAge:     cfg.MaxAge,
-			MaxBackups: cfg.MaxBackups,
-			Compress:   cfg.Compress,
-			LocalTime:  cfg.LocalTime,
-		}
-		errorWriter := &lumberjack.Logger{
-			Filename:   filepath.Join(cfg.Directory, cfg.ErrorFilename),
-			MaxSize:    cfg.MaxSize,
-			MaxAge:     cfg.MaxAge,
-			MaxBackups: cfg.MaxBackups,
-			Compress:   cfg.Compress,
-			LocalTime:  cfg.LocalTime,
-		}
-		resources = append(resources, infoWriter, errorWriter)
+		resources = append(resources, infoWriter.(io.Closer), errorWriter.(io.Closer))
 
 		encoder := zapcore.NewConsoleEncoder(encoderConfig)
 		cores = append(cores,
@@ -138,26 +146,62 @@ func createCore(cfg *Config, level zap.AtomicLevel, encoderConfig zapcore.Encode
 		)
 	}
 
-	//alert core
-	{
-		tgEncoder := encoderConfig
-		tgEncoder.EncodeLevel = zapcore.CapitalLevelEncoder
-		tgEncoder.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000")
-		tgEncoder.EncodeCaller = zapcore.FullCallerEncoder
-		if alerter := NewAlerter(
-			zap.LevelEnablerFunc(func(lvl zapcore.Level) bool { return lvl >= cfg.Alert.Threshold }),
-			zapcore.NewJSONEncoder(tgEncoder),
-			cfg.Alert); alerter != nil {
-			resources = append(resources, alerter)
-			cores = append(cores, alerter)
-		}
+	// 告警核心
+	if alerter := createAlertCore(cfg, encoderConfig); alerter != nil {
+		resources = append(resources, alerter)
+		cores = append(cores, alerter)
 	}
 
-	// Always add console core
+	// 控制台核心
 	consoleEncoder := zapcore.NewConsoleEncoder(encoderConfig)
 	cores = append(cores, zapcore.NewCore(consoleEncoder, zapcore.Lock(os.Stderr), level))
 
 	return cores, resources, nil
+}
+
+func createAlertCore(cfg *Config, encoderConfig zapcore.EncoderConfig) *Alerter {
+	if cfg.Alert.Threshold == zapcore.InvalidLevel {
+		return nil
+	}
+
+	tgEncoder := encoderConfig
+	tgEncoder.EncodeLevel = zapcore.CapitalLevelEncoder
+	tgEncoder.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000")
+	tgEncoder.EncodeCaller = zapcore.FullCallerEncoder
+
+	return NewAlerter(
+		zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
+			return lvl >= cfg.Alert.Threshold
+		}),
+		zapcore.NewJSONEncoder(tgEncoder),
+		cfg.Alert,
+	)
+}
+
+func buildWriters(cfg *Config) (infoWriter, errorWriter io.Writer, err error) {
+	if err := os.MkdirAll(cfg.Directory, 0750); err != nil {
+		return nil, nil, fmt.Errorf("failed to create log directory: %w", err)
+	}
+
+	infoWriter = &lumberjack.Logger{
+		Filename:   filepath.Join(cfg.Directory, cfg.Filename),
+		MaxSize:    cfg.MaxSize,
+		MaxAge:     cfg.MaxAge,
+		MaxBackups: cfg.MaxBackups,
+		Compress:   cfg.Compress,
+		LocalTime:  cfg.LocalTime,
+	}
+
+	errorWriter = &lumberjack.Logger{
+		Filename:   filepath.Join(cfg.Directory, cfg.ErrorFilename),
+		MaxSize:    cfg.MaxSize,
+		MaxAge:     cfg.MaxAge,
+		MaxBackups: cfg.MaxBackups,
+		Compress:   cfg.Compress,
+		LocalTime:  cfg.LocalTime,
+	}
+
+	return infoWriter, errorWriter, nil
 }
 
 func (l *Logger) Log(level log.Level, keyvals ...interface{}) error {
@@ -166,11 +210,8 @@ func (l *Logger) Log(level log.Level, keyvals ...interface{}) error {
 	}
 
 	var msg string
-	fields := l.fieldPool.Get().([]zap.Field)
-	defer func() {
-		fields = fields[:0] // Reset slice
-		l.fieldPool.Put(fields)
-	}()
+	fields := l.fieldPool.Get()
+	defer l.fieldPool.Put(fields)
 
 	for i := 0; i < len(keyvals); i += 2 {
 		if i+1 >= len(keyvals) {
@@ -191,6 +232,8 @@ func (l *Logger) Log(level log.Level, keyvals ...interface{}) error {
 		fields = append(fields, zap.Any(key, keyvals[i+1]))
 	}
 
+	fields = l.filterSensitive(fields)
+
 	switch level {
 	case log.LevelDebug:
 		l.Debug(msg, fields...)
@@ -204,6 +247,19 @@ func (l *Logger) Log(level log.Level, keyvals ...interface{}) error {
 		l.Fatal(msg, fields...)
 	}
 	return nil
+}
+
+func (l *Logger) filterSensitive(fields []zap.Field) []zap.Field {
+	sensitiveKeys := []string{"password", "token", "secret", "authorization"}
+	for i, field := range fields {
+		for _, key := range sensitiveKeys {
+			if field.Key == key {
+				fields[i] = zap.String(key, sensitiveMask)
+				break
+			}
+		}
+	}
+	return fields
 }
 
 func (l *Logger) Sync() error {
@@ -239,11 +295,8 @@ func (l *Logger) NewHelper(keys ...interface{}) *log.Helper {
 }
 
 func (l *Logger) With(keys ...interface{}) log.Logger {
-	fields := l.fieldPool.Get().([]zap.Field)
-	defer func() {
-		fields = fields[:0] // Reset slice
-		l.fieldPool.Put(fields)
-	}()
+	fields := l.fieldPool.Get()
+	defer l.fieldPool.Put(fields)
 
 	for i := 0; i < len(keys); i += 2 {
 		if i+1 >= len(keys) {
@@ -264,35 +317,4 @@ func (l *Logger) With(keys ...interface{}) log.Logger {
 		fieldPool: l.fieldPool,
 		closeOnce: sync.Once{},
 	}
-}
-
-func customTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-	enc.AppendString(fmt.Sprintf("[%s]", t.Format("2006/01/02 15:04:05.000")))
-}
-
-func customLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
-	enc.AppendString(fmt.Sprintf("[%-5s]", l.CapitalString()))
-}
-
-func customColorLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
-	var color string
-	switch l {
-	case zapcore.DebugLevel:
-		color = "\x1b[36m"
-	case zapcore.InfoLevel:
-		color = "\x1b[32m"
-	case zapcore.WarnLevel:
-		color = "\x1b[33m"
-	case zapcore.ErrorLevel:
-		color = "\x1b[31m"
-	case zapcore.DPanicLevel, zapcore.PanicLevel, zapcore.FatalLevel:
-		color = "\x1b[35m"
-	default:
-		color = "\x1b[0m"
-	}
-	enc.AppendString("[" + color + l.CapitalString() + "\x1b[0m]")
-}
-
-func customCallerEncoder(c zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
-	enc.AppendString(fmt.Sprintf("[%s]", c.FullPath()))
 }

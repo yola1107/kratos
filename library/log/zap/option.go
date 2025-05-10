@@ -1,9 +1,10 @@
 package zap
 
 import (
+	"errors"
+	"fmt"
 	"time"
 
-	"github.com/yola1107/kratos/v2/log"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -16,15 +17,12 @@ const (
 
 type Option func(*Config)
 
-func WithMode(m Mode) Option {
-	return func(c *Config) {
-		switch m {
-		case Development, Production:
-			c.Mode = m
-		default:
-			log.Warnf("Unknow Logger Mode(%v)", m)
-		}
-	}
+func WithDevelopment() Option {
+	return func(c *Config) { c.Mode = Development }
+}
+
+func WithProduction() Option {
+	return func(c *Config) { c.Mode = Production }
 }
 
 func WithLevel(level string) Option {
@@ -41,6 +39,26 @@ func WithFilename(filename string) Option {
 
 func WithErrorFilename(filename string) Option {
 	return func(c *Config) { c.ErrorFilename = filename }
+}
+
+func WithMaxBackups(maxBackups int) Option {
+	return func(c *Config) { c.MaxBackups = maxBackups }
+}
+
+func WithFlushInterval(interval time.Duration) Option {
+	return func(c *Config) { c.FlushInterval = interval }
+}
+
+func WithQueueSize(queueSize int) Option {
+	return func(c *Config) { c.QueueSize = queueSize }
+}
+
+func WithPoolSize(poolSize int) Option {
+	return func(c *Config) { c.PoolSize = poolSize }
+}
+
+func WithLocalTime(localTime bool) Option {
+	return func(c *Config) { c.LocalTime = localTime }
 }
 
 func WithCompress(compress bool) Option {
@@ -116,7 +134,7 @@ type Telegram struct {
 	ChatID string
 }
 
-func DefaultConfig(opts ...Option) *Config {
+func defaultConfig() *Config {
 	cfg := &Config{
 		Mode:          Development,
 		Level:         "debug",         // 开发环境更详细日志
@@ -143,8 +161,115 @@ func DefaultConfig(opts ...Option) *Config {
 			Telegram:    Telegram{},
 		},
 	}
-	for _, opt := range opts {
-		opt(cfg)
-	}
 	return cfg
+}
+
+// validate.go
+func (c *Config) validate() error {
+	// 验证日志级别
+	validLevels := map[string]bool{
+		"debug":  true,
+		"info":   true,
+		"warn":   true,
+		"error":  true,
+		"dpanic": true,
+		"panic":  true,
+		"fatal":  true,
+	}
+	if !validLevels[c.Level] {
+		return fmt.Errorf("invalid log level: %s", c.Level)
+	}
+
+	// 验证模式
+	if c.Mode != Development && c.Mode != Production {
+		return fmt.Errorf("invalid mode: %s", c.Mode)
+	}
+
+	// 验证目录路径
+	if c.Directory == "" {
+		return errors.New("log directory cannot be empty")
+	}
+
+	// 验证文件名
+	if c.Filename == "" {
+		return errors.New("log filename cannot be empty")
+	}
+
+	// 验证错误日志文件名
+	if c.ErrorFilename == "" {
+		return errors.New("error log filename cannot be empty")
+	}
+
+	// 验证文件大小限制
+	if c.MaxSize <= 0 {
+		return errors.New("max size must be positive")
+	}
+
+	// 验证保留天数
+	if c.MaxAge <= 0 {
+		return errors.New("max age must be positive")
+	}
+
+	// 验证备份数量
+	if c.MaxBackups < 0 {
+		return errors.New("max backups cannot be negative")
+	}
+
+	// 验证刷新间隔
+	if c.FlushInterval <= 0 {
+		return errors.New("flush interval must be positive")
+	}
+
+	// 验证队列大小
+	if c.QueueSize <= 0 {
+		return errors.New("queue size must be positive")
+	}
+
+	// 验证对象池大小
+	if c.PoolSize <= 0 {
+		return errors.New("pool size must be positive")
+	}
+
+	// 验证告警配置
+	if err := c.Alert.validate(); err != nil {
+		return fmt.Errorf("alert config error: %w", err)
+	}
+
+	return nil
+}
+
+func (a *Alert) validate() error {
+	// 验证告警队列大小
+	if a.QueueSize <= 0 {
+		return errors.New("alert queue size must be positive")
+	}
+
+	// 验证最大批量数
+	if a.MaxBatchCnt <= 0 {
+		return errors.New("max batch count must be positive")
+	}
+
+	// 验证最大重试次数
+	if a.MaxRetries < 0 {
+		return errors.New("max retries cannot be negative")
+	}
+
+	// 验证发送间隔
+	if a.MaxInterval <= 0 {
+		return errors.New("max interval must be positive")
+	}
+
+	// 验证限流速率
+	if a.Limiter <= 0 {
+		return errors.New("limiter rate must be positive")
+	}
+
+	// 验证Telegram配置
+	if a.Telegram.Token != "" || a.Telegram.ChatID != "" {
+		if a.Telegram.Token == "" || a.Telegram.ChatID == "" {
+			return errors.New("both telegram token and chat id must be provided")
+		}
+	}
+
+	return nil
 }
