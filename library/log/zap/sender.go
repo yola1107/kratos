@@ -15,7 +15,7 @@ type TelegramSender struct {
 	client *http.Client
 }
 
-func NewTelegramSender(config Telegram) (*TelegramSender, error) {
+func NewTelegramSender(config TelegramConfig) (*TelegramSender, error) {
 	if config.Token == "" || config.ChatID == "" {
 		return nil, fmt.Errorf("telegram Token or ChatID is empty")
 	}

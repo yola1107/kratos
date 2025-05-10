@@ -50,7 +50,7 @@ type tagMessage struct {
 
 // NewAlerter 创建报警器
 func NewAlerter(enabler zapcore.LevelEnabler, enc zapcore.Encoder, conf Alert) *Alerter {
-	sender, err := NewTelegramSender(conf.Telegram)
+	sender, err := NewTelegramSender(conf.Notification.Telegram)
 	if err != nil {
 		log.Warnf("Failed to create Alerter: %v", err)
 		return nil
@@ -63,7 +63,7 @@ func NewAlerter(enabler zapcore.LevelEnabler, enc zapcore.Encoder, conf Alert) *
 		sender:       sender,
 		msgChan:      make(chan *tagMessage, conf.QueueSize),
 		stopChan:     make(chan struct{}),
-		limiter:      rate.NewLimiter(rate.Every(conf.Limiter), 1),
+		limiter:      rate.NewLimiter(rate.Every(conf.LimitPolicy.Limit), conf.LimitPolicy.Burst),
 	}
 
 	a.wg.Add(1)
@@ -209,7 +209,7 @@ func (a *Alerter) sendWithRetry(batch []string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	for i := 0; i < a.conf.MaxRetries; i++ {
+	for i := 0; i < a.conf.RetryPolicy.MaxRetries; i++ {
 		if err := a.limiter.Wait(ctx); err != nil {
 			log.Error("rate limit exceeded", zap.Error(err))
 			break

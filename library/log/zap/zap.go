@@ -20,9 +20,18 @@ import (
 var _ log.Logger = (*Logger)(nil)
 
 const (
-	defaultFieldCapacity = 16
+	defaultFieldCapacity = 32
 	sensitiveMask        = "******"
 )
+
+// 预定义敏感词集合（使用map提升查找性能）
+var sensitiveKeys = map[string]struct{}{
+	//"password":      {},
+	//"token":         {},
+	//"secret":        {},
+	//"authorization": {},
+	//"creditcard":    {},
+}
 
 type Logger struct {
 	*zap.Logger
@@ -30,9 +39,10 @@ type Logger struct {
 	resources []io.Closer
 	fieldPool *fieldSlicePool
 	closeOnce sync.Once
-	sampler   zapcore.Core // 采样核心
+	sampler   zapcore.Core
 }
 
+// 优化的字段池实现
 type fieldSlicePool struct {
 	pool sync.Pool
 }
@@ -48,15 +58,13 @@ func newFieldSlicePool() *fieldSlicePool {
 }
 
 func (p *fieldSlicePool) Get() []zap.Field {
-	return p.pool.Get().([]zap.Field)
+	return p.pool.Get().([]zap.Field)[:0]
 }
 
 func (p *fieldSlicePool) Put(fields []zap.Field) {
-	fields = fields[:0]
 	p.pool.Put(fields)
 }
 
-// NewLogger creates a new Logger instance. Panics on initialization errors.
 func NewLogger(opts ...Option) (*Logger, error) {
 	cfg := defaultConfig()
 	for _, opt := range opts {
@@ -67,13 +75,11 @@ func NewLogger(opts ...Option) (*Logger, error) {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
-	// 设置日志级别
 	level := zap.NewAtomicLevel()
 	if err := level.UnmarshalText([]byte(cfg.Level)); err != nil {
 		level.SetLevel(zap.InfoLevel)
 	}
 
-	// 创建编码器
 	encoderConfig := buildEncoderConfig(cfg)
 	cores, resources, err := createCore(cfg, level, encoderConfig)
 	if err != nil {
@@ -118,7 +124,7 @@ func NewLogger(opts ...Option) (*Logger, error) {
 }
 
 func buildEncoderConfig(cfg *Config) zapcore.EncoderConfig {
-	encoderConfig := zapcore.EncoderConfig{
+	encConfig := zapcore.EncoderConfig{
 		TimeKey:          "ts",
 		LevelKey:         "level",
 		NameKey:          "logger",
@@ -135,11 +141,10 @@ func buildEncoderConfig(cfg *Config) zapcore.EncoderConfig {
 	}
 
 	if cfg.Mode == Development {
-		encoderConfig.EncodeLevel = customColorLevelEncoder
-		encoderConfig.EncodeCaller = zapcore.FullCallerEncoder
+		encConfig.EncodeLevel = customColorLevelEncoder
+		encConfig.EncodeCaller = zapcore.FullCallerEncoder
 	}
-
-	return encoderConfig
+	return encConfig
 }
 
 // 创建核心日志器
@@ -151,16 +156,16 @@ func createCore(cfg *Config, level zap.AtomicLevel, encoderConfig zapcore.Encode
 
 	// 生产模式核心
 	if cfg.Mode == Production {
-		infoWriter, errorWriter, err := buildWriters(cfg)
+		infoWriter, errWriter, err := createWriters(cfg)
 		if err != nil {
 			return nil, nil, err
 		}
-		resources = append(resources, infoWriter.(io.Closer), errorWriter.(io.Closer))
+		resources = append(resources, infoWriter.(io.Closer), errWriter.(io.Closer))
 
 		encoder := zapcore.NewConsoleEncoder(encoderConfig)
 		cores = append(cores,
 			zapcore.NewCore(encoder, zapcore.AddSync(infoWriter), level),
-			zapcore.NewCore(encoder, zapcore.AddSync(errorWriter), zap.ErrorLevel),
+			zapcore.NewCore(encoder, zapcore.AddSync(errWriter), zap.ErrorLevel),
 		)
 	}
 
@@ -177,49 +182,44 @@ func createCore(cfg *Config, level zap.AtomicLevel, encoderConfig zapcore.Encode
 	return cores, resources, nil
 }
 
+// 创建日志文件写入器（工厂模式）
+func createWriters(cfg *Config) (info, error io.Writer, err error) {
+	if err = os.MkdirAll(cfg.Directory, 0750); err != nil {
+		return nil, nil, fmt.Errorf("create log directory failed: %w", err)
+	}
+
+	return newLumberjack(cfg, cfg.Filename),
+		newLumberjack(cfg, cfg.ErrorFilename), nil
+}
+
+func newLumberjack(cfg *Config, filename string) io.Writer {
+	return &lumberjack.Logger{
+		Filename:   filepath.Join(cfg.Directory, filename),
+		MaxSize:    cfg.MaxSize,
+		MaxAge:     cfg.MaxAge,
+		MaxBackups: cfg.MaxBackups,
+		Compress:   cfg.Compress,
+		LocalTime:  cfg.LocalTime,
+	}
+}
+
 func createAlertCore(cfg *Config, encoderConfig zapcore.EncoderConfig) *Alerter {
 	if cfg.Alert.Threshold == zapcore.InvalidLevel {
 		return nil
 	}
 
-	tgEncoder := encoderConfig
-	tgEncoder.EncodeLevel = zapcore.CapitalLevelEncoder
-	tgEncoder.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000")
-	tgEncoder.EncodeCaller = zapcore.FullCallerEncoder
+	alertEncoder := encoderConfig
+	alertEncoder.EncodeLevel = zapcore.CapitalLevelEncoder
+	alertEncoder.EncodeTime = zapcore.TimeEncoderOfLayout(time.RFC3339)
+	alertEncoder.EncodeCaller = zapcore.FullCallerEncoder
 
 	return NewAlerter(
 		zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
 			return lvl >= cfg.Alert.Threshold
 		}),
-		zapcore.NewJSONEncoder(tgEncoder),
+		zapcore.NewJSONEncoder(alertEncoder),
 		cfg.Alert,
 	)
-}
-
-func buildWriters(cfg *Config) (infoWriter, errorWriter io.Writer, err error) {
-	if err := os.MkdirAll(cfg.Directory, 0750); err != nil {
-		return nil, nil, fmt.Errorf("failed to create log directory: %w", err)
-	}
-
-	infoWriter = &lumberjack.Logger{
-		Filename:   filepath.Join(cfg.Directory, cfg.Filename),
-		MaxSize:    cfg.MaxSize,
-		MaxAge:     cfg.MaxAge,
-		MaxBackups: cfg.MaxBackups,
-		Compress:   cfg.Compress,
-		LocalTime:  cfg.LocalTime,
-	}
-
-	errorWriter = &lumberjack.Logger{
-		Filename:   filepath.Join(cfg.Directory, cfg.ErrorFilename),
-		MaxSize:    cfg.MaxSize,
-		MaxAge:     cfg.MaxAge,
-		MaxBackups: cfg.MaxBackups,
-		Compress:   cfg.Compress,
-		LocalTime:  cfg.LocalTime,
-	}
-
-	return infoWriter, errorWriter, nil
 }
 
 func (l *Logger) Log(level log.Level, keyvals ...interface{}) error {
@@ -230,6 +230,12 @@ func (l *Logger) Log(level log.Level, keyvals ...interface{}) error {
 	var msg string
 	fields := l.fieldPool.Get()
 	defer l.fieldPool.Put(fields)
+
+	// 预分配字段容量
+	expectedFields := len(keyvals)/2 + 1
+	if cap(fields) < expectedFields {
+		fields = make([]zap.Field, 0, expectedFields)
+	}
 
 	for i := 0; i < len(keyvals); i += 2 {
 		if i+1 >= len(keyvals) {
@@ -269,14 +275,9 @@ func (l *Logger) Log(level log.Level, keyvals ...interface{}) error {
 
 // 敏感信息过滤
 func (l *Logger) filterSensitive(fields []zap.Field) []zap.Field {
-	sensitiveKeys := []string{"password", "token", "secret", "authorization", "creditcard"}
 	for i, field := range fields {
-		key := strings.ToLower(field.Key)
-		for _, sk := range sensitiveKeys {
-			if strings.Contains(key, sk) {
-				fields[i] = zap.String(field.Key, sensitiveMask)
-				break
-			}
+		if _, ok := sensitiveKeys[strings.ToLower(field.Key)]; ok {
+			fields[i] = zap.String(field.Key, sensitiveMask)
 		}
 	}
 	return fields
@@ -288,16 +289,17 @@ func (l *Logger) Close() error {
 
 	l.closeOnce.Do(func() {
 		if err := l.Sync(); err != nil {
-			errs = append(errs, fmt.Errorf("sync error: %w", err))
+			errs = append(errs, fmt.Errorf("logger sync error: %w", err))
 		}
 
-		for _, res := range l.resources {
+		for i, res := range l.resources {
 			if err := res.Close(); err != nil {
-				errs = append(errs, fmt.Errorf("resource close error: %w", err))
+				errs = append(errs, fmt.Errorf("close resource[%d] %T failed: %w",
+					i, res, err))
 			}
 		}
 		l.resources = nil
-		log.Infof("zap logger closed")
+		l.Logger.Info("Logger closed successfully")
 	})
 
 	return errors.Join(errs...)
@@ -315,6 +317,7 @@ func (l *Logger) With(keys ...interface{}) log.Logger {
 	fields := l.fieldPool.Get()
 	defer l.fieldPool.Put(fields)
 
+	// 处理键值对
 	for i := 0; i < len(keys); i += 2 {
 		if i+1 >= len(keys) {
 			fields = append(fields, zap.Any(fmt.Sprint(keys[i]), "(MISSING)"))
@@ -322,15 +325,20 @@ func (l *Logger) With(keys ...interface{}) log.Logger {
 		}
 		key, ok := keys[i].(string)
 		if !ok {
+			key = fmt.Sprintf("%v", keys[i])
 			continue
 		}
 		fields = append(fields, zap.Any(key, keys[i+1]))
 	}
 
+	// 深拷贝资源列表
+	newResources := make([]io.Closer, len(l.resources))
+	copy(newResources, l.resources)
+
 	return &Logger{
 		Logger:    l.Logger.With(fields...),
 		level:     l.level,
-		resources: l.resources,
+		resources: newResources,
 		fieldPool: l.fieldPool,
 		closeOnce: sync.Once{},
 	}

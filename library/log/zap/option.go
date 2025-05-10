@@ -3,6 +3,7 @@ package zap
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"go.uber.org/zap/zapcore"
@@ -74,23 +75,26 @@ func WithMaxBatchCnt(maxBatchCnt int) Option {
 }
 
 func WithMaxRetries(maxRetries int) Option {
-	return func(c *Config) { c.Alert.MaxRetries = maxRetries }
+	return func(c *Config) { c.Alert.RetryPolicy.MaxRetries = maxRetries }
 }
 
 func WithPrefix(prefix string) Option {
 	return func(c *Config) { c.Alert.Prefix = prefix }
 }
 
-func WithRateLimiter(rate time.Duration) Option {
-	return func(c *Config) { c.Alert.Limiter = rate }
+func WithRateLimiter(rate time.Duration, burst int) Option {
+	return func(c *Config) {
+		c.Alert.LimitPolicy.Limit = rate
+		c.Alert.LimitPolicy.Burst = burst
+	}
 }
 
 func WithToken(token string) Option {
-	return func(c *Config) { c.Alert.Telegram.Token = token }
+	return func(c *Config) { c.Alert.Notification.Telegram.Token = token }
 }
 
 func WithChatID(chatID string) Option {
-	return func(c *Config) { c.Alert.Telegram.ChatID = chatID }
+	return func(c *Config) { c.Alert.Notification.Telegram.ChatID = chatID }
 }
 
 type Config struct {
@@ -105,26 +109,43 @@ type Config struct {
 	Compress      bool            // 是否压缩旧日志，默认true
 	LocalTime     bool            // 是否使用本地时间命名日志，默认true (false 则使用 UTC 时间）
 	QueueSize     int             // 异步日志队列大小，默认2048
-	AsyncConsole  bool            //
+	SensitiveKeys []string        //
 	Sampling      *SamplingConfig //
 	Alert         Alert           // 日志告警配置
 }
 type SamplingConfig struct {
+	Enabled    bool
 	Initial    int
 	Thereafter int
+	//Initial    map[zapcore.Level]int
+	//Thereafter map[zapcore.Level]int
+	Window time.Duration
 }
 type Alert struct {
-	Threshold   zapcore.Level // 触发日志级别
-	MaxInterval time.Duration // 发送间隔
-	QueueSize   int           // 队列大小
-	MaxBatchCnt int           // 最大批量数
-	MaxRetries  int           // 最大重试
-	Prefix      string        // 消息前缀
-	Limiter     time.Duration // 限流速率
-	Telegram    Telegram
+	Threshold    zapcore.Level
+	MaxInterval  time.Duration
+	QueueSize    int
+	MaxBatchCnt  int
+	Prefix       string
+	RetryPolicy  RetryPolicy
+	LimitPolicy  LimitPolicy
+	Notification Notification
 }
 
-type Telegram struct {
+type RetryPolicy struct {
+	MaxRetries int
+	Backoff    time.Duration
+	Factor     float64
+}
+type LimitPolicy struct {
+	Limit time.Duration
+	Burst int
+}
+
+type Notification struct {
+	Telegram TelegramConfig
+}
+type TelegramConfig struct {
 	Token  string
 	ChatID string
 }
@@ -132,31 +153,38 @@ type Telegram struct {
 func defaultConfig() *Config {
 	cfg := &Config{
 		Mode:          Development,
-		Level:         "debug",         // 开发环境更详细日志
-		Directory:     "./logs",        // "./logs"
-		Filename:      "app.log",       // "app.log",
-		ErrorFilename: "app_error.log", // "app_error.log",
-		MaxSize:       200,             // 单个日志文件最大200MB
-		MaxAge:        7,               // 保留7天
-		MaxBackups:    10,              // 保留10个备份
-		Compress:      true,            // 启用压缩
-		LocalTime:     true,            // 本地时间命名日志
-		QueueSize:     4096,            // 增大队列缓冲
-		AsyncConsole:  true,
-		//SensitiveKeys: []string{"password", "token", "secret"},
+		Level:         "debug",
+		Directory:     "./logs",
+		Filename:      "app.log",
+		ErrorFilename: "error.log",
+		MaxSize:       200,
+		MaxAge:        7,
+		MaxBackups:    10,
+		Compress:      true,
+		LocalTime:     true,
+		QueueSize:     4096,
+		SensitiveKeys: []string{},
 		Sampling: &SamplingConfig{
+			Enabled:    true,
+			Window:     time.Second,
 			Initial:    100,
 			Thereafter: 100,
 		},
 		Alert: Alert{
 			Threshold:   zapcore.ErrorLevel,
-			MaxInterval: 3 * time.Second,
+			MaxInterval: 5 * time.Second,
 			QueueSize:   2048,
 			MaxBatchCnt: 10,
-			MaxRetries:  1,
 			Prefix:      "",
-			Limiter:     300 * time.Millisecond,
-			Telegram:    Telegram{},
+			LimitPolicy: LimitPolicy{
+				Limit: 300 * time.Millisecond,
+				Burst: 1,
+			},
+			RetryPolicy: RetryPolicy{
+				MaxRetries: 1,
+				Backoff:    1 * time.Second,
+				Factor:     2,
+			},
 		},
 	}
 	return cfg
@@ -188,9 +216,19 @@ func (c *Config) validate() error {
 		return errors.New("log directory cannot be empty")
 	}
 
+	//// 路径校验
+	//if !filepath.IsAbs(c.Directory) {
+	//	return errors.New("directory must be absolute path")
+	//}
+
 	// 验证文件名
 	if c.Filename == "" {
 		return errors.New("log filename cannot be empty")
+	}
+
+	// 文件名校验
+	if containsInvalidChars(c.Filename) {
+		return errors.New("invalid filename")
 	}
 
 	// 验证错误日志文件名
@@ -218,10 +256,20 @@ func (c *Config) validate() error {
 		return errors.New("queue size must be positive")
 	}
 
+	// 采样配置校验
+	if c.Sampling != nil && c.Sampling.Enabled {
+		if c.Sampling.Window < time.Second {
+			return errors.New("sampling window too small")
+		}
+	}
+
 	// 验证告警配置
 	if err := c.Alert.validate(); err != nil {
 		return fmt.Errorf("alert config error: %w", err)
 	}
+
+	// 敏感词去重
+	c.SensitiveKeys = uniqueStrings(c.SensitiveKeys)
 
 	return nil
 }
@@ -238,7 +286,7 @@ func (a *Alert) validate() error {
 	}
 
 	// 验证最大重试次数
-	if a.MaxRetries < 0 {
+	if a.RetryPolicy.MaxRetries <= 0 {
 		return errors.New("max retries cannot be negative")
 	}
 
@@ -248,16 +296,33 @@ func (a *Alert) validate() error {
 	}
 
 	// 验证限流速率
-	if a.Limiter <= 0 {
+	if a.LimitPolicy.Limit <= 0 || a.LimitPolicy.Burst <= 0 {
 		return errors.New("limiter rate must be positive")
 	}
 
 	// 验证Telegram配置
-	if a.Telegram.Token != "" || a.Telegram.ChatID != "" {
-		if a.Telegram.Token == "" || a.Telegram.ChatID == "" {
+	if a.Notification.Telegram.Token != "" || a.Notification.Telegram.ChatID != "" {
+		if a.Notification.Telegram.Token == "" || a.Notification.Telegram.ChatID == "" {
 			return errors.New("both telegram token and chat id must be provided")
 		}
 	}
 
 	return nil
+}
+
+// 辅助函数
+func containsInvalidChars(s string) bool {
+	return strings.ContainsAny(s, `<>:"/\|?*`)
+}
+
+func uniqueStrings(slice []string) []string {
+	keys := make(map[string]bool)
+	list := []string{}
+	for _, entry := range slice {
+		if _, value := keys[entry]; !value {
+			keys[entry] = true
+			list = append(list, entry)
+		}
+	}
+	return list
 }
