@@ -23,15 +23,15 @@ func NewTelegramSender(config Telegram) (*TelegramSender, error) {
 	return &TelegramSender{
 		Token:  config.Token,
 		ChatID: config.ChatID,
-		//client: &http.Client{
-		//	Timeout: 5 * time.Second,
-		//	Transport: &http.Transport{
-		//		MaxIdleConns:       10,
-		//		IdleConnTimeout:    5 * time.Second,
-		//		DisableCompression: true,
-		//	}},
+		client: &http.Client{
+			Timeout: 5 * time.Second,
+			Transport: &http.Transport{
+				MaxIdleConns:       10,
+				IdleConnTimeout:    5 * time.Second,
+				DisableCompression: true,
+			}},
 
-		client: newHttpProxy(),
+		//client: newHttpProxy(),
 	}, nil
 }
 
@@ -69,8 +69,8 @@ func (t *TelegramSender) Send(messages []string) error {
 	}
 	content += "\n\n---------\n\n"
 
-	fmt.Printf("=========>%+v send %d content: \n%+v", time.Now().Format("2006-01-02 15:04:05.000"), len(messages), content)
-	return nil
+	//fmt.Printf("=========>%+v send %d content: \n%+v", time.Now().Format("2006-01-02 15:04:05.000"), len(messages), content)
+	//return nil
 
 	_, err := t.client.PostForm(
 		"https://api.telegram.org/bot"+t.Token+"/sendMessage",

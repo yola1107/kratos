@@ -278,18 +278,19 @@ func customColorLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder)
 	var color string
 	switch l {
 	case zapcore.DebugLevel:
-		color = "\x1b[35m" // Magenta
+		color = "\x1b[36m"
 	case zapcore.InfoLevel:
-		color = "\x1b[34m" // Blue
+		color = "\x1b[32m"
 	case zapcore.WarnLevel:
-		color = "\x1b[33m" // Yellow
-	case zapcore.ErrorLevel, zapcore.DPanicLevel, zapcore.PanicLevel, zapcore.FatalLevel:
-		color = "\x1b[31m" // Red
+		color = "\x1b[33m"
+	case zapcore.ErrorLevel:
+		color = "\x1b[31m"
+	case zapcore.DPanicLevel, zapcore.PanicLevel, zapcore.FatalLevel:
+		color = "\x1b[35m"
 	default:
-		color = "\x1b[0m" // Reset
+		color = "\x1b[0m"
 	}
-	levelStr := fmt.Sprintf("[%s%-5s\x1b[0m]", color, l.CapitalString())
-	enc.AppendString(levelStr)
+	enc.AppendString("[" + color + l.CapitalString() + "\x1b[0m]")
 }
 
 func customCallerEncoder(c zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
