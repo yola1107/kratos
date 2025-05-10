@@ -120,7 +120,7 @@ func DefaultConfig(opts ...Option) *Config {
 	cfg := &Config{
 		Mode:          Development,
 		Level:         "debug",         // 开发环境更详细日志
-		Directory:     "./logs",        //
+		Directory:     "./logs",        // "./logs"
 		Filename:      "app.log",       // "app.log",
 		ErrorFilename: "app_error.log", // "app_error.log",
 		MaxSize:       200,             // 单个日志文件最大200MB
@@ -128,7 +128,7 @@ func DefaultConfig(opts ...Option) *Config {
 		MaxBackups:    10,              // 保留10个备份
 		FlushInterval: 3 * time.Second, // 刷新间隔
 		Compress:      true,            // 启用压缩
-		LocalTime:     true,            //
+		LocalTime:     true,            // 本地时间命名日志
 		QueueSize:     2048,            // 增大队列缓冲
 		PoolSize:      512,             // 更大的对象池
 		//SensitiveKeys: []string{"password", "token", "secret"},

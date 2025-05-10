@@ -6,8 +6,8 @@ import (
 
 	pb "github.com/yola1107/kratos/v2/internal/testdata/helloworld"
 	"github.com/yola1107/kratos/v2/log"
-	"github.com/yola1107/kratos/v2/transport/_sample/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/transport/tcp"
+	"github.com/yola1107/kratos/v2/ztest/transport/api/helloworld/v1"
 )
 
 var (

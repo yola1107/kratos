@@ -6,7 +6,7 @@ import (
 
 	gproto "github.com/golang/protobuf/proto"
 	"github.com/yola1107/kratos/v2/metadata"
-	v1 "github.com/yola1107/kratos/v2/transport/_sample/api/helloworld/v1"
+	v2 "github.com/yola1107/kratos/v2/ztest/transport/api/helloworld/v1"
 
 	"github.com/yola1107/kratos/v2"
 	"github.com/yola1107/kratos/v2/log"
@@ -23,14 +23,14 @@ var (
 )
 
 type server struct {
-	v1.UnimplementedGreeterServer
+	v2.UnimplementedGreeterServer
 }
 
-func (s *server) SayHelloReq(ctx context.Context, in *v1.HelloRequest) (*v1.HelloReply, error) {
-	return &v1.HelloReply{Message: "SayHelloReq. Hello " + in.Name}, nil
+func (s *server) SayHelloReq(ctx context.Context, in *v2.HelloRequest) (*v2.HelloReply, error) {
+	return &v2.HelloReply{Message: "SayHelloReq. Hello " + in.Name}, nil
 }
 
-func (s *server) SayHello2Req(ctx context.Context, in *v1.Hello2Request) (*v1.Hello2Reply, error) {
+func (s *server) SayHello2Req(ctx context.Context, in *v2.Hello2Request) (*v2.Hello2Reply, error) {
 	//获取玩家的sessionID
 	mid := ""
 	// 从 ctx 中提取 metadata
@@ -41,18 +41,18 @@ func (s *server) SayHello2Req(ctx context.Context, in *v1.Hello2Request) (*v1.He
 		// 获取 mid
 		mid = md.Get("mid")
 	}
-	resp := &v1.Hello2Reply{Message: "rsp_888888"}
+	resp := &v2.Hello2Reply{Message: "rsp_888888"}
 	bytes, err := gproto.Marshal(resp)
 	if err != nil {
 		log.Errorf("err %+v", err.Error())
 	}
 	session.PushChan <- &tcp.PushData{
 		Mid:  mid,
-		Ops:  int32(v1.GameCommand_SayHello2Rsp),
+		Ops:  int32(v2.GameCommand_SayHello2Rsp),
 		Data: bytes,
 	}
 
-	return &v1.Hello2Reply{Message: "SayHello2Req. Hello " + in.Name}, nil
+	return &v2.Hello2Reply{Message: "SayHello2Req. Hello " + in.Name}, nil
 }
 
 // var key string
@@ -87,9 +87,9 @@ func main() {
 		),
 	)
 
-	v1.RegisterGreeterServer(grpcSrv, s)
-	v1.RegisterGreeterHTTPServer(httpSrv, s)
-	v1.RegisterGreeterTCPServer(tcpSrv, s)
+	v2.RegisterGreeterServer(grpcSrv, s)
+	v2.RegisterGreeterHTTPServer(httpSrv, s)
+	v2.RegisterGreeterTCPServer(tcpSrv, s)
 	app := kratos.New(
 		kratos.Name(Name),
 		kratos.Server(

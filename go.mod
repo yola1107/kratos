@@ -13,7 +13,6 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.3
-	github.com/stretchr/testify v1.8.4
 	github.com/zhenjl/cityhash v0.0.0-20131128155616-cdd6a94144ab
 	go.opentelemetry.io/otel v1.24.0
 	go.opentelemetry.io/otel/metric v1.24.0
@@ -33,14 +32,12 @@ require (
 )
 
 require (
-	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.2.1 // indirect
 	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/lufia/plan9stats v0.0.0-20230326075908-cb1d2100619a // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20221212215047-62379fc7944b // indirect
 	github.com/rogpeppe/go-internal v1.11.0 // indirect
 	github.com/shirou/gopsutil/v3 v3.23.6 // indirect

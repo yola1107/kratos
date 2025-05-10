@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -66,14 +67,14 @@ func newZapLogger(cfg *Config) (*Logger, error) {
 		MessageKey:       "msg",
 		StacktraceKey:    "stack",
 		LineEnding:       zapcore.DefaultLineEnding,
-		EncodeLevel:      zapcore.CapitalLevelEncoder, // zapcore.LowercaseLevelEncoder,
-		EncodeTime:       zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000"),
+		EncodeLevel:      customLevelEncoder, // zapcore.LowercaseLevelEncoder,
+		EncodeTime:       customTimeEncoder,  //zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000"),
 		EncodeDuration:   zapcore.StringDurationEncoder,
-		EncodeCaller:     zapcore.FullCallerEncoder,
+		EncodeCaller:     customCallerEncoder,
 		ConsoleSeparator: " ",
 	}
 	if cfg.Mode == Development {
-		encoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+		encoderConfig.EncodeLevel = customColorLevelEncoder //zapcore.CapitalColorLevelEncoder //customColorLevelEncoder
 		encoderConfig.EncodeCaller = zapcore.FullCallerEncoder
 	}
 
@@ -82,6 +83,7 @@ func newZapLogger(cfg *Config) (*Logger, error) {
 		return nil, fmt.Errorf("failed to create log cores: %w", err)
 	}
 
+	log.Infof("zap logger created, cores=%d conf=%+v ", len(cores), cfg)
 	return &Logger{
 		Logger: zap.New(
 			zapcore.NewTee(cores...),
@@ -137,12 +139,18 @@ func createCore(cfg *Config, level zap.AtomicLevel, encoderConfig zapcore.Encode
 	}
 
 	//alert core
-	if alerter := NewAlerter(
-		zap.LevelEnablerFunc(func(lvl zapcore.Level) bool { return lvl >= cfg.Alert.Threshold }),
-		zapcore.NewJSONEncoder(encoderConfig),
-		cfg.Alert); alerter != nil {
-		cores = append(cores, alerter)
-		resources = append(resources, alerter)
+	{
+		tgEncoder := encoderConfig
+		tgEncoder.EncodeLevel = zapcore.CapitalLevelEncoder
+		tgEncoder.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000")
+		tgEncoder.EncodeCaller = zapcore.FullCallerEncoder
+		if alerter := NewAlerter(
+			zap.LevelEnablerFunc(func(lvl zapcore.Level) bool { return lvl >= cfg.Alert.Threshold }),
+			zapcore.NewJSONEncoder(tgEncoder),
+			cfg.Alert); alerter != nil {
+			resources = append(resources, alerter)
+			cores = append(cores, alerter)
+		}
 	}
 
 	// Always add console core
@@ -216,6 +224,7 @@ func (l *Logger) Close() error {
 			}
 		}
 		l.resources = nil
+		log.Infof("zap logger closed")
 	})
 
 	return errors.Join(errs...)
@@ -255,4 +264,34 @@ func (l *Logger) With(keys ...interface{}) log.Logger {
 		fieldPool: l.fieldPool,
 		closeOnce: sync.Once{},
 	}
+}
+
+func customTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendString(fmt.Sprintf("[%s]", t.Format("2006/01/02 15:04:05.000")))
+}
+
+func customLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendString(fmt.Sprintf("[%-5s]", l.CapitalString()))
+}
+
+func customColorLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
+	var color string
+	switch l {
+	case zapcore.DebugLevel:
+		color = "\x1b[35m" // Magenta
+	case zapcore.InfoLevel:
+		color = "\x1b[34m" // Blue
+	case zapcore.WarnLevel:
+		color = "\x1b[33m" // Yellow
+	case zapcore.ErrorLevel, zapcore.DPanicLevel, zapcore.PanicLevel, zapcore.FatalLevel:
+		color = "\x1b[31m" // Red
+	default:
+		color = "\x1b[0m" // Reset
+	}
+	levelStr := fmt.Sprintf("[%s%-5s\x1b[0m]", color, l.CapitalString())
+	enc.AppendString(levelStr)
+}
+
+func customCallerEncoder(c zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendString(fmt.Sprintf("[%s]", c.FullPath()))
 }
