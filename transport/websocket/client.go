@@ -112,7 +112,7 @@ type clientOptions struct {
 	//discovery registry.Discovery
 }
 
-// Client is an websocket client.
+// Client is a websocket client.
 type Client struct {
 	opts clientOptions
 
@@ -523,7 +523,9 @@ func safeCall(fn func()) {
 			log.Errorf("handler panic: %v", r)
 		}
 	}()
-	fn()
+	if fn != nil {
+		fn()
+	}
 }
 
 // buildPayload 构造协议消息
