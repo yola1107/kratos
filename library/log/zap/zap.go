@@ -24,22 +24,13 @@ const (
 	sensitiveMask        = "******"
 )
 
-// 预定义敏感词集合（使用map提升查找性能）
-var sensitiveKeys = map[string]struct{}{
-	//"password":      {},
-	//"token":         {},
-	//"secret":        {},
-	//"authorization": {},
-	//"creditcard":    {},
-}
-
 type Logger struct {
 	*zap.Logger
-	level     zap.AtomicLevel
-	resources []io.Closer
-	fieldPool *fieldSlicePool
-	closeOnce sync.Once
-	sampler   zapcore.Core
+	level         zap.AtomicLevel
+	resources     []io.Closer
+	fieldPool     *fieldSlicePool
+	closeOnce     sync.Once
+	sensitiveKeys map[string]struct{}
 }
 
 // 优化的字段池实现
@@ -65,6 +56,7 @@ func (p *fieldSlicePool) Put(fields []zap.Field) {
 	p.pool.Put(fields)
 }
 
+// NewLogger 创建日志实例
 func NewLogger(opts ...Option) (*Logger, error) {
 	cfg := defaultConfig()
 	for _, opt := range opts {
@@ -75,25 +67,30 @@ func NewLogger(opts ...Option) (*Logger, error) {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
+	// 初始化日志级别
 	level := zap.NewAtomicLevel()
 	if err := level.UnmarshalText([]byte(cfg.Level)); err != nil {
 		level.SetLevel(zap.InfoLevel)
 	}
 
+	// 构建编码器和核心
 	encoderConfig := buildEncoderConfig(cfg)
 	cores, resources, err := createCore(cfg, level, encoderConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create log cores: %w", err)
 	}
 
-	var sampler zapcore.Core
+	// 配置采样
+	var core zapcore.Core
 	if cfg.Sampling != nil {
-		sampler = zapcore.NewSampler(
+		core = zapcore.NewSamplerWithOptions(
 			zapcore.NewTee(cores...),
-			time.Second,
+			cfg.Sampling.Window,
 			cfg.Sampling.Initial,
 			cfg.Sampling.Thereafter,
 		)
+	} else {
+		core = zapcore.NewTee(cores...)
 	}
 
 	options := []zap.Option{
@@ -101,25 +98,28 @@ func NewLogger(opts ...Option) (*Logger, error) {
 		zap.AddCallerSkip(2),
 		zap.AddStacktrace(zap.PanicLevel),
 	}
-
 	if cfg.Mode == Development {
 		options = append(options, zap.Development())
 	}
 
-	var core zapcore.Core
-	if sampler != nil {
-		core = sampler
-	} else {
-		core = zapcore.NewTee(cores...)
+	logger := &Logger{
+		Logger:        zap.New(core, options...),
+		level:         level,
+		resources:     resources,
+		fieldPool:     newFieldSlicePool(),
+		sensitiveKeys: make(map[string]struct{}),
 	}
 
-	logger := &Logger{
-		Logger:    zap.New(core, options...),
-		level:     level,
-		resources: resources,
-		fieldPool: newFieldSlicePool(),
+	// 初始化敏感词
+	for _, k := range cfg.SensitiveKeys {
+		logger.sensitiveKeys[strings.ToLower(k)] = struct{}{}
 	}
-	log.Infof("zap logger initialized with config: %+v", cfg)
+
+	logger.Info("Zap logger initialized",
+		zap.String("mode", string(cfg.Mode)),
+		zap.Int("cores", len(cores)),
+		zap.Any("config", cfg),
+	)
 	return logger, nil
 }
 
@@ -147,7 +147,7 @@ func buildEncoderConfig(cfg *Config) zapcore.EncoderConfig {
 	return encConfig
 }
 
-// 创建核心日志器
+// createCore 创建日志核心
 func createCore(cfg *Config, level zap.AtomicLevel, encoderConfig zapcore.EncoderConfig) ([]zapcore.Core, []io.Closer, error) {
 	var (
 		cores     []zapcore.Core
@@ -276,7 +276,7 @@ func (l *Logger) Log(level log.Level, keyvals ...interface{}) error {
 // 敏感信息过滤
 func (l *Logger) filterSensitive(fields []zap.Field) []zap.Field {
 	for i, field := range fields {
-		if _, ok := sensitiveKeys[strings.ToLower(field.Key)]; ok {
+		if _, ok := l.sensitiveKeys[strings.ToLower(field.Key)]; ok {
 			fields[i] = zap.String(field.Key, sensitiveMask)
 		}
 	}
