@@ -7,10 +7,15 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// 常量定义
+const (
+	timeFormat = "2006/01/02 15:04:05.000"
+)
+
 // 颜色常量（ANSI escape codes）
 var (
-	_resetColor   = "\x1b[0m" // Reset
-	_levelToColor = map[zapcore.Level]string{
+	resetColor  = "\x1b[0m"
+	levelColors = map[zapcore.Level]string{
 		zapcore.DebugLevel:  "\x1b[36m", // Cyan
 		zapcore.InfoLevel:   "\x1b[32m", // Green
 		zapcore.WarnLevel:   "\x1b[33m", // Yellow
@@ -19,22 +24,33 @@ var (
 		zapcore.PanicLevel:  "\x1b[35m", // Magenta
 		zapcore.FatalLevel:  "\x1b[35m", // Magenta
 	}
+
+	// 预格式化的级别字符串
+	levelStrings = map[zapcore.Level]string{
+		zapcore.DebugLevel:  "DEBUG",
+		zapcore.InfoLevel:   "INFO ",
+		zapcore.WarnLevel:   "WARN ",
+		zapcore.ErrorLevel:  "ERROR",
+		zapcore.DPanicLevel: "PANIC",
+		zapcore.PanicLevel:  "PANIC",
+		zapcore.FatalLevel:  "FATAL",
+	}
 )
 
 func customTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-	enc.AppendString(fmt.Sprintf("[%s]", t.Format("2006/01/02 15:04:05.000")))
+	enc.AppendString(fmt.Sprintf("[%s]", t.Format(timeFormat)))
 }
 
 func customLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
-	enc.AppendString(fmt.Sprintf("[%-5s]", l.CapitalString()))
+	enc.AppendString(fmt.Sprintf("[%s]", levelStrings[l]))
 }
 
 func customColorLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
-	c, ok := _levelToColor[l]
+	color, ok := levelColors[l]
 	if !ok {
-		c = _resetColor
+		color = resetColor
 	}
-	enc.AppendString("[" + c + l.CapitalString() + "\x1b[0m]")
+	enc.AppendString(fmt.Sprintf("[%s%s%s]", color, levelStrings[l], resetColor))
 }
 
 func customCallerEncoder(c zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {

@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -126,11 +125,7 @@ func NewLogger(opts ...Option) (*Logger, error) {
 		logger.sensitiveKeys[strings.ToLower(k)] = struct{}{}
 	}
 
-	logger.Info("Zap logger initialized",
-		zap.String("mode", string(cfg.Mode)),
-		zap.Int("cores", len(cores)),
-		zap.Any("config", cfg),
-	)
+	log.Infof("Zap logger initialized. mode=%s cores=%d conf=%+v", cfg.Mode, len(cores), cfg)
 	return logger, nil
 }
 
@@ -221,7 +216,7 @@ func createAlertCore(cfg *Config, encoderConfig zapcore.EncoderConfig) *Alerter 
 
 	alertEncoder := encoderConfig
 	alertEncoder.EncodeLevel = zapcore.CapitalLevelEncoder
-	alertEncoder.EncodeTime = zapcore.TimeEncoderOfLayout(time.RFC3339)
+	alertEncoder.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000") //zapcore.TimeEncoderOfLayout(time.RFC3339)
 	alertEncoder.EncodeCaller = zapcore.FullCallerEncoder
 
 	return NewAlerter(
