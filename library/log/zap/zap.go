@@ -21,16 +21,21 @@ var _ log.Logger = (*Logger)(nil)
 
 const (
 	defaultFieldCapacity = 32
+	maxPoolCapacity      = 1024
 	sensitiveMask        = "******"
 )
 
 type Logger struct {
 	*zap.Logger
 	level         zap.AtomicLevel
-	resources     []io.Closer
+	closer        *loggerCloser
 	fieldPool     *fieldSlicePool
-	closeOnce     sync.Once
 	sensitiveKeys map[string]struct{}
+}
+
+type loggerCloser struct {
+	resources []io.Closer
+	closeOnce sync.Once
 }
 
 // 优化的字段池实现
@@ -53,7 +58,9 @@ func (p *fieldSlicePool) Get() []zap.Field {
 }
 
 func (p *fieldSlicePool) Put(fields []zap.Field) {
-	p.pool.Put(fields)
+	if cap(fields) <= maxPoolCapacity {
+		p.pool.Put(fields[:0])
+	}
 }
 
 // NewLogger 创建日志实例
@@ -102,10 +109,14 @@ func NewLogger(opts ...Option) (*Logger, error) {
 		options = append(options, zap.Development())
 	}
 
+	closer := &loggerCloser{
+		resources: resources,
+	}
+
 	logger := &Logger{
 		Logger:        zap.New(core, options...),
 		level:         level,
-		resources:     resources,
+		closer:        closer,
 		fieldPool:     newFieldSlicePool(),
 		sensitiveKeys: make(map[string]struct{}),
 	}
@@ -283,26 +294,40 @@ func (l *Logger) filterSensitive(fields []zap.Field) []zap.Field {
 	return fields
 }
 
-// Close 同步关闭方法
+// Close 关闭
 func (l *Logger) Close() error {
 	var errs []error
 
-	l.closeOnce.Do(func() {
-		if err := l.Sync(); err != nil {
+	l.closer.closeOnce.Do(func() {
+		if err := l.Sync(); err != nil && !isBenignSyncError(err) {
 			errs = append(errs, fmt.Errorf("logger sync error: %w", err))
 		}
 
-		for i, res := range l.resources {
+		for i, res := range l.closer.resources {
 			if err := res.Close(); err != nil {
 				errs = append(errs, fmt.Errorf("close resource[%d] %T failed: %w",
 					i, res, err))
 			}
 		}
-		l.resources = nil
+		l.closer.resources = nil
 		log.Info("Zap Logger closed successfully")
 	})
 
 	return errors.Join(errs...)
+}
+
+// isBenignSyncError 判断是否为可忽略的同步错误
+func isBenignSyncError(err error) bool {
+	var pathErr *os.PathError
+	if errors.As(err, &pathErr) {
+		if pathErr.Op == "sync" {
+			switch pathErr.Path {
+			case "/dev/stdout", "/dev/stderr":
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (l *Logger) SetLevel(level string) error {
@@ -313,11 +338,11 @@ func (l *Logger) NewHelper(keys ...interface{}) *log.Helper {
 	return log.NewHelper(l.With(keys...))
 }
 
+// With 方法创建子Logger，共享资源管理器
 func (l *Logger) With(keys ...interface{}) log.Logger {
 	fields := l.fieldPool.Get()
 	defer l.fieldPool.Put(fields)
 
-	// 处理键值对
 	for i := 0; i < len(keys); i += 2 {
 		if i+1 >= len(keys) {
 			fields = append(fields, zap.Any(fmt.Sprint(keys[i]), "(MISSING)"))
@@ -326,20 +351,15 @@ func (l *Logger) With(keys ...interface{}) log.Logger {
 		key, ok := keys[i].(string)
 		if !ok {
 			key = fmt.Sprintf("%v", keys[i])
-			continue
 		}
 		fields = append(fields, zap.Any(key, keys[i+1]))
 	}
 
-	// 深拷贝资源列表
-	newResources := make([]io.Closer, len(l.resources))
-	copy(newResources, l.resources)
-
 	return &Logger{
-		Logger:    l.Logger.With(fields...),
-		level:     l.level,
-		resources: newResources,
-		fieldPool: l.fieldPool,
-		closeOnce: sync.Once{},
+		Logger:        l.Logger.With(fields...),
+		level:         l.level,
+		closer:        l.closer,
+		fieldPool:     l.fieldPool,
+		sensitiveKeys: l.sensitiveKeys,
 	}
 }

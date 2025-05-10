@@ -69,11 +69,11 @@ func loadLog() *zap.Logger {
 
 func testLog(zapLogger *zap.Logger) {
 
-	////调试
-	////zapLogger.Info("zapLogger start")
-	////zapLogger.Close()
-	////zapLogger.Info("zapLogger end")
-
+	//////调试
+	//////zapLogger.Info("zapLogger start")
+	//////zapLogger.Close()
+	//////zapLogger.Info("zapLogger end")
+	//
 	//// 使用with
 	//log.SetLogger(zapLogger.With(
 	//	"service.name", Name,
@@ -96,7 +96,7 @@ func testLog(zapLogger *zap.Logger) {
 	//log.Debugf("set level 1")
 	//log.GetLogger().(*zap.Logger).SetLevel("info")
 	//log.Debugf("set level 2")
-	//
+
 	log.Debugf("debug")
 	log.Infof("info")
 	log.Warnf("warn")
