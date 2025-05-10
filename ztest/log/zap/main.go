@@ -91,7 +91,7 @@ func testLog(zapLogger *zap.Logger) {
 	//helper.Info("help 1")
 	//log.Info("help 2")
 	//helper.Debugf("help 3")
-	//
+
 	//// 设置level
 	//log.Debugf("set level 1")
 	//log.GetLogger().(*zap.Logger).SetLevel("info")

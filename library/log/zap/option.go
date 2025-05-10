@@ -133,9 +133,10 @@ type Alert struct {
 }
 
 type RetryPolicy struct {
-	MaxRetries int
-	Backoff    time.Duration
-	Factor     float64
+	MaxRetries  int
+	Backoff     time.Duration
+	MinInterval time.Duration
+	Factor      float64
 }
 type LimitPolicy struct {
 	Limit time.Duration
@@ -172,7 +173,7 @@ func defaultConfig() *Config {
 		},
 		Alert: Alert{
 			Threshold:   zapcore.ErrorLevel,
-			MaxInterval: 5 * time.Second,
+			MaxInterval: 3 * time.Second,
 			QueueSize:   2048,
 			MaxBatchCnt: 10,
 			Prefix:      "",
@@ -181,9 +182,10 @@ func defaultConfig() *Config {
 				Burst: 1,
 			},
 			RetryPolicy: RetryPolicy{
-				MaxRetries: 1,
-				Backoff:    1 * time.Second,
-				Factor:     2,
+				MaxRetries:  1,
+				Backoff:     200 * time.Millisecond,
+				MinInterval: 100 * time.Millisecond,
+				Factor:      2,
 			},
 		},
 	}

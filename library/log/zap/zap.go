@@ -219,12 +219,19 @@ func createAlertCore(cfg *Config, encoderConfig zapcore.EncoderConfig) *Alerter 
 	alertEncoder.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000") //zapcore.TimeEncoderOfLayout(time.RFC3339)
 	alertEncoder.EncodeCaller = zapcore.FullCallerEncoder
 
+	sender, err := NewTelegramSender(cfg.Alert.Notification.Telegram)
+	if err != nil {
+		log.Warnf("Failed to create Alerter: %v", err)
+		return nil
+	}
+
 	return NewAlerter(
 		zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
 			return lvl >= cfg.Alert.Threshold
 		}),
 		zapcore.NewJSONEncoder(alertEncoder),
 		cfg.Alert,
+		sender,
 	)
 }
 

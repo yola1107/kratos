@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"runtime/debug"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -28,14 +27,30 @@ type Sender interface {
 	Close() error
 }
 
-// Alerter 报警器核心
+type SafeSender struct {
+	mu     sync.Mutex
+	sender Sender
+}
+
+func (s *SafeSender) Send(messages []string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.sender.Send(messages)
+}
+
+func (s *SafeSender) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.sender.Close()
+}
+
 type Alerter struct {
 	zapcore.LevelEnabler                 // 日志级别过滤器
 	enc                  zapcore.Encoder // 日志编码器
 	fields               []zapcore.Field // 附加字段
 
 	conf     Alert            // 告警配置
-	sender   Sender           // 消息发送器（如Telegram）
+	sender   SafeSender       // 消息发送器（如Telegram）
 	msgChan  chan *tagMessage // 消息队列（带长度标记）
 	stopChan chan struct{}    // 关闭信号
 	wg       sync.WaitGroup   // 协程同步
@@ -48,19 +63,12 @@ type tagMessage struct {
 	length  int
 }
 
-// NewAlerter 创建报警器
-func NewAlerter(enabler zapcore.LevelEnabler, enc zapcore.Encoder, conf Alert) *Alerter {
-	sender, err := NewTelegramSender(conf.Notification.Telegram)
-	if err != nil {
-		log.Warnf("Failed to create Alerter: %v", err)
-		return nil
-	}
-
+func NewAlerter(enabler zapcore.LevelEnabler, enc zapcore.Encoder, conf Alert, sender Sender) *Alerter {
 	a := &Alerter{
 		LevelEnabler: enabler,
 		enc:          enc,
 		conf:         conf,
-		sender:       sender,
+		sender:       SafeSender{sender: sender},
 		msgChan:      make(chan *tagMessage, conf.QueueSize),
 		stopChan:     make(chan struct{}),
 		limiter:      rate.NewLimiter(rate.Every(conf.LimitPolicy.Limit), conf.LimitPolicy.Burst),
@@ -72,7 +80,6 @@ func NewAlerter(enabler zapcore.LevelEnabler, enc zapcore.Encoder, conf Alert) *
 	return a
 }
 
-// With 添加字段
 func (a *Alerter) With(fields []zapcore.Field) zapcore.Core {
 	if len(fields) == 0 {
 		return a
@@ -85,7 +92,6 @@ func (a *Alerter) With(fields []zapcore.Field) zapcore.Core {
 	return &clone
 }
 
-// Check 检查日志级别
 func (a *Alerter) Check(ent zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
 	if a.Enabled(ent.Level) {
 		return ce.AddCore(ent, a)
@@ -93,15 +99,15 @@ func (a *Alerter) Check(ent zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.Ch
 	return ce
 }
 
-// Write 写入日志
 func (a *Alerter) Write(ent zapcore.Entry, fields []zapcore.Field) error {
 	if a.closed.Load() {
-		return fmt.Errorf("alerter is closed")
+		return fmt.Errorf("alerter closed")
 	}
 
-	entryBuf, err := a.enc.EncodeEntry(ent, append(append(a.fields, fields...), zap.String("prefix", a.conf.Prefix)))
+	fullFields := append(append(a.fields, fields...), zap.String("prefix", a.conf.Prefix))
+	entryBuf, err := a.enc.EncodeEntry(ent, fullFields)
 	if err != nil {
-		return fmt.Errorf("failed to encode entry: %w", err)
+		return fmt.Errorf("encode error: %w", err)
 	}
 	msg := truncateMessage(formatJSONString(entryBuf.String()), maxTelegramMsgSize)
 
@@ -126,26 +132,21 @@ func formatJSONString(input string) string {
 	return string(prettyJSON)
 }
 
-// Sync 同步日志
 func (a *Alerter) Sync() error { return nil }
 
-// Close 关闭
 func (a *Alerter) Close() error {
 	if !a.closed.CompareAndSwap(false, true) {
 		return nil
 	}
-	close(a.stopChan) // 先关闭stopChan
+	close(a.stopChan)
 	a.wg.Wait()
-	return a.sender.Close() // 最后关闭sender
+	close(a.msgChan)
+	return a.sender.Close()
 }
 
 func (a *Alerter) process() {
-	defer func() {
-		if r := recover(); r != nil {
-			log.Errorf("alerter panic in process goroutine: %+v\n%s", r, debug.Stack())
-		}
-		a.wg.Done()
-	}()
+	defer a.recoverPanic()
+	defer a.wg.Done()
 
 	var (
 		batchPool = sync.Pool{New: func() interface{} { return make([]string, 0, a.conf.MaxBatchCnt) }}
@@ -182,7 +183,7 @@ func (a *Alerter) process() {
 }
 
 func (a *Alerter) needFlush(msgLen, batchSize, batchCount int) bool {
-	return (msgLen+batchSize > maxTelegramMsgSize) || (batchCount >= a.conf.MaxBatchCnt)
+	return msgLen+batchSize > maxTelegramMsgSize || batchCount >= a.conf.MaxBatchCnt
 }
 
 func (a *Alerter) drainQueue(batch *[]string, batchSize *int) {
@@ -209,10 +210,10 @@ func (a *Alerter) sendWithRetry(batch []string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	for i := 0; i < a.conf.RetryPolicy.MaxRetries; i++ {
+	for attempt := 1; attempt <= a.conf.RetryPolicy.MaxRetries; attempt++ {
 		if err := a.limiter.Wait(ctx); err != nil {
-			log.Error("rate limit exceeded", zap.Error(err))
-			break
+			log.Warn("rate limit exceeded", zap.Error(err))
+			return
 		}
 
 		if err := a.sender.Send(batch); err == nil {
@@ -220,28 +221,47 @@ func (a *Alerter) sendWithRetry(batch []string) {
 		}
 
 		select {
-		case <-time.After(time.Duration(i+1) * time.Second): // 指数退避
+		case <-time.After(a.calculateBackoff(attempt)):
 		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-// truncateMessage 消息截断
-func truncateMessage(text string, maxSize int) string {
-	if utf8.RuneCountInString(text) <= maxSize {
-		return text
+func (a *Alerter) calculateBackoff(attempt int) time.Duration {
+	base := time.Duration(attempt) * a.conf.RetryPolicy.Backoff
+	if base < a.conf.RetryPolicy.MinInterval {
+		base = a.conf.RetryPolicy.MinInterval
+	}
+	return base
+}
+
+func (a *Alerter) recoverPanic() {
+	if r := recover(); r != nil {
+		log.Error("alerter panic recovered",
+			zap.Any("reason", r),
+			zap.String("stack", string(debug.Stack())),
+		)
+	}
+}
+func truncateMessage(s string, max int) string {
+	if utf8.RuneCountInString(s) <= max {
+		return s
 	}
 
-	// 优先在换行符处截断
-	if idx := strings.LastIndex(text[:maxSize], "\n"); idx > 0 {
-		return text[:idx] + "\n...(truncated)"
+	// 优先在结构边界截断
+	truncatePoints := []rune{'\n', '}', ']', ';'}
+	runes := []rune(s)
+	for i := max - 1; i > max/2; i-- {
+		for _, p := range truncatePoints {
+			if runes[i] == p {
+				return string(runes[:i+1]) + "\n...[truncated]"
+			}
+		}
 	}
 
-	// 按字符截断
-	runes := []rune(text)
-	if len(runes) > maxSize {
-		runes = runes[:maxSize-100]
-	}
-	return string(runes) + fmt.Sprintf("...(truncated, length=%d)", len(runes))
+	// 保留重要信息头尾
+	head := string(runes[:max/2])
+	tail := string(runes[len(runes)-max/2:])
+	return head + "\n...[truncated]\n" + tail
 }
