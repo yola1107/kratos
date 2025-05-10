@@ -299,7 +299,7 @@ func (l *Logger) Close() error {
 			}
 		}
 		l.resources = nil
-		l.Logger.Info("Logger closed successfully")
+		log.Info("Zap Logger closed successfully")
 	})
 
 	return errors.Join(errs...)

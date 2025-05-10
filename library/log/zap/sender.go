@@ -69,8 +69,8 @@ func (t *TelegramSender) Send(messages []string) error {
 	}
 	content += "\n\n---------\n\n"
 
-	//fmt.Printf("=========>%+v send %d content: \n%+v", time.Now().Format("2006-01-02 15:04:05.000"), len(messages), content)
-	//return nil
+	fmt.Printf("=========>%+v send %d content: \n%+v", time.Now().Format("2006-01-02 15:04:05.000"), len(messages), content)
+	return nil
 
 	_, err := t.client.PostForm(
 		"https://api.telegram.org/bot"+t.Token+"/sendMessage",
