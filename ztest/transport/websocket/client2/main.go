@@ -24,8 +24,8 @@ var (
 
 func main() {
 	Name := "ws-cli"
-	zapLogger := zap.New(zap.DefaultConfig(
-		zap.WithMode(zap.Development),
+	zapLogger, err := zap.NewLogger(
+		zap.WithDevelopment(),
 		zap.WithDirectory("./logs"),
 		zap.WithFilename(Name+".log"),
 		zap.WithErrorFilename(Name+"_error.log"),
@@ -37,7 +37,10 @@ func main() {
 		//zap.WithMaxBatchCnt(1),
 		//zap.WithRateLimiter(time.Second*5),
 		//zap.WithThreshold(zapcore.WarnLevel),
-	))
+	)
+	if err != nil {
+		panic(err)
+	}
 	defer zapLogger.Close()
 
 	log.SetLogger(zapLogger)

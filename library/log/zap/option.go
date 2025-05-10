@@ -45,16 +45,8 @@ func WithMaxBackups(maxBackups int) Option {
 	return func(c *Config) { c.MaxBackups = maxBackups }
 }
 
-func WithFlushInterval(interval time.Duration) Option {
-	return func(c *Config) { c.FlushInterval = interval }
-}
-
 func WithQueueSize(queueSize int) Option {
 	return func(c *Config) { c.QueueSize = queueSize }
-}
-
-func WithPoolSize(poolSize int) Option {
-	return func(c *Config) { c.PoolSize = poolSize }
 }
 
 func WithLocalTime(localTime bool) Option {
@@ -102,22 +94,25 @@ func WithChatID(chatID string) Option {
 }
 
 type Config struct {
-	Mode          Mode          // 日志模式：Development("dev") / Production("prod")
-	Level         string        // 日志级别：debug/info/warn/error/dpanic/panic/fatal
-	Directory     string        // 日志目录，开发模式默认"./logs"，生产建议"/var/log/app"
-	Filename      string        // 普通日志文件名，默认"app.log"
-	ErrorFilename string        // 错误日志文件名，默认"app_error.log"（存储error及以上级别日志）
-	MaxSize       int           // 单个日志文件最大大小(MB)，默认200
-	MaxAge        int           // 日志保留天数，默认7
-	MaxBackups    int           // 保留的旧日志文件数量，默认10
-	FlushInterval time.Duration // 日志刷盘间隔，默认3s
-	Compress      bool          // 是否压缩旧日志，默认true
-	QueueSize     int           // 异步日志队列大小，默认2048
-	PoolSize      int           // 内存对象池大小，默认512
-	LocalTime     bool          // 是否使用本地时间命名日志，默认true (false 则使用 UTC 时间）
-	Alert         Alert         // 日志告警配置
+	Mode          Mode            // 日志模式：Development("dev") / Production("prod")
+	Level         string          // 日志级别：debug/info/warn/error/dpanic/panic/fatal
+	Directory     string          // 日志目录，开发模式默认"./logs"，生产建议"/var/log/app"
+	Filename      string          // 普通日志文件名，默认"app.log"
+	ErrorFilename string          // 错误日志文件名，默认"app_error.log"（存储error及以上级别日志）
+	MaxSize       int             // 单个日志文件最大大小(MB)，默认200
+	MaxAge        int             // 日志保留天数，默认7
+	MaxBackups    int             // 保留的旧日志文件数量，默认10
+	Compress      bool            // 是否压缩旧日志，默认true
+	LocalTime     bool            // 是否使用本地时间命名日志，默认true (false 则使用 UTC 时间）
+	QueueSize     int             // 异步日志队列大小，默认2048
+	AsyncConsole  bool            //
+	Sampling      *SamplingConfig //
+	Alert         Alert           // 日志告警配置
 }
-
+type SamplingConfig struct {
+	Initial    int
+	Thereafter int
+}
 type Alert struct {
 	Threshold   zapcore.Level // 触发日志级别
 	MaxInterval time.Duration // 发送间隔
@@ -144,12 +139,15 @@ func defaultConfig() *Config {
 		MaxSize:       200,             // 单个日志文件最大200MB
 		MaxAge:        7,               // 保留7天
 		MaxBackups:    10,              // 保留10个备份
-		FlushInterval: 3 * time.Second, // 刷新间隔
 		Compress:      true,            // 启用压缩
 		LocalTime:     true,            // 本地时间命名日志
-		QueueSize:     2048,            // 增大队列缓冲
-		PoolSize:      512,             // 更大的对象池
+		QueueSize:     4096,            // 增大队列缓冲
+		AsyncConsole:  true,
 		//SensitiveKeys: []string{"password", "token", "secret"},
+		Sampling: &SamplingConfig{
+			Initial:    100,
+			Thereafter: 100,
+		},
 		Alert: Alert{
 			Threshold:   zapcore.ErrorLevel,
 			MaxInterval: 3 * time.Second,
@@ -215,19 +213,9 @@ func (c *Config) validate() error {
 		return errors.New("max backups cannot be negative")
 	}
 
-	// 验证刷新间隔
-	if c.FlushInterval <= 0 {
-		return errors.New("flush interval must be positive")
-	}
-
 	// 验证队列大小
 	if c.QueueSize <= 0 {
 		return errors.New("queue size must be positive")
-	}
-
-	// 验证对象池大小
-	if c.PoolSize <= 0 {
-		return errors.New("pool size must be positive")
 	}
 
 	// 验证告警配置

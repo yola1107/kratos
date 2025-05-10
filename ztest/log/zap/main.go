@@ -46,8 +46,8 @@ func main() {
 
 func loadLog() *zap.Logger {
 	zapLogger, err := zap.NewLogger(
-		//zap.WithMode(zap.Development),
-		zap.WithDevelopment(),
+		//zap.WithDevelopment(),
+		zap.WithProduction(),
 		zap.WithLevel("debug"),
 		zap.WithDirectory("./logs"),
 		zap.WithFilename(Name+".log"),
@@ -55,8 +55,8 @@ func loadLog() *zap.Logger {
 		zap.WithPrefix(Name),
 		//zap.WithToken(os.Getenv("TG_TOKEN")),
 		//zap.WithChatID(os.Getenv("TG_CHAT_ID")),
-		zap.WithToken("7945687310:AAHA9tkUPV1ELEsVSLoDZe_Cc76wp7YdDVI"),
-		zap.WithChatID("-4672893880"),
+		//zap.WithToken("7945687310:AAHA9tkUPV1ELEsVSLoDZe_Cc76wp7YdDVI"),
+		//zap.WithChatID("-4672893880"),
 		//zap.WithMaxBatchCnt(1),
 		//zap.WithRateLimiter(time.Second*5),
 		//zap.WithThreshold(zapcore.WarnLevel),
@@ -104,7 +104,7 @@ func testLog(zapLogger *zap.Logger) {
 	//log.Fatal("fatal")
 
 	// 测试消息
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 1; i++ {
 		log.Errorf("测试消息(%d)", i)
 	}
 	log.Errorf("测试消息(end)")

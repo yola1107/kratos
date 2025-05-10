@@ -119,8 +119,8 @@ func main() {
 }
 
 func loadLogger() *zap.Logger {
-	c := zap.DefaultConfig(
-		zap.WithMode(zap.Production),
+	zapLogger, err := zap.NewLogger(
+		zap.WithProduction(),
 		zap.WithDirectory("./logs"),
 		zap.WithFilename(Name+".log"),
 		zap.WithErrorFilename(Name+"_error.log"),
@@ -133,6 +133,8 @@ func loadLogger() *zap.Logger {
 		//zap.WithRateLimiter(time.Second*5),
 		//zap.WithThreshold(zapcore.WarnLevel),
 	)
-	zapLogger := zap.New(c)
+	if err != nil {
+		panic(err)
+	}
 	return zapLogger
 }

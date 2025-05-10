@@ -6,7 +6,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -18,7 +20,7 @@ import (
 var _ log.Logger = (*Logger)(nil)
 
 const (
-	defaultFieldCapacity = 16 // Default capacity for field slices
+	defaultFieldCapacity = 16
 	sensitiveMask        = "******"
 )
 
@@ -28,6 +30,7 @@ type Logger struct {
 	resources []io.Closer
 	fieldPool *fieldSlicePool
 	closeOnce sync.Once
+	sampler   zapcore.Core // 采样核心
 }
 
 type fieldSlicePool struct {
@@ -77,6 +80,16 @@ func NewLogger(opts ...Option) (*Logger, error) {
 		return nil, fmt.Errorf("failed to create log cores: %w", err)
 	}
 
+	var sampler zapcore.Core
+	if cfg.Sampling != nil {
+		sampler = zapcore.NewSampler(
+			zapcore.NewTee(cores...),
+			time.Second,
+			cfg.Sampling.Initial,
+			cfg.Sampling.Thereafter,
+		)
+	}
+
 	options := []zap.Option{
 		zap.AddCaller(),
 		zap.AddCallerSkip(2),
@@ -87,11 +100,15 @@ func NewLogger(opts ...Option) (*Logger, error) {
 		options = append(options, zap.Development())
 	}
 
+	var core zapcore.Core
+	if sampler != nil {
+		core = sampler
+	} else {
+		core = zapcore.NewTee(cores...)
+	}
+
 	logger := &Logger{
-		Logger: zap.New(
-			zapcore.NewTee(cores...),
-			options...,
-		),
+		Logger:    zap.New(core, options...),
 		level:     level,
 		resources: resources,
 		fieldPool: newFieldSlicePool(),
@@ -125,6 +142,7 @@ func buildEncoderConfig(cfg *Config) zapcore.EncoderConfig {
 	return encoderConfig
 }
 
+// 创建核心日志器
 func createCore(cfg *Config, level zap.AtomicLevel, encoderConfig zapcore.EncoderConfig) ([]zapcore.Core, []io.Closer, error) {
 	var (
 		cores     []zapcore.Core
@@ -249,12 +267,14 @@ func (l *Logger) Log(level log.Level, keyvals ...interface{}) error {
 	return nil
 }
 
+// 敏感信息过滤
 func (l *Logger) filterSensitive(fields []zap.Field) []zap.Field {
-	sensitiveKeys := []string{"password", "token", "secret", "authorization"}
+	sensitiveKeys := []string{"password", "token", "secret", "authorization", "creditcard"}
 	for i, field := range fields {
-		for _, key := range sensitiveKeys {
-			if field.Key == key {
-				fields[i] = zap.String(key, sensitiveMask)
+		key := strings.ToLower(field.Key)
+		for _, sk := range sensitiveKeys {
+			if strings.Contains(key, sk) {
+				fields[i] = zap.String(field.Key, sensitiveMask)
 				break
 			}
 		}
@@ -262,10 +282,7 @@ func (l *Logger) filterSensitive(fields []zap.Field) []zap.Field {
 	return fields
 }
 
-func (l *Logger) Sync() error {
-	return l.Logger.Sync()
-}
-
+// Close 同步关闭方法
 func (l *Logger) Close() error {
 	var errs []error
 
