@@ -60,6 +60,7 @@ func loadLog() *zap.Logger {
 		//zap.WithMaxBatchCnt(1),
 		//zap.WithRateLimiter(time.Second*5),
 		//zap.WithThreshold(zapcore.WarnLevel),
+		zap.WithSensitiveKeys([]string{"pwd", "password"}),
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -81,21 +82,23 @@ func testLog(zapLogger *zap.Logger) {
 	//	"span.id", "",
 	//))
 	//
-	//// 使用with
-	//log.SetLogger(log.GetLogger().(*zap.Logger).With("k1", "v1"))
-	//log.Info("with 1")
-	//log.Info("with 2")
+	// 使用with
+	log.SetLogger(log.GetLogger().(*zap.Logger).With("password", "abc"))
+	log.Info("with 1")
+	log.Info("with 2")
 	//
-	//// 使用help log
-	//helper := log.GetLogger().(*zap.Logger).NewHelper("pwd", "auth")
-	//helper.Info("help 1")
-	//log.Info("help 2")
-	//helper.Debugf("help 3")
+	// 使用help log
+	helper := log.GetLogger().(*zap.Logger).NewHelper("pwd", "auth")
+	helper.Info("help 1")
+	log.Info("help 2")
+	helper.Debugf("help 3")
 
 	//// 设置level
 	//log.Debugf("set level 1")
 	//log.GetLogger().(*zap.Logger).SetLevel("info")
 	//log.Debugf("set level 2")
+
+	log.Info("SensitiveKeys. pwd=")
 
 	log.Debugf("debug")
 	log.Infof("info")

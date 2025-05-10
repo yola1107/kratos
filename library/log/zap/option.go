@@ -58,6 +58,10 @@ func WithCompress(compress bool) Option {
 	return func(c *Config) { c.Compress = compress }
 }
 
+func WithSensitiveKeys(SensitiveKeys []string) Option {
+	return func(c *Config) { c.SensitiveKeys = SensitiveKeys }
+}
+
 func WithThreshold(lv zapcore.Level) Option {
 	return func(c *Config) { c.Alert.Threshold = lv }
 }

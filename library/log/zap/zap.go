@@ -357,6 +357,8 @@ func (l *Logger) With(keys ...interface{}) log.Logger {
 		fields = append(fields, zap.Any(key, keys[i+1]))
 	}
 
+	fields = l.filterSensitive(fields)
+
 	return &Logger{
 		Logger:        l.Logger.With(fields...),
 		level:         l.level,
