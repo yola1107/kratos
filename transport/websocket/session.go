@@ -50,16 +50,16 @@ func NewSession(server *Server, conn *websocket.Conn) *Session {
 		server:      server,
 		conn:        conn,
 		values:      sync.Map{},
-		sendChan:    make(chan []byte, server.opts.sendChannelSize),
+		sendChan:    make(chan []byte, server.opts.limits.sendChanSize),
 		ctx:         ctx,
 		cancel:      cancel,
 		closeCh:     make(chan struct{}),
-		rateLimiter: rate.NewLimiter(rate.Limit(server.opts.rateLimit), server.opts.burstLimit),
+		rateLimiter: rate.NewLimiter(rate.Limit(server.opts.limits.rateLimit), server.opts.limits.burstLimit),
 	}
 	s.lastActive.Store(time.Now())
 
 	// 设置连接参数
-	conn.SetReadLimit(server.opts.maxMessageSize)
+	conn.SetReadLimit(server.opts.limits.maxMessageSize)
 	conn.SetPongHandler(func(string) error {
 		s.updateHeartbeat()
 		return nil
@@ -115,7 +115,7 @@ func (s *Session) Send(message []byte) error {
 		return nil
 	case <-s.closeCh:
 		return errSessionClosed
-	case <-time.After(s.server.opts.writeTimeout):
+	case <-time.After(s.server.opts.timeouts.write):
 		return errWriteTimeout
 	}
 }
@@ -152,7 +152,7 @@ func (s *Session) readPump() {
 
 	for {
 		s.connMu.RLock()
-		err := s.conn.SetReadDeadline(time.Now().Add(s.server.opts.heartDeadline))
+		err := s.conn.SetReadDeadline(time.Now().Add(s.server.opts.heartbeat.deadline))
 		s.connMu.RUnlock()
 		if err != nil {
 			log.Errorf("set read deadline error: %v", err)
@@ -251,13 +251,13 @@ func (s *Session) sendCloseFrame() {
 			_ = s.conn.WriteControl(
 				websocket.CloseMessage,
 				websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
-				time.Now().Add(s.server.opts.writeTimeout),
+				time.Now().Add(s.server.opts.timeouts.write),
 			)
 		}
 	}()
 	select {
 	case <-done:
-	case <-time.After(s.server.opts.closeGracePeriod):
+	case <-time.After(s.server.opts.timeouts.dial):
 		log.Warnf("key %+v close frame timeout", s.id)
 	}
 }
@@ -270,7 +270,7 @@ func (s *Session) waitForGoroutines() {
 	}()
 	select {
 	case <-done:
-	case <-time.After(s.server.opts.shutdownTimeout):
+	case <-time.After(s.server.opts.timeouts.shutdown):
 		log.Warnf("key: %s close timeout", s.id)
 	}
 }
@@ -288,7 +288,7 @@ func (s *Session) closeUnderlyingConn() {
 func (s *Session) unregisterFromServer() {
 	select {
 	case s.server.unregister <- s:
-	case <-time.After(s.server.opts.shutdownTimeout):
+	case <-time.After(s.server.opts.timeouts.shutdown):
 		log.Warnf("key: %s unregister timeout", s.id)
 	}
 }
@@ -298,7 +298,7 @@ func (s *Session) writeMessageLocked(data []byte) error {
 		return errSessionClosed
 	}
 
-	if err := s.conn.SetWriteDeadline(time.Now().Add(s.server.opts.writeTimeout)); err != nil {
+	if err := s.conn.SetWriteDeadline(time.Now().Add(s.server.opts.timeouts.write)); err != nil {
 		return err
 	}
 

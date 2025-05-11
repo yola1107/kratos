@@ -33,6 +33,10 @@ var (
 	_ transport.Endpointer = (*Server)(nil)
 )
 
+var (
+	unknownOpsCode = int32(501)
+)
+
 // ServerOption is a Websocket server option.
 type ServerOption func(*Server)
 
@@ -46,25 +50,22 @@ func Endpoint(u *url.URL) ServerOption {
 	return func(s *Server) { s.opts.endpoint = u }
 }
 func Timeout(d time.Duration) ServerOption {
-	return func(s *Server) { s.opts.timeout = d }
+	return func(s *Server) { s.opts.timeouts.timeout = d }
 }
 func Middleware(m ...middleware.Middleware) ServerOption {
 	return func(s *Server) { s.middleware.Use(m...) }
 }
 func HeartInterval(d time.Duration) ServerOption {
-	return func(s *Server) { s.opts.heartInterval = d }
+	return func(s *Server) { s.opts.heartbeat.interval = d }
 }
 func HeartDeadline(d time.Duration) ServerOption {
-	return func(s *Server) { s.opts.heartDeadline = d }
+	return func(s *Server) { s.opts.heartbeat.deadline = d }
 }
 func HeartThreshold(d time.Duration) ServerOption {
-	return func(s *Server) { s.opts.heartThreshold = d }
+	return func(s *Server) { s.opts.heartbeat.threshold = d }
 }
-func JobsCnt(cnt int) ServerOption {
-	return func(s *Server) { s.opts.maxJobsCnt = cnt }
-}
-func MaxConnections(max int32) ServerOption {
-	return func(s *Server) { s.opts.maxConnections = max }
+func JobsChanSize(jobsChanSize int) ServerOption {
+	return func(s *Server) { s.opts.limits.jobsChanSize = jobsChanSize }
 }
 func OnOpenFunc(f func(*Session)) ServerOption {
 	return func(s *Server) { s.OnOpenFunc = f }
@@ -74,71 +75,81 @@ func OnCloseFunc(f func(*Session)) ServerOption {
 }
 
 type serverOptions struct {
-	network          string
-	address          string
-	endpoint         *url.URL
-	timeout          time.Duration
-	lis              net.Listener
-	tlsConf          *tls.Config
-	writeTimeout     time.Duration
-	readTimeout      time.Duration
-	heartInterval    time.Duration
-	heartDeadline    time.Duration
-	heartThreshold   time.Duration
-	maxJobsCnt       int
-	maxConnections   int32
-	closeGracePeriod time.Duration //= 2 * time.Second
-	sendChannelSize  time.Duration //= 256
-	shutdownTimeout  time.Duration //= 5 * time.Second
-	maxMessageSize   int64         //= 10 * 1024 * 1024 // 10MB
-	rateLimit        int           //= 1000             // 每秒消息数
-	burstLimit       int           //= 500              // 突发消息数
+	network   string
+	address   string
+	endpoint  *url.URL
+	lis       net.Listener
+	tlsConf   *tls.Config
+	timeouts  *timeouts
+	heartbeat *heartbeat
+	limits    *limits
+}
+type timeouts struct {
+	timeout  time.Duration
+	read     time.Duration
+	write    time.Duration
+	shutdown time.Duration
+	dial     time.Duration
+}
+type heartbeat struct {
+	interval  time.Duration
+	deadline  time.Duration
+	threshold time.Duration
+}
+type limits struct {
+	jobsChanSize   int
+	maxConnections int32
+	maxMessageSize int64
+	rateLimit      int
+	burstLimit     int
+	sendChanSize   int
 }
 
 // Server is a Websocket server wrapper.
 type Server struct {
 	*http.Server // 内嵌标准HTTP服务器
-
-	err        error
-	opts       serverOptions       // 配置选项
-	middleware matcher.Matcher     // 中间件
-	upgrader   *websocket.Upgrader // WebSocket升级器
-	sessionMgr *SessionManager     // 会话管理
-
-	register   chan *Session // 注册通道
-	unregister chan *Session // 注销通道
-
-	handlers []UnaryServerInterceptor // 拦截器链
-	m        *service                 // 注册的服务
-
-	loop *task.Loop // 任务处理池
-
-	OnOpenFunc  func(*Session) // 连接建立回调
-	OnCloseFunc func(*Session) // 连接关闭回调
+	err          error
+	opts         serverOptions            // 配置选项
+	middleware   matcher.Matcher          // 中间件
+	upgrader     *websocket.Upgrader      // WebSocket升级器
+	sessionMgr   *SessionManager          // 会话管理
+	handlers     []UnaryServerInterceptor // 拦截器链
+	m            *service                 // 注册的服务
+	loop         *task.Loop               // 任务处理池
+	register     chan *Session            // 注册通道
+	unregister   chan *Session            // 注销通道
+	OnOpenFunc   func(*Session)           // 连接建立回调
+	OnCloseFunc  func(*Session)           // 连接关闭回调
 }
 
 // NewServer creates a Websocket server by options.
 func NewServer(opts ...ServerOption) *Server {
 	s := &Server{
 		opts: serverOptions{
-			network:          "tcp",
-			address:          ":0",
-			timeout:          1 * time.Second,
-			lis:              nil,
-			tlsConf:          nil,
-			writeTimeout:     15 * time.Second,
-			readTimeout:      30 * time.Second,
-			heartInterval:    10 * time.Second,
-			heartDeadline:    60 * time.Second,
-			heartThreshold:   30 * time.Second,
-			maxJobsCnt:       10000,
-			maxConnections:   10000,
-			closeGracePeriod: 2 * time.Second,
-			sendChannelSize:  256,
-			shutdownTimeout:  5 * time.Second,
-			maxMessageSize:   10 * 1024 * 1024, // 10MB
-			rateLimit:        1000,             // 每秒消息数
-			burstLimit:       500,              // 突发消息数
+			network: "tcp",
+			address: ":0",
+			lis:     nil,
+			tlsConf: nil,
+			timeouts: &timeouts{
+				timeout:  time.Second * 5,
+				read:     30 * time.Second,
+				write:    15 * time.Second,
+				shutdown: 5 * time.Second,
+				dial:     2 * time.Second,
+			},
+			heartbeat: &heartbeat{
+				interval:  10 * time.Second,
+				deadline:  60 * time.Second,
+				threshold: 30 * time.Second,
+			},
+			limits: &limits{
+				jobsChanSize:   10000,
+				maxConnections: 100000,
+				maxMessageSize: 10 * 1024 * 1024, // 10MB
+				rateLimit:      1000,             // 每秒消息数,
+				burstLimit:     500,              // 突发消息数,
+				sendChanSize:   256,
+			},
 		},
 		err:        nil,
 		middleware: matcher.New(),
@@ -156,7 +167,7 @@ func NewServer(opts ...ServerOption) *Server {
 		o(s)
 	}
 
-	s.loop = task.NewLoop(s.opts.maxJobsCnt)
+	s.loop = task.NewLoop(s.opts.limits.jobsChanSize)
 	s.loop.Start()
 
 	s.Use(s.recovery())
@@ -253,7 +264,7 @@ func (s *Server) manageSessions() {
 func (s *Server) handleConnections() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// 连接数限制
-		if cnt := s.sessionMgr.Len(); cnt >= s.opts.maxConnections {
+		if cnt := s.sessionMgr.Len(); cnt >= s.opts.limits.maxConnections {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			log.Warnf("StatusServiceUnavailable. over maxConnections(%d)", cnt)
 			return
@@ -279,7 +290,7 @@ func (s *Server) keepHeartbeat(ctx context.Context) {
 		}
 	}()
 
-	ticker := time.NewTicker(s.opts.heartInterval)
+	ticker := time.NewTicker(s.opts.heartbeat.interval)
 	defer ticker.Stop()
 
 	for {
@@ -287,8 +298,8 @@ func (s *Server) keepHeartbeat(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			cutoff := time.Now().Add(-1 * s.opts.heartDeadline)
-			threshold := time.Now().Add(-1 * s.opts.heartThreshold)
+			cutoff := time.Now().Add(-1 * s.opts.heartbeat.deadline)
+			threshold := time.Now().Add(-1 * s.opts.heartbeat.threshold)
 			s.sessionMgr.Range(func(sess *Session) {
 				if sess.LastActive().Before(cutoff) {
 					log.Warnf("key %s heartbeat dead line.", sess.id)
@@ -388,9 +399,9 @@ func (s *Server) operate(ctx context.Context, sess *Session, p *proto.Payload) (
 	srv := s.m
 	md, ok := srv.md[reqBody.Ops]
 	if !ok {
-		log.Warnf("Unkonwn Ops(%+v) ", reqBody.Ops)
+		log.Warnf("Unknown Ops(%+v) ", reqBody.Ops)
 		// 返回错误响应给客户端
-		p.Code = 505 // 或自定义错误码
+		p.Code = unknownOpsCode // 或自定义错误码
 		return sess.Send(mustMarshal(p))
 	}
 	reply, errCode := md.Handler(srv.server, ctx, reqBody.Data, s.interceptor)

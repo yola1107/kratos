@@ -120,7 +120,8 @@ func main() {
 
 func loadLogger() *zap.Logger {
 	zapLogger, err := zap.NewLogger(
-		zap.WithProduction(),
+		zap.WithDevelopment(),
+		//zap.WithProduction(),
 		zap.WithDirectory("./logs"),
 		zap.WithFilename(Name+".log"),
 		zap.WithErrorFilename(Name+"_error.log"),

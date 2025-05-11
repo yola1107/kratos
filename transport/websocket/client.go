@@ -36,19 +36,19 @@ func WithTlsConf(tlsConfig *tls.Config) ClientOption {
 	return func(o *clientOptions) { o.tlsConf = tlsConfig }
 }
 func WithTimeout(timeout time.Duration) ClientOption {
-	return func(o *clientOptions) { o.timeout = timeout }
+	return func(o *clientOptions) { o.timeouts.timeout = timeout }
 }
 func WithWriteTimeout(writeTimeout time.Duration) ClientOption {
-	return func(o *clientOptions) { o.writeTimeout = writeTimeout }
+	return func(o *clientOptions) { o.timeouts.writeTimeout = writeTimeout }
 }
 func WithReadTimeout(readTimeout time.Duration) ClientOption {
-	return func(o *clientOptions) { o.readTimeout = readTimeout }
+	return func(o *clientOptions) { o.timeouts.readTimeout = readTimeout }
 }
 func WithResponseTimeout(responseTimeout time.Duration) ClientOption {
-	return func(o *clientOptions) { o.responseTimeout = responseTimeout }
+	return func(o *clientOptions) { o.timeouts.responseTimeout = responseTimeout }
 }
 func WithHeartInterval(heartInterval time.Duration) ClientOption {
-	return func(o *clientOptions) { o.heartInterval = heartInterval }
+	return func(o *clientOptions) { o.timeouts.heartInterval = heartInterval }
 }
 func WithEndpoint(endpoint string) ClientOption {
 	return func(o *clientOptions) { o.endpoint = endpoint }
@@ -67,9 +67,9 @@ func WithResponseHandler(responseHandler map[int32]ResponseHandler) ClientOption
 }
 func WithReconnect(baseDelay, maxDelay time.Duration, attemptCnt int32) ClientOption {
 	return func(o *clientOptions) {
-		o.reconnectBaseDelay = baseDelay
-		o.reconnectMaxDelay = maxDelay
-		o.maxReconnectAttempt = attemptCnt
+		o.retryPolicy.baseDelay = baseDelay
+		o.retryPolicy.maxDelay = maxDelay
+		o.retryPolicy.maxAttempt = attemptCnt
 	}
 }
 func WithStateFunc(f func(bool)) ClientOption {
@@ -89,13 +89,9 @@ func WithStateFunc(f func(bool)) ClientOption {
 //}
 
 type clientOptions struct {
-	ctx             context.Context
-	tlsConf         *tls.Config
-	timeout         time.Duration
-	writeTimeout    time.Duration
-	readTimeout     time.Duration
-	responseTimeout time.Duration
-	heartInterval   time.Duration
+	ctx     context.Context
+	tlsConf *tls.Config
+
 	endpoint        string
 	token           string
 	disconnectFunc  func()
@@ -103,13 +99,23 @@ type clientOptions struct {
 	responseHandler map[int32]ResponseHandler
 	stateFunc       func(connected bool)
 
-	//重连
-	reconnectBaseDelay  time.Duration
-	reconnectMaxDelay   time.Duration
-	maxReconnectAttempt int32
+	timeouts    clientTimeOut //
+	retryPolicy retryPolicy   //重连
 
 	////服务发现
 	//discovery registry.Discovery
+}
+type clientTimeOut struct {
+	timeout         time.Duration
+	writeTimeout    time.Duration
+	readTimeout     time.Duration
+	responseTimeout time.Duration
+	heartInterval   time.Duration
+}
+type retryPolicy struct {
+	baseDelay  time.Duration
+	maxDelay   time.Duration
+	maxAttempt int32
 }
 
 // Client is a websocket client.
@@ -138,21 +144,26 @@ type Client struct {
 // NewClient returns an websocket client.
 func NewClient(ctx context.Context, opts ...ClientOption) (*Client, error) {
 	options := clientOptions{
-		ctx:                 ctx,
-		tlsConf:             nil,
-		timeout:             1 * time.Second,
-		writeTimeout:        15 * time.Second,
-		readTimeout:         60 * time.Second,
-		responseTimeout:     15 * time.Second,
-		heartInterval:       10 * time.Second,
-		endpoint:            "ws://0.0.0.0:3102",
-		token:               "",
-		disconnectFunc:      nil,
-		pushHandler:         map[int32]PushHandler{},
-		responseHandler:     map[int32]ResponseHandler{},
-		reconnectBaseDelay:  3 * time.Second,
-		reconnectMaxDelay:   15 * time.Second,
-		maxReconnectAttempt: 5,
+		ctx:     ctx,
+		tlsConf: nil,
+
+		endpoint:        "ws://0.0.0.0:3102",
+		token:           "",
+		disconnectFunc:  nil,
+		pushHandler:     map[int32]PushHandler{},
+		responseHandler: map[int32]ResponseHandler{},
+		timeouts: clientTimeOut{
+			timeout:         1 * time.Second,
+			writeTimeout:    15 * time.Second,
+			readTimeout:     60 * time.Second,
+			responseTimeout: 15 * time.Second,
+			heartInterval:   10 * time.Second,
+		},
+		retryPolicy: retryPolicy{
+			baseDelay:  3 * time.Second,
+			maxDelay:   15 * time.Second,
+			maxAttempt: 5,
+		},
 	}
 	for _, o := range opts {
 		o(&options)
@@ -210,7 +221,7 @@ func (c *Client) establishConnection() error {
 
 	// 使用带超时和TLS的Dialer
 	dialer := websocket.Dialer{
-		HandshakeTimeout: c.opts.writeTimeout,
+		HandshakeTimeout: c.opts.timeouts.writeTimeout,
 		TLSClientConfig: &tls.Config{
 			MinVersion: tls.VersionTLS12,
 			//InsecureSkipVerify: true, // 开发用，跳过证书校验
@@ -267,7 +278,7 @@ func (c *Client) Request(ops int32, msg gproto.Message) (*proto.Payload, error) 
 		return resp, nil
 	case <-c.opts.ctx.Done():
 		return nil, c.opts.ctx.Err()
-	case <-time.After(c.opts.responseTimeout):
+	case <-time.After(c.opts.timeouts.responseTimeout):
 		return nil, ErrRequestTimeout
 	}
 }
@@ -281,7 +292,7 @@ func (c *Client) send(p *proto.Payload) error {
 	select {
 	case c.writeChan <- p:
 		return nil
-	case <-time.After(c.opts.writeTimeout):
+	case <-time.After(c.opts.timeouts.writeTimeout):
 		return ErrSendTimeout
 	case <-c.closeChan:
 		return ErrClientClosed
@@ -291,7 +302,7 @@ func (c *Client) send(p *proto.Payload) error {
 // heartbeatLoop 心跳维持协程
 func (c *Client) heartbeatLoop() {
 	defer c.wg.Done()
-	ticker := time.NewTicker(c.opts.heartInterval)
+	ticker := time.NewTicker(c.opts.timeouts.heartInterval)
 	defer ticker.Stop()
 
 	for {
@@ -321,7 +332,7 @@ func (c *Client) writePump() {
 			}
 
 			c.connMutex.Lock()
-			err = c.conn.SetWriteDeadline(time.Now().Add(c.opts.writeTimeout))
+			err = c.conn.SetWriteDeadline(time.Now().Add(c.opts.timeouts.writeTimeout))
 			if err == nil {
 				err = c.conn.WriteMessage(websocket.BinaryMessage, data)
 			}
@@ -344,7 +355,7 @@ func (c *Client) readPump() {
 	defer c.wg.Done()
 	defer c.Close()
 
-	_ = c.conn.SetReadDeadline(time.Now().Add(c.opts.readTimeout))
+	_ = c.conn.SetReadDeadline(time.Now().Add(c.opts.timeouts.readTimeout))
 
 	for {
 		msgType, data, err := c.conn.ReadMessage()
@@ -357,7 +368,7 @@ func (c *Client) readPump() {
 			return
 		}
 
-		_ = c.conn.SetReadDeadline(time.Now().Add(c.opts.readTimeout))
+		_ = c.conn.SetReadDeadline(time.Now().Add(c.opts.timeouts.readTimeout))
 
 		switch msgType {
 		case websocket.BinaryMessage:
@@ -422,7 +433,7 @@ func (c *Client) handleMessage(data []byte) error {
 
 // safeReconnect 安全重连逻辑
 func (c *Client) safeReconnect() {
-	if c.isClosed.Load() || c.retryCount.Load() >= c.opts.maxReconnectAttempt {
+	if c.isClosed.Load() || c.retryCount.Load() >= c.opts.retryPolicy.maxAttempt {
 		return
 	}
 
@@ -433,7 +444,7 @@ func (c *Client) safeReconnect() {
 			}
 		}()
 
-		for i := int32(1); i <= c.opts.maxReconnectAttempt; i++ {
+		for i := int32(1); i <= c.opts.retryPolicy.maxAttempt; i++ {
 			delay := c.calculateBackoff(i)
 			log.Warnf("reconnecting attempt %d, delay %v", i, delay)
 			select {
@@ -457,8 +468,8 @@ func (c *Client) safeReconnect() {
 
 // calculateBackoff 计算退避时间
 func (c *Client) calculateBackoff(attempt int32) time.Duration {
-	base := float64(c.opts.reconnectBaseDelay)
-	max := float64(c.opts.reconnectMaxDelay)
+	base := float64(c.opts.retryPolicy.baseDelay)
+	max := float64(c.opts.retryPolicy.maxDelay)
 	jitter := 0.2 * rand.Float64()
 
 	delay := time.Duration(base * math.Pow(1.5, float64(attempt-1)) * (1 + jitter))

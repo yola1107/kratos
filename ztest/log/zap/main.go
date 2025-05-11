@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"runtime/debug"
+	"time"
 
 	"github.com/yola1107/kratos/v2"
 	"github.com/yola1107/kratos/v2/library/log/zap"
@@ -111,6 +113,15 @@ func testLog(zapLogger *zap.Logger) {
 		log.Errorf("测试消息(%d)", i)
 	}
 	log.Errorf("测试消息(end)")
+
+	go func() {
+		incr := 0
+		for {
+			incr++
+			log.Infof("test %d", incr)
+			time.Sleep(time.Duration(rand.Intn(500)+50) * time.Millisecond)
+		}
+	}()
 
 	defer func() {
 		if r := recover(); r != nil {
