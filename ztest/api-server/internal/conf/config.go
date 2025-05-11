@@ -8,6 +8,7 @@ import (
 	"github.com/r3labs/diff/v3"
 	"github.com/yola1107/kratos/v2/config"
 	"github.com/yola1107/kratos/v2/config/file"
+	"github.com/yola1107/kratos/v2/library/log/zap"
 	"github.com/yola1107/kratos/v2/log"
 )
 
@@ -17,7 +18,7 @@ var (
 
 func init() {}
 
-func Init(flagconf string) (config.Config, *Bootstrap) {
+func Init(flagconf string) config.Config {
 	c := config.New(
 		config.WithSource(
 			file.NewSource(flagconf),
@@ -36,34 +37,46 @@ func Init(flagconf string) (config.Config, *Bootstrap) {
 	watch(c, "data")
 	watch(c, "log")
 	watch(c, "a")
+	watchLogLevel(c)
 
-	log.Infof("load flagconf=%+v", flagconf)
-	log.Infof("load bc=%+v", ToJSON(bc))
-
-	return c, bc
+	log.Infof("load config flagconf=%+v", flagconf)
+	log.Infof("load config bc=%+v", ToJSON(bc))
+	return c
 }
 
 func watch(c config.Config, key string) {
 	err := c.Watch(key, func(key string, value config.Value) {
 		newCfg := &Bootstrap{}
 		if err := c.Scan(newCfg); err != nil {
+			log.Errorf("Failed to scan new config: %v", err)
 			return
 		}
-
 		changelog, _ := diff.Diff(bc, newCfg)
 		for _, change := range changelog {
-			fmt.Printf("Field=%s, change=(%v ==> %v)\n", change.Path, change.From, change.To)
+			fmt.Printf("Field=%s, from=%v to=%v\n", change.Path, change.From, change.To)
 		}
 		_ = copier.CopyWithOption(bc, newCfg, copier.Option{DeepCopy: true})
-		fmt.Printf("watch：config(key=%s) changed: %+v\n\n", key, value.Load())
+		log.Infof("watch：config(key=%s) changed: %+v\n", key, value.Load())
 	})
 	if err != nil {
-		fmt.Printf("Watch err. %+v\n", err) //panic(err)
+		log.Errorf("Failed to watch config key=%s: %v", key, err)
 	}
 }
 
-func GetConfig() *Bootstrap {
-	return bc
+func watchLogLevel(c config.Config) {
+	key := "log.level"
+	if err := c.Watch(key, func(key string, value config.Value) {
+		logger, ok := log.GetLogger().(*zap.Logger)
+		if !ok {
+			return
+		}
+		lv := value.Load().(string)
+		if err := logger.SetLevel(lv); err != nil {
+			log.Errorf("Failed to set log level(%+v): %v", lv, err)
+		}
+	}); err != nil {
+		log.Errorf("Failed to watch config key=%s: %v", key, err)
+	}
 }
 
 // ToJSON json string
@@ -73,4 +86,8 @@ func ToJSON(v interface{}) string {
 		return err.Error()
 	}
 	return string(j)
+}
+
+func GetConfig() *Bootstrap {
+	return bc
 }
