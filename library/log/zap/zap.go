@@ -204,8 +204,8 @@ func newLumberjack(cfg *Config, filename string) io.Writer {
 		MaxSize:    cfg.MaxSize,
 		MaxAge:     cfg.MaxAge,
 		MaxBackups: cfg.MaxBackups,
-		Compress:   cfg.Compress,
 		LocalTime:  cfg.LocalTime,
+		Compress:   cfg.Compress,
 	}
 }
 
@@ -214,21 +214,22 @@ func createAlertCore(cfg *Config, encoderConfig zapcore.EncoderConfig) *Alerter 
 		return nil
 	}
 
-	alertEncoder := encoderConfig
-	alertEncoder.EncodeLevel = zapcore.CapitalLevelEncoder
-	alertEncoder.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000") //zapcore.TimeEncoderOfLayout(time.RFC3339)
-	alertEncoder.EncodeCaller = zapcore.FullCallerEncoder
-
 	sender, err := NewTelegramSender(cfg.Alert.Notification.Telegram)
 	if err != nil {
 		log.Warnf("Failed to create Alerter: %v", err)
 		return nil
 	}
 
+	alertEncoder := encoderConfig
+	alertEncoder.EncodeLevel = zapcore.CapitalLevelEncoder
+	alertEncoder.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000") //zapcore.TimeEncoderOfLayout(time.RFC3339)
+	alertEncoder.EncodeCaller = zapcore.FullCallerEncoder
+
 	return NewAlerter(
-		zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
-			return lvl >= cfg.Alert.Threshold
-		}),
+		//zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
+		//	return lvl >= cfg.Alert.Threshold
+		//}),
+		cfg.Alert.Threshold,
 		zapcore.NewJSONEncoder(alertEncoder),
 		cfg.Alert,
 		sender,

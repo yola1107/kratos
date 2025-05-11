@@ -28,8 +28,8 @@ var (
 	// 预格式化的级别字符串
 	levelStrings = map[zapcore.Level]string{
 		zapcore.DebugLevel:  "DEBUG",
-		zapcore.InfoLevel:   "INFO ",
-		zapcore.WarnLevel:   "WARN ",
+		zapcore.InfoLevel:   "INFO",
+		zapcore.WarnLevel:   "WARN",
 		zapcore.ErrorLevel:  "ERROR",
 		zapcore.DPanicLevel: "PANIC",
 		zapcore.PanicLevel:  "PANIC",

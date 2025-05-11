@@ -121,9 +121,7 @@ type SamplingConfig struct {
 	Enabled    bool
 	Initial    int
 	Thereafter int
-	//Initial    map[zapcore.Level]int
-	//Thereafter map[zapcore.Level]int
-	Window time.Duration
+	Window     time.Duration
 }
 type Alert struct {
 	Threshold    zapcore.Level
@@ -140,7 +138,6 @@ type RetryPolicy struct {
 	MaxRetries  int
 	Backoff     time.Duration
 	MinInterval time.Duration
-	Factor      float64
 }
 type LimitPolicy struct {
 	Limit time.Duration
@@ -188,8 +185,7 @@ func defaultConfig() *Config {
 			RetryPolicy: RetryPolicy{
 				MaxRetries:  1,
 				Backoff:     200 * time.Millisecond,
-				MinInterval: 100 * time.Millisecond,
-				Factor:      2,
+				MinInterval: 500 * time.Millisecond,
 			},
 		},
 	}

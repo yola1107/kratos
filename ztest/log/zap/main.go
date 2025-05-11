@@ -46,8 +46,8 @@ func main() {
 
 func loadLog() *zap.Logger {
 	zapLogger, err := zap.NewLogger(
-		zap.WithDevelopment(),
-		//zap.WithProduction(),
+		//zap.WithDevelopment(),
+		zap.WithProduction(),
 		zap.WithLevel("debug"),
 		zap.WithDirectory("./logs"),
 		zap.WithFilename(Name+".log"),
@@ -81,24 +81,24 @@ func testLog(zapLogger *zap.Logger) {
 	//	"trace.id", "",
 	//	"span.id", "",
 	//))
-	//
-	// 使用with
-	log.SetLogger(log.GetLogger().(*zap.Logger).With("password", "abc"))
-	log.Info("with 1")
-	log.Info("with 2")
-	//
-	// 使用help log
-	helper := log.GetLogger().(*zap.Logger).NewHelper("pwd", "auth")
-	helper.Info("help 1")
-	log.Info("help 2")
-	helper.Debugf("help 3")
+
+	//// 使用with
+	//log.SetLogger(log.GetLogger().(*zap.Logger).With("password", "abc"))
+	//log.Info("with 1")
+	//log.Info("with 2")
+	////
+	//// 使用help log
+	//helper := log.GetLogger().(*zap.Logger).NewHelper("pwd", "auth")
+	//helper.Info("help 1")
+	//log.Info("help 2")
+	//helper.Debugf("help 3")
 
 	//// 设置level
 	//log.Debugf("set level 1")
 	//log.GetLogger().(*zap.Logger).SetLevel("info")
 	//log.Debugf("set level 2")
 
-	log.Info("SensitiveKeys. pwd=")
+	log.Info("SensitiveKeys. password=")
 
 	log.Debugf("debug")
 	log.Infof("info")
