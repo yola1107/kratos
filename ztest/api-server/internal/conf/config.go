@@ -3,8 +3,8 @@ package conf
 import (
 	"encoding/json"
 	"fmt"
+	"sync/atomic"
 
-	"github.com/jinzhu/copier"
 	"github.com/r3labs/diff/v3"
 	"github.com/yola1107/kratos/v2/config"
 	"github.com/yola1107/kratos/v2/config/file"
@@ -12,12 +12,15 @@ import (
 	"github.com/yola1107/kratos/v2/log"
 )
 
-var (
-	bc = &Bootstrap{}
+const (
+	logLevelKey = "log.level"
 )
 
-func init() {}
+var (
+	ins atomic.Value // 单例配置 *Bootstrap
+)
 
+// Init 加载配置文件并监听热更新
 func Init(flagconf string) config.Config {
 	c := config.New(
 		config.WithSource(
@@ -26,68 +29,92 @@ func Init(flagconf string) config.Config {
 	)
 
 	if err := c.Load(); err != nil {
-		panic(err)
+		panic(fmt.Sprintf("load config failed: %v", err))
 	}
 
-	// Unmarshal the config to struct
-	if err := c.Scan(bc); err != nil {
-		panic(err)
+	var bs Bootstrap
+	if err := c.Scan(&bs); err != nil {
+		panic(fmt.Sprintf("scan config failed: %v", err))
 	}
+	setConfig(&bs)
 
-	watch(c, "data")
-	watch(c, "log")
-	watch(c, "a")
+	// 监听配置变更
+	for _, key := range []string{"data", "log", "a"} {
+		watch(c, key)
+	}
 	watchLogLevel(c)
 
-	log.Infof("load config flagconf=%+v", flagconf)
-	log.Infof("load config bc=%+v", ToJSON(bc))
+	log.Infof("Config initialized: flagconf=%+v config=%s", flagconf, ToJSON(&bs))
 	return c
 }
 
+func GetConfig() *Bootstrap {
+	return ins.Load().(*Bootstrap)
+}
+
+func setConfig(bs *Bootstrap) {
+	ins.Store(bs)
+}
+
+// watch 监听指定 key 的配置变更
 func watch(c config.Config, key string) {
-	err := c.Watch(key, func(key string, value config.Value) {
-		newCfg := &Bootstrap{}
-		if err := c.Scan(newCfg); err != nil {
-			log.Errorf("Failed to scan new config: %v", err)
-			return
-		}
-		changelog, _ := diff.Diff(bc, newCfg)
-		for _, change := range changelog {
-			fmt.Printf("Field=%s, from=%v to=%v\n", change.Path, change.From, change.To)
-		}
-		_ = copier.CopyWithOption(bc, newCfg, copier.Option{DeepCopy: true})
-		log.Infof("watch：config(key=%s) changed: %+v\n", key, value.Load())
-	})
-	if err != nil {
+	if err := c.Watch(key, func(key string, value config.Value) {
+		updateConfig(c, key, value)
+	}); err != nil {
 		log.Errorf("Failed to watch config key=%s: %v", key, err)
 	}
 }
 
+// updateConfig 更新配置并打印变更内容
+func updateConfig(c config.Config, key string, value config.Value) {
+	newCfg := &Bootstrap{}
+	if err := c.Scan(newCfg); err != nil {
+		log.Errorf("Failed to scan updated config: %v", err)
+		return
+	}
+
+	oldCfg := GetConfig()
+	changelog, err := diff.Diff(oldCfg, newCfg)
+	if err != nil {
+		log.Errorf("Failed to diff config: %v", err)
+		return
+	}
+
+	if len(changelog) == 0 {
+		log.Infof("No changes detected for key=%s", key)
+		return
+	}
+
+	fields := make([]string, 0, len(changelog))
+	for _, change := range changelog {
+		fields = append(fields, fmt.Sprintf("Field=%s, From=%v, To=%v", change.Path, change.From, change.To))
+	}
+
+	setConfig(newCfg)
+	log.Warnf("Config key=%s changed: %s", key, ToJSON(fields))
+}
+
 func watchLogLevel(c config.Config) {
-	key := "log.level"
-	if err := c.Watch(key, func(key string, value config.Value) {
+	if err := c.Watch(logLevelKey, func(key string, value config.Value) {
 		logger, ok := log.GetLogger().(*zap.Logger)
 		if !ok {
 			return
 		}
 		lv := value.Load().(string)
 		if err := logger.SetLevel(lv); err != nil {
-			log.Errorf("Failed to set log level(%+v): %v", lv, err)
+			log.Errorf("Failed to set log level: %v", err)
 		}
 	}); err != nil {
-		log.Errorf("Failed to watch config key=%s: %v", key, err)
+		log.Errorf("Failed to watch config key=%s: %v", logLevelKey, err)
 	}
 }
 
-// ToJSON json string
+// ToJSON 格式化为缩进 JSON 字符串
 func ToJSON(v interface{}) string {
 	j, err := json.Marshal(v)
 	if err != nil {
-		return err.Error()
+		log.Errorf("Failed to marshal JSON: %v", err)
+		return "{}"
 	}
 	return string(j)
-}
-
-func GetConfig() *Bootstrap {
-	return bc
 }

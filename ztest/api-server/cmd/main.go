@@ -36,11 +36,6 @@ func main() {
 		kratos.Logger(zapLogger), // 使用自定义 Logger
 	)
 
-	log.Debugf("debug")
-	log.Infof("info")
-	log.Warnf("warn")
-	log.Errorf("error")
-
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
@@ -62,6 +57,7 @@ func loadLogger() *zap.Logger {
 		zap.WithToken("7945687310:AAHA9tkUPV1ELEsVSLoDZe_Cc76wp7YdDVI"),
 		zap.WithChatID("-4672893880"),
 	}
+
 	if os.Getenv("ENV_LOG_MODE") == string(zap.Production) {
 		opts = append(opts, zap.WithProduction())
 	}

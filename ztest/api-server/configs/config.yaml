@@ -21,7 +21,7 @@ data:
     write_timeout: 0.2s
 log:
   mode: 10
-  level: info
+  level: info0
   directory: ./logs
   sensitive: ["password", "token"]
 game:
