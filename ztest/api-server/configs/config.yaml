@@ -20,40 +20,10 @@ data:
     read_timeout: 0.2s
     write_timeout: 0.2s
 log:
-  mode: 1
-  level: info
+  mode: 12
+  level: debug
   directory: ./logs
   sensitive: ["password", "token"]
-game:
-  table:
-    vid: 1001
-    zid: 2001
-    begin: 1
-    end: 100
-    is_newbie: true
-    seat_count: 6
-    min_money: 100.0
-    max_money: 10000.0
-    base_money: 50.0
-    auto_ready: true
-    ch_limit: 300.0
-    pot_limit: 500.0
-    see_round: 3
-    auto_see_round: 2
-    fee: 0.05
-    speaker_minmoney: 200.0
-    speaker_card_type: 2
-    high_strength_rate: 30
-  robot:
-    open: true
-    num: 10
-    table_max_count: 5
-    min_play_count: 3
-    id_begin: 100000
-    min_money: 100.0
-    max_money: 5000.0
-    stand_min_money: 200.0
-    stand_max_money: 8000.0
 a:
   b: {}
   c: {}

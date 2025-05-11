@@ -26,6 +26,9 @@ func init() {
 func main() {
 	flag.Parse()
 
+	log.Infof("start server v0.0.1")
+	log.Infof("GameID:%d ArenaID:%d ServerID:%s", conf.GameID, conf.ArenaID, conf.ServerID)
+
 	c := conf.Init(flagconf)
 	defer c.Close()
 

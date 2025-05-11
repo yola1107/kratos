@@ -1,0 +1,12 @@
+syntax = "proto3";
+package kratos.api;
+
+option go_package = "kratos-layout/internal/conf;conf";
+
+message PublicConfig {
+  message Lang {
+    int32 id =1;
+    string name=2;
+  }
+  Lang lang =1;
+}

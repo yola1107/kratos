@@ -1,7 +1,9 @@
 package conf
 
 import (
+	"flag"
 	"fmt"
+	"os"
 	"sync/atomic"
 
 	"github.com/yola1107/kratos/v2/config"
@@ -11,15 +13,38 @@ import (
 	"github.com/yola1107/kratos/v2/log"
 )
 
-const logLevelKey = "log.level"
+const GameID = 82003
 
-var ins atomic.Value // 保存 *Bootstrap 配置实例
+const (
+	logLevelKey = "log.level"
+)
+
+var (
+	ArenaID  = 1  //场ID: 1 2 3 4
+	ServerID = "" //房间ID
+)
+
+var (
+	//Ins 配置实例  *Bootstrap
+	ins atomic.Value
+
+	public = &PublicConfig{}
+)
+
+func init() {
+	flag.IntVar(&ArenaID, "aid", 1, "specify the arena ID. base.StrToInt(os.Getenv(\"ARENAID\"))")
+	flag.StringVar(&ServerID, "sid", os.Getenv("HOSTNAME"), "specify the server ID.")
+}
 
 // Init 加载配置文件并监听变更
 func Init(flagconf string) config.Config {
-	c := config.New(config.WithSource(
-		file.NewSource(flagconf),
-	))
+
+	c := config.New(
+		config.WithSource(
+			file.NewSource(fmt.Sprintf("%s/config.yaml", flagconf)),
+			file.NewSource(fmt.Sprintf("%s/game_%d.yaml", flagconf, ArenaID)),
+		),
+	)
 
 	if err := c.Load(); err != nil {
 		panic(err)
@@ -75,15 +100,8 @@ func updateConfig(c config.Config, key string, v config.Value) {
 	}
 	set(newCfg)
 
-	changelog, _ := base.Diff(oldCfg, newCfg)
-	if len(changelog) == 0 {
-		return
-	}
-	fields := make([]string, 0, len(changelog))
-	for _, change := range changelog {
-		fields = append(fields, fmt.Sprintf("Field=%s, From=%v, To=%v", change.Path, change.From, change.To))
-	}
-	log.Warnf("Config changed. key=\"%s\" : %s", key, fields)
+	_, diff, _ := base.DiffLog(oldCfg, newCfg)
+	log.Warnf("Config changed. key=\"%s\" : %s", key, diff)
 }
 
 func refreshEvent(c config.Config, key string, value config.Value) {
