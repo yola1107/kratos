@@ -1,0 +1,102 @@
+syntax = "proto3";
+package kratos.api;
+
+option go_package = "kratos-layout/internal/conf;conf";
+
+import "google/protobuf/duration.proto";
+
+message Bootstrap {
+    Server server = 1;
+    Data data     = 2;
+    Log log       = 3;
+    Game game     = 4;
+}
+
+message Server {
+    message HTTP {
+        string network                   = 1;
+        string addr                      = 2;
+        google.protobuf.Duration timeout = 3;
+    }
+    message GRPC {
+        string network                   = 1;
+        string addr                      = 2;
+        google.protobuf.Duration timeout = 3;
+    }
+    message TCP {
+        string network                   = 1;
+        string addr                      = 2;
+        google.protobuf.Duration timeout = 3;
+    }
+    message Websocket {
+        string network                   = 1;
+        string addr                      = 2;
+        google.protobuf.Duration timeout = 3;
+    }
+    HTTP http           = 1;
+    GRPC grpc           = 2;
+    TCP tcp             = 3;
+    Websocket websocket = 4;
+}
+
+message Data {
+    message Database {
+        string driver = 1;
+        string source = 2;
+    }
+    message Redis {
+        string network                         = 1;
+        string addr                            = 2;
+        google.protobuf.Duration read_timeout  = 3;
+        google.protobuf.Duration write_timeout = 4;
+    }
+    Database database = 1;
+    Redis redis       = 2;
+}
+
+message Log {
+    int32 mode                = 1;  // 0:"dev" 1:"prod"
+    string level              = 2;  // "debug", "info", ...
+    string directory          = 3;
+    repeated string sensitive = 4;
+}
+
+message Game {
+    TableConfig table = 1;
+    RobotConfig robot = 2;
+}
+
+// 桌子配置
+message TableConfig {
+    int32 vid                = 1;
+    int32 zid                = 2;
+    int32 begin              = 3;
+    int32 end                = 4;
+    bool is_newbie           = 5;
+    int32 seat_count         = 6;
+    double min_money         = 7;
+    double max_money         = 8;
+    double base_money        = 9;
+    bool auto_ready          = 10;
+    double ch_limit          = 11;
+    double pot_limit         = 12;
+    int32 see_round          = 13;
+    int32 auto_see_round     = 14;
+    double fee               = 15;
+    double speaker_minmoney  = 16;
+    int32 speaker_card_type  = 17;
+    int32 high_strength_rate = 18;
+}
+
+// 机器人配置
+message RobotConfig {
+    bool open              = 1;
+    int32 num              = 2;
+    int32 table_max_count  = 3;
+    int32 min_play_count   = 4;
+    int64 id_begin         = 5;
+    double min_money       = 6;
+    double max_money       = 7;
+    double stand_min_money = 8;
+    double stand_max_money = 9;
+}
