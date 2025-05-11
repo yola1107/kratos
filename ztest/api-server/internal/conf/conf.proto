@@ -10,6 +10,7 @@ message Bootstrap {
     Data data     = 2;
     Log log       = 3;
     Game game     = 4;
+    A a           = 5;
 }
 
 message Server {
@@ -99,4 +100,12 @@ message RobotConfig {
     double max_money       = 7;
     double stand_min_money = 8;
     double stand_max_money = 9;
+}
+message A {
+    message B {}
+    message C {}
+    message D {}
+    B b = 1;
+    C c = 2;
+    D d = 3;
 }

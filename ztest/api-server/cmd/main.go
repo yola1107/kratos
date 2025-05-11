@@ -23,23 +23,12 @@ func init() {
 func main() {
 	flag.Parse()
 
-	conf.Init(flagconf)
+	c, bc := conf.Init(flagconf)
+	defer c.Close()
 
-	//c := config.New(
-	//	config.WithSource(
-	//		file.NewSource(flagconf),
-	//	),
-	//)
-	//defer c.Close()
-	//
-	//if err := c.Load(); err != nil {
-	//	panic(err)
-	//}
-	//
-	//var bc conf.Bootstrap
-	//if err := c.Scan(&bc); err != nil {
-	//	panic(err)
-	//}
+	if bc == nil {
+
+	}
 
 	app := kratos.New(
 		kratos.Name(Name),

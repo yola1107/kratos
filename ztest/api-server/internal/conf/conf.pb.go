@@ -28,6 +28,7 @@ type Bootstrap struct {
 	Data          *Data                  `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
 	Log           *Log                   `protobuf:"bytes,3,opt,name=log,proto3" json:"log,omitempty"`
 	Game          *Game                  `protobuf:"bytes,4,opt,name=game,proto3" json:"game,omitempty"`
+	A             *A                     `protobuf:"bytes,5,opt,name=a,proto3" json:"a,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -86,6 +87,13 @@ func (x *Bootstrap) GetLog() *Log {
 func (x *Bootstrap) GetGame() *Game {
 	if x != nil {
 		return x.Game
+	}
+	return nil
+}
+
+func (x *Bootstrap) GetA() *A {
+	if x != nil {
+		return x.A
 	}
 	return nil
 }
@@ -620,6 +628,66 @@ func (x *RobotConfig) GetStandMaxMoney() float64 {
 	return 0
 }
 
+type A struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	B             *A_B                   `protobuf:"bytes,1,opt,name=b,proto3" json:"b,omitempty"`
+	C             *A_C                   `protobuf:"bytes,2,opt,name=c,proto3" json:"c,omitempty"`
+	D             *A_D                   `protobuf:"bytes,3,opt,name=d,proto3" json:"d,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *A) Reset() {
+	*x = A{}
+	mi := &file_conf_conf_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *A) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*A) ProtoMessage() {}
+
+func (x *A) ProtoReflect() protoreflect.Message {
+	mi := &file_conf_conf_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use A.ProtoReflect.Descriptor instead.
+func (*A) Descriptor() ([]byte, []int) {
+	return file_conf_conf_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *A) GetB() *A_B {
+	if x != nil {
+		return x.B
+	}
+	return nil
+}
+
+func (x *A) GetC() *A_C {
+	if x != nil {
+		return x.C
+	}
+	return nil
+}
+
+func (x *A) GetD() *A_D {
+	if x != nil {
+		return x.D
+	}
+	return nil
+}
+
 type Server_HTTP struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Network       string                 `protobuf:"bytes,1,opt,name=network,proto3" json:"network,omitempty"`
@@ -631,7 +699,7 @@ type Server_HTTP struct {
 
 func (x *Server_HTTP) Reset() {
 	*x = Server_HTTP{}
-	mi := &file_conf_conf_proto_msgTypes[7]
+	mi := &file_conf_conf_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -643,7 +711,7 @@ func (x *Server_HTTP) String() string {
 func (*Server_HTTP) ProtoMessage() {}
 
 func (x *Server_HTTP) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_conf_proto_msgTypes[7]
+	mi := &file_conf_conf_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -691,7 +759,7 @@ type Server_GRPC struct {
 
 func (x *Server_GRPC) Reset() {
 	*x = Server_GRPC{}
-	mi := &file_conf_conf_proto_msgTypes[8]
+	mi := &file_conf_conf_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -703,7 +771,7 @@ func (x *Server_GRPC) String() string {
 func (*Server_GRPC) ProtoMessage() {}
 
 func (x *Server_GRPC) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_conf_proto_msgTypes[8]
+	mi := &file_conf_conf_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -751,7 +819,7 @@ type Server_TCP struct {
 
 func (x *Server_TCP) Reset() {
 	*x = Server_TCP{}
-	mi := &file_conf_conf_proto_msgTypes[9]
+	mi := &file_conf_conf_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -763,7 +831,7 @@ func (x *Server_TCP) String() string {
 func (*Server_TCP) ProtoMessage() {}
 
 func (x *Server_TCP) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_conf_proto_msgTypes[9]
+	mi := &file_conf_conf_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -811,7 +879,7 @@ type Server_Websocket struct {
 
 func (x *Server_Websocket) Reset() {
 	*x = Server_Websocket{}
-	mi := &file_conf_conf_proto_msgTypes[10]
+	mi := &file_conf_conf_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -823,7 +891,7 @@ func (x *Server_Websocket) String() string {
 func (*Server_Websocket) ProtoMessage() {}
 
 func (x *Server_Websocket) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_conf_proto_msgTypes[10]
+	mi := &file_conf_conf_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -870,7 +938,7 @@ type Data_Database struct {
 
 func (x *Data_Database) Reset() {
 	*x = Data_Database{}
-	mi := &file_conf_conf_proto_msgTypes[11]
+	mi := &file_conf_conf_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -882,7 +950,7 @@ func (x *Data_Database) String() string {
 func (*Data_Database) ProtoMessage() {}
 
 func (x *Data_Database) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_conf_proto_msgTypes[11]
+	mi := &file_conf_conf_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -924,7 +992,7 @@ type Data_Redis struct {
 
 func (x *Data_Redis) Reset() {
 	*x = Data_Redis{}
-	mi := &file_conf_conf_proto_msgTypes[12]
+	mi := &file_conf_conf_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -936,7 +1004,7 @@ func (x *Data_Redis) String() string {
 func (*Data_Redis) ProtoMessage() {}
 
 func (x *Data_Redis) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_conf_proto_msgTypes[12]
+	mi := &file_conf_conf_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -980,17 +1048,126 @@ func (x *Data_Redis) GetWriteTimeout() *durationpb.Duration {
 	return nil
 }
 
+type A_B struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *A_B) Reset() {
+	*x = A_B{}
+	mi := &file_conf_conf_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *A_B) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*A_B) ProtoMessage() {}
+
+func (x *A_B) ProtoReflect() protoreflect.Message {
+	mi := &file_conf_conf_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use A_B.ProtoReflect.Descriptor instead.
+func (*A_B) Descriptor() ([]byte, []int) {
+	return file_conf_conf_proto_rawDescGZIP(), []int{7, 0}
+}
+
+type A_C struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *A_C) Reset() {
+	*x = A_C{}
+	mi := &file_conf_conf_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *A_C) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*A_C) ProtoMessage() {}
+
+func (x *A_C) ProtoReflect() protoreflect.Message {
+	mi := &file_conf_conf_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use A_C.ProtoReflect.Descriptor instead.
+func (*A_C) Descriptor() ([]byte, []int) {
+	return file_conf_conf_proto_rawDescGZIP(), []int{7, 1}
+}
+
+type A_D struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *A_D) Reset() {
+	*x = A_D{}
+	mi := &file_conf_conf_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *A_D) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*A_D) ProtoMessage() {}
+
+func (x *A_D) ProtoReflect() protoreflect.Message {
+	mi := &file_conf_conf_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use A_D.ProtoReflect.Descriptor instead.
+func (*A_D) Descriptor() ([]byte, []int) {
+	return file_conf_conf_proto_rawDescGZIP(), []int{7, 2}
+}
+
 var File_conf_conf_proto protoreflect.FileDescriptor
 
 const file_conf_conf_proto_rawDesc = "" +
 	"\n" +
 	"\x0fconf/conf.proto\x12\n" +
-	"kratos.api\x1a\x1egoogle/protobuf/duration.proto\"\xa6\x01\n" +
+	"kratos.api\x1a\x1egoogle/protobuf/duration.proto\"\xc3\x01\n" +
 	"\tBootstrap\x12*\n" +
 	"\x06server\x18\x01 \x01(\v2\x12.kratos.api.ServerR\x06server\x12$\n" +
 	"\x04data\x18\x02 \x01(\v2\x10.kratos.api.DataR\x04data\x12!\n" +
 	"\x03log\x18\x03 \x01(\v2\x0f.kratos.api.LogR\x03log\x12$\n" +
-	"\x04game\x18\x04 \x01(\v2\x10.kratos.api.GameR\x04game\"\xf8\x04\n" +
+	"\x04game\x18\x04 \x01(\v2\x10.kratos.api.GameR\x04game\x12\x1b\n" +
+	"\x01a\x18\x05 \x01(\v2\r.kratos.api.AR\x01a\"\xf8\x04\n" +
 	"\x06Server\x12+\n" +
 	"\x04http\x18\x01 \x01(\v2\x17.kratos.api.Server.HTTPR\x04http\x12+\n" +
 	"\x04grpc\x18\x02 \x01(\v2\x17.kratos.api.Server.GRPCR\x04grpc\x12(\n" +
@@ -1063,7 +1240,14 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\tmin_money\x18\x06 \x01(\x01R\bminMoney\x12\x1b\n" +
 	"\tmax_money\x18\a \x01(\x01R\bmaxMoney\x12&\n" +
 	"\x0fstand_min_money\x18\b \x01(\x01R\rstandMinMoney\x12&\n" +
-	"\x0fstand_max_money\x18\t \x01(\x01R\rstandMaxMoneyB\"Z kratos-layout/internal/conf;confb\x06proto3"
+	"\x0fstand_max_money\x18\t \x01(\x01R\rstandMaxMoney\"o\n" +
+	"\x01A\x12\x1d\n" +
+	"\x01b\x18\x01 \x01(\v2\x0f.kratos.api.A.BR\x01b\x12\x1d\n" +
+	"\x01c\x18\x02 \x01(\v2\x0f.kratos.api.A.CR\x01c\x12\x1d\n" +
+	"\x01d\x18\x03 \x01(\v2\x0f.kratos.api.A.DR\x01d\x1a\x03\n" +
+	"\x01B\x1a\x03\n" +
+	"\x01C\x1a\x03\n" +
+	"\x01DB\"Z kratos-layout/internal/conf;confb\x06proto3"
 
 var (
 	file_conf_conf_proto_rawDescOnce sync.Once
@@ -1077,7 +1261,7 @@ func file_conf_conf_proto_rawDescGZIP() []byte {
 	return file_conf_conf_proto_rawDescData
 }
 
-var file_conf_conf_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_conf_conf_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_conf_conf_proto_goTypes = []any{
 	(*Bootstrap)(nil),           // 0: kratos.api.Bootstrap
 	(*Server)(nil),              // 1: kratos.api.Server
@@ -1086,38 +1270,46 @@ var file_conf_conf_proto_goTypes = []any{
 	(*Game)(nil),                // 4: kratos.api.Game
 	(*TableConfig)(nil),         // 5: kratos.api.TableConfig
 	(*RobotConfig)(nil),         // 6: kratos.api.RobotConfig
-	(*Server_HTTP)(nil),         // 7: kratos.api.Server.HTTP
-	(*Server_GRPC)(nil),         // 8: kratos.api.Server.GRPC
-	(*Server_TCP)(nil),          // 9: kratos.api.Server.TCP
-	(*Server_Websocket)(nil),    // 10: kratos.api.Server.Websocket
-	(*Data_Database)(nil),       // 11: kratos.api.Data.Database
-	(*Data_Redis)(nil),          // 12: kratos.api.Data.Redis
-	(*durationpb.Duration)(nil), // 13: google.protobuf.Duration
+	(*A)(nil),                   // 7: kratos.api.A
+	(*Server_HTTP)(nil),         // 8: kratos.api.Server.HTTP
+	(*Server_GRPC)(nil),         // 9: kratos.api.Server.GRPC
+	(*Server_TCP)(nil),          // 10: kratos.api.Server.TCP
+	(*Server_Websocket)(nil),    // 11: kratos.api.Server.Websocket
+	(*Data_Database)(nil),       // 12: kratos.api.Data.Database
+	(*Data_Redis)(nil),          // 13: kratos.api.Data.Redis
+	(*A_B)(nil),                 // 14: kratos.api.A.B
+	(*A_C)(nil),                 // 15: kratos.api.A.C
+	(*A_D)(nil),                 // 16: kratos.api.A.D
+	(*durationpb.Duration)(nil), // 17: google.protobuf.Duration
 }
 var file_conf_conf_proto_depIdxs = []int32{
 	1,  // 0: kratos.api.Bootstrap.server:type_name -> kratos.api.Server
 	2,  // 1: kratos.api.Bootstrap.data:type_name -> kratos.api.Data
 	3,  // 2: kratos.api.Bootstrap.log:type_name -> kratos.api.Log
 	4,  // 3: kratos.api.Bootstrap.game:type_name -> kratos.api.Game
-	7,  // 4: kratos.api.Server.http:type_name -> kratos.api.Server.HTTP
-	8,  // 5: kratos.api.Server.grpc:type_name -> kratos.api.Server.GRPC
-	9,  // 6: kratos.api.Server.tcp:type_name -> kratos.api.Server.TCP
-	10, // 7: kratos.api.Server.websocket:type_name -> kratos.api.Server.Websocket
-	11, // 8: kratos.api.Data.database:type_name -> kratos.api.Data.Database
-	12, // 9: kratos.api.Data.redis:type_name -> kratos.api.Data.Redis
-	5,  // 10: kratos.api.Game.table:type_name -> kratos.api.TableConfig
-	6,  // 11: kratos.api.Game.robot:type_name -> kratos.api.RobotConfig
-	13, // 12: kratos.api.Server.HTTP.timeout:type_name -> google.protobuf.Duration
-	13, // 13: kratos.api.Server.GRPC.timeout:type_name -> google.protobuf.Duration
-	13, // 14: kratos.api.Server.TCP.timeout:type_name -> google.protobuf.Duration
-	13, // 15: kratos.api.Server.Websocket.timeout:type_name -> google.protobuf.Duration
-	13, // 16: kratos.api.Data.Redis.read_timeout:type_name -> google.protobuf.Duration
-	13, // 17: kratos.api.Data.Redis.write_timeout:type_name -> google.protobuf.Duration
-	18, // [18:18] is the sub-list for method output_type
-	18, // [18:18] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	7,  // 4: kratos.api.Bootstrap.a:type_name -> kratos.api.A
+	8,  // 5: kratos.api.Server.http:type_name -> kratos.api.Server.HTTP
+	9,  // 6: kratos.api.Server.grpc:type_name -> kratos.api.Server.GRPC
+	10, // 7: kratos.api.Server.tcp:type_name -> kratos.api.Server.TCP
+	11, // 8: kratos.api.Server.websocket:type_name -> kratos.api.Server.Websocket
+	12, // 9: kratos.api.Data.database:type_name -> kratos.api.Data.Database
+	13, // 10: kratos.api.Data.redis:type_name -> kratos.api.Data.Redis
+	5,  // 11: kratos.api.Game.table:type_name -> kratos.api.TableConfig
+	6,  // 12: kratos.api.Game.robot:type_name -> kratos.api.RobotConfig
+	14, // 13: kratos.api.A.b:type_name -> kratos.api.A.B
+	15, // 14: kratos.api.A.c:type_name -> kratos.api.A.C
+	16, // 15: kratos.api.A.d:type_name -> kratos.api.A.D
+	17, // 16: kratos.api.Server.HTTP.timeout:type_name -> google.protobuf.Duration
+	17, // 17: kratos.api.Server.GRPC.timeout:type_name -> google.protobuf.Duration
+	17, // 18: kratos.api.Server.TCP.timeout:type_name -> google.protobuf.Duration
+	17, // 19: kratos.api.Server.Websocket.timeout:type_name -> google.protobuf.Duration
+	17, // 20: kratos.api.Data.Redis.read_timeout:type_name -> google.protobuf.Duration
+	17, // 21: kratos.api.Data.Redis.write_timeout:type_name -> google.protobuf.Duration
+	22, // [22:22] is the sub-list for method output_type
+	22, // [22:22] is the sub-list for method input_type
+	22, // [22:22] is the sub-list for extension type_name
+	22, // [22:22] is the sub-list for extension extendee
+	0,  // [0:22] is the sub-list for field type_name
 }
 
 func init() { file_conf_conf_proto_init() }
@@ -1131,7 +1323,7 @@ func file_conf_conf_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_conf_conf_proto_rawDesc), len(file_conf_conf_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   13,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

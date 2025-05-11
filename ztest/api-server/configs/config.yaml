@@ -20,7 +20,7 @@ data:
     read_timeout: 0.2s
     write_timeout: 0.2s
 log:
-  mode: 0
+  mode: 10
   level: debug
   directory: ./logs
   sensitive: ["password", "token"]
@@ -54,3 +54,7 @@ game:
     max_money: 5000.0
     stand_min_money: 200.0
     stand_max_money: 8000.0
+a:
+  b: {}
+  c: {}
+  d: {}
