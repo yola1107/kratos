@@ -125,7 +125,7 @@ func NewLogger(opts ...Option) (*Logger, error) {
 		logger.sensitiveKeys[strings.ToLower(k)] = struct{}{}
 	}
 
-	log.Infof("Zap logger initialized. mode=%s cores=%d conf=%+v", cfg.Mode, len(cores), cfg)
+	log.Infof("zap logger initialized. mode=%s cores=%d conf=%+v", cfg.Mode, len(cores), cfg)
 	return logger, nil
 }
 
@@ -313,7 +313,7 @@ func (l *Logger) Close() error {
 			}
 		}
 		l.closer.resources = nil
-		log.Info("Zap Logger closed successfully")
+		log.Info("zap Logger closed successfully")
 	})
 
 	return errors.Join(errs...)

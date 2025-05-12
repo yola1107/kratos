@@ -40,7 +40,7 @@ func (lp *Loop) Start() {
 		for {
 			select {
 			case <-lp.toggle:
-				log.Info("Loop routine stop.")
+				log.Info("loop routine stop.")
 				return
 			case job := <-lp.jobs:
 				job()

@@ -69,11 +69,11 @@ func set(bs *Bootstrap) {
 
 // Get 获取当前配置
 func Get() *Bootstrap {
-	if v, ok := ins.Load().(*Bootstrap); !ok {
+	v, ok := ins.Load().(*Bootstrap)
+	if !ok {
 		return &Bootstrap{}
-	} else {
-		return v
 	}
+	return v
 }
 
 func watch(c config.Config) {
