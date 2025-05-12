@@ -77,7 +77,7 @@ func Get() *Bootstrap {
 }
 
 func watch(c config.Config) {
-	for _, key := range []string{"log", "room", "a", logLevelKey} {
+	for _, key := range []string{"log", "room", logLevelKey} {
 		if err := c.Watch(key, func(key string, value config.Value) {
 			updateConfig(c, key, value)
 			refreshEvent(c, key, value)
@@ -92,7 +92,7 @@ func updateConfig(c config.Config, key string, v config.Value) {
 	oldCfg := Get()
 	newCfg := &Bootstrap{}
 	if err := c.Scan(newCfg); err != nil {
-		log.Errorf("Failed to scan updated config: %v", err)
+		log.Errorf("updated config scan err: %v", err)
 		return
 	}
 
