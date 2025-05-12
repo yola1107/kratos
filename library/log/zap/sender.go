@@ -24,41 +24,13 @@ func NewTelegramSender(config TelegramConfig) (*TelegramSender, error) {
 		Token:  config.Token,
 		ChatID: config.ChatID,
 		client: &http.Client{
-			Timeout: 5 * time.Second,
+			Timeout: 1 * time.Second,
 			Transport: &http.Transport{
 				MaxIdleConns:       10,
-				IdleConnTimeout:    5 * time.Second,
+				IdleConnTimeout:    10 * time.Second,
 				DisableCompression: true,
 			}},
-
-		//client: newHttpProxy(),
 	}, nil
-}
-
-func newHttpProxy() *http.Client {
-
-	proxyURL, err := url.Parse("socks5h://192.168.1.100:7890")
-	if err != nil {
-		fmt.Printf("Invalid proxy URL: %v\n", err)
-		return &http.Client{
-			Timeout: 5 * time.Second,
-			Transport: &http.Transport{
-				MaxIdleConns:       10,
-				IdleConnTimeout:    5 * time.Second,
-				DisableCompression: true,
-			}}
-	}
-
-	client := &http.Client{
-		Timeout: 5 * time.Second,
-		Transport: &http.Transport{
-			Proxy:              http.ProxyURL(proxyURL),
-			MaxIdleConns:       10,
-			IdleConnTimeout:    5 * time.Second,
-			DisableCompression: true,
-		},
-	}
-	return client
 }
 
 func (t *TelegramSender) Send(messages []string) error {
@@ -69,6 +41,7 @@ func (t *TelegramSender) Send(messages []string) error {
 	}
 	content += "\n\n---------\n\n"
 
+	//fmt.Printf("=========>%+v send %d \n", time.Now().Format("2006-01-02 15:04:05.000"), len(messages))
 	//fmt.Printf("=========>%+v send %d content: \n%+v", time.Now().Format("2006-01-02 15:04:05.000"), len(messages), content)
 	//return nil
 
@@ -88,6 +61,6 @@ func (t *TelegramSender) Send(messages []string) error {
 
 func (t *TelegramSender) Close() error {
 	t.client.CloseIdleConnections()
-	log.Infof("Telegram stop.")
+	log.Infof("telegram closed.")
 	return nil
 }

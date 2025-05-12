@@ -48,8 +48,8 @@ func main() {
 
 func loadLog() *zap.Logger {
 	zapLogger, err := zap.NewLogger(
-		//zap.WithDevelopment(),
-		zap.WithProduction(),
+		zap.WithDevelopment(),
+		//zap.WithProduction(),
 		zap.WithLevel("debug"),
 		zap.WithDirectory("./logs"),
 		zap.WithFilename(Name+".log"),
@@ -73,9 +73,9 @@ func loadLog() *zap.Logger {
 func testLog(zapLogger *zap.Logger) {
 
 	//////调试
-	//////zapLogger.Info("zapLogger start")
-	//////zapLogger.Close()
-	//////zapLogger.Info("zapLogger end")
+	//zapLogger.Info("zapLogger start")
+	//zapLogger.Close()
+	//zapLogger.Info("zapLogger end")
 	//
 	//// 使用with
 	//log.SetLogger(zapLogger.With(
@@ -94,6 +94,8 @@ func testLog(zapLogger *zap.Logger) {
 	//helper.Info("help 1")
 	//log.Info("help 2")
 	//helper.Debugf("help 3")
+	//
+	//log.NewHelper(log.GetLogger().(*zap.Logger)).Infof("help 4.")
 
 	//// 设置level
 	//log.Debugf("set level 1")
@@ -118,8 +120,13 @@ func testLog(zapLogger *zap.Logger) {
 		incr := 0
 		for {
 			incr++
-			log.Infof("test %d", incr)
-			time.Sleep(time.Duration(rand.Intn(500)+50) * time.Millisecond)
+			//log.Debugf("test %d", incr)
+			//log.Infof("test %d", incr)
+			//log.Warnf("test %d", incr)
+			//log.Errorf("test %d", incr)
+
+			log.Errorf("test %d", incr)
+			time.Sleep(time.Duration(rand.Intn(10)+50) * time.Millisecond)
 		}
 	}()
 

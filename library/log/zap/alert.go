@@ -106,7 +106,7 @@ func (a *Alerter) Write(ent zapcore.Entry, fields []zapcore.Field) error {
 
 	fullFields := append(append(a.fields, fields...), zap.String("prefix", a.conf.Prefix))
 	entryBuf, err := a.enc.EncodeEntry(ent, fullFields)
-	if err != nil {
+	if err != nil || entryBuf == nil {
 		return fmt.Errorf("encode error: %w", err)
 	}
 	msg := truncateMessage(formatJSONString(entryBuf.String()), maxTelegramMsgSize)
@@ -141,6 +141,7 @@ func (a *Alerter) Close() error {
 	close(a.stopChan)
 	a.wg.Wait()
 	close(a.msgChan)
+	defer log.Infof("alerter closed. remaining messages: %d", len(a.msgChan))
 	return a.sender.Close()
 }
 
@@ -187,23 +188,35 @@ func (a *Alerter) needFlush(msgLen, batchSize, batchCount int) bool {
 }
 
 func (a *Alerter) drainQueue(batch *[]string, batchSize *int) {
+	timeout := time.After(100 * time.Millisecond)
+loop:
 	for {
 		select {
-		case msg := <-a.msgChan:
+		case msg, ok := <-a.msgChan:
+			if !ok {
+				log.Info("msgChan closed, exit drainQueue")
+				break loop
+			}
 			if a.needFlush(msg.length, *batchSize, len(*batch)) {
 				a.sendWithRetry(*batch)
 				*batch, *batchSize = (*batch)[:0], 0
 			}
 			*batch = append(*batch, msg.content)
 			*batchSize += msg.length
+		case <-timeout:
+			break loop
 		default:
-			return
+			break loop
 		}
+	}
+	// 发送最终批次
+	if len(*batch) > 0 {
+		a.sendWithRetry(*batch)
 	}
 }
 
 func (a *Alerter) sendWithRetry(batch []string) {
-	if len(batch) == 0 {
+	if len(batch) == 0 || a.closed.Load() {
 		return
 	}
 
