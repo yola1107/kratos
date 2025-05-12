@@ -42,6 +42,14 @@ func WithErrorFilename(filename string) Option {
 	return func(c *Config) { c.ErrorFilename = filename }
 }
 
+func WithMaxSize(MaxSize int) Option {
+	return func(c *Config) { c.MaxSize = MaxSize }
+}
+
+func WithMaxAge(MaxAge int) Option {
+	return func(c *Config) { c.MaxAge = MaxAge }
+}
+
 func WithMaxBackups(maxBackups int) Option {
 	return func(c *Config) { c.MaxBackups = maxBackups }
 }
@@ -175,7 +183,7 @@ func defaultConfig() *Config {
 		Alert: Alert{
 			Threshold:   zapcore.ErrorLevel,
 			MaxInterval: 3 * time.Second,
-			QueueSize:   2048,
+			QueueSize:   4096,
 			MaxBatchCnt: 10,
 			Prefix:      "",
 			LimitPolicy: LimitPolicy{

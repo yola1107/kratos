@@ -27,8 +27,6 @@ var (
 var (
 	//Ins 配置实例  *Bootstrap
 	ins atomic.Value
-
-	public = &PublicConfig{}
 )
 
 func init() {
@@ -42,7 +40,6 @@ func Init(flagconf string) config.Config {
 	c := config.New(
 		config.WithSource(
 			file.NewSource(fmt.Sprintf("%s/config.yaml", flagconf)),
-			file.NewSource(fmt.Sprintf("%s/game_%d.yaml", flagconf, ArenaID)),
 		),
 	)
 
@@ -80,7 +77,7 @@ func Get() *Bootstrap {
 }
 
 func watch(c config.Config) {
-	for _, key := range []string{"data", "log", "a", logLevelKey} {
+	for _, key := range []string{"log", "room", "a", logLevelKey} {
 		if err := c.Watch(key, func(key string, value config.Value) {
 			updateConfig(c, key, value)
 			refreshEvent(c, key, value)
@@ -98,10 +95,11 @@ func updateConfig(c config.Config, key string, v config.Value) {
 		log.Errorf("Failed to scan updated config: %v", err)
 		return
 	}
-	set(newCfg)
 
-	_, diff, _ := base.DiffLog(oldCfg, newCfg)
-	log.Warnf("Config changed. key=\"%s\" : %s", key, diff)
+	if _, diff, _ := base.DiffLog(oldCfg, newCfg); len(diff) > 0 {
+		set(newCfg)
+		log.Warnf("Config key=\"%s\" changed: \n%s", key, base.ToJSONPretty(diff))
+	}
 }
 
 func refreshEvent(c config.Config, key string, value config.Value) {

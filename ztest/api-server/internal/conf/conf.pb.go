@@ -27,8 +27,7 @@ type Bootstrap struct {
 	Server        *Server                `protobuf:"bytes,1,opt,name=server,proto3" json:"server,omitempty"`
 	Data          *Data                  `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
 	Log           *Log                   `protobuf:"bytes,3,opt,name=log,proto3" json:"log,omitempty"`
-	Game          *Game                  `protobuf:"bytes,4,opt,name=game,proto3" json:"game,omitempty"`
-	A             *A                     `protobuf:"bytes,5,opt,name=a,proto3" json:"a,omitempty"`
+	Room          *Room                  `protobuf:"bytes,4,opt,name=room,proto3" json:"room,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -84,16 +83,9 @@ func (x *Bootstrap) GetLog() *Log {
 	return nil
 }
 
-func (x *Bootstrap) GetGame() *Game {
+func (x *Bootstrap) GetRoom() *Room {
 	if x != nil {
-		return x.Game
-	}
-	return nil
-}
-
-func (x *Bootstrap) GetA() *A {
-	if x != nil {
-		return x.A
+		return x.Room
 	}
 	return nil
 }
@@ -286,28 +278,29 @@ func (x *Log) GetSensitive() []string {
 	return nil
 }
 
-type Game struct {
+type Room struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Table         *TableConfig           `protobuf:"bytes,1,opt,name=table,proto3" json:"table,omitempty"`
-	Robot         *RobotConfig           `protobuf:"bytes,2,opt,name=robot,proto3" json:"robot,omitempty"`
+	Game          *GameConfig            `protobuf:"bytes,2,opt,name=game,proto3" json:"game,omitempty"`
+	Robot         *RobotConfig           `protobuf:"bytes,3,opt,name=robot,proto3" json:"robot,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Game) Reset() {
-	*x = Game{}
+func (x *Room) Reset() {
+	*x = Room{}
 	mi := &file_conf_conf_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Game) String() string {
+func (x *Room) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Game) ProtoMessage() {}
+func (*Room) ProtoMessage() {}
 
-func (x *Game) ProtoReflect() protoreflect.Message {
+func (x *Room) ProtoReflect() protoreflect.Message {
 	mi := &file_conf_conf_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -319,48 +312,38 @@ func (x *Game) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Game.ProtoReflect.Descriptor instead.
-func (*Game) Descriptor() ([]byte, []int) {
+// Deprecated: Use Room.ProtoReflect.Descriptor instead.
+func (*Room) Descriptor() ([]byte, []int) {
 	return file_conf_conf_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *Game) GetTable() *TableConfig {
+func (x *Room) GetTable() *TableConfig {
 	if x != nil {
 		return x.Table
 	}
 	return nil
 }
 
-func (x *Game) GetRobot() *RobotConfig {
+func (x *Room) GetGame() *GameConfig {
+	if x != nil {
+		return x.Game
+	}
+	return nil
+}
+
+func (x *Room) GetRobot() *RobotConfig {
 	if x != nil {
 		return x.Robot
 	}
 	return nil
 }
 
-// 桌子配置
 type TableConfig struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	Vid              int32                  `protobuf:"varint,1,opt,name=vid,proto3" json:"vid,omitempty"`
-	Zid              int32                  `protobuf:"varint,2,opt,name=zid,proto3" json:"zid,omitempty"`
-	Begin            int32                  `protobuf:"varint,3,opt,name=begin,proto3" json:"begin,omitempty"`
-	End              int32                  `protobuf:"varint,4,opt,name=end,proto3" json:"end,omitempty"`
-	IsNewbie         bool                   `protobuf:"varint,5,opt,name=is_newbie,json=isNewbie,proto3" json:"is_newbie,omitempty"`
-	SeatCount        int32                  `protobuf:"varint,6,opt,name=seat_count,json=seatCount,proto3" json:"seat_count,omitempty"`
-	MinMoney         float64                `protobuf:"fixed64,7,opt,name=min_money,json=minMoney,proto3" json:"min_money,omitempty"`
-	MaxMoney         float64                `protobuf:"fixed64,8,opt,name=max_money,json=maxMoney,proto3" json:"max_money,omitempty"`
-	BaseMoney        float64                `protobuf:"fixed64,9,opt,name=base_money,json=baseMoney,proto3" json:"base_money,omitempty"`
-	AutoReady        bool                   `protobuf:"varint,10,opt,name=auto_ready,json=autoReady,proto3" json:"auto_ready,omitempty"`
-	ChLimit          float64                `protobuf:"fixed64,11,opt,name=ch_limit,json=chLimit,proto3" json:"ch_limit,omitempty"`
-	PotLimit         float64                `protobuf:"fixed64,12,opt,name=pot_limit,json=potLimit,proto3" json:"pot_limit,omitempty"`
-	SeeRound         int32                  `protobuf:"varint,13,opt,name=see_round,json=seeRound,proto3" json:"see_round,omitempty"`
-	AutoSeeRound     int32                  `protobuf:"varint,14,opt,name=auto_see_round,json=autoSeeRound,proto3" json:"auto_see_round,omitempty"`
-	Fee              float64                `protobuf:"fixed64,15,opt,name=fee,proto3" json:"fee,omitempty"`
-	SpeakerMinmoney  float64                `protobuf:"fixed64,16,opt,name=speaker_minmoney,json=speakerMinmoney,proto3" json:"speaker_minmoney,omitempty"`
-	SpeakerCardType  int32                  `protobuf:"varint,17,opt,name=speaker_card_type,json=speakerCardType,proto3" json:"speaker_card_type,omitempty"`
-	HighStrengthRate int32                  `protobuf:"varint,18,opt,name=high_strength_rate,json=highStrengthRate,proto3" json:"high_strength_rate,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TableNum      int32                  `protobuf:"varint,1,opt,name=tableNum,proto3" json:"tableNum,omitempty"`
+	ChairNum      int32                  `protobuf:"varint,2,opt,name=chairNum,proto3" json:"chairNum,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *TableConfig) Reset() {
@@ -393,128 +376,164 @@ func (*TableConfig) Descriptor() ([]byte, []int) {
 	return file_conf_conf_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *TableConfig) GetVid() int32 {
+func (x *TableConfig) GetTableNum() int32 {
+	if x != nil {
+		return x.TableNum
+	}
+	return 0
+}
+
+func (x *TableConfig) GetChairNum() int32 {
+	if x != nil {
+		return x.ChairNum
+	}
+	return 0
+}
+
+type GameConfig struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Vid              int32                  `protobuf:"varint,1,opt,name=vid,proto3" json:"vid,omitempty"`
+	SeeRound         int32                  `protobuf:"varint,2,opt,name=see_round,json=seeRound,proto3" json:"see_round,omitempty"`
+	AutoSeeRound     int32                  `protobuf:"varint,3,opt,name=auto_see_round,json=autoSeeRound,proto3" json:"auto_see_round,omitempty"`
+	SpeakerCardType  int32                  `protobuf:"varint,4,opt,name=speaker_card_type,json=speakerCardType,proto3" json:"speaker_card_type,omitempty"`
+	HighStrengthRate int32                  `protobuf:"varint,5,opt,name=high_strength_rate,json=highStrengthRate,proto3" json:"high_strength_rate,omitempty"`
+	IsNewbie         bool                   `protobuf:"varint,6,opt,name=is_newbie,json=isNewbie,proto3" json:"is_newbie,omitempty"`
+	AutoReady        bool                   `protobuf:"varint,7,opt,name=auto_ready,json=autoReady,proto3" json:"auto_ready,omitempty"`
+	MinMoney         float64                `protobuf:"fixed64,8,opt,name=min_money,json=minMoney,proto3" json:"min_money,omitempty"`
+	MaxMoney         float64                `protobuf:"fixed64,9,opt,name=max_money,json=maxMoney,proto3" json:"max_money,omitempty"`
+	BaseMoney        float64                `protobuf:"fixed64,10,opt,name=base_money,json=baseMoney,proto3" json:"base_money,omitempty"`
+	ChLimit          float64                `protobuf:"fixed64,11,opt,name=ch_limit,json=chLimit,proto3" json:"ch_limit,omitempty"`
+	PotLimit         float64                `protobuf:"fixed64,12,opt,name=pot_limit,json=potLimit,proto3" json:"pot_limit,omitempty"`
+	Fee              float64                `protobuf:"fixed64,13,opt,name=fee,proto3" json:"fee,omitempty"`
+	SpeakerMinmoney  float64                `protobuf:"fixed64,14,opt,name=speaker_minmoney,json=speakerMinmoney,proto3" json:"speaker_minmoney,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *GameConfig) Reset() {
+	*x = GameConfig{}
+	mi := &file_conf_conf_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GameConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GameConfig) ProtoMessage() {}
+
+func (x *GameConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_conf_conf_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GameConfig.ProtoReflect.Descriptor instead.
+func (*GameConfig) Descriptor() ([]byte, []int) {
+	return file_conf_conf_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *GameConfig) GetVid() int32 {
 	if x != nil {
 		return x.Vid
 	}
 	return 0
 }
 
-func (x *TableConfig) GetZid() int32 {
-	if x != nil {
-		return x.Zid
-	}
-	return 0
-}
-
-func (x *TableConfig) GetBegin() int32 {
-	if x != nil {
-		return x.Begin
-	}
-	return 0
-}
-
-func (x *TableConfig) GetEnd() int32 {
-	if x != nil {
-		return x.End
-	}
-	return 0
-}
-
-func (x *TableConfig) GetIsNewbie() bool {
-	if x != nil {
-		return x.IsNewbie
-	}
-	return false
-}
-
-func (x *TableConfig) GetSeatCount() int32 {
-	if x != nil {
-		return x.SeatCount
-	}
-	return 0
-}
-
-func (x *TableConfig) GetMinMoney() float64 {
-	if x != nil {
-		return x.MinMoney
-	}
-	return 0
-}
-
-func (x *TableConfig) GetMaxMoney() float64 {
-	if x != nil {
-		return x.MaxMoney
-	}
-	return 0
-}
-
-func (x *TableConfig) GetBaseMoney() float64 {
-	if x != nil {
-		return x.BaseMoney
-	}
-	return 0
-}
-
-func (x *TableConfig) GetAutoReady() bool {
-	if x != nil {
-		return x.AutoReady
-	}
-	return false
-}
-
-func (x *TableConfig) GetChLimit() float64 {
-	if x != nil {
-		return x.ChLimit
-	}
-	return 0
-}
-
-func (x *TableConfig) GetPotLimit() float64 {
-	if x != nil {
-		return x.PotLimit
-	}
-	return 0
-}
-
-func (x *TableConfig) GetSeeRound() int32 {
+func (x *GameConfig) GetSeeRound() int32 {
 	if x != nil {
 		return x.SeeRound
 	}
 	return 0
 }
 
-func (x *TableConfig) GetAutoSeeRound() int32 {
+func (x *GameConfig) GetAutoSeeRound() int32 {
 	if x != nil {
 		return x.AutoSeeRound
 	}
 	return 0
 }
 
-func (x *TableConfig) GetFee() float64 {
-	if x != nil {
-		return x.Fee
-	}
-	return 0
-}
-
-func (x *TableConfig) GetSpeakerMinmoney() float64 {
-	if x != nil {
-		return x.SpeakerMinmoney
-	}
-	return 0
-}
-
-func (x *TableConfig) GetSpeakerCardType() int32 {
+func (x *GameConfig) GetSpeakerCardType() int32 {
 	if x != nil {
 		return x.SpeakerCardType
 	}
 	return 0
 }
 
-func (x *TableConfig) GetHighStrengthRate() int32 {
+func (x *GameConfig) GetHighStrengthRate() int32 {
 	if x != nil {
 		return x.HighStrengthRate
+	}
+	return 0
+}
+
+func (x *GameConfig) GetIsNewbie() bool {
+	if x != nil {
+		return x.IsNewbie
+	}
+	return false
+}
+
+func (x *GameConfig) GetAutoReady() bool {
+	if x != nil {
+		return x.AutoReady
+	}
+	return false
+}
+
+func (x *GameConfig) GetMinMoney() float64 {
+	if x != nil {
+		return x.MinMoney
+	}
+	return 0
+}
+
+func (x *GameConfig) GetMaxMoney() float64 {
+	if x != nil {
+		return x.MaxMoney
+	}
+	return 0
+}
+
+func (x *GameConfig) GetBaseMoney() float64 {
+	if x != nil {
+		return x.BaseMoney
+	}
+	return 0
+}
+
+func (x *GameConfig) GetChLimit() float64 {
+	if x != nil {
+		return x.ChLimit
+	}
+	return 0
+}
+
+func (x *GameConfig) GetPotLimit() float64 {
+	if x != nil {
+		return x.PotLimit
+	}
+	return 0
+}
+
+func (x *GameConfig) GetFee() float64 {
+	if x != nil {
+		return x.Fee
+	}
+	return 0
+}
+
+func (x *GameConfig) GetSpeakerMinmoney() float64 {
+	if x != nil {
+		return x.SpeakerMinmoney
 	}
 	return 0
 }
@@ -537,7 +556,7 @@ type RobotConfig struct {
 
 func (x *RobotConfig) Reset() {
 	*x = RobotConfig{}
-	mi := &file_conf_conf_proto_msgTypes[6]
+	mi := &file_conf_conf_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -549,7 +568,7 @@ func (x *RobotConfig) String() string {
 func (*RobotConfig) ProtoMessage() {}
 
 func (x *RobotConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_conf_proto_msgTypes[6]
+	mi := &file_conf_conf_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -562,7 +581,7 @@ func (x *RobotConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RobotConfig.ProtoReflect.Descriptor instead.
 func (*RobotConfig) Descriptor() ([]byte, []int) {
-	return file_conf_conf_proto_rawDescGZIP(), []int{6}
+	return file_conf_conf_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *RobotConfig) GetOpen() bool {
@@ -626,66 +645,6 @@ func (x *RobotConfig) GetStandMaxMoney() float64 {
 		return x.StandMaxMoney
 	}
 	return 0
-}
-
-type A struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	B             *A_B                   `protobuf:"bytes,1,opt,name=b,proto3" json:"b,omitempty"`
-	C             *A_C                   `protobuf:"bytes,2,opt,name=c,proto3" json:"c,omitempty"`
-	D             *A_D                   `protobuf:"bytes,3,opt,name=d,proto3" json:"d,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *A) Reset() {
-	*x = A{}
-	mi := &file_conf_conf_proto_msgTypes[7]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *A) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*A) ProtoMessage() {}
-
-func (x *A) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_conf_proto_msgTypes[7]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use A.ProtoReflect.Descriptor instead.
-func (*A) Descriptor() ([]byte, []int) {
-	return file_conf_conf_proto_rawDescGZIP(), []int{7}
-}
-
-func (x *A) GetB() *A_B {
-	if x != nil {
-		return x.B
-	}
-	return nil
-}
-
-func (x *A) GetC() *A_C {
-	if x != nil {
-		return x.C
-	}
-	return nil
-}
-
-func (x *A) GetD() *A_D {
-	if x != nil {
-		return x.D
-	}
-	return nil
 }
 
 type Server_HTTP struct {
@@ -1048,126 +1007,17 @@ func (x *Data_Redis) GetWriteTimeout() *durationpb.Duration {
 	return nil
 }
 
-type A_B struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *A_B) Reset() {
-	*x = A_B{}
-	mi := &file_conf_conf_proto_msgTypes[14]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *A_B) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*A_B) ProtoMessage() {}
-
-func (x *A_B) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_conf_proto_msgTypes[14]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use A_B.ProtoReflect.Descriptor instead.
-func (*A_B) Descriptor() ([]byte, []int) {
-	return file_conf_conf_proto_rawDescGZIP(), []int{7, 0}
-}
-
-type A_C struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *A_C) Reset() {
-	*x = A_C{}
-	mi := &file_conf_conf_proto_msgTypes[15]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *A_C) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*A_C) ProtoMessage() {}
-
-func (x *A_C) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_conf_proto_msgTypes[15]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use A_C.ProtoReflect.Descriptor instead.
-func (*A_C) Descriptor() ([]byte, []int) {
-	return file_conf_conf_proto_rawDescGZIP(), []int{7, 1}
-}
-
-type A_D struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *A_D) Reset() {
-	*x = A_D{}
-	mi := &file_conf_conf_proto_msgTypes[16]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *A_D) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*A_D) ProtoMessage() {}
-
-func (x *A_D) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_conf_proto_msgTypes[16]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use A_D.ProtoReflect.Descriptor instead.
-func (*A_D) Descriptor() ([]byte, []int) {
-	return file_conf_conf_proto_rawDescGZIP(), []int{7, 2}
-}
-
 var File_conf_conf_proto protoreflect.FileDescriptor
 
 const file_conf_conf_proto_rawDesc = "" +
 	"\n" +
 	"\x0fconf/conf.proto\x12\n" +
-	"kratos.api\x1a\x1egoogle/protobuf/duration.proto\"\xc3\x01\n" +
+	"kratos.api\x1a\x1egoogle/protobuf/duration.proto\"\xa6\x01\n" +
 	"\tBootstrap\x12*\n" +
 	"\x06server\x18\x01 \x01(\v2\x12.kratos.api.ServerR\x06server\x12$\n" +
 	"\x04data\x18\x02 \x01(\v2\x10.kratos.api.DataR\x04data\x12!\n" +
 	"\x03log\x18\x03 \x01(\v2\x0f.kratos.api.LogR\x03log\x12$\n" +
-	"\x04game\x18\x04 \x01(\v2\x10.kratos.api.GameR\x04game\x12\x1b\n" +
-	"\x01a\x18\x05 \x01(\v2\r.kratos.api.AR\x01a\"\xf8\x04\n" +
+	"\x04room\x18\x04 \x01(\v2\x10.kratos.api.RoomR\x04room\"\xf8\x04\n" +
 	"\x06Server\x12+\n" +
 	"\x04http\x18\x01 \x01(\v2\x17.kratos.api.Server.HTTPR\x04http\x12+\n" +
 	"\x04grpc\x18\x02 \x01(\v2\x17.kratos.api.Server.GRPCR\x04grpc\x12(\n" +
@@ -1204,33 +1054,33 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\x04mode\x18\x01 \x01(\x05R\x04mode\x12\x14\n" +
 	"\x05level\x18\x02 \x01(\tR\x05level\x12\x1c\n" +
 	"\tdirectory\x18\x03 \x01(\tR\tdirectory\x12\x1c\n" +
-	"\tsensitive\x18\x04 \x03(\tR\tsensitive\"d\n" +
-	"\x04Game\x12-\n" +
-	"\x05table\x18\x01 \x01(\v2\x17.kratos.api.TableConfigR\x05table\x12-\n" +
-	"\x05robot\x18\x02 \x01(\v2\x17.kratos.api.RobotConfigR\x05robot\"\x9f\x04\n" +
-	"\vTableConfig\x12\x10\n" +
-	"\x03vid\x18\x01 \x01(\x05R\x03vid\x12\x10\n" +
-	"\x03zid\x18\x02 \x01(\x05R\x03zid\x12\x14\n" +
-	"\x05begin\x18\x03 \x01(\x05R\x05begin\x12\x10\n" +
-	"\x03end\x18\x04 \x01(\x05R\x03end\x12\x1b\n" +
-	"\tis_newbie\x18\x05 \x01(\bR\bisNewbie\x12\x1d\n" +
+	"\tsensitive\x18\x04 \x03(\tR\tsensitive\"\x90\x01\n" +
+	"\x04Room\x12-\n" +
+	"\x05table\x18\x01 \x01(\v2\x17.kratos.api.TableConfigR\x05table\x12*\n" +
+	"\x04game\x18\x02 \x01(\v2\x16.kratos.api.GameConfigR\x04game\x12-\n" +
+	"\x05robot\x18\x03 \x01(\v2\x17.kratos.api.RobotConfigR\x05robot\"E\n" +
+	"\vTableConfig\x12\x1a\n" +
+	"\btableNum\x18\x01 \x01(\x05R\btableNum\x12\x1a\n" +
+	"\bchairNum\x18\x02 \x01(\x05R\bchairNum\"\xc5\x03\n" +
 	"\n" +
-	"seat_count\x18\x06 \x01(\x05R\tseatCount\x12\x1b\n" +
-	"\tmin_money\x18\a \x01(\x01R\bminMoney\x12\x1b\n" +
-	"\tmax_money\x18\b \x01(\x01R\bmaxMoney\x12\x1d\n" +
+	"GameConfig\x12\x10\n" +
+	"\x03vid\x18\x01 \x01(\x05R\x03vid\x12\x1b\n" +
+	"\tsee_round\x18\x02 \x01(\x05R\bseeRound\x12$\n" +
+	"\x0eauto_see_round\x18\x03 \x01(\x05R\fautoSeeRound\x12*\n" +
+	"\x11speaker_card_type\x18\x04 \x01(\x05R\x0fspeakerCardType\x12,\n" +
+	"\x12high_strength_rate\x18\x05 \x01(\x05R\x10highStrengthRate\x12\x1b\n" +
+	"\tis_newbie\x18\x06 \x01(\bR\bisNewbie\x12\x1d\n" +
 	"\n" +
-	"base_money\x18\t \x01(\x01R\tbaseMoney\x12\x1d\n" +
+	"auto_ready\x18\a \x01(\bR\tautoReady\x12\x1b\n" +
+	"\tmin_money\x18\b \x01(\x01R\bminMoney\x12\x1b\n" +
+	"\tmax_money\x18\t \x01(\x01R\bmaxMoney\x12\x1d\n" +
 	"\n" +
-	"auto_ready\x18\n" +
-	" \x01(\bR\tautoReady\x12\x19\n" +
+	"base_money\x18\n" +
+	" \x01(\x01R\tbaseMoney\x12\x19\n" +
 	"\bch_limit\x18\v \x01(\x01R\achLimit\x12\x1b\n" +
-	"\tpot_limit\x18\f \x01(\x01R\bpotLimit\x12\x1b\n" +
-	"\tsee_round\x18\r \x01(\x05R\bseeRound\x12$\n" +
-	"\x0eauto_see_round\x18\x0e \x01(\x05R\fautoSeeRound\x12\x10\n" +
-	"\x03fee\x18\x0f \x01(\x01R\x03fee\x12)\n" +
-	"\x10speaker_minmoney\x18\x10 \x01(\x01R\x0fspeakerMinmoney\x12*\n" +
-	"\x11speaker_card_type\x18\x11 \x01(\x05R\x0fspeakerCardType\x12,\n" +
-	"\x12high_strength_rate\x18\x12 \x01(\x05R\x10highStrengthRate\"\xa6\x02\n" +
+	"\tpot_limit\x18\f \x01(\x01R\bpotLimit\x12\x10\n" +
+	"\x03fee\x18\r \x01(\x01R\x03fee\x12)\n" +
+	"\x10speaker_minmoney\x18\x0e \x01(\x01R\x0fspeakerMinmoney\"\xa6\x02\n" +
 	"\vRobotConfig\x12\x12\n" +
 	"\x04open\x18\x01 \x01(\bR\x04open\x12\x10\n" +
 	"\x03num\x18\x02 \x01(\x05R\x03num\x12&\n" +
@@ -1240,14 +1090,7 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\tmin_money\x18\x06 \x01(\x01R\bminMoney\x12\x1b\n" +
 	"\tmax_money\x18\a \x01(\x01R\bmaxMoney\x12&\n" +
 	"\x0fstand_min_money\x18\b \x01(\x01R\rstandMinMoney\x12&\n" +
-	"\x0fstand_max_money\x18\t \x01(\x01R\rstandMaxMoney\"o\n" +
-	"\x01A\x12\x1d\n" +
-	"\x01b\x18\x01 \x01(\v2\x0f.kratos.api.A.BR\x01b\x12\x1d\n" +
-	"\x01c\x18\x02 \x01(\v2\x0f.kratos.api.A.CR\x01c\x12\x1d\n" +
-	"\x01d\x18\x03 \x01(\v2\x0f.kratos.api.A.DR\x01d\x1a\x03\n" +
-	"\x01B\x1a\x03\n" +
-	"\x01C\x1a\x03\n" +
-	"\x01DB\"Z kratos-layout/internal/conf;confb\x06proto3"
+	"\x0fstand_max_money\x18\t \x01(\x01R\rstandMaxMoneyB\"Z kratos-layout/internal/conf;confb\x06proto3"
 
 var (
 	file_conf_conf_proto_rawDescOnce sync.Once
@@ -1261,55 +1104,49 @@ func file_conf_conf_proto_rawDescGZIP() []byte {
 	return file_conf_conf_proto_rawDescData
 }
 
-var file_conf_conf_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_conf_conf_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_conf_conf_proto_goTypes = []any{
 	(*Bootstrap)(nil),           // 0: kratos.api.Bootstrap
 	(*Server)(nil),              // 1: kratos.api.Server
 	(*Data)(nil),                // 2: kratos.api.Data
 	(*Log)(nil),                 // 3: kratos.api.Log
-	(*Game)(nil),                // 4: kratos.api.Game
+	(*Room)(nil),                // 4: kratos.api.Room
 	(*TableConfig)(nil),         // 5: kratos.api.TableConfig
-	(*RobotConfig)(nil),         // 6: kratos.api.RobotConfig
-	(*A)(nil),                   // 7: kratos.api.A
+	(*GameConfig)(nil),          // 6: kratos.api.GameConfig
+	(*RobotConfig)(nil),         // 7: kratos.api.RobotConfig
 	(*Server_HTTP)(nil),         // 8: kratos.api.Server.HTTP
 	(*Server_GRPC)(nil),         // 9: kratos.api.Server.GRPC
 	(*Server_TCP)(nil),          // 10: kratos.api.Server.TCP
 	(*Server_Websocket)(nil),    // 11: kratos.api.Server.Websocket
 	(*Data_Database)(nil),       // 12: kratos.api.Data.Database
 	(*Data_Redis)(nil),          // 13: kratos.api.Data.Redis
-	(*A_B)(nil),                 // 14: kratos.api.A.B
-	(*A_C)(nil),                 // 15: kratos.api.A.C
-	(*A_D)(nil),                 // 16: kratos.api.A.D
-	(*durationpb.Duration)(nil), // 17: google.protobuf.Duration
+	(*durationpb.Duration)(nil), // 14: google.protobuf.Duration
 }
 var file_conf_conf_proto_depIdxs = []int32{
 	1,  // 0: kratos.api.Bootstrap.server:type_name -> kratos.api.Server
 	2,  // 1: kratos.api.Bootstrap.data:type_name -> kratos.api.Data
 	3,  // 2: kratos.api.Bootstrap.log:type_name -> kratos.api.Log
-	4,  // 3: kratos.api.Bootstrap.game:type_name -> kratos.api.Game
-	7,  // 4: kratos.api.Bootstrap.a:type_name -> kratos.api.A
-	8,  // 5: kratos.api.Server.http:type_name -> kratos.api.Server.HTTP
-	9,  // 6: kratos.api.Server.grpc:type_name -> kratos.api.Server.GRPC
-	10, // 7: kratos.api.Server.tcp:type_name -> kratos.api.Server.TCP
-	11, // 8: kratos.api.Server.websocket:type_name -> kratos.api.Server.Websocket
-	12, // 9: kratos.api.Data.database:type_name -> kratos.api.Data.Database
-	13, // 10: kratos.api.Data.redis:type_name -> kratos.api.Data.Redis
-	5,  // 11: kratos.api.Game.table:type_name -> kratos.api.TableConfig
-	6,  // 12: kratos.api.Game.robot:type_name -> kratos.api.RobotConfig
-	14, // 13: kratos.api.A.b:type_name -> kratos.api.A.B
-	15, // 14: kratos.api.A.c:type_name -> kratos.api.A.C
-	16, // 15: kratos.api.A.d:type_name -> kratos.api.A.D
-	17, // 16: kratos.api.Server.HTTP.timeout:type_name -> google.protobuf.Duration
-	17, // 17: kratos.api.Server.GRPC.timeout:type_name -> google.protobuf.Duration
-	17, // 18: kratos.api.Server.TCP.timeout:type_name -> google.protobuf.Duration
-	17, // 19: kratos.api.Server.Websocket.timeout:type_name -> google.protobuf.Duration
-	17, // 20: kratos.api.Data.Redis.read_timeout:type_name -> google.protobuf.Duration
-	17, // 21: kratos.api.Data.Redis.write_timeout:type_name -> google.protobuf.Duration
-	22, // [22:22] is the sub-list for method output_type
-	22, // [22:22] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	4,  // 3: kratos.api.Bootstrap.room:type_name -> kratos.api.Room
+	8,  // 4: kratos.api.Server.http:type_name -> kratos.api.Server.HTTP
+	9,  // 5: kratos.api.Server.grpc:type_name -> kratos.api.Server.GRPC
+	10, // 6: kratos.api.Server.tcp:type_name -> kratos.api.Server.TCP
+	11, // 7: kratos.api.Server.websocket:type_name -> kratos.api.Server.Websocket
+	12, // 8: kratos.api.Data.database:type_name -> kratos.api.Data.Database
+	13, // 9: kratos.api.Data.redis:type_name -> kratos.api.Data.Redis
+	5,  // 10: kratos.api.Room.table:type_name -> kratos.api.TableConfig
+	6,  // 11: kratos.api.Room.game:type_name -> kratos.api.GameConfig
+	7,  // 12: kratos.api.Room.robot:type_name -> kratos.api.RobotConfig
+	14, // 13: kratos.api.Server.HTTP.timeout:type_name -> google.protobuf.Duration
+	14, // 14: kratos.api.Server.GRPC.timeout:type_name -> google.protobuf.Duration
+	14, // 15: kratos.api.Server.TCP.timeout:type_name -> google.protobuf.Duration
+	14, // 16: kratos.api.Server.Websocket.timeout:type_name -> google.protobuf.Duration
+	14, // 17: kratos.api.Data.Redis.read_timeout:type_name -> google.protobuf.Duration
+	14, // 18: kratos.api.Data.Redis.write_timeout:type_name -> google.protobuf.Duration
+	19, // [19:19] is the sub-list for method output_type
+	19, // [19:19] is the sub-list for method input_type
+	19, // [19:19] is the sub-list for extension type_name
+	19, // [19:19] is the sub-list for extension extendee
+	0,  // [0:19] is the sub-list for field type_name
 }
 
 func init() { file_conf_conf_proto_init() }
@@ -1323,7 +1160,7 @@ func file_conf_conf_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_conf_conf_proto_rawDesc), len(file_conf_conf_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   17,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
