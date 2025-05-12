@@ -102,6 +102,7 @@ func testLog(zapLogger *zap.Logger) {
 	//log.GetLogger().(*zap.Logger).SetLevel("info")
 	//log.Debugf("set level 2")
 
+	log.Infof("")
 	log.Info("SensitiveKeys. password=")
 
 	log.Debugf("debug")
@@ -126,7 +127,7 @@ func testLog(zapLogger *zap.Logger) {
 			//log.Errorf("test %d", incr)
 
 			log.Errorf("test %d", incr)
-			time.Sleep(time.Duration(rand.Intn(10)+50) * time.Millisecond)
+			time.Sleep(time.Duration(rand.Intn(100)+50) * time.Millisecond)
 		}
 	}()
 

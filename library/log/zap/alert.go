@@ -104,11 +104,11 @@ func (a *Alerter) Write(ent zapcore.Entry, fields []zapcore.Field) error {
 		return fmt.Errorf("alerter closed")
 	}
 
-	fullFields := append(append(a.fields, fields...), zap.String("prefix", a.conf.Prefix))
-	entryBuf, err := a.enc.EncodeEntry(ent, fullFields)
-	if err != nil || entryBuf == nil {
+	entryBuf, err := a.enc.EncodeEntry(ent, append(append(a.fields, fields...), zap.String("prefix", a.conf.Prefix)))
+	if err != nil || entryBuf == nil || entryBuf.String() == "" {
 		return fmt.Errorf("encode error: %w", err)
 	}
+
 	msg := truncateMessage(formatJSONString(entryBuf.String()), maxTelegramMsgSize)
 
 	select {
@@ -138,10 +138,13 @@ func (a *Alerter) Close() error {
 	if !a.closed.CompareAndSwap(false, true) {
 		return nil
 	}
-	close(a.stopChan)
-	a.wg.Wait()
-	close(a.msgChan)
-	defer log.Infof("alerter closed. remaining messages: %d", len(a.msgChan))
+
+	close(a.stopChan) // 1. 停止处理协程
+	a.wg.Wait()       // 2. 确保处理协程已退出
+	remaining := len(a.msgChan)
+	close(a.msgChan) // 3. 安全关闭通道（此时无生产者）
+
+	defer log.Infof("alerter closed. remaining messages: %d", remaining)
 	return a.sender.Close()
 }
 
