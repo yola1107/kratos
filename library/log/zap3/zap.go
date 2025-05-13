@@ -438,6 +438,11 @@ func (a *Alerter) send(batch []string) error {
 	//fmt.Printf("=========>%+v send %d content: \n%+v", time.Now().Format("2006-01-02 15:04:05.000"), len(batch), content)
 	//return nil
 
+	// 截断保护
+	if len(content) > maxTelegramMsgSize {
+		content = content[:maxTelegramMsgSize-50] + "\n\n[...truncated]"
+	}
+
 	_, err := a.client.PostForm(
 		"https://api.telegram.org/bot"+a.token+"/sendMessage",
 		url.Values{
