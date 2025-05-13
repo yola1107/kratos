@@ -2,9 +2,7 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"runtime/debug"
-	"time"
 
 	"github.com/yola1107/kratos/v2"
 	"github.com/yola1107/kratos/v2/library/log/zap"
@@ -97,6 +95,11 @@ func testLog(zapLogger *zap.Logger) {
 	//
 	//log.NewHelper(log.GetLogger().(*zap.Logger)).Infof("help 4.")
 
+	//
+	// 方式A：直接使用 zap
+	helperA := zapLogger.NewHelper("keya", "vala")
+	helperA.Info("test")
+
 	//// 设置level
 	//log.Debugf("set level 1")
 	//log.GetLogger().(*zap.Logger).SetLevel("info")
@@ -117,19 +120,19 @@ func testLog(zapLogger *zap.Logger) {
 	}
 	log.Errorf("测试消息(end)")
 
-	go func() {
-		incr := 0
-		for {
-			incr++
-			//log.Debugf("test %d", incr)
-			//log.Infof("test %d", incr)
-			//log.Warnf("test %d", incr)
-			//log.Errorf("test %d", incr)
-
-			log.Errorf("test %d", incr)
-			time.Sleep(time.Duration(rand.Intn(100)+50) * time.Millisecond)
-		}
-	}()
+	//go func() {
+	//	incr := 0
+	//	for {
+	//		incr++
+	//		//log.Debugf("test %d", incr)
+	//		//log.Infof("test %d", incr)
+	//		//log.Warnf("test %d", incr)
+	//		//log.Errorf("test %d", incr)
+	//
+	//		log.Errorf("test %d", incr)
+	//		time.Sleep(time.Duration(rand.Intn(100)+50) * time.Millisecond)
+	//	}
+	//}()
 
 	defer func() {
 		if r := recover(); r != nil {

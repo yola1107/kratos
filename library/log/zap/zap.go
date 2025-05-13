@@ -21,7 +21,7 @@ var _ log.Logger = (*Logger)(nil)
 const (
 	defaultFieldCapacity = 32
 	maxPoolCapacity      = 1024
-	sensitiveMask        = "******"
+	sensitiveMask        = "***"
 )
 
 type Logger struct {
