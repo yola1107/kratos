@@ -1,7 +1,6 @@
 package zap
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -28,53 +28,99 @@ const (
 	maxPoolCapacity      = 1024
 	sensitiveMask        = "***"
 	timeFormat           = "2006/01/02 15:04:05.000"
-
-	maxTelegramMsgSize = 4096 // Telegram消息最大长度 4k
+	maxTelegramMsgSize   = 4096 // Telegram消息最大长度 4k
 )
 
 const (
 	defaultBatchCnt   = 10
-	defaultQueueSize  = 1000
+	defaultQueueSize  = 2048
 	defaultMaxRetries = 1
 )
 
 type Option func(*Config)
 
-func WithDevelopment() Option {
-	return func(c *Config) { c.development = true }
+func WithProduction() Option {
+	return func(c *Config) { c.development = false }
+}
+
+func WithLevel(level string) Option {
+	return func(c *Config) { c.level = level }
+}
+
+func WithDirectory(dir string) Option {
+	return func(c *Config) { c.directory = dir }
+}
+
+func WithFilename(filename string) Option {
+	return func(c *Config) { c.filename = filename }
+}
+
+func WithErrorFilename(filename string) Option {
+	return func(c *Config) { c.errorFilename = filename }
+}
+
+func WithMaxSizeMB(maxSizeMB int) Option {
+	return func(c *Config) { c.maxSizeMB = maxSizeMB }
+}
+
+func WithMaxAgeDays(MaxAge int) Option {
+	return func(c *Config) { c.maxAgeDays = MaxAge }
+}
+
+func WithMaxBackups(maxBackups int) Option {
+	return func(c *Config) { c.maxBackups = maxBackups }
+}
+
+func WithCompress(compress bool) Option {
+	return func(c *Config) { c.compress = compress }
+}
+
+func WithLocalTime(localTime bool) Option {
+	return func(c *Config) { c.localTime = localTime }
+}
+
+func WithSensitiveKeys(SensitiveKeys []string) Option {
+	return func(c *Config) { c.sensitiveKeys = SensitiveKeys }
+}
+func WithToken(token string) Option {
+	return func(c *Config) { c.telegramToken = token }
+}
+
+func WithChatID(chatID string) Option {
+	return func(c *Config) { c.telegramChatID = chatID }
 }
 
 type Config struct {
 	development    bool     // "dev" 或 "prod"
-	Level          string   // 日志级别: debug/info/warn/error
-	Directory      string   // 日志文件目录
-	FileName       string   // 普通日志文件名
-	ErrorFileName  string   // 错误日志文件名
-	MaxSizeMB      int      // 单文件最大 MB
-	MaxBackups     int      // 最大备份数
-	MaxAgeDays     int      // 最大保留天数
-	Compress       bool     // 是否压缩历史日志
-	LocalTime      bool     // 使用本地时间戳
-	SensitiveKeys  []string // 敏感字段名或前缀，不区分大小写
-	TelegramToken  string   // Telegram Bot Token
-	TelegramChatID string   // Telegram Chat ID
+	level          string   // 日志级别: debug/info/warn/error
+	directory      string   // 日志文件目录
+	filename       string   // 普通日志文件名
+	errorFilename  string   // 错误日志文件名
+	maxSizeMB      int      // 单文件最大 MB
+	maxBackups     int      // 最大备份数
+	maxAgeDays     int      // 最大保留天数
+	compress       bool     // 是否压缩历史日志
+	localTime      bool     // 使用本地时间戳
+	sensitiveKeys  []string // 敏感字段名或前缀，不区分大小写
+	telegramToken  string   // Telegram Bot Token
+	telegramChatID string   // Telegram Chat ID
 }
 
 func defaultConfig() *Config {
 	cfg := &Config{
 		development:    true,
-		Level:          "debug",
-		Directory:      "",
-		FileName:       "",
-		ErrorFileName:  "",
-		MaxSizeMB:      200,
-		MaxBackups:     10,
-		MaxAgeDays:     7,
-		Compress:       true,
-		LocalTime:      true,
-		SensitiveKeys:  []string{},
-		TelegramToken:  "token",
-		TelegramChatID: "chatId",
+		level:          "debug",
+		directory:      "",
+		filename:       "",
+		errorFilename:  "",
+		maxSizeMB:      200,
+		maxBackups:     10,
+		maxAgeDays:     7,
+		compress:       true,
+		localTime:      true,
+		sensitiveKeys:  []string{},
+		telegramToken:  "token",
+		telegramChatID: "chatId",
 	}
 	return cfg
 }
@@ -123,7 +169,7 @@ func NewLogger(opts ...Option) (*Logger, error) {
 
 	// 日志级别
 	level := zap.NewAtomicLevel()
-	if err := level.UnmarshalText([]byte(cfg.Level)); err != nil {
+	if err := level.UnmarshalText([]byte(cfg.level)); err != nil {
 		level.SetLevel(zap.InfoLevel)
 	}
 
@@ -135,36 +181,44 @@ func NewLogger(opts ...Option) (*Logger, error) {
 		encoderCfg.EncodeTime = zapcore.TimeEncoderOfLayout(timeFormat)
 		encoderCfg.ConsoleSeparator = " "
 	}
-	consoleEnc := zapcore.NewConsoleEncoder(encoderCfg)
-	jsonEnc := zapcore.NewJSONEncoder(encoderCfg)
 
-	// Console
-	cores = append(cores, zapcore.NewCore(consoleEnc, zapcore.AddSync(os.Stdout), level))
+	// Console zapcore.AddSync(os.Stdout)
+	cores = append(cores, zapcore.NewCore(zapcore.NewConsoleEncoder(encoderCfg), zapcore.Lock(os.Stderr), level))
 
 	// File
-	if cfg.Directory != "" && cfg.FileName != "" {
-		lj := &lumberjack.Logger{
-			Filename:   filepath.Join(cfg.Directory, cfg.FileName),
-			MaxSize:    cfg.MaxSizeMB,
-			MaxBackups: cfg.MaxBackups,
-			MaxAge:     cfg.MaxAgeDays,
-			Compress:   cfg.Compress,
-			LocalTime:  cfg.LocalTime,
+	if !cfg.development && cfg.directory != "" && (cfg.filename != "" || cfg.errorFilename != "") {
+		if err := os.MkdirAll(cfg.directory, 0755); err != nil {
+			return nil, fmt.Errorf("create log directory failed: %v", err)
 		}
-		cores = append(cores, zapcore.NewCore(jsonEnc, zapcore.AddSync(lj), level))
-		closers = append(closers, lj)
-	}
-	if cfg.Directory != "" && cfg.ErrorFileName != "" {
-		lj := &lumberjack.Logger{
-			Filename:   filepath.Join(cfg.Directory, cfg.ErrorFileName),
-			MaxSize:    cfg.MaxSizeMB,
-			MaxBackups: cfg.MaxBackups,
-			MaxAge:     cfg.MaxAgeDays,
-			Compress:   cfg.Compress,
-			LocalTime:  cfg.LocalTime,
+
+		fileEncoderCfg := encoderCfg
+		fileEncoderCfg.EncodeLevel = zapcore.CapitalLevelEncoder
+		jsonEnc := zapcore.NewJSONEncoder(fileEncoderCfg)
+
+		if cfg.directory != "" && cfg.filename != "" {
+			lj := &lumberjack.Logger{
+				Filename:   filepath.Join(cfg.directory, cfg.filename),
+				MaxSize:    cfg.maxSizeMB,
+				MaxBackups: cfg.maxBackups,
+				MaxAge:     cfg.maxAgeDays,
+				Compress:   cfg.compress,
+				LocalTime:  cfg.localTime,
+			}
+			cores = append(cores, zapcore.NewCore(jsonEnc, zapcore.AddSync(lj), level))
+			closers = append(closers, lj)
 		}
-		cores = append(cores, zapcore.NewCore(jsonEnc, zapcore.AddSync(lj), zapcore.ErrorLevel))
-		closers = append(closers, lj)
+		if cfg.directory != "" && cfg.errorFilename != "" {
+			lj := &lumberjack.Logger{
+				Filename:   filepath.Join(cfg.directory, cfg.errorFilename),
+				MaxSize:    cfg.maxSizeMB,
+				MaxBackups: cfg.maxBackups,
+				MaxAge:     cfg.maxAgeDays,
+				Compress:   cfg.compress,
+				LocalTime:  cfg.localTime,
+			}
+			cores = append(cores, zapcore.NewCore(jsonEnc, zapcore.AddSync(lj), zapcore.ErrorLevel))
+			closers = append(closers, lj)
+		}
 	}
 
 	core := zapcore.NewTee(cores...)
@@ -173,17 +227,18 @@ func NewLogger(opts ...Option) (*Logger, error) {
 	l := &Logger{Logger: logger, level: level, closers: closers, fieldPool: newFieldSlicePool(), sensitiveKeys: make(map[string]struct{})}
 
 	// 脱敏 Core
-	for _, k := range cfg.SensitiveKeys {
+	for _, k := range cfg.sensitiveKeys {
 		l.sensitiveKeys[strings.ToLower(k)] = struct{}{}
 	}
 
 	// Alerter
-	if cfg.TelegramToken != "" && cfg.TelegramChatID != "" {
-		alerter := NewAlerter(cfg.TelegramToken, cfg.TelegramChatID)
+	if cfg.telegramToken != "" && cfg.telegramChatID != "" {
+		alerter := NewAlerter(cfg.telegramToken, cfg.telegramChatID)
 		l.alerter = alerter
 		l.Logger = logger.WithOptions(zap.Hooks(alerter.Hook()))
 	}
 
+	log.Infof("zap logger initialized. cores=%d conf=%+v", len(cores), cfg)
 	return l, nil
 }
 
@@ -241,8 +296,12 @@ func (l *Logger) Log(level log.Level, keyvals ...interface{}) error {
 // 敏感信息过滤
 func (l *Logger) filterSensitive(fields []zap.Field) []zap.Field {
 	for i, field := range fields {
-		if _, ok := l.sensitiveKeys[strings.ToLower(field.Key)]; ok {
-			fields[i] = zap.String(field.Key, sensitiveMask)
+		keyLower := strings.ToLower(field.Key)
+		for sensitiveKey := range l.sensitiveKeys {
+			if strings.HasPrefix(keyLower, sensitiveKey) {
+				fields[i] = zap.String(field.Key, sensitiveMask)
+				break // 匹配任意前缀即脱敏
+			}
 		}
 	}
 	return fields
@@ -254,6 +313,7 @@ func (l *Logger) Sync() error {
 
 // Close 关闭资源
 func (l *Logger) Close() error {
+	defer log.Info("zap Logger closed successfully")
 	_ = l.Sync()
 	for _, c := range l.closers {
 		_ = c.Close()
@@ -261,18 +321,12 @@ func (l *Logger) Close() error {
 	if l.alerter != nil {
 		return l.alerter.Close()
 	}
-	log.Info("zap Logger closed successfully")
 	return nil
 }
 
 // SetLevel 动态设置日志级别
 func (l *Logger) SetLevel(level string) error {
-	var lv zapcore.Level
-	if err := lv.UnmarshalText([]byte(level)); err != nil {
-		return err
-	}
-	l.level.SetLevel(lv)
-	return nil
+	return l.level.UnmarshalText([]byte(level))
 }
 
 /*
@@ -319,26 +373,32 @@ func (a *Alerter) Hook() func(zapcore.Entry) error {
 			return nil
 		}
 		if e.Level >= zapcore.ErrorLevel {
-			payload := map[string]interface{}{
-				"level":  e.Level.String(),
-				"msg":    e.Message,
-				"time":   e.Time.Format(timeFormat),
-				"caller": e.Caller.TrimmedPath(),
-			}
-			if b, err := json.MarshalIndent(payload, "", "  "); err == nil {
+			if msg, err := toJSONMsg(e); err == nil {
 				select {
-				case a.queue <- &tagMessage{content: string(b), length: len(b)}:
+				case a.queue <- &tagMessage{content: msg, length: len(msg)}:
 				default:
 					log.Warnf("queue full (capacity=%d)", defaultQueueSize)
-					fmt.Printf("queue full (capacity=%d)", defaultQueueSize)
 				}
 			}
 		}
+
 		return nil
 	}
 }
 
+func toJSONMsg(e zapcore.Entry) (string, error) {
+	payload := map[string]interface{}{
+		"level":  e.Level.String(),
+		"msg":    e.Message,
+		"time":   e.Time.Format(timeFormat),
+		"caller": e.Caller.TrimmedPath(),
+	}
+	b, err := json.MarshalIndent(payload, "", "  ")
+	return string(b), err
+}
+
 func (a *Alerter) sender() {
+	defer a.recoverPanic()
 	defer a.wg.Done()
 
 	var (
@@ -408,34 +468,35 @@ loop:
 }
 
 func (a *Alerter) sendWithRetry(batch []string) {
-	if len(batch) == 0 || a.closed.Load() {
+	//if len(batch) == 0 || a.closed.Load() {
+	if len(batch) == 0 {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	for attempt := 1; attempt <= defaultMaxRetries; attempt++ {
 		if err := a.send(batch); err == nil {
 			return
 		}
-		select {
-		case <-time.After(time.Duration(attempt) * time.Second):
-		case <-ctx.Done():
-			return
+		// 不是最后一次才 sleep
+		if attempt < defaultMaxRetries {
+			time.Sleep(time.Duration(1<<attempt) * time.Second)
 		}
 	}
 }
 
-func (a *Alerter) send(batch []string) error {
-	content := ""
-	for _, msg := range batch {
-		content += msg
-		content += "\n\n" // 用两个换行分隔多条消息
-	}
-	content += "\n\n---------\n\n"
+var sendCount int64
 
-	//fmt.Printf("=========>%+v send %d \n", time.Now().Format("2006-01-02 15:04:05.000"), len(messages))
-	//fmt.Printf("=========>%+v send %d content: \n%+v", time.Now().Format("2006-01-02 15:04:05.000"), len(batch), content)
+func (a *Alerter) send(batch []string) error {
+	var sb strings.Builder
+	for _, msg := range batch {
+		sb.WriteString(msg + "\n\n")
+	}
+	sb.WriteString("\n---------\n\n")
+	content := sb.String()
+
+	sendCount += int64(len(batch))
+
+	//fmt.Printf("=========>%+v send %d \n", time.Now().Format(timeFormat), len(batch))
+	//fmt.Printf("=========>%+v send %d content: \n%+v", time.Now().Format(timeFormat), len(batch), content)
 	//return nil
 
 	// 截断保护
@@ -451,7 +512,7 @@ func (a *Alerter) send(batch []string) error {
 		},
 	)
 	if err != nil {
-		fmt.Printf("%+v %v\n", time.Now().Format("2006-01-02 15:04:05.000"), err)
+		fmt.Printf("%+v %v\n", time.Now().Format(timeFormat), err)
 	}
 	return err
 }
@@ -461,12 +522,23 @@ func (a *Alerter) Close() error {
 		return nil
 	}
 
+	stopTime := time.Now()
+
+	fmt.Printf("=== close at: %s SendedCnt=%d queue=%d\n", time.Now().Format(timeFormat), sendCount, len(a.queue))
 	close(a.quit)
 	a.wg.Wait()
-	remaining := len(a.queue)
 	close(a.queue)
 	a.client.CloseIdleConnections()
 
-	log.Infof("alerter closed. remaining: %d", remaining)
+	log.Infof("alerter closed. sendCnt=%d remaining:%d usetime=%+v", sendCount, len(a.queue), time.Now().Sub(stopTime))
 	return nil
+}
+
+func (a *Alerter) recoverPanic() {
+	if r := recover(); r != nil {
+		log.Error("alerter panic recovered",
+			zap.Any("reason", r),
+			zap.String("stack", string(debug.Stack())),
+		)
+	}
 }
