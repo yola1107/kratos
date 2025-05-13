@@ -8,7 +8,6 @@ import (
 
 	"github.com/yola1107/kratos/v2"
 	"github.com/yola1107/kratos/v2/library/log/zap3"
-	//"github.com/yola1107/kratos/v2/library/log/zap"
 	"github.com/yola1107/kratos/v2/log"
 )
 
@@ -48,20 +47,16 @@ func main() {
 
 func loadLog() *zap.Logger {
 	zapLogger, err := zap.NewLogger(
-		//zap.WithDevelopment(),
 		//zap.WithProduction(),
 		zap.WithLevel("debug"),
 		zap.WithDirectory("./logs"),
 		zap.WithFilename(Name+".log"),
 		zap.WithErrorFilename(Name+"_error.log"),
-		//zap.WithPrefix(Name),
+		zap.WithPrefix(Name),
 		//zap.WithToken(os.Getenv("TG_TOKEN")),
 		//zap.WithChatID(os.Getenv("TG_CHAT_ID")),
 		zap.WithToken("7945687310:AAHA9tkUPV1ELEsVSLoDZe_Cc76wp7YdDVI"),
 		zap.WithChatID("-4672893880"),
-		//zap.WithMaxBatchCnt(1),
-		//zap.WithRateLimiter(time.Second*5),
-		//zap.WithThreshold(zapcore.WarnLevel),
 		zap.WithSensitiveKeys([]string{"pwd", "password"}),
 	)
 	if err != nil {
@@ -127,13 +122,8 @@ func testLog(zapLogger *zap.Logger) {
 			incr := 0
 			for {
 				incr++
-				//log.Debugf("test %d", incr)
-				//log.Infof("test %d", incr)
-				//log.Warnf("test %d", incr)
-				//log.Errorf("test %d", incr)
-
 				log.Errorf("test %d", incr)
-				time.Sleep(time.Duration(rand.Intn(100)+50) * time.Millisecond)
+				time.Sleep(time.Duration(rand.Intn(10)+10) * time.Millisecond)
 			}
 		}()
 	}

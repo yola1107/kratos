@@ -1,17 +1,12 @@
 package zap
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
-	"runtime/debug"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"go.uber.org/zap"
@@ -27,14 +22,14 @@ const (
 	defaultFieldCapacity = 32
 	maxPoolCapacity      = 1024
 	sensitiveMask        = "***"
-	timeFormat           = "2006/01/02 15:04:05.000"
 	maxTelegramMsgSize   = 4096 // Telegram消息最大长度 4k
 )
 
 const (
 	defaultBatchCnt   = 10
-	defaultQueueSize  = 2048
+	defaultQueueSize  = 4096
 	defaultMaxRetries = 1
+	defaultLimitRate  = time.Millisecond * 100
 )
 
 type Option func(*Config)
@@ -82,6 +77,11 @@ func WithLocalTime(localTime bool) Option {
 func WithSensitiveKeys(SensitiveKeys []string) Option {
 	return func(c *Config) { c.sensitiveKeys = SensitiveKeys }
 }
+
+func WithPrefix(prefix string) Option {
+	return func(c *Config) { c.prefix = prefix }
+}
+
 func WithToken(token string) Option {
 	return func(c *Config) { c.telegramToken = token }
 }
@@ -102,6 +102,7 @@ type Config struct {
 	compress       bool     // 是否压缩历史日志
 	localTime      bool     // 使用本地时间戳
 	sensitiveKeys  []string // 敏感字段名或前缀，不区分大小写
+	prefix         string   // 前缀
 	telegramToken  string   // Telegram Bot Token
 	telegramChatID string   // Telegram Chat ID
 }
@@ -119,8 +120,9 @@ func defaultConfig() *Config {
 		compress:       true,
 		localTime:      true,
 		sensitiveKeys:  []string{},
-		telegramToken:  "token",
-		telegramChatID: "chatId",
+		prefix:         "",
+		telegramToken:  "",
+		telegramChatID: "",
 	}
 	return cfg
 }
@@ -141,7 +143,7 @@ type fieldSlicePool struct {
 func newFieldSlicePool() *fieldSlicePool {
 	return &fieldSlicePool{
 		pool: sync.Pool{
-			New: func() interface{} {
+			New: func() any {
 				return make([]zap.Field, 0, defaultFieldCapacity)
 			},
 		},
@@ -175,14 +177,12 @@ func NewLogger(opts ...Option) (*Logger, error) {
 
 	// 编码器配置
 	encoderCfg := zap.NewProductionEncoderConfig()
-	if cfg.development {
-		encoderCfg.EncodeCaller = zapcore.FullCallerEncoder
-		encoderCfg.EncodeLevel = zapcore.CapitalColorLevelEncoder
-		encoderCfg.EncodeTime = zapcore.TimeEncoderOfLayout(timeFormat)
-		encoderCfg.ConsoleSeparator = " "
-	}
+	encoderCfg.EncodeTime = customTimeEncoder
+	encoderCfg.EncodeLevel = customColorLevelEncoder
+	encoderCfg.EncodeCaller = zapcore.FullCallerEncoder
+	encoderCfg.ConsoleSeparator = " "
 
-	// Console zapcore.AddSync(os.Stdout)
+	// Console
 	cores = append(cores, zapcore.NewCore(zapcore.NewConsoleEncoder(encoderCfg), zapcore.Lock(os.Stderr), level))
 
 	// File
@@ -192,31 +192,18 @@ func NewLogger(opts ...Option) (*Logger, error) {
 		}
 
 		fileEncoderCfg := encoderCfg
-		fileEncoderCfg.EncodeLevel = zapcore.CapitalLevelEncoder
-		jsonEnc := zapcore.NewJSONEncoder(fileEncoderCfg)
+		fileEncoderCfg.EncodeCaller = customCallerEncoder
+		fileEncoderCfg.EncodeLevel = customLevelEncoder
+		fileEnc := zapcore.NewConsoleEncoder(fileEncoderCfg)
 
 		if cfg.directory != "" && cfg.filename != "" {
-			lj := &lumberjack.Logger{
-				Filename:   filepath.Join(cfg.directory, cfg.filename),
-				MaxSize:    cfg.maxSizeMB,
-				MaxBackups: cfg.maxBackups,
-				MaxAge:     cfg.maxAgeDays,
-				Compress:   cfg.compress,
-				LocalTime:  cfg.localTime,
-			}
-			cores = append(cores, zapcore.NewCore(jsonEnc, zapcore.AddSync(lj), level))
+			lj := newLumberjack(cfg, cfg.filename)
+			cores = append(cores, zapcore.NewCore(fileEnc, zapcore.AddSync(lj.(io.Writer)), level))
 			closers = append(closers, lj)
 		}
 		if cfg.directory != "" && cfg.errorFilename != "" {
-			lj := &lumberjack.Logger{
-				Filename:   filepath.Join(cfg.directory, cfg.errorFilename),
-				MaxSize:    cfg.maxSizeMB,
-				MaxBackups: cfg.maxBackups,
-				MaxAge:     cfg.maxAgeDays,
-				Compress:   cfg.compress,
-				LocalTime:  cfg.localTime,
-			}
-			cores = append(cores, zapcore.NewCore(jsonEnc, zapcore.AddSync(lj), zapcore.ErrorLevel))
+			lj := newLumberjack(cfg, cfg.errorFilename)
+			cores = append(cores, zapcore.NewCore(fileEnc, zapcore.AddSync(lj.(io.Writer)), zapcore.ErrorLevel))
 			closers = append(closers, lj)
 		}
 	}
@@ -233,7 +220,7 @@ func NewLogger(opts ...Option) (*Logger, error) {
 
 	// Alerter
 	if cfg.telegramToken != "" && cfg.telegramChatID != "" {
-		alerter := NewAlerter(cfg.telegramToken, cfg.telegramChatID)
+		alerter := NewAlerter(cfg.telegramToken, cfg.telegramChatID, cfg.prefix)
 		l.alerter = alerter
 		l.Logger = logger.WithOptions(zap.Hooks(alerter.Hook()))
 	}
@@ -242,7 +229,18 @@ func NewLogger(opts ...Option) (*Logger, error) {
 	return l, nil
 }
 
-func (l *Logger) Log(level log.Level, keyvals ...interface{}) error {
+func newLumberjack(cfg *Config, filename string) io.Closer {
+	return &lumberjack.Logger{
+		Filename:   filepath.Join(cfg.directory, filename),
+		MaxSize:    cfg.maxSizeMB,
+		MaxBackups: cfg.maxBackups,
+		MaxAge:     cfg.maxAgeDays,
+		Compress:   cfg.compress,
+		LocalTime:  cfg.localTime,
+	}
+}
+
+func (l *Logger) Log(level log.Level, keyvals ...any) error {
 	if len(keyvals) == 0 {
 		return nil
 	}
@@ -300,7 +298,7 @@ func (l *Logger) filterSensitive(fields []zap.Field) []zap.Field {
 		for sensitiveKey := range l.sensitiveKeys {
 			if strings.HasPrefix(keyLower, sensitiveKey) {
 				fields[i] = zap.String(field.Key, sensitiveMask)
-				break // 匹配任意前缀即脱敏
+				break
 			}
 		}
 	}
@@ -327,218 +325,4 @@ func (l *Logger) Close() error {
 // SetLevel 动态设置日志级别
 func (l *Logger) SetLevel(level string) error {
 	return l.level.UnmarshalText([]byte(level))
-}
-
-/*
-	Alerter
-*/
-
-type Alerter struct {
-	token  string
-	chatID string
-	queue  chan *tagMessage
-	wg     sync.WaitGroup
-	quit   chan struct{}
-	closed atomic.Bool // 是否已关闭
-	client *http.Client
-}
-
-type tagMessage struct {
-	content string
-	length  int
-}
-
-func NewAlerter(token, chatID string) *Alerter {
-	a := &Alerter{
-		token:  token,
-		chatID: chatID,
-		queue:  make(chan *tagMessage, defaultQueueSize),
-		quit:   make(chan struct{}),
-		client: &http.Client{
-			Timeout: 1 * time.Second,
-			Transport: &http.Transport{
-				MaxIdleConns:       10,
-				IdleConnTimeout:    10 * time.Second,
-				DisableCompression: true,
-			}},
-	}
-	a.wg.Add(1)
-	go a.sender()
-	return a
-}
-
-func (a *Alerter) Hook() func(zapcore.Entry) error {
-	return func(e zapcore.Entry) error {
-		if a.closed.Load() {
-			return nil
-		}
-		if e.Level >= zapcore.ErrorLevel {
-			if msg, err := toJSONMsg(e); err == nil {
-				select {
-				case a.queue <- &tagMessage{content: msg, length: len(msg)}:
-				default:
-					log.Warnf("queue full (capacity=%d)", defaultQueueSize)
-				}
-			}
-		}
-
-		return nil
-	}
-}
-
-func toJSONMsg(e zapcore.Entry) (string, error) {
-	payload := map[string]interface{}{
-		"level":  e.Level.String(),
-		"msg":    e.Message,
-		"time":   e.Time.Format(timeFormat),
-		"caller": e.Caller.TrimmedPath(),
-	}
-	b, err := json.MarshalIndent(payload, "", "  ")
-	return string(b), err
-}
-
-func (a *Alerter) sender() {
-	defer a.recoverPanic()
-	defer a.wg.Done()
-
-	var (
-		batchPool = sync.Pool{New: func() interface{} { return make([]string, 0, defaultBatchCnt) }}
-		batch     = batchPool.Get().([]string)
-		batchSize int
-	)
-	defer batchPool.Put(batch[:0])
-
-	ticker := time.NewTicker(3 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-a.quit:
-			a.drainQueue(&batch, &batchSize)
-			a.sendWithRetry(batch)
-			return
-
-		case msg := <-a.queue:
-			if a.needFlush(msg.length, batchSize, len(batch)) {
-				a.sendWithRetry(batch)
-				batch, batchSize = batch[:0], 0
-			}
-			batch = append(batch, msg.content)
-			batchSize += msg.length
-
-		case <-ticker.C:
-			if len(batch) > 0 {
-				a.sendWithRetry(batch)
-				batch, batchSize = batch[:0], 0
-			}
-		}
-	}
-}
-
-func (a *Alerter) needFlush(msgLen, batchSize, batchCount int) bool {
-	return msgLen+batchSize > maxTelegramMsgSize || batchCount >= defaultBatchCnt
-}
-
-func (a *Alerter) drainQueue(batch *[]string, batchSize *int) {
-	timeout := time.After(100 * time.Millisecond)
-loop:
-	for {
-		select {
-		case msg, ok := <-a.queue:
-			if !ok {
-				log.Info("msgChan closed, exit drainQueue")
-				break loop
-			}
-			if a.needFlush(msg.length, *batchSize, len(*batch)) {
-				a.sendWithRetry(*batch)
-				*batch, *batchSize = (*batch)[:0], 0
-			}
-			*batch = append(*batch, msg.content)
-			*batchSize += msg.length
-		case <-timeout:
-			break loop
-		default:
-			break loop
-		}
-	}
-	// 发送最终批次
-	if len(*batch) > 0 {
-		a.sendWithRetry(*batch)
-	}
-}
-
-func (a *Alerter) sendWithRetry(batch []string) {
-	//if len(batch) == 0 || a.closed.Load() {
-	if len(batch) == 0 {
-		return
-	}
-	for attempt := 1; attempt <= defaultMaxRetries; attempt++ {
-		if err := a.send(batch); err == nil {
-			return
-		}
-		// 不是最后一次才 sleep
-		if attempt < defaultMaxRetries {
-			time.Sleep(time.Duration(1<<attempt) * time.Second)
-		}
-	}
-}
-
-var sendCount int64
-
-func (a *Alerter) send(batch []string) error {
-	var sb strings.Builder
-	for _, msg := range batch {
-		sb.WriteString(msg + "\n\n")
-	}
-	sb.WriteString("\n---------\n\n")
-	content := sb.String()
-
-	sendCount += int64(len(batch))
-
-	//fmt.Printf("=========>%+v send %d \n", time.Now().Format(timeFormat), len(batch))
-	//fmt.Printf("=========>%+v send %d content: \n%+v", time.Now().Format(timeFormat), len(batch), content)
-	//return nil
-
-	// 截断保护
-	if len(content) > maxTelegramMsgSize {
-		content = content[:maxTelegramMsgSize-50] + "\n\n[...truncated]"
-	}
-
-	_, err := a.client.PostForm(
-		"https://api.telegram.org/bot"+a.token+"/sendMessage",
-		url.Values{
-			"chat_id": {a.chatID},
-			"text":    {content},
-		},
-	)
-	if err != nil {
-		fmt.Printf("%+v %v\n", time.Now().Format(timeFormat), err)
-	}
-	return err
-}
-
-func (a *Alerter) Close() error {
-	if !a.closed.CompareAndSwap(false, true) {
-		return nil
-	}
-
-	stopTime := time.Now()
-
-	fmt.Printf("=== close at: %s SendedCnt=%d queue=%d\n", time.Now().Format(timeFormat), sendCount, len(a.queue))
-	close(a.quit)
-	a.wg.Wait()
-	close(a.queue)
-	a.client.CloseIdleConnections()
-
-	log.Infof("alerter closed. sendCnt=%d remaining:%d usetime=%+v", sendCount, len(a.queue), time.Now().Sub(stopTime))
-	return nil
-}
-
-func (a *Alerter) recoverPanic() {
-	if r := recover(); r != nil {
-		log.Error("alerter panic recovered",
-			zap.Any("reason", r),
-			zap.String("stack", string(debug.Stack())),
-		)
-	}
 }
