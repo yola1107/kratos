@@ -5,7 +5,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -191,10 +190,6 @@ func NewLogger(opts ...Option) (*Logger, error) {
 		fileEncoderCfg := encoderCfg
 		fileEncoderCfg.EncodeCaller = customCallerEncoder
 		fileEncoderCfg.EncodeLevel = customLevelEncoder
-		if runtime.GOOS != "windows" {
-			fileEncoderCfg.EncodeCaller = customColorCallerEncoder
-			fileEncoderCfg.EncodeLevel = customColorLevelEncoder
-		}
 		fileEnc := zapcore.NewConsoleEncoder(fileEncoderCfg)
 
 		if cfg.directory != "" && cfg.filename != "" {
