@@ -188,10 +188,6 @@ func NewLogger(opts ...Option) (*Logger, error) {
 
 	// File
 	if !cfg.development && cfg.directory != "" && (cfg.filename != "" || cfg.errorFilename != "") {
-		if err := os.MkdirAll(cfg.directory, 0755); err != nil {
-			return nil, fmt.Errorf("create log directory failed: %v", err)
-		}
-
 		fileEncoderCfg := encoderCfg
 		fileEncoderCfg.EncodeCaller = customCallerEncoder
 		fileEncoderCfg.EncodeLevel = customLevelEncoder

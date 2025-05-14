@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"runtime/debug"
 	"time"
@@ -14,6 +15,9 @@ import (
 const (
 	Name = "hello-server"
 )
+
+//./app  > /dev/null 2>&1 &              //重定向null
+//nohup ./app >> app.log 2>&1 &         //重定向到app.log
 
 // GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o app main.go
 func main() {
@@ -47,17 +51,22 @@ func main() {
 
 func loadLog() *zap.Logger {
 	zapLogger, err := zap.NewLogger(
-		//zap.WithProduction(),
+		zap.WithProduction(),
 		zap.WithLevel("debug"),
 		zap.WithDirectory("./logs"),
 		zap.WithFilename(Name+".log"),
 		zap.WithErrorFilename(Name+"_error.log"),
+		zap.WithMaxSizeMB(100), //10M
+		zap.WithMaxAgeDays(1),  //1天
+		zap.WithMaxBackups(10),
+		zap.WithCompress(true),
+		zap.WithLocalTime(true),
+		zap.WithSensitiveKeys([]string{"pwd", "password"}),
 		zap.WithPrefix(Name),
 		//zap.WithToken(os.Getenv("TG_TOKEN")),
 		//zap.WithChatID(os.Getenv("TG_CHAT_ID")),
 		zap.WithToken("7945687310:AAHA9tkUPV1ELEsVSLoDZe_Cc76wp7YdDVI"),
 		zap.WithChatID("-4672893880"),
-		zap.WithSensitiveKeys([]string{"pwd", "password"}),
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -120,9 +129,26 @@ func testLog(zapLogger *zap.Logger) {
 		go func() {
 			incr := 0
 			for {
-				incr++
-				log.Errorf("test %d", incr)
-				time.Sleep(time.Duration(rand.Intn(10000)+1000) * time.Millisecond)
+				if incr++; incr >= math.MaxInt64-1 {
+					incr = 0
+				}
+				x := rand.Intn(5)
+				switch x {
+				case 0:
+					log.Debugf("debug incr:%d", incr)
+				case 1:
+					log.Infof("info incr:%d", incr)
+				case 2:
+					log.Warnf("warn incr:%d", incr)
+				case 3:
+					log.Errorf("error incr: (%d)", incr)
+				}
+
+				time.Sleep(time.Duration(rand.Int()%10+1) * time.Millisecond)
+
+				//incr++
+				//log.Errorf("test %d", incr)
+				//time.Sleep(time.Duration(rand.Intn(100)+100) * time.Millisecond)
 			}
 		}()
 	}
