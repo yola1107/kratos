@@ -132,7 +132,6 @@ type Logger struct {
 	level         zap.AtomicLevel
 	closers       []io.Closer
 	fieldPool     *fieldSlicePool
-	alerter       *Alerter
 	sensitiveKeys map[string]struct{}
 }
 
@@ -168,6 +167,10 @@ func NewLogger(opts ...Option) (*Logger, error) {
 
 	var cores []zapcore.Core
 	var closers []io.Closer
+	var options = []zap.Option{
+		zap.AddCaller(),
+		zap.AddCallerSkip(2),
+		zap.AddStacktrace(zapcore.PanicLevel)}
 
 	// 日志级别
 	level := zap.NewAtomicLevel()
@@ -204,25 +207,23 @@ func NewLogger(opts ...Option) (*Logger, error) {
 		}
 	}
 
-	core := zapcore.NewTee(cores...)
-
-	logger := zap.New(core, zap.AddCaller(), zap.AddCallerSkip(2), zap.AddStacktrace(zapcore.PanicLevel))
-	l := &Logger{Logger: logger, level: level, closers: closers, fieldPool: newFieldSlicePool(), sensitiveKeys: make(map[string]struct{})}
-
-	// 脱敏 Core
-	for _, k := range cfg.sensitiveKeys {
-		if k = strings.TrimSpace(k); k != "" {
-			l.sensitiveKeys[strings.ToLower(k)] = struct{}{}
-		}
-	}
-
 	// Alerter
 	if cfg.telegramToken != "" && cfg.telegramChatID != "" {
 		alerter := NewAlerter(cfg.telegramToken, cfg.telegramChatID, cfg.prefix)
-		l.alerter = alerter
-		l.Logger = logger.WithOptions(zap.Hooks(alerter.Hook()))
+		options = append(options, zap.Hooks(alerter.Hook()))
+		closers = append(closers, alerter)
 	}
 
+	// 脱敏 Core
+	sensitiveKeys := make(map[string]struct{})
+	for _, k := range cfg.sensitiveKeys {
+		if k = strings.TrimSpace(k); k != "" {
+			sensitiveKeys[strings.ToLower(k)] = struct{}{}
+		}
+	}
+
+	logger := zap.New(zapcore.NewTee(cores...), options...)
+	l := &Logger{Logger: logger, level: level, closers: closers, fieldPool: newFieldSlicePool(), sensitiveKeys: sensitiveKeys}
 	log.Infof("zap logger initialized. cores=%d conf=%+v", len(cores), cfg)
 	return l, nil
 }
@@ -314,9 +315,6 @@ func (l *Logger) Close() error {
 	for _, c := range l.closers {
 		_ = c.Close()
 	}
-	if l.alerter != nil {
-		return l.alerter.Close()
-	}
 	return nil
 }
 
@@ -354,7 +352,6 @@ func (l *Logger) With(keys ...any) *Logger {
 		level:         l.level,
 		closers:       l.closers,
 		fieldPool:     l.fieldPool,
-		alerter:       l.alerter,
 		sensitiveKeys: newSensitiveKeys,
 	}
 }
