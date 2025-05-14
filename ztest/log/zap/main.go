@@ -121,5 +121,5 @@ func testLog(zapLogger *zap.Logger) {
 			log.Errorf("%s", x)
 		}
 	}()
-	//panic("abc")
+	panic("abc")
 }

@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"time"
 
+	"google.golang.org/grpc"
+
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/middleware/recovery"
 	transgrpc "github.com/yola1107/kratos/v2/transport/grpc"
 	transhttp "github.com/yola1107/kratos/v2/transport/http"
 	"github.com/yola1107/kratos/v2/transport/websocket"
 	v2 "github.com/yola1107/kratos/v2/ztest/transport/api/helloworld/v1"
-	"google.golang.org/grpc"
 
 	"github.com/yola1107/kratos/v2/library/log/zap"
 	//"github.com/yola1107/kratos/contrib/registry/etcd/v2"
@@ -25,7 +26,6 @@ var (
 func main() {
 	Name := "ws-cli"
 	zapLogger, err := zap.NewLogger(
-		zap.WithDevelopment(),
 		zap.WithDirectory("./logs"),
 		zap.WithFilename(Name+".log"),
 		zap.WithErrorFilename(Name+"_error.log"),
@@ -34,9 +34,6 @@ func main() {
 		//zap.WithChatID(os.Getenv("TG_CHAT_ID")),
 		zap.WithToken("7945687310:AAHA9tkUPV1ELEsVSLoDZe_Cc76wp7YdDVI"),
 		zap.WithChatID("-4672893880"),
-		//zap.WithMaxBatchCnt(1),
-		//zap.WithRateLimiter(time.Second*5),
-		//zap.WithThreshold(zapcore.WarnLevel),
 	)
 	if err != nil {
 		panic(err)

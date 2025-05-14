@@ -120,7 +120,6 @@ func main() {
 
 func loadLogger() *zap.Logger {
 	zapLogger, err := zap.NewLogger(
-		zap.WithDevelopment(),
 		//zap.WithProduction(),
 		zap.WithDirectory("./logs"),
 		zap.WithFilename(Name+".log"),
@@ -130,9 +129,6 @@ func loadLogger() *zap.Logger {
 		//zap.WithChatID(os.Getenv("TG_CHAT_ID")),
 		zap.WithToken("7945687310:AAHA9tkUPV1ELEsVSLoDZe_Cc76wp7YdDVI"),
 		zap.WithChatID("-4672893880"),
-		//zap.WithMaxBatchCnt(1),
-		//zap.WithRateLimiter(time.Second*5),
-		//zap.WithThreshold(zapcore.WarnLevel),
 	)
 	if err != nil {
 		panic(err)
