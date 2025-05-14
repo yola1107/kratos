@@ -197,13 +197,27 @@ func NewLogger(opts ...Option) (*Logger, error) {
 		fileEnc := zapcore.NewConsoleEncoder(fileEncoderCfg)
 
 		if cfg.directory != "" && cfg.filename != "" {
-			lj := newLumberjack(cfg, cfg.filename)
-			cores = append(cores, zapcore.NewCore(fileEnc, zapcore.AddSync(lj.(io.Writer)), level))
+			lj := &lumberjack.Logger{
+				Filename:   filepath.Join(cfg.directory, cfg.filename),
+				MaxSize:    cfg.maxSizeMB,
+				MaxBackups: cfg.maxBackups,
+				MaxAge:     cfg.maxAgeDays,
+				Compress:   cfg.compress,
+				LocalTime:  cfg.localTime,
+			}
+			cores = append(cores, zapcore.NewCore(fileEnc, zapcore.AddSync(lj), level))
 			closers = append(closers, lj)
 		}
 		if cfg.directory != "" && cfg.errorFilename != "" {
-			lj := newLumberjack(cfg, cfg.errorFilename)
-			cores = append(cores, zapcore.NewCore(fileEnc, zapcore.AddSync(lj.(io.Writer)), zapcore.ErrorLevel))
+			lj := &lumberjack.Logger{
+				Filename:   filepath.Join(cfg.directory, cfg.errorFilename),
+				MaxSize:    cfg.maxSizeMB,
+				MaxBackups: cfg.maxBackups,
+				MaxAge:     cfg.maxAgeDays,
+				Compress:   cfg.compress,
+				LocalTime:  cfg.localTime,
+			}
+			cores = append(cores, zapcore.NewCore(fileEnc, zapcore.AddSync(lj), zapcore.ErrorLevel))
 			closers = append(closers, lj)
 		}
 	}
@@ -227,17 +241,6 @@ func NewLogger(opts ...Option) (*Logger, error) {
 
 	log.Infof("zap logger initialized. cores=%d conf=%+v", len(cores), cfg)
 	return l, nil
-}
-
-func newLumberjack(cfg *Config, filename string) io.Closer {
-	return &lumberjack.Logger{
-		Filename:   filepath.Join(cfg.directory, filename),
-		MaxSize:    cfg.maxSizeMB,
-		MaxBackups: cfg.maxBackups,
-		MaxAge:     cfg.maxAgeDays,
-		Compress:   cfg.compress,
-		LocalTime:  cfg.localTime,
-	}
 }
 
 func (l *Logger) Log(level log.Level, keyvals ...any) error {
