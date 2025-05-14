@@ -326,3 +326,32 @@ func (l *Logger) Close() error {
 func (l *Logger) SetLevel(level string) error {
 	return l.level.UnmarshalText([]byte(level))
 }
+
+// With 方法创建子Logger，共享资源管理器
+func (l *Logger) With(keys ...interface{}) log.Logger {
+	fields := l.fieldPool.Get()
+	defer l.fieldPool.Put(fields)
+
+	for i := 0; i < len(keys); i += 2 {
+		if i+1 >= len(keys) {
+			fields = append(fields, zap.Any(fmt.Sprint(keys[i]), "(MISSING)"))
+			continue
+		}
+		key, ok := keys[i].(string)
+		if !ok {
+			key = fmt.Sprintf("%v", keys[i])
+		}
+		fields = append(fields, zap.Any(key, keys[i+1]))
+	}
+
+	fields = l.filterSensitive(fields)
+
+	return &Logger{
+		Logger:        l.Logger.With(fields...),
+		level:         l.level,
+		closers:       l.closers,
+		fieldPool:     l.fieldPool,
+		alerter:       l.alerter,
+		sensitiveKeys: l.sensitiveKeys,
+	}
+}

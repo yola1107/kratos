@@ -71,45 +71,33 @@ func testLog(zapLogger *zap.Logger) {
 	//zapLogger.Info("zapLogger start")
 	//zapLogger.Close()
 	//zapLogger.Info("zapLogger end")
-	//
-	//// 使用with
-	//log.SetLogger(zapLogger.With(
-	//	"service.name", Name,
-	//	"trace.id", "",
-	//	"span.id", "",
-	//))
-
-	//// 使用with
-	//log.SetLogger(log.GetLogger().(*zap.Logger).With("password", "abc"))
-	//log.Info("with 1")
-	//log.Info("with 2")
-	////
-	//// 使用help log
-	//helper := log.GetLogger().(*zap.Logger).NewHelper("pwd", "auth")
-	//helper.Info("help 1")
-	//log.Info("help 2")
-	//helper.Debugf("help 3")
-	//
-	//log.NewHelper(log.GetLogger().(*zap.Logger)).Infof("help 4.")
-
-	////
-	//// 方式A：直接使用 zap
-	//helperA := zapLogger.NewHelper("keya", "vala")
-	//helperA.Info("test")
-
-	//// 设置level
-	//log.Debugf("set level 1")
-	//log.GetLogger().(*zap.Logger).SetLevel("info")
-	//log.Debugf("set level 2")
 
 	log.Infof("")
-	log.Info("SensitiveKeys. password=")
-
 	log.Debugf("debug")
 	log.Infof("info")
 	log.Warnf("warn")
 	log.Errorf("error")
 	//log.Fatal("fatal")
+	log.Info("SensitiveKeys. password=")
+
+	// 方式A：直接使用 zap
+	helperA := log.NewHelper(zapLogger.With(
+		"user_id", 1001,
+		"password", "sensitive_data", // 这个字段会被自动过滤
+	))
+	helperA.Infof("helper A")
+
+	// 方式B：直接使用 zap
+	helperB := log.NewHelper(log.GetLogger().(*zap.Logger).With(
+		"k", 1001,
+		"password2", "sensitive_data2", // 这个字段会被自动过滤
+	))
+	helperB.Infof("helper B")
+
+	// 设置level
+	log.Debugf("set level 1")
+	log.GetLogger().(*zap.Logger).SetLevel("info")
+	log.Debugf("set level 2")
 
 	// 测试消息
 	for i := 0; i < 1; i++ {
@@ -127,13 +115,11 @@ func testLog(zapLogger *zap.Logger) {
 			}
 		}()
 	}
-
 	defer func() {
 		if r := recover(); r != nil {
 			x := fmt.Sprintf("==>案发时发生分解拉萨附近爱上了放假哦文件 书法家欧萨附件是浪费十六分静安寺分厘卡撒酒疯 发生panic:%v , \n%s", r, debug.Stack())
 			log.Errorf("%s", x)
 		}
 	}()
-
 	//panic("abc")
 }
