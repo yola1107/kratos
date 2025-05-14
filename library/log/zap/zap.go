@@ -215,7 +215,9 @@ func NewLogger(opts ...Option) (*Logger, error) {
 
 	// 脱敏 Core
 	for _, k := range cfg.sensitiveKeys {
-		l.sensitiveKeys[strings.ToLower(k)] = struct{}{}
+		if k = strings.TrimSpace(k); k != "" {
+			l.sensitiveKeys[strings.ToLower(k)] = struct{}{}
+		}
 	}
 
 	// Alerter
@@ -328,7 +330,7 @@ func (l *Logger) SetLevel(level string) error {
 }
 
 // With 方法创建子Logger，共享资源管理器
-func (l *Logger) With(keys ...interface{}) log.Logger {
+func (l *Logger) With(keys ...any) *Logger {
 	fields := l.fieldPool.Get()
 	defer l.fieldPool.Put(fields)
 
@@ -346,12 +348,17 @@ func (l *Logger) With(keys ...interface{}) log.Logger {
 
 	fields = l.filterSensitive(fields)
 
+	newSensitiveKeys := make(map[string]struct{})
+	for k := range l.sensitiveKeys {
+		newSensitiveKeys[k] = struct{}{}
+	}
+
 	return &Logger{
 		Logger:        l.Logger.With(fields...),
 		level:         l.level,
 		closers:       l.closers,
 		fieldPool:     l.fieldPool,
 		alerter:       l.alerter,
-		sensitiveKeys: l.sensitiveKeys,
+		sensitiveKeys: newSensitiveKeys,
 	}
 }

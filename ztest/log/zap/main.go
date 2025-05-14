@@ -94,6 +94,17 @@ func testLog(zapLogger *zap.Logger) {
 	))
 	helperB.Infof("helper B")
 
+	logger := zapLogger.
+		With("a", "a").
+		With("b", "b")
+
+	helper := log.NewHelper(logger)
+	helper.Infof("first")
+
+	logger = logger.With("c", "c") // 创建了一个新的 logger（包含 a, b, c）
+	helper = log.NewHelper(logger)
+	helper.Infof("second")
+
 	// 设置level
 	log.Debugf("set level 1")
 	log.GetLogger().(*zap.Logger).SetLevel("info")
@@ -111,7 +122,7 @@ func testLog(zapLogger *zap.Logger) {
 			for {
 				incr++
 				log.Errorf("test %d", incr)
-				time.Sleep(time.Duration(rand.Intn(1000)+1000) * time.Millisecond)
+				time.Sleep(time.Duration(rand.Intn(10000)+1000) * time.Millisecond)
 			}
 		}()
 	}
@@ -121,5 +132,5 @@ func testLog(zapLogger *zap.Logger) {
 			log.Errorf("%s", x)
 		}
 	}()
-	panic("abc")
+	//panic("abc")
 }
