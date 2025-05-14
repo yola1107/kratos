@@ -22,7 +22,7 @@ type TableMgr struct {
 // TableLog 单个桌子的日志
 type TableLog struct {
 	id      int64
-	closers []io.Closer
+	closers io.Closer
 	logger  *zap.Logger // zap 日志记录器
 	enable  bool        // write enable
 }
@@ -45,7 +45,7 @@ func NewTableLog(id int64, enable bool) *TableLog {
 	logger := zap.New(zapcore.NewTee(zapcore.NewCore(fileEnc, zapcore.AddSync(lj), zapcore.InfoLevel)))
 	return &TableLog{
 		id:      id,
-		closers: []io.Closer{lj},
+		closers: lj,
 		logger:  logger,
 		enable:  enable,
 	}
@@ -59,12 +59,7 @@ func (l *TableLog) Sync() error {
 // Close 关闭日志资源
 func (l *TableLog) Close() error {
 	_ = l.Sync()
-	for _, closer := range l.closers {
-		if err := closer.Close(); err != nil {
-			return err
-		}
-	}
-	return nil
+	return l.closers.Close()
 }
 
 func (l *TableLog) SetEnable(enable bool) {
