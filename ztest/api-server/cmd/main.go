@@ -2,7 +2,10 @@ package main
 
 import (
 	"flag"
+	"math"
+	"math/rand"
 	"os"
+	"time"
 
 	"github.com/yola1107/kratos/v2"
 	"github.com/yola1107/kratos/v2/library/log/zap"
@@ -35,7 +38,7 @@ func main() {
 	zapLogger := loadLogger(Name)
 	defer zapLogger.Close()
 
-	//testLog()
+	testLog()
 
 	app := kratos.New(
 		kratos.Name(Name),
@@ -47,31 +50,33 @@ func main() {
 	}
 }
 
-//func testLog() {
-//	go func() {
-//		incr := int64(0)
-//		for {
-//			if incr++; incr >= math.MaxInt64-1 {
-//				incr = 0
-//			}
-//			log.Debugf("debug incr:%d", incr)
-//			log.Infof("info incr:%d", incr)
-//			log.Warnf("warn incr:%d", incr)
-//			time.Sleep(time.Duration(rand.Int()%200+100) * time.Millisecond)
-//		}
-//	}()
-//
-//	go func() {
-//		incr := int64(0)
-//		for {
-//			if incr++; incr >= math.MaxInt64-1 {
-//				incr = 0
-//			}
-//			log.Errorf("error incr: (%d)", incr)
-//			time.Sleep(time.Duration(rand.Int()%20+1) * time.Millisecond)
-//		}
-//	}()
-//}
+func testLog() {
+	if true {
+		go func() {
+			incr := int64(0)
+			for {
+				if incr++; incr >= math.MaxInt64-1 {
+					incr = 0
+				}
+				log.Debugf("debug incr:%d", incr)
+				log.Infof("info incr:%d", incr)
+				log.Warnf("warn incr:%d", incr)
+				time.Sleep(time.Duration(rand.Int()%200+100) * time.Millisecond)
+			}
+		}()
+
+		go func() {
+			incr := int64(0)
+			for {
+				if incr++; incr >= math.MaxInt64-1 {
+					incr = 0
+				}
+				log.Errorf("error incr: (%d)", incr)
+				time.Sleep(time.Duration(rand.Int()%20+1) * time.Millisecond)
+			}
+		}()
+	}
+}
 
 func loadLogger(Name string) *zap.Logger {
 	c := conf.Get().Log
@@ -79,7 +84,6 @@ func loadLogger(Name string) *zap.Logger {
 		panic("config is nil")
 	}
 	opts := []zap.Option{
-		zap.WithDevelopment(),
 		//zap.WithProduction(),
 		zap.WithDirectory(c.Directory),
 		zap.WithFilename(Name + ".log"),
@@ -89,12 +93,11 @@ func loadLogger(Name string) *zap.Logger {
 		//zap.WithChatID(os.Getenv("TG_CHAT_ID")),
 		zap.WithToken("7945687310:AAHA9tkUPV1ELEsVSLoDZe_Cc76wp7YdDVI"),
 		zap.WithChatID("-4672893880"),
-
-		//zap.WithMaxSize(10), //10M
-		zap.WithMaxAge(1), //1天
+		zap.WithMaxSizeMB(10), //10M
+		zap.WithMaxAgeDays(1), //1天
 	}
 
-	if os.Getenv("ENV_LOG_MODE") == string(zap.Production) {
+	if os.Getenv("ENV_LOG_MODE") != "" {
 		opts = append(opts, zap.WithProduction())
 	}
 	if c.Level != "" {

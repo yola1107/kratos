@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/yola1107/kratos/v2"
-	"github.com/yola1107/kratos/v2/library/log/zap3"
+	"github.com/yola1107/kratos/v2/library/log/zap"
 	"github.com/yola1107/kratos/v2/log"
 )
 
@@ -111,7 +111,7 @@ func testLog(zapLogger *zap.Logger) {
 			for {
 				incr++
 				log.Errorf("test %d", incr)
-				time.Sleep(time.Duration(rand.Intn(10)+10) * time.Millisecond)
+				time.Sleep(time.Duration(rand.Intn(1000)+1000) * time.Millisecond)
 			}
 		}()
 	}
