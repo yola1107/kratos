@@ -16,7 +16,7 @@ import (
 // go build -ldflags "-X main.Version=x.y.z"
 var (
 	Name     string = "api-server"
-	Version  string = "v0.0.0"
+	Version  string = "v0.0.1"
 	flagconf string = "" // flagconf is the config flag.
 	id, _           = os.Hostname()
 )
@@ -25,11 +25,14 @@ func init() {
 	flag.StringVar(&flagconf, "conf", "../../configs", "config path, eg: -conf config.yaml")
 }
 
+//./app -conf configs/ > /dev/null 2>&1 &              //重定向null
+//nohup ./app -conf configs/ >> app.log 2>&1 &         //重定向到app.log
+
 //GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o app main.go
 func main() {
 	flag.Parse()
 
-	log.Infof("start server v0.0.1")
+	log.Infof("start server %+v", Version)
 	log.Infof("GameID:%d ArenaID:%d ServerID:%s", conf.GameID, conf.ArenaID, conf.ServerID)
 
 	c := conf.Init(flagconf)
@@ -58,23 +61,32 @@ func testLog() {
 				if incr++; incr >= math.MaxInt64-1 {
 					incr = 0
 				}
-				log.Debugf("debug incr:%d", incr)
-				log.Infof("info incr:%d", incr)
-				log.Warnf("warn incr:%d", incr)
-				time.Sleep(time.Duration(rand.Int()%200+100) * time.Millisecond)
+				x := rand.Intn(10)
+				switch x {
+				case 0:
+					log.Debugf("debug incr:%d", incr)
+				case 1:
+					log.Infof("info incr:%d", incr)
+				case 2:
+					log.Warnf("warn incr:%d", incr)
+				case 3:
+					//log.Errorf("error incr: (%d)", incr)
+				}
+
+				time.Sleep(time.Duration(rand.Int()%20+100) * time.Millisecond)
 			}
 		}()
 
-		go func() {
-			incr := int64(0)
-			for {
-				if incr++; incr >= math.MaxInt64-1 {
-					incr = 0
-				}
-				log.Errorf("error incr: (%d)", incr)
-				time.Sleep(time.Duration(rand.Int()%20+1) * time.Millisecond)
-			}
-		}()
+		//go func() {
+		//	incr := int64(0)
+		//	for {
+		//		if incr++; incr >= math.MaxInt64-1 {
+		//			incr = 0
+		//		}
+		//		log.Errorf("error incr: (%d)", incr)
+		//		time.Sleep(time.Duration(rand.Int()%20+1) * time.Millisecond)
+		//	}
+		//}()
 	}
 }
 
@@ -84,7 +96,7 @@ func loadLogger(Name string) *zap.Logger {
 		panic("config is nil")
 	}
 	opts := []zap.Option{
-		//zap.WithProduction(),
+		zap.WithProduction(),
 		zap.WithDirectory(c.Directory),
 		zap.WithFilename(Name + ".log"),
 		zap.WithErrorFilename(Name + "_error.log"),

@@ -45,6 +45,11 @@ func customCallerEncoder(c zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncode
 	enc.AppendString(fmt.Sprintf("[%s]", c.FullPath()))
 }
 
+func customColorCallerEncoder(c zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
+	//enc.AppendString(fmt.Sprintf("[%s\u001B[1;31m]\u001B[0m", c.FullPath()))
+	enc.AppendString(fmt.Sprintf("[%s\u001B[35m]\u001B[0m", c.FullPath()))
+}
+
 func customLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
 	enc.AppendString(fmt.Sprintf("[%s]", levelStrings[l]))
 }
