@@ -1,3 +1,3 @@
-package gplayer
+package player
 
 type chipData struct{}

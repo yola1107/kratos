@@ -1,20 +1,19 @@
-package gtable
+package table
 
 import (
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/playermgr/gplayer"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/player"
 )
 
 const (
-	TableStateStopped = 0
 	TableStateRunning = 1
 )
 
 type Table struct {
-	ID          int32             // 桌子ID
-	MaxCnt      int16             // 最大玩家数
-	uiGameState uint16            // 游戏状态
-	sitCnt      int16             // 座位上的玩家
-	chairList   []*gplayer.Player // 玩家列表
+	ID          int32            // 桌子ID
+	MaxCnt      int16            // 最大玩家数
+	uiGameState uint16           // 游戏状态
+	sitCnt      int16            // 座位上的玩家
+	seats       []*player.Player // 玩家列表
 }
 
 func (tb *Table) Init() {
@@ -44,14 +43,14 @@ func (tb *Table) Empty() bool {
 }
 
 // ThrowInto 入座
-func (tb *Table) ThrowInto(p *gplayer.Player, CanSwitchTable bool) bool {
-	for k, v := range tb.chairList {
+func (tb *Table) ThrowInto(p *player.Player, CanSwitchTable bool) bool {
+	for k, v := range tb.seats {
 		if v != nil {
 			continue
 		}
 
 		// 桌子信息
-		tb.chairList[k] = p
+		tb.seats[k] = p
 		tb.sitCnt++
 
 		///// 检查游戏是否开始
@@ -67,7 +66,7 @@ func (tb *Table) ThrowInto(p *gplayer.Player, CanSwitchTable bool) bool {
 }
 
 // ThrowOff 出座
-func (tb *Table) ThrowOff(p *gplayer.Player) bool {
+func (tb *Table) ThrowOff(p *player.Player) bool {
 	if p == nil {
 		return false
 	}

@@ -42,7 +42,10 @@ func main() {
 		kratos.Logger(logger), // 使用自定义 Logger
 	)
 
-	room.Init(Name, Version)
+	//room.Init
+	r := room.GetInstance()
+	r.Start()
+	defer r.Stop()
 
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
