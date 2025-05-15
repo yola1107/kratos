@@ -70,23 +70,23 @@ func testLog() {
 				case 2:
 					log.Warnf("warn incr:%d", incr)
 				case 3:
-					//log.Errorf("error incr: (%d)", incr)
+					log.Errorf("error incr: (%d)", incr)
 				}
 
 				time.Sleep(time.Duration(rand.Int()%20+100) * time.Millisecond)
 			}
 		}()
 
-		//go func() {
-		//	incr := int64(0)
-		//	for {
-		//		if incr++; incr >= math.MaxInt64-1 {
-		//			incr = 0
-		//		}
-		//		log.Errorf("error incr: (%d)", incr)
-		//		time.Sleep(time.Duration(rand.Int()%20+1) * time.Millisecond)
-		//	}
-		//}()
+		go func() {
+			incr := int64(0)
+			for {
+				if incr++; incr >= math.MaxInt64-1 {
+					incr = 0
+				}
+				log.Errorf("error incr: (%d)", incr)
+				time.Sleep(time.Duration(rand.Int()%20+1) * time.Millisecond)
+			}
+		}()
 	}
 }
 
@@ -101,12 +101,15 @@ func loadLogger(Name string) *zap.Logger {
 		zap.WithFilename(Name + ".log"),
 		zap.WithErrorFilename(Name + "_error.log"),
 		zap.WithPrefix(Name),
-		//zap.WithToken(os.Getenv("TG_TOKEN")),
-		//zap.WithChatID(os.Getenv("TG_CHAT_ID")),
-		zap.WithToken("7945687310:AAHA9tkUPV1ELEsVSLoDZe_Cc76wp7YdDVI"),
-		zap.WithChatID("-4672893880"),
 		zap.WithMaxSizeMB(10), //10M
 		zap.WithMaxAgeDays(1), //1天
+		zap.WithMaxBackups(10),
+		zap.WithCompress(true),
+		zap.WithLocalTime(true),
+		zap.WithToken(os.Getenv("TG_TOKEN")),
+		zap.WithChatID(os.Getenv("TG_CHAT_ID")),
+		//zap.WithToken("7945687310:AAHA9tkUPV1ELEsVSLoDZe_Cc76wp7YdDVI"),
+		//zap.WithChatID("-4672893880"),
 	}
 
 	if os.Getenv("ENV_LOG_MODE") != "" {

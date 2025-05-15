@@ -1,4 +1,4 @@
-package tlog
+package glog
 
 import (
 	"fmt"
@@ -13,11 +13,6 @@ import (
 const (
 	timeFormat = "2006/01/02 15:04:05"
 )
-
-// TableMgr 管理多个桌子的日志
-type TableMgr struct {
-	Tables map[int64]*TableLog
-}
 
 // TableLog 单个桌子的日志
 type TableLog struct {
@@ -36,9 +31,9 @@ func NewTableLog(id int64, enable bool) *TableLog {
 	fileEnc := zapcore.NewConsoleEncoder(encoderCfg)
 	lj := &lumberjack.Logger{
 		Filename:   fmt.Sprintf("./logs/table_%d.log", id),
-		MaxSize:    200,
+		MaxSize:    10,
 		MaxAge:     7,
-		MaxBackups: 2,
+		MaxBackups: 3,
 		LocalTime:  true,
 		Compress:   true,
 	}
@@ -49,6 +44,11 @@ func NewTableLog(id int64, enable bool) *TableLog {
 		logger:  logger,
 		enable:  enable,
 	}
+}
+
+// customTimeEncoder 自定义时间格式
+func customTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendString(fmt.Sprintf("[%s]", t.Format(timeFormat)))
 }
 
 // Sync 确保日志被写入
@@ -74,12 +74,7 @@ func (l *TableLog) WriteLog(msg string, args ...interface{}) {
 	l.logger.Sugar().Infof(msg, args...)
 }
 
-// customTimeEncoder 自定义时间格式
-func customTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-	enc.AppendString(fmt.Sprintf("[%s]", t.Format(timeFormat)))
-}
-
 // UserEnter 玩家进入游戏的日志记录
 func (l *TableLog) UserEnter(uid int64, seat int32, money int64) {
-	l.WriteLog("【进入游戏】玩家[%d %d] 金币[%d] 桌子号[%d]", uid, seat, money, l.id)
+	l.WriteLog("<进入游戏> 玩家[%d %d] 金币[%d] 桌子号[%d]", uid, seat, money, l.id)
 }

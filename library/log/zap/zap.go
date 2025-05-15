@@ -170,7 +170,8 @@ func NewLogger(opts ...Option) (*Logger, error) {
 	var options = []zap.Option{
 		zap.AddCaller(),
 		zap.AddCallerSkip(2),
-		zap.AddStacktrace(zapcore.PanicLevel)}
+		zap.AddStacktrace(zapcore.PanicLevel),
+	}
 
 	// 日志级别
 	level := zap.NewAtomicLevel()
@@ -191,8 +192,8 @@ func NewLogger(opts ...Option) (*Logger, error) {
 	// File
 	if !cfg.development && cfg.directory != "" && (cfg.filename != "" || cfg.errorFilename != "") {
 		fileEncoderCfg := encoderCfg
-		fileEncoderCfg.EncodeCaller = customCallerEncoder
 		fileEncoderCfg.EncodeLevel = customLevelEncoder
+		fileEncoderCfg.EncodeCaller = customCallerEncoder
 		fileEnc := zapcore.NewConsoleEncoder(fileEncoderCfg)
 
 		if cfg.directory != "" && cfg.filename != "" {
