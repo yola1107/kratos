@@ -1,7 +1,7 @@
 package tablemgr
 
 import (
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/core/tablemgr/gtable"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/tablemgr/gtable"
 )
 
 // TableMgr 管理多个桌子的日志
