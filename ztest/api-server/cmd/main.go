@@ -11,87 +11,46 @@ import (
 	"github.com/yola1107/kratos/v2/library/log/zap"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room"
 )
 
 // go build -ldflags "-X main.Version=x.y.z"
 var (
-	Name     string = "api-server"
-	Version  string = "v0.0.1"
-	flagconf string = "" // flagconf is the config flag.
-	id, _           = os.Hostname()
+	Name     = conf.GameName
+	Version  = "v0.0.1"
+	flagconf = "" // flagconf is the config flag.
+	id, _    = os.Hostname()
 )
 
 func init() {
 	flag.StringVar(&flagconf, "conf", "../../configs", "config path, eg: -conf config.yaml")
 }
 
-//./app -conf configs/ > /dev/null 2>&1 &              //重定向null
-//nohup ./app -conf configs/ >> app.log 2>&1 &         //重定向到app.log
-
-//GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o app main.go
 func main() {
 	flag.Parse()
-
-	log.Infof("start server %+v", Version)
-	log.Infof("GameID:%d ArenaID:%d ServerID:%s", conf.GameID, conf.ArenaID, conf.ServerID)
 
 	c := conf.Init(flagconf)
 	defer c.Close()
 
-	zapLogger := loadLogger(Name)
-	defer zapLogger.Close()
+	logger := loadLogger(Name)
+	defer logger.Close()
 
 	testLog()
 
 	app := kratos.New(
 		kratos.Name(Name),
-		kratos.Logger(zapLogger), // 使用自定义 Logger
+		kratos.Logger(logger), // 使用自定义 Logger
 	)
+
+	room.Init(Name, Version)
 
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func testLog() {
-	if true {
-		go func() {
-			incr := int64(0)
-			for {
-				if incr++; incr >= math.MaxInt64-1 {
-					incr = 0
-				}
-				x := rand.Intn(10)
-				switch x {
-				case 0:
-					log.Debugf("debug incr:%d", incr)
-				case 1:
-					log.Infof("info incr:%d", incr)
-				case 2:
-					log.Warnf("warn incr:%d", incr)
-				case 3:
-					log.Errorf("error incr: (%d)", incr)
-				}
-
-				time.Sleep(time.Duration(rand.Int()%20+100) * time.Millisecond)
-			}
-		}()
-
-		go func() {
-			incr := int64(0)
-			for {
-				if incr++; incr >= math.MaxInt64-1 {
-					incr = 0
-				}
-				log.Errorf("error incr: (%d)", incr)
-				time.Sleep(time.Duration(rand.Int()%20+1) * time.Millisecond)
-			}
-		}()
-	}
-}
-
 func loadLogger(Name string) *zap.Logger {
-	c := conf.Get().Log
+	c := conf.GetLC()
 	if c == nil {
 		panic("config is nil")
 	}
@@ -124,9 +83,50 @@ func loadLogger(Name string) *zap.Logger {
 	if len(c.Sensitive) > 0 {
 		opts = append(opts, zap.WithSensitiveKeys(c.Sensitive))
 	}
-	zapLogger, err := zap.NewLogger(opts...)
+
+	logger, err := zap.NewLogger(opts...)
 	if err != nil {
 		panic(err)
 	}
-	return zapLogger
+
+	return logger
+}
+
+func testLog() {
+	if true {
+		return
+	}
+
+	go func() {
+		incr := int64(0)
+		for {
+			if incr++; incr >= math.MaxInt64-1 {
+				incr = 0
+			}
+			x := rand.Intn(10)
+			switch x {
+			case 0:
+				log.Debugf("debug incr:%d", incr)
+			case 1:
+				log.Infof("info incr:%d", incr)
+			case 2:
+				log.Warnf("warn incr:%d", incr)
+			case 3:
+				log.Errorf("error incr: (%d)", incr)
+			}
+
+			time.Sleep(time.Duration(rand.Int()%20+100) * time.Millisecond)
+		}
+	}()
+
+	go func() {
+		incr := int64(0)
+		for {
+			if incr++; incr >= math.MaxInt64-1 {
+				incr = 0
+			}
+			log.Errorf("error incr: (%d)", incr)
+			time.Sleep(time.Duration(rand.Int()%20+1) * time.Millisecond)
+		}
+	}()
 }

@@ -7,27 +7,13 @@ type Player struct {
 	chipData chipData // 私有，不暴露
 }
 
-type Session struct{}
-
-type gameData struct {
-	// 游戏过程数据
-}
-
-type baseData struct {
-	id    int64
-	level int32
-}
-
-type chipData struct{}
-
 func (p *Player) Reset() {
-
 }
 
 func (p *Player) GetID() int64 {
-	return p.baseData.id
+	return 0
 }
 
-func (p *Player) SetLevel(level int32) {
-	p.baseData.level = level
+func (p *Player) GetTableID() (TableID int32) {
+	return p.baseData.TableID
 }

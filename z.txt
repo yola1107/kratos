@@ -39,3 +39,10 @@ git push origin v2.8.6
 
 go clean -modcache
 go install github.com/go-delve/delve/cmd/dlv@master
+
+
+
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o app main.go
+./app -conf configs/ > /dev/null 2>&1 &
+nohup ./app -conf configs/ >> app.log 2>&1 &
+

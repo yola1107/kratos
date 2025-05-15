@@ -1,9 +1,7 @@
 package conf
 
 import (
-	"flag"
 	"fmt"
-	"os"
 	"sync/atomic"
 
 	"github.com/yola1107/kratos/v2/config"
@@ -13,15 +11,8 @@ import (
 	"github.com/yola1107/kratos/v2/log"
 )
 
-const GameID = 82003
-
 const (
 	logLevelKey = "log.level"
-)
-
-var (
-	ArenaID  = 1  //场ID: 1 2 3 4
-	ServerID = "" //房间ID
 )
 
 var (
@@ -29,17 +20,11 @@ var (
 	ins atomic.Value
 )
 
-func init() {
-	flag.IntVar(&ArenaID, "aid", 1, "specify the arena ID. base.StrToInt(os.Getenv(\"ARENAID\"))")
-	flag.StringVar(&ServerID, "sid", os.Getenv("HOSTNAME"), "specify the server ID.")
-}
-
 // Init 加载配置文件并监听变更
 func Init(flagconf string) config.Config {
-
 	c := config.New(
 		config.WithSource(
-			file.NewSource(fmt.Sprintf("%s/config.yaml", flagconf)),
+			file.NewSource(fmt.Sprintf("%s", flagconf)),
 		),
 	)
 
@@ -58,7 +43,7 @@ func Init(flagconf string) config.Config {
 	// 热更新配置
 	watch(c)
 
-	log.Infof("config initialized: flagconf=%s config=%+v", flagconf, base.ToJSON(Get()))
+	log.Infof("config initialized: flagconf=%s config=%+v", flagconf, base.ToJSON(get()))
 	return c
 }
 
@@ -68,7 +53,7 @@ func set(bs *Bootstrap) {
 }
 
 // Get 获取当前配置
-func Get() *Bootstrap {
+func get() *Bootstrap {
 	v, ok := ins.Load().(*Bootstrap)
 	if !ok {
 		return &Bootstrap{}
@@ -89,13 +74,12 @@ func watch(c config.Config) {
 
 // updateConfig 扫描并比较变更，保存新配置
 func updateConfig(c config.Config, key string, v config.Value) {
-	oldCfg := Get()
+	oldCfg := get()
 	newCfg := &Bootstrap{}
 	if err := c.Scan(newCfg); err != nil {
-		log.Errorf("updated config scan err: %v", err)
+		log.Errorf("updated config err: %v", err)
 		return
 	}
-
 	if _, diff, _ := base.DiffLog(oldCfg, newCfg); len(diff) > 0 {
 		set(newCfg)
 		log.Warnf("Config key=\"%s\" changed: \n%s", key, base.ToJSONPretty(diff))
@@ -119,4 +103,24 @@ func setLogLevel(lv string) {
 		return
 	}
 	log.Infof("success set logger level to \"%s\"", lv)
+}
+
+func GetBS() *Bootstrap {
+	return get()
+}
+
+func GetLC() *Log {
+	return get().Log
+}
+
+func GetTC() *TableConfig {
+	return get().Room.Table
+}
+
+func GetGC() *GameConfig {
+	return get().Room.Game
+}
+
+func GetRbC() *RobotConfig {
+	return get().Room.Robot
 }

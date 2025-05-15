@@ -177,6 +177,7 @@ func NewLogger(opts ...Option) (*Logger, error) {
 	level := zap.NewAtomicLevel()
 	if err := level.UnmarshalText([]byte(cfg.level)); err != nil {
 		level.SetLevel(zap.InfoLevel)
+		log.Warnf("invalid level(%s), use default (info).", cfg.level)
 	}
 
 	// 编码器配置

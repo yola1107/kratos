@@ -16,10 +16,6 @@ const (
 	Name = "hello-server"
 )
 
-//./app  > /dev/null 2>&1 &              //重定向null
-//nohup ./app >> app.log 2>&1 &         //重定向到app.log
-
-// GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o app main.go
 func main() {
 	//logger := log.With(log.NewStdLogger(os.Stdout),
 	//	//"ts", log.DefaultTimestamp,
