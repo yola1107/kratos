@@ -1,4 +1,4 @@
-package tablemgr
+package table
 
 import (
 	"time"
@@ -7,41 +7,40 @@ import (
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/player"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/table"
 )
 
-type TableMgr struct {
-	tableList []*table.Table
-	tableMap  map[int32]*table.Table
+type Manager struct {
+	tableList []*Table
+	tableMap  map[int32]*Table
 	closed    bool
 }
 
-func New() *TableMgr {
+func NewManager() *Manager {
 	c := conf.GetTC()
-	mgr := &TableMgr{
-		tableList: make([]*table.Table, c.TableNum),
-		tableMap:  make(map[int32]*table.Table),
+	mgr := &Manager{
+		tableList: make([]*Table, c.TableNum),
+		tableMap:  make(map[int32]*Table),
 	}
 	for i := int32(1); i <= c.TableNum; i++ {
-		tb := &table.Table{ID: i, MaxCnt: int16(c.ChairNum)}
+		tb := &Table{ID: i, MaxCnt: int16(c.ChairNum)}
 		tb.Init()
-		mgr.tableList[i-1] = tb
 		mgr.tableMap[i] = tb
+		mgr.tableList[i-1] = tb
 	}
 	log.Infof("TableMgr init. tables=%d chairs=%d", c.TableNum, c.ChairNum)
 	return mgr
 }
 
-func (m *TableMgr) Start() {
+func (m *Manager) Start() {
 	gtimer.Forever(nil, time.Second/2, m.onTimer)
 }
 
-func (m *TableMgr) Stop() {
+func (m *Manager) Stop() {
 	m.closed = true
 	// TODO: 关闭所有桌子逻辑
 }
 
-func (m *TableMgr) onTimer() {
+func (m *Manager) onTimer() {
 	if m.closed {
 		return
 	}
@@ -52,11 +51,11 @@ func (m *TableMgr) onTimer() {
 	}
 }
 
-func (m *TableMgr) GetTable(id int32) *table.Table {
+func (m *Manager) GetTable(id int32) *Table {
 	return m.tableMap[id]
 }
 
-func (m *TableMgr) ThrowInto(p *player.Player) bool {
+func (m *Manager) ThrowInto(p *player.Player) bool {
 	best := m.getTopTable(p, false)
 	if best == nil {
 		return false
@@ -64,8 +63,8 @@ func (m *TableMgr) ThrowInto(p *player.Player) bool {
 	return best.ThrowInto(p, false)
 }
 
-func (m *TableMgr) getTopTable(p *player.Player, canSwitch bool) *table.Table {
-	var best, old *table.Table
+func (m *Manager) getTopTable(p *player.Player, canSwitch bool) *Table {
+	var best, old *Table
 	if canSwitch {
 		old = m.GetTable(p.GetTableID())
 	}
@@ -84,6 +83,6 @@ func (m *TableMgr) getTopTable(p *player.Player, canSwitch bool) *table.Table {
 	return best
 }
 
-func (m *TableMgr) SwitchTable(p *player.Player) bool {
+func (m *Manager) SwitchTable(p *player.Player) bool {
 	return false
 }

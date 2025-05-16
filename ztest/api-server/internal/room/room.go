@@ -1,52 +1,39 @@
 package room
 
 import (
-	"sync"
-
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/player"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/playermgr"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/tablemgr"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/table"
 )
 
 var (
-	ins  *Room
-	once sync.Once
+	playerMgr *player.Manager
+	tableMgr  *table.Manager
 )
 
-type Room struct {
-	PlayerMgr *playermgr.PlayerMgr
-	TableMgr  *tablemgr.TableMgr
-}
+// Start 启动房间模块
+func Start() {
+	playerMgr = player.NewManager()
+	tableMgr = table.NewManager()
 
-func GetInstance() *Room {
-	once.Do(func() {
-		ins = &Room{
-			PlayerMgr: playermgr.New(),
-			TableMgr:  tablemgr.New(),
-		}
-	})
-	return ins
-}
-
-func (r *Room) Start() {
-	r.PlayerMgr.Start()
-	r.TableMgr.Start()
+	playerMgr.Start()
+	tableMgr.Start()
 	log.Infof("room started.")
 }
 
-func (r *Room) Stop() {
-	r.PlayerMgr.Stop()
-	r.TableMgr.Stop()
+// Stop 停止房间模块
+func Stop() {
+	playerMgr.Stop()
+	tableMgr.Stop()
 	log.Info("room stopped.")
 }
 
+// ThrowInto 将玩家分配进桌子
 func ThrowInto(p *player.Player) bool {
-	r := GetInstance()
-	return r.TableMgr.ThrowInto(p)
+	return tableMgr.ThrowInto(p)
 }
 
+// SwitchTable 切桌
 func SwitchTable(p *player.Player) bool {
-	r := GetInstance()
-	return r.TableMgr.SwitchTable(p)
+	return tableMgr.SwitchTable(p)
 }

@@ -43,9 +43,8 @@ func main() {
 	)
 
 	//room.Init
-	r := room.GetInstance()
-	r.Start()
-	defer r.Stop()
+	room.Start()
+	defer room.Stop()
 
 	if err := app.Run(); err != nil {
 		log.Fatal(err)

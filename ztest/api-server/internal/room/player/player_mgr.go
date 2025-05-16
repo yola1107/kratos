@@ -1,4 +1,4 @@
-package playermgr
+package player
 
 import (
 	"sync"
@@ -6,19 +6,19 @@ import (
 	"github.com/yola1107/kratos/v2/log"
 )
 
-type PlayerMgr struct {
+type Manager struct {
 	playerMap sync.Map // key: playerID, value: *Player
 }
 
-func New() *PlayerMgr {
+func NewManager() *Manager {
 	log.Infof("PlayerMgr init. ")
-	return &PlayerMgr{}
+	return &Manager{}
 }
 
-func (pm *PlayerMgr) Start() {
+func (pm *Manager) Start() {
 	// 启动相关定时、回收、广播逻辑
 }
 
-func (pm *PlayerMgr) Stop() {
+func (pm *Manager) Stop() {
 	// 停止回收、清理状态
 }
