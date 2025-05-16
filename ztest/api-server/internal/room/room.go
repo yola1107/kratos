@@ -8,35 +8,49 @@ import (
 )
 
 var (
-	playerMgr *gplayer.Manager
-	tableMgr  *gtable.Manager
+	ins *Room
 )
 
-func Start() {
+type Room struct {
+	playerMgr *gplayer.Manager
+	tableMgr  *gtable.Manager
+}
+
+func Init() *Room {
 	log.Infof("start server:%s version:%s GameID:%d ArenaID:%d ServerID:%s",
 		conf.Name, conf.Version, conf.GameID, conf.ArenaID, conf.ServerID)
 
-	playerMgr = gplayer.NewManager()
-	tableMgr = gtable.NewManager()
-
-	playerMgr.Start()
-	tableMgr.Start()
+	ins = &Room{
+		playerMgr: gplayer.NewManager(),
+		tableMgr:  gtable.NewManager(),
+	}
+	ins.Start()
+	return ins
 }
 
-func Stop() {
-	playerMgr.Stop()
-	tableMgr.Stop()
+func GetInstance() *Room {
+	return ins
+}
+
+func (r *Room) Start() {
+	r.playerMgr.Start()
+	r.tableMgr.Start()
+}
+
+func (r *Room) Close() {
+	r.playerMgr.Close()
+	r.tableMgr.Close()
 	log.Info("room stopped.")
 }
 
-func GetTable(tableID int32) *gtable.Table {
-	return tableMgr.GetTable(tableID)
+func (r *Room) GetTable(id int32) *gtable.Table {
+	return r.tableMgr.GetTable(id)
 }
 
-func ThrowInto(p *gplayer.Player) bool {
-	return tableMgr.ThrowInto(p)
+func (r *Room) ThrowInto(p *gplayer.Player) bool {
+	return r.tableMgr.ThrowInto(p)
 }
 
-func SwitchTable(p *gplayer.Player) bool {
-	return tableMgr.SwitchTable(p)
+func (r *Room) SwitchTable(p *gplayer.Player) bool {
+	return r.tableMgr.SwitchTable(p)
 }

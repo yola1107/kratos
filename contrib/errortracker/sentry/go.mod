@@ -1,6 +1,6 @@
 module github.com/yola1107/kratos/contrib/errortracker/sentry/v2
 
-go 1.22
+go 1.24.2
 
 require (
 	github.com/getsentry/sentry-go v0.25.0

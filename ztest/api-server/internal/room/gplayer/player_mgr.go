@@ -16,6 +16,6 @@ func (pm *Manager) Start() {
 	// 启动相关定时、回收、广播逻辑
 }
 
-func (pm *Manager) Stop() {
+func (pm *Manager) Close() {
 	// 停止回收、清理状态
 }

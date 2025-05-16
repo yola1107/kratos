@@ -27,7 +27,7 @@ func NewManager() *Manager {
 		mgr.tableMap[i] = tb
 		mgr.tableList[i-1] = tb
 	}
-	log.Infof("tableMgr init. tables=%d chairs=%d", c.TableNum, c.ChairNum)
+	//log.Infof("tableMgr init. tables=%d chairs=%d", c.TableNum, c.ChairNum)
 	return mgr
 }
 
@@ -35,7 +35,7 @@ func (m *Manager) Start() {
 	gtimer.Forever(nil, time.Second/2, m.onTimer)
 }
 
-func (m *Manager) Stop() {
+func (m *Manager) Close() {
 	m.closed = true
 }
 
@@ -77,7 +77,7 @@ func (m *Manager) getTopTable(p *gplayer.Player, canSwitch bool) *Table {
 		best = t
 	}
 	if best == nil {
-		log.Warn("无可用桌子，玩家ID: %d", p.GetID())
+		log.Warn("无可用桌子，玩家ID: %d", p.GetUID())
 	}
 	return best
 }

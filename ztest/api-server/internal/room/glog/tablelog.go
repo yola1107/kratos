@@ -31,9 +31,9 @@ func NewTableLog(id int64, enable bool) *TableLog {
 	fileEnc := zapcore.NewConsoleEncoder(encoderCfg)
 	lj := &lumberjack.Logger{
 		Filename:   fmt.Sprintf("./logs/table_%d.log", id),
-		MaxSize:    10,
-		MaxAge:     7,
-		MaxBackups: 3,
+		MaxSize:    10, //10 MB
+		MaxAge:     7,  //7 days
+		MaxBackups: 3,  //3 back
 		LocalTime:  true,
 		Compress:   true,
 	}

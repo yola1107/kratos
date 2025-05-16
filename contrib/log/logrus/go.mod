@@ -1,6 +1,6 @@
 module github.com/yola1107/kratos/contrib/log/logrus/v2
 
-go 1.22
+go 1.24.2
 
 require (
 	github.com/sirupsen/logrus v1.8.1

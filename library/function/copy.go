@@ -1,4 +1,4 @@
-package base
+package function
 
 import "github.com/jinzhu/copier"
 

@@ -1,6 +1,6 @@
 module github.com/yola1107/kratos/contrib/log/fluent/v2
 
-go 1.22
+go 1.24.2
 
 require (
 	github.com/fluent/fluent-logger-golang v1.9.0

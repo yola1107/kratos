@@ -37,14 +37,20 @@ func main() {
 
 	testLog()
 
+	//logger.Info("<UNK>")
+	//log.Info("room started",
+	//	"game_id", conf.GameID,
+	//	"arena_id", conf.ArenaID,
+	//	"server_id", conf.ServerID)
+
 	app := kratos.New(
 		kratos.Name(Name),
 		kratos.Logger(logger), // 使用自定义 Logger
 	)
 
 	//room.Init
-	room.Start()
-	defer room.Stop()
+	r := room.Init()
+	defer r.Close()
 
 	if err := app.Run(); err != nil {
 		log.Fatal(err)

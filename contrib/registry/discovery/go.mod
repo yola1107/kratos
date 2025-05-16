@@ -1,6 +1,6 @@
 module github.com/yola1107/kratos/contrib/registry/discovery/v2
 
-go 1.22
+go 1.24.2
 
 require (
 	github.com/go-resty/resty/v2 v2.11.0
