@@ -1,9 +1,7 @@
-package player
+package gplayer
 
 import (
 	"sync"
-
-	"github.com/yola1107/kratos/v2/log"
 )
 
 type Manager struct {
@@ -11,7 +9,6 @@ type Manager struct {
 }
 
 func NewManager() *Manager {
-	log.Infof("PlayerMgr init. ")
 	return &Manager{}
 }
 

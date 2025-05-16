@@ -16,8 +16,8 @@ import (
 
 // go build -ldflags "-X main.Version=x.y.z"
 var (
-	Name     = conf.GameName
-	Version  = "v0.0.1"
+	Name     = conf.Name
+	Version  = conf.Version
 	flagconf = "" // flagconf is the config flag.
 	id, _    = os.Hostname()
 )

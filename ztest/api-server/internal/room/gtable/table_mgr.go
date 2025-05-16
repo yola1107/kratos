@@ -1,4 +1,4 @@
-package table
+package gtable
 
 import (
 	"time"
@@ -6,7 +6,7 @@ import (
 	"github.com/yola1107/kratos/v2/library/gtimer"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/player"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/gplayer"
 )
 
 type Manager struct {
@@ -27,7 +27,7 @@ func NewManager() *Manager {
 		mgr.tableMap[i] = tb
 		mgr.tableList[i-1] = tb
 	}
-	log.Infof("TableMgr init. tables=%d chairs=%d", c.TableNum, c.ChairNum)
+	log.Infof("tableMgr init. tables=%d chairs=%d", c.TableNum, c.ChairNum)
 	return mgr
 }
 
@@ -37,7 +37,6 @@ func (m *Manager) Start() {
 
 func (m *Manager) Stop() {
 	m.closed = true
-	// TODO: 关闭所有桌子逻辑
 }
 
 func (m *Manager) onTimer() {
@@ -55,7 +54,7 @@ func (m *Manager) GetTable(id int32) *Table {
 	return m.tableMap[id]
 }
 
-func (m *Manager) ThrowInto(p *player.Player) bool {
+func (m *Manager) ThrowInto(p *gplayer.Player) bool {
 	best := m.getTopTable(p, false)
 	if best == nil {
 		return false
@@ -63,7 +62,7 @@ func (m *Manager) ThrowInto(p *player.Player) bool {
 	return best.ThrowInto(p, false)
 }
 
-func (m *Manager) getTopTable(p *player.Player, canSwitch bool) *Table {
+func (m *Manager) getTopTable(p *gplayer.Player, canSwitch bool) *Table {
 	var best, old *Table
 	if canSwitch {
 		old = m.GetTable(p.GetTableID())
@@ -83,6 +82,6 @@ func (m *Manager) getTopTable(p *player.Player, canSwitch bool) *Table {
 	return best
 }
 
-func (m *Manager) SwitchTable(p *player.Player) bool {
+func (m *Manager) SwitchTable(p *gplayer.Player) bool {
 	return false
 }

@@ -1,4 +1,4 @@
-package player
+package gplayer
 
 type Player struct {
 	session  Session

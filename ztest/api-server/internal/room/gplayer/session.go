@@ -1,3 +1,3 @@
-package player
+package gplayer
 
 type Session struct{}

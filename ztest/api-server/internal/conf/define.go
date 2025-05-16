@@ -6,7 +6,8 @@ import (
 )
 
 const GameID = 130
-const GameName = "api-server"
+const Name = "api-server"
+const Version = "v0.0.1"
 
 var (
 	ArenaID  = 1  //场ID: 1 2 3 4
