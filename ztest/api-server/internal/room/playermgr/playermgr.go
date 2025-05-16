@@ -4,18 +4,10 @@ import (
 	"sync"
 )
 
-type Manager struct {
+var (
 	playerMap sync.Map // key: playerID, value: *Player
-}
+)
 
-func NewManager() *Manager {
-	return &Manager{}
-}
-
-func (pm *Manager) Start() {
+func Init() {
 	// 启动相关定时、回收、广播逻辑
-}
-
-func (pm *Manager) Close() {
-	// 停止回收、清理状态
 }

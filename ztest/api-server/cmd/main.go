@@ -49,8 +49,7 @@ func main() {
 	)
 
 	//room.Init
-	r := room.Init()
-	defer r.Close()
+	room.Init()
 
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
