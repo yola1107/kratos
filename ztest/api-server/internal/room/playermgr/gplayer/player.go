@@ -25,6 +25,15 @@ func (p *Player) SetTableID(tableID int32) {
 	p.baseData.TableID = tableID
 }
 
+func (p *Player) GetChairID() (ChairID int32) {
+	return p.gameData.ChairID
+}
+
+func (p *Player) SetChairID(ChairID int32) {
+	p.gameData.ChairID = ChairID
+	return
+}
+
 func (p *Player) SaveBaseDataToDB() {
 }
 

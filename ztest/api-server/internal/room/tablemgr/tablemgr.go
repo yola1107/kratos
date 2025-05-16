@@ -1,4 +1,4 @@
-package gtable
+package tablemgr
 
 import (
 	"time"
@@ -6,23 +6,24 @@ import (
 	"github.com/yola1107/kratos/v2/library/gtimer"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/gplayer"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/playermgr/gplayer"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/tablemgr/gtable"
 )
 
 type Manager struct {
-	tableList []*Table
-	tableMap  map[int32]*Table
+	tableList []*gtable.Table
+	tableMap  map[int32]*gtable.Table
 	closed    bool
 }
 
 func NewManager() *Manager {
 	c := conf.GetTC()
 	mgr := &Manager{
-		tableList: make([]*Table, c.TableNum),
-		tableMap:  make(map[int32]*Table),
+		tableList: make([]*gtable.Table, c.TableNum),
+		tableMap:  make(map[int32]*gtable.Table),
 	}
 	for i := int32(1); i <= c.TableNum; i++ {
-		tb := &Table{ID: i, MaxCnt: int16(c.ChairNum)}
+		tb := &gtable.Table{ID: i, MaxCnt: int16(c.ChairNum)}
 		tb.Init()
 		mgr.tableMap[i] = tb
 		mgr.tableList[i-1] = tb
@@ -50,7 +51,7 @@ func (m *Manager) onTimer() {
 	}
 }
 
-func (m *Manager) GetTable(id int32) *Table {
+func (m *Manager) GetTable(id int32) *gtable.Table {
 	return m.tableMap[id]
 }
 
@@ -59,11 +60,11 @@ func (m *Manager) ThrowInto(p *gplayer.Player) bool {
 	if best == nil {
 		return false
 	}
-	return best.ThrowInto(p, false)
+	return best.ThrowInto(p)
 }
 
-func (m *Manager) getTopTable(p *gplayer.Player, canSwitch bool) *Table {
-	var best, old *Table
+func (m *Manager) getTopTable(p *gplayer.Player, canSwitch bool) *gtable.Table {
+	var best, old *gtable.Table
 	if canSwitch {
 		old = m.GetTable(p.GetTableID())
 	}

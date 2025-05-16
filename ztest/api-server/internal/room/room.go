@@ -3,8 +3,10 @@ package room
 import (
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/gplayer"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/gtable"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/playermgr"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/playermgr/gplayer"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/tablemgr"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/tablemgr/gtable"
 )
 
 var (
@@ -12,8 +14,8 @@ var (
 )
 
 type Room struct {
-	playerMgr *gplayer.Manager
-	tableMgr  *gtable.Manager
+	playerMgr *playermgr.Manager
+	tableMgr  *tablemgr.Manager
 }
 
 func Init() *Room {
@@ -21,8 +23,8 @@ func Init() *Room {
 		conf.Name, conf.Version, conf.GameID, conf.ArenaID, conf.ServerID)
 
 	ins = &Room{
-		playerMgr: gplayer.NewManager(),
-		tableMgr:  gtable.NewManager(),
+		playerMgr: playermgr.NewManager(),
+		tableMgr:  tablemgr.NewManager(),
 	}
 	ins.Start()
 	return ins

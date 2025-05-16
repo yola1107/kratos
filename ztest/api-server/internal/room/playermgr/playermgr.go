@@ -1,4 +1,4 @@
-package gplayer
+package playermgr
 
 import (
 	"sync"
