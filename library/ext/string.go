@@ -2,8 +2,10 @@ package ext
 
 import (
 	"fmt"
-	"log"
 	"strconv"
+
+	"github.com/yola1107/kratos/v2/log"
+	"golang.org/x/exp/constraints"
 )
 
 // ToString .
@@ -11,16 +13,16 @@ func ToString(v any) string {
 	return fmt.Sprintf("%v", v)
 }
 
-func IntToStr(src int) string {
-	return strconv.Itoa(src)
+func IntToStr(n int) string {
+	return intToStr(n)
 }
 
-func Int32ToStr(src int32) string {
-	return strconv.Itoa(int(src))
+func Int32ToStr(n int32) string {
+	return intToStr(n)
 }
 
-func Int64ToStr(src int64) string {
-	return strconv.FormatInt(src, 10)
+func Int64ToStr(n int64) string {
+	return intToStr(n)
 }
 
 func Float64ToStr(f float64, prec ...int) string {
@@ -31,48 +33,40 @@ func Float64ToStr(f float64, prec ...int) string {
 	return strconv.FormatFloat(f, 'f', p, 64)
 }
 
-func StrToInt(src string) int {
-	if src == "" {
-		return 0
-	}
-	dst, err := strconv.Atoi(src)
-	if err != nil {
-		log.Printf("str to int error(%v).", err)
-		return 0
-	}
-	return dst
+func StrToInt(s string) int {
+	return strToInt[int](s)
 }
 
-func StrToInt32(src string) int32 {
-	if src == "" {
-		return 0
-	}
-	dst, err := strconv.Atoi(src)
-	if err != nil {
-		log.Printf("str to int32 error(%v).", err)
-		return 0
-	}
-	return int32(dst)
+func StrToInt32(s string) int32 {
+	return strToInt[int32](s)
 }
 
-func StrToInt64(src string) int64 {
-	if src == "" {
-		return 0
-	}
-	dst, err := strconv.ParseInt(src, 10, 64)
-	if err != nil {
-		log.Printf("str to int64 error(%v).", err)
-		return 0
-	}
-	return dst
+func StrToInt64(s string) int64 {
+	return strToInt[int64](s)
 }
 
-func StrToFloat64(src string) float64 {
-	if src == "" {
+func StrToFloat64(s string) float64 {
+	if s == "" {
 		return 0
 	}
-	if v, err := strconv.ParseFloat(src, 64); err == nil {
+	if v, err := strconv.ParseFloat(s, 64); err == nil {
 		return v
 	}
 	return 0
+}
+
+func intToStr[T constraints.Integer](n T) string {
+	return strconv.FormatInt(int64(n), 10)
+}
+
+func strToInt[T constraints.Integer](s string) T {
+	if len(s) == 0 {
+		return 0
+	}
+	val, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		log.Warnf("str to int error(%v).", err)
+		return 0
+	}
+	return T(val)
 }

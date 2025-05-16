@@ -1,7 +1,7 @@
 package gplayer
 
 import (
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/base"
+	"github.com/yola1107/kratos/v2/library/ext"
 	. "github.com/yola1107/kratos/v2/ztest/api-server/internal/model"
 )
 
@@ -41,62 +41,62 @@ type baseData struct {
 func (b *baseData) ToRedisMap() map[string]string {
 	m := make(map[string]string)
 
-	m[PlayerTableIDField] = base.Int64ToStr(int64(b.TableID))
-	m[PlayerUIDField] = base.Int64ToStr(b.UID)
-	m[PlayerMoneyField] = base.Float64ToStr(b.Money)
-	m[PlayerBMoneyField] = base.Float64ToStr(b.BMoney)
-	m[PlayerGMoneyField] = base.Float64ToStr(b.GMoney)
-	m[PlayerReserveMoneyField] = base.Float64ToStr(b.ReserveMoney)
-	m[PlayerChannelIDField] = base.IntToStr(b.ChannelID)
-	m[PlayerPayTotalField] = base.Float64ToStr(b.PayTotal)
-	m[PlayerWithdrawTotalField] = base.Float64ToStr(b.WithdrawTotal)
-	m[PlayerScbonusField] = base.Float64ToStr(b.Scbonus)
-	m[PlayerBonusField] = base.Float64ToStr(b.Bonus)
-	m[PlayerReduceBMoneyField] = base.Float64ToStr(b.ReduceBMoney)
-	m[PlayerReduceMoneyField] = base.Float64ToStr(b.ReduceMoney)
-	m[PlayerVIPField] = base.IntToStr(b.VIP)
+	m[PlayerTableIDField] = ext.Int64ToStr(int64(b.TableID))
+	m[PlayerUIDField] = ext.Int64ToStr(b.UID)
+	m[PlayerMoneyField] = ext.Float64ToStr(b.Money)
+	m[PlayerBMoneyField] = ext.Float64ToStr(b.BMoney)
+	m[PlayerGMoneyField] = ext.Float64ToStr(b.GMoney)
+	m[PlayerReserveMoneyField] = ext.Float64ToStr(b.ReserveMoney)
+	m[PlayerChannelIDField] = ext.IntToStr(b.ChannelID)
+	m[PlayerPayTotalField] = ext.Float64ToStr(b.PayTotal)
+	m[PlayerWithdrawTotalField] = ext.Float64ToStr(b.WithdrawTotal)
+	m[PlayerScbonusField] = ext.Float64ToStr(b.Scbonus)
+	m[PlayerBonusField] = ext.Float64ToStr(b.Bonus)
+	m[PlayerReduceBMoneyField] = ext.Float64ToStr(b.ReduceBMoney)
+	m[PlayerReduceMoneyField] = ext.Float64ToStr(b.ReduceMoney)
+	m[PlayerVIPField] = ext.IntToStr(b.VIP)
 	m[PlayerNickNameField] = b.NickName
 	m[PlayerAvatarField] = b.Avatar
 	m[PlayerAvatarUrlField] = b.AvatarUrl
-	m[PlayerPresentBetField] = base.Float64ToStr(b.PresentBet)
-	m[PlayerPresentProfitField] = base.Float64ToStr(b.PresentProfit)
-	m[PlayerPresentWinScoreField] = base.Float64ToStr(b.PresentWinScore)
-	m[PlayerPresentBoardField] = base.IntToStr(b.PresentBoard)
-	m[PlayerTotalBoardField] = base.IntToStr(b.TotalBoard)
-	m[PlayerTotalEarnField] = base.Float64ToStr(b.TotalEarn)
-	m[PlayerTotalConsumeField] = base.Float64ToStr(b.TotalConsume)
-	m[PlayerAllTotalBoardField] = base.Int64ToStr(b.AllTotalBoard)
+	m[PlayerPresentBetField] = ext.Float64ToStr(b.PresentBet)
+	m[PlayerPresentProfitField] = ext.Float64ToStr(b.PresentProfit)
+	m[PlayerPresentWinScoreField] = ext.Float64ToStr(b.PresentWinScore)
+	m[PlayerPresentBoardField] = ext.IntToStr(b.PresentBoard)
+	m[PlayerTotalBoardField] = ext.IntToStr(b.TotalBoard)
+	m[PlayerTotalEarnField] = ext.Float64ToStr(b.TotalEarn)
+	m[PlayerTotalConsumeField] = ext.Float64ToStr(b.TotalConsume)
+	m[PlayerAllTotalBoardField] = ext.Int64ToStr(b.AllTotalBoard)
 
 	return m
 }
 
 // FromRedisData 从 Redis hash 的 map[string]string 转为 baseData
 func (b *baseData) FromRedisData(data map[string]string) {
-	b.TableID = base.StrToInt32(data[PlayerTableIDField])
-	b.UID = base.StrToInt64(data[PlayerUIDField])
-	b.Money = base.StrToFloat64(data[PlayerMoneyField])
-	b.BMoney = base.StrToFloat64(data[PlayerBMoneyField])
-	b.GMoney = base.StrToFloat64(data[PlayerGMoneyField])
-	b.ReserveMoney = base.StrToFloat64(data[PlayerReserveMoneyField])
-	b.ChannelID = base.StrToInt(data[PlayerChannelIDField])
-	b.PayTotal = base.StrToFloat64(data[PlayerPayTotalField])
-	b.WithdrawTotal = base.StrToFloat64(data[PlayerWithdrawTotalField])
-	b.Scbonus = base.StrToFloat64(data[PlayerScbonusField])
-	b.Bonus = base.StrToFloat64(data[PlayerBonusField])
-	b.ReduceBMoney = base.StrToFloat64(data[PlayerReduceBMoneyField])
-	b.ReduceMoney = base.StrToFloat64(data[PlayerReduceMoneyField])
-	b.VIP = base.StrToInt(data[PlayerVIPField])
+	b.TableID = ext.StrToInt32(data[PlayerTableIDField])
+	b.UID = ext.StrToInt64(data[PlayerUIDField])
+	b.Money = ext.StrToFloat64(data[PlayerMoneyField])
+	b.BMoney = ext.StrToFloat64(data[PlayerBMoneyField])
+	b.GMoney = ext.StrToFloat64(data[PlayerGMoneyField])
+	b.ReserveMoney = ext.StrToFloat64(data[PlayerReserveMoneyField])
+	b.ChannelID = ext.StrToInt(data[PlayerChannelIDField])
+	b.PayTotal = ext.StrToFloat64(data[PlayerPayTotalField])
+	b.WithdrawTotal = ext.StrToFloat64(data[PlayerWithdrawTotalField])
+	b.Scbonus = ext.StrToFloat64(data[PlayerScbonusField])
+	b.Bonus = ext.StrToFloat64(data[PlayerBonusField])
+	b.ReduceBMoney = ext.StrToFloat64(data[PlayerReduceBMoneyField])
+	b.ReduceMoney = ext.StrToFloat64(data[PlayerReduceMoneyField])
+	b.VIP = ext.StrToInt(data[PlayerVIPField])
 	b.NickName = data[PlayerNickNameField]
 	b.Avatar = data[PlayerAvatarField]
 	b.AvatarUrl = data[PlayerAvatarUrlField]
-	b.PresentBet = base.StrToFloat64(data[PlayerPresentBetField])
-	b.PresentProfit = base.StrToFloat64(data[PlayerPresentProfitField])
-	b.PresentWinScore = base.StrToFloat64(data[PlayerPresentWinScoreField])
-	b.PresentBoard = base.StrToInt(data[PlayerPresentBoardField])
-	b.TotalBoard = base.StrToInt(data[PlayerTotalBoardField])
-	b.TotalEarn = base.StrToFloat64(data[PlayerTotalEarnField])
-	b.TotalConsume = base.StrToFloat64(data[PlayerTotalConsumeField])
-	b.AllTotalBoard = base.StrToInt64(data[PlayerAllTotalBoardField])
+	b.PresentBet = ext.StrToFloat64(data[PlayerPresentBetField])
+	b.PresentProfit = ext.StrToFloat64(data[PlayerPresentProfitField])
+	b.PresentWinScore = ext.StrToFloat64(data[PlayerPresentWinScoreField])
+	b.PresentBoard = ext.StrToInt(data[PlayerPresentBoardField])
+	b.TotalBoard = ext.StrToInt(data[PlayerTotalBoardField])
+	b.TotalEarn = ext.StrToFloat64(data[PlayerTotalEarnField])
+	b.TotalConsume = ext.StrToFloat64(data[PlayerTotalConsumeField])
+	b.AllTotalBoard = ext.StrToInt64(data[PlayerAllTotalBoardField])
 }
 
 //func SavePlayerToRedis(redisClient *redis.Client, key string, p *BaseData) error {

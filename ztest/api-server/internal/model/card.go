@@ -3,7 +3,7 @@ package model
 import (
 	"log"
 
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/base"
+	"github.com/yola1107/kratos/v2/library/ext"
 )
 
 type GameCards struct {
@@ -24,7 +24,7 @@ func (g *GameCards) Init() {
 
 func (g *GameCards) Shuffle() {
 	for i := 0; i < 3; i++ {
-		base.GetRand().Shuffle(len(g.cardHeap), func(i, j int) {
+		ext.GetRand().Shuffle(len(g.cardHeap), func(i, j int) {
 			g.cardHeap[i], g.cardHeap[j] = g.cardHeap[j], g.cardHeap[i]
 		})
 	}
