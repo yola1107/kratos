@@ -4,34 +4,26 @@ import (
 	"time"
 )
 
-//GetTick 毫秒级时间戳
+// GetTick 毫秒级时间戳
 func GetTick() int64 {
 	return time.Now().UnixNano() / 1e6
 }
 
-//GetCurSec 获取当前时间 s
+// GetCurSec 获取当前时间 s
 func GetCurSec() int64 {
 	return time.Now().Unix()
 }
 
-//GetCurNanoSec 获取当前纳秒
+// GetCurNanoSec 获取当前纳秒
 func GetCurNanoSec() int64 {
 	return time.Now().UnixNano()
 }
 
-//GetCurDate 返回当前的日期（零时零分）
+// GetCurDate 返回当前的日期（零时零分）
 func GetCurDate() time.Time {
 	now := time.Now()
 	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 }
-
-// 获取时间日期
-//func GetDate() time.Time {
-//	then := time.Date(
-//		2017, 06, 21, 20, 34, 58, 0, time.UTC)
-//
-//	return then
-//}
 
 func FormatDate(t time.Time) string {
 	return t.Format("2006-01-02")

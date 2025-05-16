@@ -7,11 +7,11 @@ import (
 )
 
 // Diff returns a changelog of all mutated values from both
-func Diff(a, b interface{}) (diff.Changelog, error) {
+func Diff(a, b any) (diff.Changelog, error) {
 	return diff.Diff(a, b)
 }
 
-func DiffLog(a, b interface{}) (diff.Changelog, []string, error) {
+func DiffLog(a, b any) (diff.Changelog, []string, error) {
 	changelog, _ := diff.Diff(a, b)
 	fields := make([]string, 0, len(changelog))
 	for _, change := range changelog {

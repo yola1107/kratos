@@ -6,7 +6,7 @@ import (
 	"strconv"
 )
 
-//ToString .
+// ToString .
 func ToString(v any) string {
 	return fmt.Sprintf("%v", v)
 }
@@ -23,12 +23,12 @@ func Int64ToStr(src int64) string {
 	return strconv.FormatInt(src, 10)
 }
 
-func Float64ToStr(f float64) string {
-	return strconv.FormatFloat(f, 'f', 2, 64)
-}
-
-func Float64ToStrN(f float64, prec int) string {
-	return strconv.FormatFloat(f, 'f', prec, 64)
+func Float64ToStr(f float64, prec ...int) string {
+	p := 2
+	if len(prec) > 0 {
+		p = prec[0]
+	}
+	return strconv.FormatFloat(f, 'f', p, 64)
 }
 
 func StrToInt(src string) int {
