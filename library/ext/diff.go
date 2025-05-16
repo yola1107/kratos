@@ -1,4 +1,4 @@
-package function
+package ext
 
 import (
 	"fmt"

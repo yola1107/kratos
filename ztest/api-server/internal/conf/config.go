@@ -6,7 +6,7 @@ import (
 
 	"github.com/yola1107/kratos/v2/config"
 	"github.com/yola1107/kratos/v2/config/file"
-	"github.com/yola1107/kratos/v2/library/function"
+	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/library/log/zap"
 	"github.com/yola1107/kratos/v2/log"
 )
@@ -43,7 +43,7 @@ func Init(flagconf string) config.Config {
 	// 热更新配置
 	watch(c)
 
-	log.Infof("config initialized: flagconf=%s config=%+v", flagconf, function.ToJSON(get()))
+	log.Infof("config initialized: flagconf=%s config=%+v", flagconf, ext.ToJSON(get()))
 	return c
 }
 
@@ -80,9 +80,9 @@ func updateConfig(c config.Config, key string, v config.Value) {
 		log.Errorf("updated config err: %v", err)
 		return
 	}
-	if _, diff, _ := function.DiffLog(oldCfg, newCfg); len(diff) > 0 {
+	if _, diff, _ := ext.DiffLog(oldCfg, newCfg); len(diff) > 0 {
 		set(newCfg)
-		log.Warnf("Config key=\"%s\" changed: \n%s", key, function.ToJSONPretty(diff))
+		log.Warnf("Config key=\"%s\" changed: \n%s", key, ext.ToJSONPretty(diff))
 	}
 }
 

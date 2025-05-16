@@ -1,4 +1,4 @@
-package function
+package ext
 
 // ReTry 重试逻辑，最多重试n次
 func ReTry(n int, f func() error) error {

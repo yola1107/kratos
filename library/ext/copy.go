@@ -1,4 +1,4 @@
-package function
+package ext
 
 import "github.com/jinzhu/copier"
 
