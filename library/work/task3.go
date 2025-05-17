@@ -46,7 +46,7 @@ func (l *antsLoop) Start() error {
 	}
 
 	l.pool = pool
-	log.Infof("antsLoop started")
+	log.Infof("antsLoop start...")
 	return nil
 }
 
@@ -59,7 +59,7 @@ func (l *antsLoop) Stop() {
 		l.pool = nil
 		go func() {
 			p.Release()
-			log.Infof("antsLoop stopped. (async)")
+			log.Infof("antsLoop routine stop. (async)")
 		}()
 	}
 }
@@ -151,7 +151,7 @@ func (l *antsLoop) safeRun(ctx context.Context, fn func()) {
 
 func (l *antsLoop) recoverWith(cb func(any)) {
 	if r := recover(); r != nil {
-		log.Errorf("Recover: %v\n%s", r, debug.Stack())
+		log.Errorf("Recover => %v:%s\n", r, debug.Stack())
 		if cb != nil {
 			cb(r)
 		}
