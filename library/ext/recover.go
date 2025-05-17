@@ -8,7 +8,7 @@ import (
 
 func RecoverFromError(cb func()) {
 	if e := recover(); e != nil {
-		log.Error("Recover => %s:%s\n", e, debug.Stack())
+		log.Errorf("Recover => %v:%s\n", e, debug.Stack())
 		if cb != nil {
 			cb()
 		}
