@@ -11,7 +11,7 @@ import (
 	"github.com/yola1107/kratos/v2/log"
 )
 
-type ILoop3 interface {
+type IAntsLoop interface {
 	Start() error
 	Stop()
 	Post(job func())
@@ -26,7 +26,7 @@ type antsLoop struct {
 	size int
 }
 
-func NewAntsLoop(size int) ILoop3 {
+func NewAntsLoop(size int) IAntsLoop {
 	return &antsLoop{size: size}
 }
 
@@ -35,7 +35,7 @@ func (l *antsLoop) Start() error {
 	defer l.mu.Unlock()
 
 	if l.pool != nil {
-		return errors.New("loop already started")
+		return errors.New("antsLoop already started")
 	}
 
 	pool, err := ants.NewPool(l.size, ants.WithPanicHandler(func(i any) {
@@ -46,7 +46,7 @@ func (l *antsLoop) Start() error {
 	}
 
 	l.pool = pool
-	log.Infof("antsLoop start...")
+	log.Infof("antsLoop started")
 	return nil
 }
 
@@ -59,7 +59,7 @@ func (l *antsLoop) Stop() {
 		l.pool = nil
 		go func() {
 			p.Release()
-			log.Infof("antsLoop routine stop. (async)")
+			log.Infof("antsLoop stopped (async)")
 		}()
 	}
 }
@@ -69,7 +69,7 @@ func (l *antsLoop) Post(job func()) {
 }
 
 func (l *antsLoop) PostCtx(ctx context.Context, job func()) {
-	l.submit(ctx, func() { job() })
+	l.submit(ctx, job)
 }
 
 func (l *antsLoop) PostAndWait(job func() ([]byte, error)) ([]byte, error) {
@@ -77,31 +77,32 @@ func (l *antsLoop) PostAndWait(job func() ([]byte, error)) ([]byte, error) {
 }
 
 func (l *antsLoop) PostAndWaitCtx(ctx context.Context, job func() ([]byte, error)) ([]byte, error) {
-	result := make(chan struct {
+	resultCh := make(chan struct {
 		data []byte
 		err  error
 	}, 1)
 
 	l.submit(ctx, func() {
-		defer l.recoverWith(func(e any) {
-			result <- struct {
+		defer l.recover(func(r any) {
+			resultCh <- struct {
 				data []byte
 				err  error
-			}{nil, fmt.Errorf("panic: %v", e)}
+			}{nil, fmt.Errorf("panic: %v", r)}
 		})
+
 		data, err := job()
 		select {
-		case result <- struct {
+		case resultCh <- struct {
 			data []byte
 			err  error
 		}{data, err}:
 		case <-ctx.Done():
-			log.Warnf("PostAndWaitCtx: context canceled before result return: %v", ctx.Err())
+			log.Warnf("PostAndWaitCtx: context canceled before sending result: %v", ctx.Err())
 		}
 	})
 
 	select {
-	case res := <-result:
+	case res := <-resultCh:
 		return res.data, res.err
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -114,33 +115,21 @@ func (l *antsLoop) submit(ctx context.Context, fn func()) {
 	l.mu.RUnlock()
 
 	if pool == nil || pool.IsClosed() {
-		log.Warnf("antsLoop not running, fallback to direct execution")
+		log.Warnf("antsLoop not running, execute directly")
 		go l.safeRun(ctx, fn)
 		return
 	}
 
-	select {
-	case <-ctx.Done():
-		log.Warnf("submit canceled before run: %v", ctx.Err())
-		return
-	default:
-	}
-
 	if err := pool.Submit(func() {
-		select {
-		case <-ctx.Done():
-			log.Warnf("submit canceled before execution: %v", ctx.Err())
-		default:
-			l.safeRun(ctx, fn)
-		}
+		l.safeRun(ctx, fn)
 	}); err != nil {
-		log.Errorf("submit failed: %v, fallback to direct", err)
+		log.Errorf("submit failed: %v, execute directly", err)
 		go l.safeRun(ctx, fn)
 	}
 }
 
 func (l *antsLoop) safeRun(ctx context.Context, fn func()) {
-	defer l.recoverWith(nil)
+	defer l.recover(nil)
 	select {
 	case <-ctx.Done():
 		log.Warnf("job canceled before execution: %v", ctx.Err())
@@ -149,9 +138,9 @@ func (l *antsLoop) safeRun(ctx context.Context, fn func()) {
 	}
 }
 
-func (l *antsLoop) recoverWith(cb func(any)) {
+func (l *antsLoop) recover(cb func(any)) {
 	if r := recover(); r != nil {
-		log.Errorf("Recover => %v:%s\n", r, debug.Stack())
+		log.Errorf("recovered from panic: %v\n%s", r, debug.Stack())
 		if cb != nil {
 			cb(r)
 		}
