@@ -1,175 +1,92 @@
 package work
 
 import (
-	"context"
-	"errors"
-	"fmt"
-	"runtime/debug"
 	"sync"
+	"sync/atomic"
 
-	"github.com/panjf2000/ants/v2"
+	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/log"
 )
 
+/*
+	任务池 job pool
+*/
+
 type ILoop interface {
-	Start() error
+	Start()
 	Stop()
+	Jobs() int
 	Post(job func())
-	PostCtx(ctx context.Context, job func())
 	PostAndWait(job func() ([]byte, error)) ([]byte, error)
-	PostAndWaitCtx(ctx context.Context, job func() ([]byte, error)) ([]byte, error)
 }
 
-type AntsLoop struct {
-	pool *ants.Pool
-	mu   sync.RWMutex
-	size int
+type taskBuffer struct {
+	jobs    chan func()
+	toggle  chan byte
+	once    sync.Once
+	stopped atomic.Bool
 }
 
-func NewAntsLoop(size int) ILoop {
-	return &AntsLoop{
-		size: size,
+// NewTaskBuffer 创建一个Loop队列，max为队列最大任务数量长度
+func NewTaskBuffer(jobsCnt int) ILoop {
+	return &taskBuffer{
+		jobs:   make(chan func(), jobsCnt),
+		toggle: make(chan byte),
 	}
 }
 
-func (l *AntsLoop) Start() error {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	if l.pool != nil {
-		return errors.New("loop already started")
-	}
-
-	p, err := ants.NewPool(l.size, ants.WithPanicHandler(func(i interface{}) {
-		log.Errorf("task panic: %v\n%s", i, debug.Stack())
-	}))
-	if err != nil {
-		return err
-	}
-	l.pool = p
-	log.Infof("loop start")
-	return nil
-}
-
-func (l *AntsLoop) Stop() {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	if l.pool != nil {
-		pool := l.pool
-		l.pool = nil
-		go func() {
-			pool.Release()
-			log.Infof("loop stopped (async)")
-		}()
-	}
-}
-
-func (l *AntsLoop) IsRunning() bool {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
-	return l.pool != nil && !l.pool.IsClosed()
-}
-
-func (l *AntsLoop) Post(job func()) {
-	l.PostCtx(context.Background(), job)
-}
-
-func (l *AntsLoop) PostCtx(ctx context.Context, job func()) {
-	l.mu.RLock()
-	pool := l.pool
-	l.mu.RUnlock()
-
-	if pool == nil {
-		log.Warnf("loop not running")
-		return
-	}
-
-	select {
-	case <-ctx.Done():
-		log.Warnf("PostCtx canceled before submit: %v", ctx.Err())
-		return
-	default:
-	}
-
-	err := pool.Submit(func() {
-		defer RecoverFromError(nil)
-		select {
-		case <-ctx.Done():
-			log.Warnf("PostCtx canceled before job run: %v", ctx.Err())
-			return
-		default:
-			job()
-		}
-	})
-
-	if err != nil {
-		log.Errorf("submit failed: %v", err)
-		go func() {
-			defer RecoverFromError(nil)
+func (lp *taskBuffer) Start() {
+	log.Infof("loop start ..")
+	go func() {
+		defer ext.RecoverFromError(func() {
+			lp.Start()
+		})
+		for {
 			select {
-			case <-ctx.Done():
-				log.Warnf("PostCtx fallback canceled: %v", ctx.Err())
+			case <-lp.toggle:
+				lp.stopped.Store(true)
+				log.Infof("loop routine stop. Remaining(%d)", lp.Jobs())
 				return
-			default:
+			case job := <-lp.jobs:
 				job()
 			}
-		}()
-	}
+		}
+	}()
 }
 
-func (l *AntsLoop) PostAndWait(job func() ([]byte, error)) ([]byte, error) {
-	return l.PostAndWaitCtx(context.Background(), job)
+func (lp *taskBuffer) Stop() {
+	lp.once.Do(
+		func() { close(lp.toggle) },
+	)
 }
 
-func (l *AntsLoop) PostAndWaitCtx(ctx context.Context, job func() ([]byte, error)) ([]byte, error) {
-	l.mu.RLock()
-	pool := l.pool
-	l.mu.RUnlock()
+func (lp *taskBuffer) Jobs() int {
+	return len(lp.jobs)
+}
 
-	if pool == nil {
-		return nil, errors.New("loop not running")
-	}
+func (lp *taskBuffer) Post(job func()) {
+	go func() {
+		lp.jobs <- job
+	}()
+}
 
-	type jobResult struct {
+func (lp *taskBuffer) PostAndWait(job func() ([]byte, error)) ([]byte, error) {
+	type waitResult struct {
 		data []byte
 		err  error
 	}
-	result := make(chan jobResult, 1)
 
-	err := pool.Submit(func() {
-		defer RecoverFromError(func(e interface{}) {
-			select {
-			case result <- jobResult{nil, fmt.Errorf("panic: %v", e)}:
-			default:
-			}
-		})
-		data, err := job()
-		select {
-		case result <- jobResult{data, err}:
-		case <-ctx.Done():
-			log.Warnf("PostAndWaitCtx: context done before sending result: %v", ctx.Err())
-		}
-	})
-
-	if err != nil {
-		log.Errorf("submit failed: %v", err)
-		return job()
-	}
+	result := make(chan waitResult, 1)
 
 	select {
-	case res := <-result:
+	case lp.jobs <- func() {
+		data, err := job()
+		result <- waitResult{data: data, err: err}
+	}:
+		res := <-result
 		return res.data, res.err
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-}
-
-func RecoverFromError(cb func(interface{})) {
-	if e := recover(); e != nil {
-		log.Errorf("Recover => %v:%s\n", e, debug.Stack())
-		if cb != nil {
-			cb(e)
-		}
+	default:
+		log.Warnf("loop queue full. capacity(%d)", len(lp.jobs))
+		return job()
 	}
 }
