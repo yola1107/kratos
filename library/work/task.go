@@ -10,6 +10,7 @@ import (
 
 /*
 	任务池 job pool
+	注意: 当调用PostAndWait/PostAndWaitAny时,job内部如果发生panic,调用方会拿不到job返回的结果而一直阻塞等待
 */
 
 type ILoop interface {

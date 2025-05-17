@@ -14,20 +14,37 @@ import (
 type IAntsLoop interface {
 	Start() error
 	Stop()
+
 	Post(job func())
 	PostCtx(ctx context.Context, job func())
+
 	PostAndWait(job func() ([]byte, error)) ([]byte, error)
 	PostAndWaitCtx(ctx context.Context, job func() ([]byte, error)) ([]byte, error)
 }
 
-type antsLoop struct {
-	mu   sync.RWMutex
-	pool *ants.Pool
-	size int
+type Option func(*antsLoop)
+
+func WithFallback(fallback func(ctx context.Context, fn func())) Option {
+	return func(l *antsLoop) {
+		l.fallback = fallback
+	}
 }
 
-func NewAntsLoop(size int) IAntsLoop {
-	return &antsLoop{size: size}
+type antsLoop struct {
+	mu       sync.RWMutex
+	pool     *ants.Pool
+	size     int
+	fallback func(ctx context.Context, fn func())
+}
+
+func NewAntsLoop(size int, opts ...Option) IAntsLoop {
+	l := &antsLoop{
+		size: size,
+	}
+	for _, opt := range opts {
+		opt(l)
+	}
+	return l
 }
 
 func (l *antsLoop) Start() error {
@@ -115,16 +132,16 @@ func (l *antsLoop) submit(ctx context.Context, fn func()) {
 	l.mu.RUnlock()
 
 	if pool == nil || pool.IsClosed() {
-		log.Warnf("antsLoop not running, execute directly")
-		go l.safeRun(ctx, fn)
+		log.Warnf("antsLoop not running, fallback to goroutine")
+		l.runFallback(ctx, fn)
 		return
 	}
 
 	if err := pool.Submit(func() {
 		l.safeRun(ctx, fn)
 	}); err != nil {
-		log.Errorf("submit failed: %v, execute directly", err)
-		go l.safeRun(ctx, fn)
+		log.Errorf("submit failed: %v, fallback to goroutine", err)
+		l.runFallback(ctx, fn)
 	}
 }
 
@@ -135,6 +152,14 @@ func (l *antsLoop) safeRun(ctx context.Context, fn func()) {
 		log.Warnf("job canceled before execution: %v", ctx.Err())
 	default:
 		fn()
+	}
+}
+
+func (l *antsLoop) runFallback(ctx context.Context, fn func()) {
+	if l.fallback != nil {
+		l.fallback(ctx, fn)
+	} else {
+		go l.safeRun(ctx, fn)
 	}
 }
 
