@@ -21,15 +21,13 @@ type ILoop3 interface {
 }
 
 type antsLoop struct {
-	pool *ants.Pool
 	mu   sync.RWMutex
+	pool *ants.Pool
 	size int
 }
 
 func NewAntsLoop(size int) ILoop3 {
-	return &antsLoop{
-		size: size,
-	}
+	return &antsLoop{size: size}
 }
 
 func (l *antsLoop) Start() error {
@@ -40,14 +38,15 @@ func (l *antsLoop) Start() error {
 		return errors.New("loop already started")
 	}
 
-	p, err := ants.NewPool(l.size, ants.WithPanicHandler(func(i interface{}) {
-		log.Errorf("task panic: %v\n%s", i, debug.Stack())
+	pool, err := ants.NewPool(l.size, ants.WithPanicHandler(func(i any) {
+		log.Errorf("panic in task: %v\n%s", i, debug.Stack())
 	}))
 	if err != nil {
 		return err
 	}
-	l.pool = p
-	log.Infof("loop start")
+
+	l.pool = pool
+	log.Infof("antsLoop started")
 	return nil
 }
 
@@ -56,19 +55,13 @@ func (l *antsLoop) Stop() {
 	defer l.mu.Unlock()
 
 	if l.pool != nil {
-		pool := l.pool
+		p := l.pool
 		l.pool = nil
 		go func() {
-			pool.Release()
-			log.Infof("loop stopped (async)")
+			p.Release()
+			log.Infof("antsLoop stopped. (async)")
 		}()
 	}
-}
-
-func (l *antsLoop) IsRunning() bool {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
-	return l.pool != nil && !l.pool.IsClosed()
 }
 
 func (l *antsLoop) Post(job func()) {
@@ -76,89 +69,36 @@ func (l *antsLoop) Post(job func()) {
 }
 
 func (l *antsLoop) PostCtx(ctx context.Context, job func()) {
-	l.mu.RLock()
-	pool := l.pool
-	l.mu.RUnlock()
-
-	if pool == nil {
-		log.Warnf("loop not running, fallback to direct execution")
-		defer RecoverFromError(nil)
-		job()
-		return
-	}
-
-	select {
-	case <-ctx.Done():
-		log.Warnf("PostCtx canceled before submit: %v", ctx.Err())
-		return
-	default:
-	}
-
-	err := pool.Submit(func() {
-		defer RecoverFromError(nil)
-		select {
-		case <-ctx.Done():
-			log.Warnf("PostCtx canceled before job run: %v", ctx.Err())
-			return
-		default:
-			job()
-		}
-	})
-
-	if err != nil {
-		log.Errorf("submit failed: %v", err)
-		go func() {
-			defer RecoverFromError(nil)
-			select {
-			case <-ctx.Done():
-				log.Warnf("PostCtx fallback canceled: %v", ctx.Err())
-				return
-			default:
-				job()
-			}
-		}()
-	}
+	l.submit(ctx, func() { job() })
 }
 
 func (l *antsLoop) PostAndWait(job func() ([]byte, error)) ([]byte, error) {
 	return l.PostAndWaitCtx(context.Background(), job)
 }
+
 func (l *antsLoop) PostAndWaitCtx(ctx context.Context, job func() ([]byte, error)) ([]byte, error) {
-	l.mu.RLock()
-	pool := l.pool
-	l.mu.RUnlock()
-
-	if pool == nil {
-		log.Warnf("loop not running, fallback to direct execution")
-		defer RecoverFromError(nil)
-		return job()
-	}
-
-	type jobResult struct {
+	result := make(chan struct {
 		data []byte
 		err  error
-	}
-	result := make(chan jobResult, 1)
+	}, 1)
 
-	err := pool.Submit(func() {
-		defer RecoverFromError(func(e interface{}) {
-			select {
-			case result <- jobResult{nil, fmt.Errorf("panic: %v", e)}:
-			default:
-			}
+	l.submit(ctx, func() {
+		defer l.recoverWith(func(e any) {
+			result <- struct {
+				data []byte
+				err  error
+			}{nil, fmt.Errorf("panic: %v", e)}
 		})
 		data, err := job()
 		select {
-		case result <- jobResult{data, err}:
+		case result <- struct {
+			data []byte
+			err  error
+		}{data, err}:
 		case <-ctx.Done():
-			log.Warnf("PostAndWaitCtx: context done before sending result: %v", ctx.Err())
+			log.Warnf("PostAndWaitCtx: context canceled before result return: %v", ctx.Err())
 		}
 	})
-
-	if err != nil {
-		log.Errorf("submit failed: %v, fallback to direct execution", err)
-		return job()
-	}
 
 	select {
 	case res := <-result:
@@ -168,11 +108,52 @@ func (l *antsLoop) PostAndWaitCtx(ctx context.Context, job func() ([]byte, error
 	}
 }
 
-func RecoverFromError(cb func(interface{})) {
-	if e := recover(); e != nil {
-		log.Errorf("Recover => %v:%s\n", e, debug.Stack())
+func (l *antsLoop) submit(ctx context.Context, fn func()) {
+	l.mu.RLock()
+	pool := l.pool
+	l.mu.RUnlock()
+
+	if pool == nil || pool.IsClosed() {
+		log.Warnf("antsLoop not running, fallback to direct execution")
+		go l.safeRun(ctx, fn)
+		return
+	}
+
+	select {
+	case <-ctx.Done():
+		log.Warnf("submit canceled before run: %v", ctx.Err())
+		return
+	default:
+	}
+
+	if err := pool.Submit(func() {
+		select {
+		case <-ctx.Done():
+			log.Warnf("submit canceled before execution: %v", ctx.Err())
+		default:
+			l.safeRun(ctx, fn)
+		}
+	}); err != nil {
+		log.Errorf("submit failed: %v, fallback to direct", err)
+		go l.safeRun(ctx, fn)
+	}
+}
+
+func (l *antsLoop) safeRun(ctx context.Context, fn func()) {
+	defer l.recoverWith(nil)
+	select {
+	case <-ctx.Done():
+		log.Warnf("job canceled before execution: %v", ctx.Err())
+	default:
+		fn()
+	}
+}
+
+func (l *antsLoop) recoverWith(cb func(any)) {
+	if r := recover(); r != nil {
+		log.Errorf("Recover: %v\n%s", r, debug.Stack())
 		if cb != nil {
-			cb(e)
+			cb(r)
 		}
 	}
 }
