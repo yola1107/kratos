@@ -1,6 +1,7 @@
 package timer
 
 import (
+	"context"
 	"runtime/debug"
 	"sync"
 	"sync/atomic"
@@ -26,15 +27,17 @@ type ITaskScheduler interface {
 
 // TaskScheduler  定时器任务
 type taskScheduler struct {
-	seq   atomic.Int64 // 原子递增的任务ID计数器
-	tasks sync.Map     // 存储任务ID对应的停止通道 [int64]chan struct{}
-	loop  ILoop        // 任务池执行器
+	seq   atomic.Int64    // 原子递增的任务ID计数器
+	tasks sync.Map        // 存储任务ID对应的停止通道 [int64]context.CancelFunc
+	loop  ILoop           // 任务池执行器
+	ctx   context.Context // 根上下文
 }
 
 // NewTaskScheduler 创建新定时器实例
 func NewTaskScheduler(loop ILoop) ITaskScheduler {
 	return &taskScheduler{
 		loop: loop,
+		ctx:  context.Background(), // 可传入外部Context
 	}
 }
 
@@ -61,9 +64,9 @@ func (t *taskScheduler) ForeverTime(durFirst, durRepeat time.Duration, f func())
 
 // Stop 停止指定ID的任务
 func (t *taskScheduler) Stop(taskID int64) {
-	if ch, ok := t.tasks.LoadAndDelete(taskID); ok {
-		if closeCh, ok := ch.(chan struct{}); ok {
-			close(closeCh)
+	if cancel, ok := t.tasks.LoadAndDelete(taskID); ok {
+		if cancelFn, ok := cancel.(context.CancelFunc); ok {
+			cancelFn() // 取消特定任务
 		}
 	}
 }
@@ -71,8 +74,8 @@ func (t *taskScheduler) Stop(taskID int64) {
 // StopAll 停止所有定时任务
 func (t *taskScheduler) StopAll() {
 	t.tasks.Range(func(key, value any) bool {
-		if ch, ok := value.(chan struct{}); ok {
-			close(ch)
+		if cancelFn, ok := value.(context.CancelFunc); ok {
+			cancelFn()
 		}
 		t.tasks.Delete(key)
 		return true
@@ -82,19 +85,20 @@ func (t *taskScheduler) StopAll() {
 // 核心执行方法
 func (t *taskScheduler) run(durFirst, durRepeat time.Duration, repeated bool, f func()) int64 {
 	taskID := t.seq.Add(1)
-	stopCh := make(chan struct{})
-	t.tasks.Store(taskID, stopCh)
+	ctx, cancel := context.WithCancel(t.ctx) // 派生Context
+	t.tasks.Store(taskID, cancel)
 
 	// 启动定时任务协程
 	go func() {
 		defer t.tasks.Delete(taskID)
+		defer cancel()
 
 		timer := time.NewTimer(durFirst)
 		defer timer.Stop()
 
 		for {
 			select {
-			case <-stopCh:
+			case <-ctx.Done(): // 监听取消
 				return
 			case <-timer.C:
 				safeCall(t.loop, f)
@@ -176,9 +180,12 @@ func (lp *taskBuffer) Start() {
 }
 
 func (lp *taskBuffer) Stop() {
-	go func() {
-		close(lp.toggle)
-	}()
+	lp.once.Do(
+		func() {
+			go func() {
+				close(lp.toggle)
+			}()
+		})
 }
 
 func (lp *taskBuffer) Jobs() int {
