@@ -5,6 +5,7 @@ import (
 )
 
 func (tb *Table) BroadcastUserEnter(p *gplayer.Player) {}
-func (tb *Table) SendTableInfo(p *gplayer.Player)      {}
+
+func (tb *Table) SendTableInfo(p *gplayer.Player) {}
 
 func (tb *Table) BroadcastUserExit(p *gplayer.Player) {}

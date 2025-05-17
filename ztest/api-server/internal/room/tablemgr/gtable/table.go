@@ -57,88 +57,6 @@ func (tb *Table) IsClosed() bool {
 	return tb.closed
 }
 
-// NextPlayer 轮流寻找玩家
-func (tb *Table) NextPlayer(chair int32) *gplayer.Player {
-	maxCnt := tb.MaxCnt
-	for {
-		chair++
-
-		if chair >= int32(tb.MaxCnt) {
-			chair = 0
-		}
-
-		p := tb.chairList[chair]
-		if p != nil {
-			return p
-		}
-
-		maxCnt--
-		if maxCnt < 0 {
-			return nil
-		}
-	}
-}
-
-// LastPlayer 上一家
-func (tb *Table) LastPlayer(chair int32) *gplayer.Player {
-	maxCnt := tb.MaxCnt
-	for {
-		chair--
-
-		if chair < 0 {
-			chair = int32(tb.MaxCnt) - 1
-		}
-
-		p := tb.chairList[chair]
-		if p != nil {
-			return p
-		}
-
-		maxCnt--
-		if maxCnt < 0 {
-			return nil
-		}
-	}
-}
-
-// RangePlayer 遍历玩家
-func (tb *Table) RangePlayer(cb func(k int32, p *gplayer.Player) bool) {
-	if cb == nil {
-		return
-	}
-
-	for k, p := range tb.chairList {
-		if p == nil {
-			continue
-		}
-		if !cb(int32(k), p) {
-			break
-		}
-	}
-}
-
-func (tb *Table) GetActivePlayer() *gplayer.Player {
-	active := tb.activeChair
-	if active < 0 || active >= int32(tb.MaxCnt) {
-		return nil
-	}
-	return tb.chairList[active]
-}
-
-func (tb *Table) GetNextActivePlayer() *gplayer.Player {
-	if tb.activeChair < 0 || tb.activeChair >= int32(tb.MaxCnt) {
-		return nil
-	}
-	return tb.NextPlayer(tb.activeChair)
-}
-
-func (tb *Table) GetPlayerByChair(chair int32) *gplayer.Player {
-	if chair < 0 || chair >= int32(tb.MaxCnt) {
-		return nil
-	}
-	return tb.chairList[chair]
-}
-
 // ThrowInto 入座
 func (tb *Table) ThrowInto(p *gplayer.Player) bool {
 	for k, v := range tb.chairList {
@@ -224,4 +142,86 @@ func (tb *Table) ReEnter(p *gplayer.Player) {
 	//if config.IsTypeScore() {
 	//	tb.mLogic.UserReEnterEvent_Score(p)
 	//}
+}
+
+// NextPlayer 轮流寻找玩家
+func (tb *Table) NextPlayer(chair int32) *gplayer.Player {
+	maxCnt := tb.MaxCnt
+	for {
+		chair++
+
+		if chair >= int32(tb.MaxCnt) {
+			chair = 0
+		}
+
+		p := tb.chairList[chair]
+		if p != nil {
+			return p
+		}
+
+		maxCnt--
+		if maxCnt < 0 {
+			return nil
+		}
+	}
+}
+
+// LastPlayer 上一家
+func (tb *Table) LastPlayer(chair int32) *gplayer.Player {
+	maxCnt := tb.MaxCnt
+	for {
+		chair--
+
+		if chair < 0 {
+			chair = int32(tb.MaxCnt) - 1
+		}
+
+		p := tb.chairList[chair]
+		if p != nil {
+			return p
+		}
+
+		maxCnt--
+		if maxCnt < 0 {
+			return nil
+		}
+	}
+}
+
+// RangePlayer 遍历玩家
+func (tb *Table) RangePlayer(cb func(k int32, p *gplayer.Player) bool) {
+	if cb == nil {
+		return
+	}
+
+	for k, p := range tb.chairList {
+		if p == nil {
+			continue
+		}
+		if !cb(int32(k), p) {
+			break
+		}
+	}
+}
+
+func (tb *Table) GetActivePlayer() *gplayer.Player {
+	active := tb.activeChair
+	if active < 0 || active >= int32(tb.MaxCnt) {
+		return nil
+	}
+	return tb.chairList[active]
+}
+
+func (tb *Table) GetNextActivePlayer() *gplayer.Player {
+	if tb.activeChair < 0 || tb.activeChair >= int32(tb.MaxCnt) {
+		return nil
+	}
+	return tb.NextPlayer(tb.activeChair)
+}
+
+func (tb *Table) GetPlayerByChair(chair int32) *gplayer.Player {
+	if chair < 0 || chair >= int32(tb.MaxCnt) {
+		return nil
+	}
+	return tb.chairList[chair]
 }

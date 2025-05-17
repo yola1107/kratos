@@ -13,7 +13,6 @@ func (tb *Table) canStart() bool {
 }
 
 func (tb *Table) start() {
-
 }
 
 func (tb *Table) CanEnter(p *gplayer.Player) bool {

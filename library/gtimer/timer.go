@@ -34,6 +34,7 @@ func ForeverTime(loop *task.Loop, durFirst, durRepeat time.Duration, f func()) {
 func run(loop *task.Loop, durFirst, durRepeat time.Duration, repeated bool, f func()) {
 	go func() {
 		timer := time.NewTimer(durFirst)
+		defer timer.Stop()
 		for {
 			select {
 			case <-timer.C:
@@ -42,11 +43,10 @@ func run(loop *task.Loop, durFirst, durRepeat time.Duration, repeated bool, f fu
 				} else {
 					f()
 				}
-				if repeated {
-					timer.Reset(durRepeat)
-				} else {
+				if !repeated {
 					return
 				}
+				timer.Reset(durRepeat)
 			}
 		}
 	}()
