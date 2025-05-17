@@ -18,6 +18,7 @@ type ILoop interface {
 	Jobs() int
 	Post(job func())
 	PostAndWait(job func() ([]byte, error)) ([]byte, error)
+	PostAndWaitAny(job func() any) any
 }
 
 type taskBuffer struct {
@@ -71,22 +72,25 @@ func (lp *taskBuffer) Post(job func()) {
 }
 
 func (lp *taskBuffer) PostAndWait(job func() ([]byte, error)) ([]byte, error) {
-	type waitResult struct {
-		data []byte
-		err  error
-	}
+	ch := make(chan []byte)
+	var err error
+	go func() {
+		lp.jobs <- func() {
+			rsp, rerr := job()
+			err = rerr
+			ch <- rsp
+		}
+	}()
+	rsp := <-ch
+	return rsp, err
+}
 
-	result := make(chan waitResult, 1)
-
-	select {
-	case lp.jobs <- func() {
-		data, err := job()
-		result <- waitResult{data: data, err: err}
-	}:
-		res := <-result
-		return res.data, res.err
-	default:
-		log.Warnf("loop queue full. capacity(%d)", len(lp.jobs))
-		return job()
-	}
+func (lp *taskBuffer) PostAndWaitAny(job func() any) any {
+	ch := make(chan any)
+	go func() {
+		lp.jobs <- func() {
+			ch <- job()
+		}
+	}()
+	return <-ch
 }

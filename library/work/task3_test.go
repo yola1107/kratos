@@ -57,13 +57,15 @@ func TestPool(t *testing.T) {
 
 	t.Run("PostAndWait panic inside job is recovered", func(t *testing.T) {
 		done := make(chan struct{})
-		_, _ = l.PostAndWait(func() ([]byte, error) {
+		val, err := l.PostAndWait(func() ([]byte, error) {
 			defer func() {
 				t.Log("panic recovered")
 				close(done)
 			}()
 			panic("oops2")
+			return []byte("hello"), nil
 		})
+		t.Logf("panic recovered val=%+v ,err=%+v", val, err)
 		select {
 		case <-done:
 		case <-time.After(time.Second):
@@ -71,6 +73,22 @@ func TestPool(t *testing.T) {
 		}
 	})
 
+	t.Run("PostAndWaitAny panic inside job is recovered", func(t *testing.T) {
+		done := make(chan struct{})
+		x := l.PostAndWaitAny(func() any {
+			defer func() {
+				t.Log("panic recovered")
+				close(done)
+			}()
+			panic("oops3")
+		})
+		t.Logf("panic recovered x=%+v", x)
+		select {
+		case <-done:
+		case <-time.After(time.Second):
+			t.Fatal("panic job did not finish")
+		}
+	})
 }
 
 // -------------------------------------
@@ -118,13 +136,15 @@ func TestAntsLoop(t *testing.T) {
 
 	t.Run("PostAndWait panic inside job is recovered", func(t *testing.T) {
 		done := make(chan struct{})
-		l.PostAndWait(func() ([]byte, error) {
+		d, err := l.PostAndWait(func() ([]byte, error) {
 			defer func() {
 				t.Log("panic recovered")
 				close(done)
 			}()
 			panic("oops2")
+			return []byte("hello"), nil
 		})
+		t.Logf("panic recovered d=%+v ,err=%+v", d, err)
 		select {
 		case <-done:
 		case <-time.After(time.Second):

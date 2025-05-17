@@ -11,28 +11,28 @@ import (
 	"github.com/yola1107/kratos/v2/log"
 )
 
-//type ILoop interface {
-//	Start() error
-//	Stop()
-//	Post(job func())
-//	PostCtx(ctx context.Context, job func())
-//	PostAndWait(job func() ([]byte, error)) ([]byte, error)
-//	PostAndWaitCtx(ctx context.Context, job func() ([]byte, error)) ([]byte, error)
-//}
+type ILoop3 interface {
+	Start() error
+	Stop()
+	Post(job func())
+	PostCtx(ctx context.Context, job func())
+	PostAndWait(job func() ([]byte, error)) ([]byte, error)
+	PostAndWaitCtx(ctx context.Context, job func() ([]byte, error)) ([]byte, error)
+}
 
-type AntsLoop struct {
+type antsLoop struct {
 	pool *ants.Pool
 	mu   sync.RWMutex
 	size int
 }
 
-func NewAntsLoop(size int) *AntsLoop {
-	return &AntsLoop{
+func NewAntsLoop(size int) ILoop3 {
+	return &antsLoop{
 		size: size,
 	}
 }
 
-func (l *AntsLoop) Start() error {
+func (l *antsLoop) Start() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -51,7 +51,7 @@ func (l *AntsLoop) Start() error {
 	return nil
 }
 
-func (l *AntsLoop) Stop() {
+func (l *antsLoop) Stop() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -65,17 +65,17 @@ func (l *AntsLoop) Stop() {
 	}
 }
 
-func (l *AntsLoop) IsRunning() bool {
+func (l *antsLoop) IsRunning() bool {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	return l.pool != nil && !l.pool.IsClosed()
 }
 
-func (l *AntsLoop) Post(job func()) {
+func (l *antsLoop) Post(job func()) {
 	l.PostCtx(context.Background(), job)
 }
 
-func (l *AntsLoop) PostCtx(ctx context.Context, job func()) {
+func (l *antsLoop) PostCtx(ctx context.Context, job func()) {
 	l.mu.RLock()
 	pool := l.pool
 	l.mu.RUnlock()
@@ -120,10 +120,10 @@ func (l *AntsLoop) PostCtx(ctx context.Context, job func()) {
 	}
 }
 
-func (l *AntsLoop) PostAndWait(job func() ([]byte, error)) ([]byte, error) {
+func (l *antsLoop) PostAndWait(job func() ([]byte, error)) ([]byte, error) {
 	return l.PostAndWaitCtx(context.Background(), job)
 }
-func (l *AntsLoop) PostAndWaitCtx(ctx context.Context, job func() ([]byte, error)) ([]byte, error) {
+func (l *antsLoop) PostAndWaitCtx(ctx context.Context, job func() ([]byte, error)) ([]byte, error) {
 	l.mu.RLock()
 	pool := l.pool
 	l.mu.RUnlock()
