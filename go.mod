@@ -14,6 +14,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/jinzhu/copier v0.4.0
+	github.com/panjf2000/ants/v2 v2.11.3
 	github.com/r3labs/diff/v3 v3.0.1
 	github.com/zhenjl/cityhash v0.0.0-20131128155616-cdd6a94144ab
 	go.opentelemetry.io/otel v1.24.0

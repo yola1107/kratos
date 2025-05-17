@@ -17,7 +17,7 @@ type Loop struct {
 
 func RecoverFromError(cb func()) {
 	if e := recover(); e != nil {
-		log.Error("Recover => %s:%s\n", e, debug.Stack())
+		log.Errorf("Recover => %s:%s\n", e, debug.Stack())
 		if cb != nil {
 			cb()
 		}
@@ -40,7 +40,7 @@ func (lp *Loop) Start() {
 		for {
 			select {
 			case <-lp.toggle:
-				log.Info("loop routine stop.")
+				log.Infof("loop routine stop.")
 				return
 			case job := <-lp.jobs:
 				job()
