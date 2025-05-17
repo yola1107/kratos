@@ -1,82 +1,93 @@
 package timer
 
 import (
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/yola1107/kratos/v2/library/work/loop"
+	"github.com/yola1107/kratos/v2/library/ext"
+	"github.com/yola1107/kratos/v2/log"
 )
 
-// Timer 定时器对象
-type Timer struct {
-	timerMap  sync.Map     // 存储任务ID对应的停止通道 [int64]chan struct{}
-	idCounter atomic.Int64 // 原子递增的任务ID计数器
+/*
+	定时器任务
+*/
+
+// ITaskScheduler 核心调度接口
+type ITaskScheduler interface {
+	Once(duration time.Duration, f func()) int64
+	Forever(interval time.Duration, f func()) int64
+	ForeverNow(interval time.Duration, f func()) int64
+	ForeverTime(durFirst, durRepeat time.Duration, f func()) int64
+	Stop(taskID int64)
+	StopAll()
 }
 
-// New 创建新定时器实例
-func New() *Timer {
-	return &Timer{}
+// TaskScheduler  定时器任务
+type taskScheduler struct {
+	seq   atomic.Int64 // 原子递增的任务ID计数器
+	tasks sync.Map     // 存储任务ID对应的停止通道 [int64]chan struct{}
+	loop  ILoop        // 任务池执行器
+}
+
+// NewTaskScheduler 创建新定时器实例
+func NewTaskScheduler(loop ILoop) ITaskScheduler {
+	return &taskScheduler{
+		loop: loop,
+	}
+}
+
+// Once 执行一次定时任务
+func (t *taskScheduler) Once(duration time.Duration, f func()) int64 {
+	return t.run(duration, 0, false, f)
+}
+
+// Forever 固定间隔重复执行
+func (t *taskScheduler) Forever(interval time.Duration, f func()) int64 {
+	return t.run(interval, interval, true, f)
+}
+
+// ForeverNow 立即执行后按间隔重复
+func (t *taskScheduler) ForeverNow(interval time.Duration, f func()) int64 {
+	safeCall(t.loop, f)
+	return t.Forever(interval, f)
+}
+
+// ForeverTime 首次延迟与后续间隔不同的定时任务
+func (t *taskScheduler) ForeverTime(durFirst, durRepeat time.Duration, f func()) int64 {
+	return t.run(durFirst, durRepeat, true, f)
 }
 
 // Stop 停止指定ID的任务
-func (t *Timer) Stop(timerID int64) {
-	if stopFunc, ok := t.timerMap.LoadAndDelete(timerID); ok {
-		if fn, ok := stopFunc.(func()); ok {
-			fn()
+func (t *taskScheduler) Stop(taskID int64) {
+	if ch, ok := t.tasks.LoadAndDelete(taskID); ok {
+		if closeCh, ok := ch.(chan struct{}); ok {
+			close(closeCh)
 		}
 	}
 }
 
 // StopAll 停止所有定时任务
-func (t *Timer) StopAll() {
-	t.timerMap.Range(func(key, value interface{}) bool {
-		if fn, ok := value.(func()); ok {
-			fn()
+func (t *taskScheduler) StopAll() {
+	t.tasks.Range(func(key, value any) bool {
+		if ch, ok := value.(chan struct{}); ok {
+			close(ch)
 		}
+		t.tasks.Delete(key)
 		return true
 	})
-	t.timerMap = sync.Map{}
-	t.idCounter.Store(0)
-}
-
-// Once 执行一次定时任务
-func (t *Timer) Once(loop loop.ILoop, duration time.Duration, f func()) int64 {
-	return t.run(loop, duration, duration, false, f)
-}
-
-// Forever 固定间隔重复执行
-func (t *Timer) Forever(loop loop.ILoop, interval time.Duration, f func()) int64 {
-	return t.run(loop, interval, interval, true, f)
-}
-
-// ForeverNow 立即执行后按间隔重复
-func (t *Timer) ForeverNow(loop loop.ILoop, interval time.Duration, f func()) int64 {
-	if loop != nil {
-		loop.Post(f)
-	} else {
-		f()
-	}
-	return t.Forever(loop, interval, f)
-}
-
-// ForeverTime 首次延迟与后续间隔不同的定时任务
-func (t *Timer) ForeverTime(loop loop.ILoop, durFirst, durRepeat time.Duration, f func()) int64 {
-	return t.run(loop, durFirst, durRepeat, true, f)
 }
 
 // 核心执行方法
-func (t *Timer) run(loop loop.ILoop, durFirst, durRepeat time.Duration, repeated bool, f func()) int64 {
-	timerID := t.idCounter.Add(1)
+func (t *taskScheduler) run(durFirst, durRepeat time.Duration, repeated bool, f func()) int64 {
+	taskID := t.seq.Add(1)
 	stopCh := make(chan struct{})
-
-	// 存储停止函数到全局map
-	stopFunc := func() { close(stopCh) }
-	t.timerMap.Store(timerID, stopFunc)
+	t.tasks.Store(taskID, stopCh)
 
 	// 启动定时任务协程
 	go func() {
-		defer t.timerMap.Delete(timerID)
+		defer t.tasks.Delete(taskID)
 
 		timer := time.NewTimer(durFirst)
 		defer timer.Stop()
@@ -86,12 +97,7 @@ func (t *Timer) run(loop loop.ILoop, durFirst, durRepeat time.Duration, repeated
 			case <-stopCh:
 				return
 			case <-timer.C:
-				// 执行任务
-				if loop != nil {
-					loop.Post(f)
-				} else {
-					f()
-				}
+				safeCall(t.loop, f)
 				if !repeated {
 					return
 				}
@@ -100,5 +106,103 @@ func (t *Timer) run(loop loop.ILoop, durFirst, durRepeat time.Duration, repeated
 		}
 	}()
 
-	return timerID
+	return taskID
+}
+
+func safeCall(loop ILoop, f func()) {
+	if loop != nil {
+		loop.Post(func() {
+			defer recoverFromError()
+			f()
+		})
+	} else {
+		go func() {
+			defer recoverFromError()
+			f()
+		}()
+	}
+}
+
+func recoverFromError() {
+	if e := recover(); e != nil {
+		log.Error("Recover => %s:%s\n", e, debug.Stack())
+	}
+}
+
+/*
+	任务池 job pool
+*/
+
+type ILoop interface {
+	Start()
+	Stop()
+	Jobs() int
+	Post(job func())
+	PostAndWait(job func() any) any
+}
+
+type taskBuffer struct {
+	jobs    chan func()
+	toggle  chan byte
+	once    sync.Once
+	stopped atomic.Bool
+}
+
+// NewTaskBuffer 创建一个Loop队列，max为队列最大任务数量长度
+func NewTaskBuffer(jobsCnt int) ILoop {
+	return &taskBuffer{
+		jobs:   make(chan func(), jobsCnt),
+		toggle: make(chan byte),
+	}
+}
+
+func (lp *taskBuffer) Start() {
+	log.Infof("loop start ..")
+	go func() {
+		defer ext.RecoverFromError(func() {
+			lp.Start()
+		})
+		for {
+			select {
+			case <-lp.toggle:
+				lp.stopped.Store(true)
+				log.Info("loop routine stop. Remaining(%d)", lp.Jobs())
+				return
+			case job := <-lp.jobs:
+				job()
+			}
+		}
+	}()
+}
+
+func (lp *taskBuffer) Stop() {
+	go func() {
+		close(lp.toggle)
+	}()
+}
+
+func (lp *taskBuffer) Jobs() int {
+	return len(lp.jobs)
+}
+
+func (lp *taskBuffer) Post(job func()) {
+	if lp.stopped.Load() {
+		return
+	}
+	go func() {
+		lp.jobs <- job
+	}()
+}
+
+func (lp *taskBuffer) PostAndWait(job func() any) any {
+	if lp.stopped.Load() {
+		return nil
+	}
+	ch := make(chan any)
+	go func() {
+		lp.jobs <- func() {
+			ch <- job()
+		}
+	}()
+	return <-ch
 }

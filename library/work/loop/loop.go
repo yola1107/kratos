@@ -7,5 +7,7 @@ type ILoop interface {
 	Post(job func())
 	PostAndWait(job func() any) any
 }
-type loop struct {
+type taskBuffer struct {
+	jobs   chan func()
+	toggle chan byte
 }

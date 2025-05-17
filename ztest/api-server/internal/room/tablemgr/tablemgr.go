@@ -3,9 +3,9 @@ package tablemgr
 import (
 	"time"
 
-	"github.com/yola1107/kratos/v2/library/gtimer"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/gtimer"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/playermgr/gplayer"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/tablemgr/gtable"
 )
