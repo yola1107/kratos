@@ -11,10 +11,6 @@ import (
 	"github.com/yola1107/kratos/v2/log"
 )
 
-/*
-	任务池 job pool
-*/
-
 type ILoop interface {
 	Start() error
 	Stop()
@@ -36,52 +32,59 @@ func NewAntsLoop(size int) ILoop {
 	}
 }
 
-func (al *AntsLoop) Start() error {
-	al.mu.Lock()
-	defer al.mu.Unlock()
+func (l *AntsLoop) Start() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 
-	if al.pool != nil {
+	if l.pool != nil {
 		return errors.New("loop already started")
 	}
 
-	p, err := ants.NewPool(al.size, ants.WithPanicHandler(func(i interface{}) {
-		log.Infof("task panic: %v\n%s", i, debug.Stack())
+	p, err := ants.NewPool(l.size, ants.WithPanicHandler(func(i interface{}) {
+		log.Errorf("task panic: %v\n%s", i, debug.Stack())
 	}))
 	if err != nil {
 		return err
 	}
-	al.pool = p
+	l.pool = p
 	log.Infof("loop start")
 	return nil
 }
 
-func (al *AntsLoop) Stop() {
-	al.mu.Lock()
-	defer al.mu.Unlock()
+func (l *AntsLoop) Stop() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 
-	if al.pool != nil {
-		//根据ants文档，Release会关闭池并等待所有任务完成，所以这里没问题。
-		al.pool.Release()
-		al.pool = nil
-		log.Infof("loop stopped")
+	if l.pool != nil {
+		pool := l.pool
+		l.pool = nil
+		go func() {
+			pool.Release()
+			log.Infof("loop stopped (async)")
+		}()
 	}
 }
 
-func (al *AntsLoop) Post(job func()) {
-	al.PostCtx(context.Background(), job)
+func (l *AntsLoop) IsRunning() bool {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	return l.pool != nil && !l.pool.IsClosed()
 }
 
-func (al *AntsLoop) PostCtx(ctx context.Context, job func()) {
-	al.mu.RLock()
-	pool := al.pool
-	al.mu.RUnlock()
+func (l *AntsLoop) Post(job func()) {
+	l.PostCtx(context.Background(), job)
+}
+
+func (l *AntsLoop) PostCtx(ctx context.Context, job func()) {
+	l.mu.RLock()
+	pool := l.pool
+	l.mu.RUnlock()
 
 	if pool == nil {
-		log.Infof("loop not running")
+		log.Warnf("loop not running")
 		return
 	}
 
-	// ctx 先行检查
 	select {
 	case <-ctx.Done():
 		log.Warnf("PostCtx canceled before submit: %v", ctx.Err())
@@ -91,7 +94,6 @@ func (al *AntsLoop) PostCtx(ctx context.Context, job func()) {
 
 	err := pool.Submit(func() {
 		defer RecoverFromError(nil)
-
 		select {
 		case <-ctx.Done():
 			log.Warnf("PostCtx canceled before job run: %v", ctx.Err())
@@ -116,14 +118,14 @@ func (al *AntsLoop) PostCtx(ctx context.Context, job func()) {
 	}
 }
 
-func (al *AntsLoop) PostAndWait(job func() ([]byte, error)) ([]byte, error) {
-	return al.PostAndWaitCtx(context.Background(), job)
+func (l *AntsLoop) PostAndWait(job func() ([]byte, error)) ([]byte, error) {
+	return l.PostAndWaitCtx(context.Background(), job)
 }
 
-func (al *AntsLoop) PostAndWaitCtx(ctx context.Context, job func() ([]byte, error)) ([]byte, error) {
-	al.mu.RLock()
-	pool := al.pool
-	al.mu.RUnlock()
+func (l *AntsLoop) PostAndWaitCtx(ctx context.Context, job func() ([]byte, error)) ([]byte, error) {
+	l.mu.RLock()
+	pool := l.pool
+	l.mu.RUnlock()
 
 	if pool == nil {
 		return nil, errors.New("loop not running")
@@ -133,17 +135,15 @@ func (al *AntsLoop) PostAndWaitCtx(ctx context.Context, job func() ([]byte, erro
 		data []byte
 		err  error
 	}
-
 	result := make(chan jobResult, 1)
 
 	err := pool.Submit(func() {
-		defer RecoverFromError(func() {
+		defer RecoverFromError(func(e interface{}) {
 			select {
-			case result <- jobResult{nil, fmt.Errorf("PostAndWait panic")}:
+			case result <- jobResult{nil, fmt.Errorf("panic: %v", e)}:
 			default:
 			}
 		})
-
 		data, err := job()
 		select {
 		case result <- jobResult{data, err}:
@@ -151,6 +151,7 @@ func (al *AntsLoop) PostAndWaitCtx(ctx context.Context, job func() ([]byte, erro
 			log.Warnf("PostAndWaitCtx: context done before sending result: %v", ctx.Err())
 		}
 	})
+
 	if err != nil {
 		log.Errorf("submit failed: %v", err)
 		return job()
@@ -164,11 +165,11 @@ func (al *AntsLoop) PostAndWaitCtx(ctx context.Context, job func() ([]byte, erro
 	}
 }
 
-func RecoverFromError(cb func()) {
+func RecoverFromError(cb func(interface{})) {
 	if e := recover(); e != nil {
 		log.Errorf("Recover => %v:%s\n", e, debug.Stack())
 		if cb != nil {
-			cb()
+			cb(e)
 		}
 	}
 }
