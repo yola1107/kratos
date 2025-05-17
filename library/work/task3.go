@@ -11,13 +11,17 @@ import (
 	"github.com/yola1107/kratos/v2/log"
 )
 
+// 定义结果类型
+type asyncResult struct {
+	data []byte
+	err  error
+}
+
 type IAntsLoop interface {
 	Start() error
 	Stop()
-
 	Post(job func())
 	PostCtx(ctx context.Context, job func())
-
 	PostAndWait(job func() ([]byte, error)) ([]byte, error)
 	PostAndWaitCtx(ctx context.Context, job func() ([]byte, error)) ([]byte, error)
 }
@@ -39,7 +43,8 @@ type antsLoop struct {
 
 func NewAntsLoop(size int, opts ...Option) IAntsLoop {
 	l := &antsLoop{
-		size: size,
+		size:     size,
+		fallback: defaultFallback, // 设置默认回退
 	}
 	for _, opt := range opts {
 		opt(l)
@@ -47,23 +52,34 @@ func NewAntsLoop(size int, opts ...Option) IAntsLoop {
 	return l
 }
 
+func defaultFallback(ctx context.Context, fn func()) {
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Errorf("fallback panic: %v\n%s", r, debug.Stack())
+			}
+		}()
+		fn()
+	}()
+}
+
 func (l *antsLoop) Start() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
 	if l.pool != nil {
-		return errors.New("antsLoop already started")
+		return errors.New("antsLoop: already started")
 	}
 
-	pool, err := ants.NewPool(l.size, ants.WithPanicHandler(func(i any) {
-		log.Errorf("panic in task: %v\n%s", i, debug.Stack())
+	pool, err := ants.NewPool(l.size, ants.WithPanicHandler(func(r any) {
+		log.Errorf("panic in task: %v\n%s", r, debug.Stack())
 	}))
 	if err != nil {
-		return err
+		return fmt.Errorf("create pool failed: %w", err)
 	}
 
 	l.pool = pool
-	log.Infof("antsLoop started")
+	log.Infof("antsLoop started (pool_size=%d)", l.size)
 	return nil
 }
 
@@ -94,62 +110,64 @@ func (l *antsLoop) PostAndWait(job func() ([]byte, error)) ([]byte, error) {
 }
 
 func (l *antsLoop) PostAndWaitCtx(ctx context.Context, job func() ([]byte, error)) ([]byte, error) {
-	resultCh := make(chan struct {
-		data []byte
-		err  error
-	}, 1)
+	resultChan := make(chan asyncResult, 1)
 
 	l.submit(ctx, func() {
 		defer l.recover(func(r any) {
-			resultCh <- struct {
-				data []byte
-				err  error
-			}{nil, fmt.Errorf("panic: %v", r)}
+			resultChan <- asyncResult{nil, fmt.Errorf("panic: %v", r)}
 		})
 
 		data, err := job()
 		select {
-		case resultCh <- struct {
-			data []byte
-			err  error
-		}{data, err}:
+		case resultChan <- asyncResult{data, err}:
 		case <-ctx.Done():
-			log.Warnf("PostAndWaitCtx: context canceled before sending result: %v", ctx.Err())
+			log.Warn("job result abandoned due to context cancellation")
 		}
 	})
 
 	select {
-	case res := <-resultCh:
+	case res := <-resultChan:
 		return res.data, res.err
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		select {
+		case res := <-resultChan:
+			return res.data, res.err
+		default:
+			return nil, ctx.Err()
+		}
 	}
 }
 
 func (l *antsLoop) submit(ctx context.Context, fn func()) {
+	select {
+	case <-ctx.Done():
+		log.Warnf("submit aborted: %v", ctx.Err())
+		return
+	default:
+	}
+
 	l.mu.RLock()
 	pool := l.pool
 	l.mu.RUnlock()
 
 	if pool == nil || pool.IsClosed() {
-		log.Warnf("antsLoop not running, fallback to goroutine")
+		log.Warn("antsLoop not active, using fallback")
 		l.runFallback(ctx, fn)
 		return
 	}
 
-	if err := pool.Submit(func() {
-		l.safeRun(ctx, fn)
-	}); err != nil {
-		log.Errorf("submit failed: %v, fallback to goroutine", err)
+	if err := pool.Submit(func() { l.safeRun(ctx, fn) }); err != nil {
+		log.Errorf("submit failed: %v, using fallback", err)
 		l.runFallback(ctx, fn)
 	}
 }
 
 func (l *antsLoop) safeRun(ctx context.Context, fn func()) {
 	defer l.recover(nil)
+
 	select {
 	case <-ctx.Done():
-		log.Warnf("job canceled before execution: %v", ctx.Err())
+		log.Warnf("job execution aborted: %v", ctx.Err())
 	default:
 		fn()
 	}
@@ -159,13 +177,13 @@ func (l *antsLoop) runFallback(ctx context.Context, fn func()) {
 	if l.fallback != nil {
 		l.fallback(ctx, fn)
 	} else {
-		go l.safeRun(ctx, fn)
+		defaultFallback(ctx, fn)
 	}
 }
 
 func (l *antsLoop) recover(cb func(any)) {
 	if r := recover(); r != nil {
-		log.Errorf("recovered from panic: %v\n%s", r, debug.Stack())
+		log.Errorf("recovered panic: %v\n%s", r, debug.Stack())
 		if cb != nil {
 			cb(r)
 		}
