@@ -11,6 +11,10 @@ import (
 	定时器任务
 */
 
+type ILoopExecution interface {
+	Post(job func())
+}
+
 // ITaskScheduler 核心调度接口
 type ITaskScheduler interface {
 	Once(duration time.Duration, f func()) int64
@@ -25,12 +29,12 @@ type ITaskScheduler interface {
 type taskScheduler struct {
 	seq   atomic.Int64    // 原子递增的任务ID计数器
 	tasks sync.Map        // 存储任务ID对应的停止通道 [int64]context.CancelFunc
-	loop  ILoop           // 任务池执行器
+	loop  ILoopExecution  // 任务池执行器
 	ctx   context.Context // 根上下文
 }
 
 // NewTaskScheduler 创建新定时器实例
-func NewTaskScheduler(loop ILoop) ITaskScheduler {
+func NewTaskScheduler(loop ILoopExecution) ITaskScheduler {
 	return &taskScheduler{
 		loop: loop,
 		ctx:  context.Background(), // 可传入外部Context
@@ -109,7 +113,7 @@ func (t *taskScheduler) run(durFirst, durRepeat time.Duration, repeated bool, f 
 	return taskID
 }
 
-func safeCall(loop ILoop, f func()) {
+func safeCall(loop ILoopExecution, f func()) {
 	if loop != nil {
 		loop.Post(func() {
 			defer recoverFromError(nil)
