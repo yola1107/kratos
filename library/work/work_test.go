@@ -15,7 +15,7 @@ func init() {
 	log.SetLogger(log.NewStdLogger(os.Stdout))
 }
 
-//func TestPool(t *testing.T) {
+//func TestLoop(t *testing.T) {
 //	l := NewTaskBuffer(2)
 //	l.Start()
 //

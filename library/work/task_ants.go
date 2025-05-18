@@ -71,7 +71,7 @@ func (l *antsLoop) Start() error {
 	}
 
 	l.pool = pool
-	log.Infof("antsLoop started [size:%d]", l.size)
+	log.Infof("antsLoop start... [size:%d]", l.size)
 	return nil
 }
 
@@ -84,7 +84,6 @@ func (l *antsLoop) Stop() {
 		l.pool = nil
 		go func() {
 			p.Release()
-
 			log.Infof("antsLoop stopped [running:%d]", p.Running())
 		}()
 	}
@@ -122,7 +121,7 @@ func (l *antsLoop) submit(ctx context.Context, fn func()) {
 	defer l.mu.RUnlock()
 
 	if l.pool == nil || l.pool.IsClosed() {
-		l.triggerFallback(ctx, fn, "pool unavailable")
+		l.triggerFallback(ctx, fn, "nil or closed pool")
 		return
 	}
 
@@ -132,7 +131,7 @@ func (l *antsLoop) submit(ctx context.Context, fn func()) {
 }
 
 func (l *antsLoop) triggerFallback(ctx context.Context, fn func(), reason string) {
-	log.Warnf("Using fallback [reason:%s]", reason)
+	log.Warnf("Using fallback. reason:%s", reason)
 	l.fallback(ctx, fn)
 }
 

@@ -22,22 +22,22 @@ type ILoop interface {
 	PostAndWaitAny(job func() any) any
 }
 
-type taskBuffer struct {
+type Loop struct {
 	jobs    chan func()
 	toggle  chan byte
 	once    sync.Once
 	stopped atomic.Bool
 }
 
-// NewTaskBuffer 创建一个Loop队列，max为队列最大任务数量长度
-func NewTaskBuffer(jobsCnt int) ILoop {
-	return &taskBuffer{
+// NewLoop 创建一个Loop队列，max为队列最大任务数量长度
+func NewLoop(jobsCnt int) ILoop {
+	return &Loop{
 		jobs:   make(chan func(), jobsCnt),
 		toggle: make(chan byte),
 	}
 }
 
-func (lp *taskBuffer) Start() {
+func (lp *Loop) Start() {
 	log.Infof("loop start ..")
 	go func() {
 		defer ext.RecoverFromError(func() {
@@ -56,23 +56,23 @@ func (lp *taskBuffer) Start() {
 	}()
 }
 
-func (lp *taskBuffer) Stop() {
+func (lp *Loop) Stop() {
 	lp.once.Do(
 		func() { close(lp.toggle) },
 	)
 }
 
-func (lp *taskBuffer) Jobs() int {
+func (lp *Loop) Jobs() int {
 	return len(lp.jobs)
 }
 
-func (lp *taskBuffer) Post(job func()) {
+func (lp *Loop) Post(job func()) {
 	go func() {
 		lp.jobs <- job
 	}()
 }
 
-func (lp *taskBuffer) PostAndWait(job func() ([]byte, error)) ([]byte, error) {
+func (lp *Loop) PostAndWait(job func() ([]byte, error)) ([]byte, error) {
 	ch := make(chan []byte)
 	var err error
 	go func() {
@@ -86,7 +86,7 @@ func (lp *taskBuffer) PostAndWait(job func() ([]byte, error)) ([]byte, error) {
 	return rsp, err
 }
 
-func (lp *taskBuffer) PostAndWaitAny(job func() any) any {
+func (lp *Loop) PostAndWaitAny(job func() any) any {
 	ch := make(chan any)
 	go func() {
 		lp.jobs <- func() {
