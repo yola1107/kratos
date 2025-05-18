@@ -50,6 +50,7 @@ func main() {
 
 	//room.Init
 	room.Init()
+	defer room.Close()
 
 	if err := app.Run(); err != nil {
 		log.Fatal(err)

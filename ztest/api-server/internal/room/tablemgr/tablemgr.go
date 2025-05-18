@@ -26,12 +26,13 @@ func Init() {
 		tableMap[i] = tb
 		tableList[i-1] = tb
 	}
-	gtimer.Forever(nil, time.Second/2, onTimer)
+	gtimer.GetWorkStore().Forever(time.Second/2, onTimer)
 	log.Infof("tablemgr init. tables=%d chairs=%d", c.TableNum, c.ChairNum)
 	return
 }
 
 func onTimer() {
+	//log.Infof("onTimer")
 	if closed {
 		return
 	}

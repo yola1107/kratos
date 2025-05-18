@@ -1,53 +1,30 @@
 package gtimer
 
 import (
-	"time"
+	"context"
 
-	"github.com/yola1107/kratos/v2/library/task"
+	"github.com/yola1107/kratos/v2/library/work"
 )
 
 /*
-	全局定时器
+	全局定时器+任务池
 */
 
-func Once(loop *task.Loop, duration time.Duration, f func()) {
-	run(loop, duration, duration, false, f)
+var (
+	ws work.IWorkStore
+)
+
+func GetWorkStore() work.IWorkStore {
+	return ws
 }
 
-func Forever(loop *task.Loop, duration time.Duration, f func()) {
-	run(loop, duration, duration, true, f)
-}
-
-func ForeverNow(loop *task.Loop, duration time.Duration, f func()) {
-	if loop != nil {
-		loop.Post(f)
-	} else {
-		f()
+func Init() {
+	ws = work.NewWorkStore(context.Background(), 10000)
+	if err := ws.Start(); err != nil {
+		panic(err)
 	}
-	Forever(loop, duration, f)
 }
 
-func ForeverTime(loop *task.Loop, durFirst, durRepeat time.Duration, f func()) {
-	run(loop, durFirst, durRepeat, true, f)
-}
-
-func run(loop *task.Loop, durFirst, durRepeat time.Duration, repeated bool, f func()) {
-	go func() {
-		timer := time.NewTimer(durFirst)
-		defer timer.Stop()
-		for {
-			select {
-			case <-timer.C:
-				if loop != nil {
-					loop.Post(f)
-				} else {
-					f()
-				}
-				if !repeated {
-					return
-				}
-				timer.Reset(durRepeat)
-			}
-		}
-	}()
+func Close() {
+	ws.Stop()
 }
