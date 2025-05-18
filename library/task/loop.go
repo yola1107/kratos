@@ -35,7 +35,7 @@ func recoverFromError(cb func(e any)) {
 }
 
 // NewLoop 创建一个Loop队列，max为队列最大任务数量长度
-func NewLoop(jobsCnt int) ILoop {
+func NewLoop(jobsCnt int) *Loop {
 	return &Loop{
 		jobs:   make(chan func(), jobsCnt),
 		toggle: make(chan byte),

@@ -16,8 +16,8 @@ type asyncResult struct {
 	err  error
 }
 
-// IAntsLoop 协程池管理接口
-type IAntsLoop interface {
+// ITaskLoop 协程池管理接口
+type ITaskLoop interface {
 	Start() error
 	Stop()
 	Post(job func())
@@ -43,7 +43,7 @@ type antsLoop struct {
 }
 
 // NewAntsLoop 创建协程池实例
-func NewAntsLoop(size int, opts ...Option) IAntsLoop {
+func NewAntsLoop(size int, opts ...Option) ITaskLoop {
 	l := &antsLoop{
 		size: size,
 		fallback: func(ctx context.Context, fn func()) {
@@ -107,7 +107,7 @@ func (l *antsLoop) PostAndWaitCtx(ctx context.Context, job func() ([]byte, error
 	ch := make(chan *asyncResult, 1)
 
 	l.submit(ctx, func() {
-		defer recoverFromError(func(e any) {
+		defer RecoverFromError(func(e any) {
 			// 通过select确保panic信息能发送出去, 防止调用方一直阻塞等待接收job的返回结果
 			select {
 			case ch <- &asyncResult{nil, fmt.Errorf("panic: %v", e)}:
@@ -155,13 +155,13 @@ func (l *antsLoop) triggerFallback(ctx context.Context, fn func(), reason string
 }
 
 func safeRun(ctx context.Context, fn func()) {
-	defer recoverFromError(nil)
+	defer RecoverFromError(nil)
 	if ctx.Err() == nil {
 		fn()
 	}
 }
 
-func recoverFromError(cb func(e any)) {
+func RecoverFromError(cb func(e any)) {
 	if e := recover(); e != nil {
 		log.Errorf("Recover => %v:%s\n", e, debug.Stack())
 		if cb != nil {

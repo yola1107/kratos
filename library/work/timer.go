@@ -11,33 +11,33 @@ import (
 	定时器任务
 */
 
-type ILoopExecution interface {
-	Post(job func())
-}
-
 // ITaskScheduler 核心调度接口
 type ITaskScheduler interface {
 	Once(duration time.Duration, f func()) int64
 	Forever(interval time.Duration, f func()) int64
 	ForeverNow(interval time.Duration, f func()) int64
 	ForeverTime(durFirst, durRepeat time.Duration, f func()) int64
-	Stop(taskID int64)
-	StopAll()
+	Cancel(taskID int64)
+	CancelAll()
+}
+
+type ITaskExecutor interface {
+	Post(job func())
 }
 
 // TaskScheduler  定时器任务
 type taskScheduler struct {
 	seq   atomic.Int64    // 原子递增的任务ID计数器
 	tasks sync.Map        // 存储任务ID对应的停止通道 [int64]context.CancelFunc
-	loop  ILoopExecution  // 任务池执行器
+	loop  ITaskExecutor   // 任务池执行器
 	ctx   context.Context // 根上下文
 }
 
 // NewTaskScheduler 创建新定时器实例
-func NewTaskScheduler(loop ILoopExecution) ITaskScheduler {
+func NewTaskScheduler(loop ITaskExecutor, ctx context.Context) ITaskScheduler {
 	return &taskScheduler{
 		loop: loop,
-		ctx:  context.Background(), // 可传入外部Context
+		ctx:  ctx,
 	}
 }
 
@@ -62,8 +62,8 @@ func (t *taskScheduler) ForeverTime(durFirst, durRepeat time.Duration, f func())
 	return t.run(durFirst, durRepeat, true, f)
 }
 
-// Stop 停止指定ID的任务
-func (t *taskScheduler) Stop(taskID int64) {
+// Cancel 停止指定ID的任务
+func (t *taskScheduler) Cancel(taskID int64) {
 	if cancel, ok := t.tasks.LoadAndDelete(taskID); ok {
 		if cancelFn, ok := cancel.(context.CancelFunc); ok {
 			cancelFn() // 取消特定任务
@@ -71,8 +71,8 @@ func (t *taskScheduler) Stop(taskID int64) {
 	}
 }
 
-// StopAll 停止所有定时任务
-func (t *taskScheduler) StopAll() {
+// CancelAll 停止所有定时任务
+func (t *taskScheduler) CancelAll() {
 	t.tasks.Range(func(key, value any) bool {
 		if cancelFn, ok := value.(context.CancelFunc); ok {
 			cancelFn()
@@ -113,15 +113,15 @@ func (t *taskScheduler) run(durFirst, durRepeat time.Duration, repeated bool, f 
 	return taskID
 }
 
-func safeCall(loop ILoopExecution, f func()) {
+func safeCall(loop ITaskExecutor, f func()) {
 	if loop != nil {
 		loop.Post(func() {
-			defer recoverFromError(nil)
+			defer RecoverFromError(nil)
 			f()
 		})
 	} else {
 		go func() {
-			defer recoverFromError(nil)
+			defer RecoverFromError(nil)
 			f()
 		}()
 	}
