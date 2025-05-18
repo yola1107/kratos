@@ -2,12 +2,9 @@ package work
 
 import (
 	"context"
-	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/yola1107/kratos/v2/log"
 )
 
 /*
@@ -115,19 +112,19 @@ func (t *taskScheduler) run(durFirst, durRepeat time.Duration, repeated bool, f 
 func safeCall(loop ILoop, f func()) {
 	if loop != nil {
 		loop.Post(func() {
-			defer recoverFromError()
+			defer recoverFromError(nil)
 			f()
 		})
 	} else {
 		go func() {
-			defer recoverFromError()
+			defer recoverFromError(nil)
 			f()
 		}()
 	}
 }
 
-func recoverFromError() {
-	if e := recover(); e != nil {
-		log.Errorf("Recover => %s:%s\n", e, debug.Stack())
-	}
-}
+//func recoverFromError() {
+//	if e := recover(); e != nil {
+//		log.Errorf("Recover => %s:%s\n", e, debug.Stack())
+//	}
+//}

@@ -2,7 +2,6 @@ package work
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"runtime/debug"
 	"sync"
@@ -62,7 +61,8 @@ func (l *antsLoop) Start() error {
 	defer l.mu.Unlock()
 
 	if l.pool != nil {
-		return errors.New("pool already initialized")
+		log.Warnf("antsLoop already started.")
+		return nil //return errors.New("pool already initialized")
 	}
 
 	pool, err := ants.NewPool(l.size)
@@ -94,10 +94,9 @@ func (l *antsLoop) Post(job func()) {
 }
 
 func (l *antsLoop) PostCtx(ctx context.Context, job func()) {
-	if ctx.Err() != nil {
-		return
+	if ctx.Err() == nil {
+		l.submit(ctx, job)
 	}
-	l.submit(ctx, job)
 }
 
 func (l *antsLoop) PostAndWait(job func() ([]byte, error)) ([]byte, error) {
@@ -105,15 +104,35 @@ func (l *antsLoop) PostAndWait(job func() ([]byte, error)) ([]byte, error) {
 }
 
 func (l *antsLoop) PostAndWaitCtx(ctx context.Context, job func() ([]byte, error)) ([]byte, error) {
-	resultChan := make(chan *asyncResult, 1)
+	ch := make(chan *asyncResult, 1)
 
 	l.submit(ctx, func() {
-		defer recoverPanic(resultChan)
+		defer recoverFromError(func(e any) {
+			// 通过select确保panic信息能发送出去, 防止调用方一直阻塞等待接收job的返回结果
+			select {
+			case ch <- &asyncResult{nil, fmt.Errorf("panic: %v", e)}:
+			default:
+			}
+		})
 		data, err := job()
-		sendResult(ctx, resultChan, data, err)
+		select {
+		case ch <- &asyncResult{data, err}:
+		case <-ctx.Done():
+		}
 	})
 
-	return handleAsyncResult(ctx, resultChan)
+	select {
+	case res := <-ch:
+		return res.data, res.err
+	case <-ctx.Done():
+		select {
+		case res := <-ch:
+			return res.data, res.err
+		default:
+			// 确保job被取消的信息能发送出去, 防止调用方一直阻塞等待接收job的返回结果
+			return nil, fmt.Errorf("job canceled: %w", ctx.Err())
+		}
+	}
 }
 
 func (l *antsLoop) submit(ctx context.Context, fn func()) {
@@ -136,40 +155,17 @@ func (l *antsLoop) triggerFallback(ctx context.Context, fn func(), reason string
 }
 
 func safeRun(ctx context.Context, fn func()) {
-	defer func() {
-		if r := recover(); r != nil {
-			log.Errorf("recovered panic: %v\n%s", r, debug.Stack())
-		}
-	}()
+	defer recoverFromError(nil)
 	if ctx.Err() == nil {
 		fn()
 	}
 }
 
-func recoverPanic(ch chan<- *asyncResult) {
-	if r := recover(); r != nil {
-		ch <- &asyncResult{nil, fmt.Errorf("panic: %v", r)}
-	}
-}
-
-func sendResult(ctx context.Context, ch chan<- *asyncResult, data []byte, err error) {
-	res := &asyncResult{data, err}
-	select {
-	case ch <- res:
-	case <-ctx.Done():
-	}
-}
-
-func handleAsyncResult(ctx context.Context, ch <-chan *asyncResult) ([]byte, error) {
-	select {
-	case res := <-ch:
-		return res.data, res.err
-	case <-ctx.Done():
-		select {
-		case res := <-ch:
-			return res.data, res.err
-		default:
-			return nil, fmt.Errorf("operation canceled: %w", ctx.Err())
+func recoverFromError(cb func(e any)) {
+	if e := recover(); e != nil {
+		log.Errorf("Recover => %v:%s\n", e, debug.Stack())
+		if cb != nil {
+			cb(e)
 		}
 	}
 }

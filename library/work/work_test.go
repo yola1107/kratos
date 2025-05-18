@@ -98,6 +98,11 @@ func TestAntsLoop(t *testing.T) {
 	require.NoError(t, err)
 	defer l.Stop()
 
+	t.Run("start more times", func(t *testing.T) {
+		err = l.Start()
+		require.NoError(t, err)
+	})
+
 	t.Run("Post simple task", func(t *testing.T) {
 		done := make(chan struct{})
 		l.Post(func() {
