@@ -122,9 +122,3 @@ func safeCall(loop ILoop, f func()) {
 		}()
 	}
 }
-
-//func recoverFromError() {
-//	if e := recover(); e != nil {
-//		log.Errorf("Recover => %s:%s\n", e, debug.Stack())
-//	}
-//}

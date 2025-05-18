@@ -4,7 +4,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/log"
 )
 
@@ -40,7 +39,7 @@ func NewLoop(jobsCnt int) ILoop {
 func (lp *Loop) Start() {
 	log.Infof("loop start ..")
 	go func() {
-		defer ext.RecoverFromError(func() {
+		defer recoverFromError(func(e any) {
 			lp.Start()
 		})
 		for {
