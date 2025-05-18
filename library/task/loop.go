@@ -2,27 +2,26 @@ package task
 
 import (
 	"runtime/debug"
+	"sync/atomic"
 
 	"github.com/yola1107/kratos/v2/log"
 )
 
 /*
 	任务池 job pool
-	注意: 当调用PostAndWait/PostAndWaitAny时,job内部如果发生panic,调用方会拿不到job返回的结果而一直阻塞等待
+	注意: 当调用PostAndWait/PostAndWaitAny时, job内部如果发生panic,调用方会拿不到job返回的结果而一直阻塞等待
 */
 
 type ILoop interface {
-	Start()
-	Stop()
-	Jobs() int
-	Post(job func())
-	PostAndWait(job func() ([]byte, error)) ([]byte, error)
+	Post(job func())                                        //入列一个命令job，无需等待结果
+	PostAndWait(job func() ([]byte, error)) ([]byte, error) //入列一个命令job，需实现为同步
 	PostAndWaitAny(job func() any) any
 }
 
 type Loop struct {
 	jobs   chan func()
 	toggle chan byte
+	status int32 //0表示已关闭，1表示已开启
 }
 
 func recoverFromError(cb func(e any)) {
@@ -43,7 +42,11 @@ func NewLoop(jobsCnt int) *Loop {
 }
 
 func (lp *Loop) Start() {
-	log.Infof("loop start ..")
+	if !atomic.CompareAndSwapInt32(&lp.status, 0, 1) {
+		log.Infof("loop routine is started.")
+		return
+	}
+	log.Infof("loop routine start.")
 	go func() {
 		defer recoverFromError(func(e any) {
 			lp.Start()
@@ -51,8 +54,8 @@ func (lp *Loop) Start() {
 		for {
 			select {
 			case <-lp.toggle:
-
 				log.Infof("loop routine stop. Remaining(%d)", lp.Jobs())
+				atomic.StoreInt32(&lp.status, 0)
 				return
 			case job := <-lp.jobs:
 				job()
@@ -60,9 +63,11 @@ func (lp *Loop) Start() {
 		}
 	}()
 }
-
 func (lp *Loop) Stop() {
-	close(lp.toggle)
+	if atomic.LoadInt32(&lp.status) == 0 {
+		return
+	}
+	lp.toggle <- 1
 }
 
 func (lp *Loop) Jobs() int {

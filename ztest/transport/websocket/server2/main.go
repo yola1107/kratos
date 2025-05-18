@@ -2,16 +2,18 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/yola1107/kratos/v2"
 	"github.com/yola1107/kratos/v2/library/log/zap"
+	"github.com/yola1107/kratos/v2/library/work"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/middleware/recovery"
 	"github.com/yola1107/kratos/v2/transport/grpc"
 	"github.com/yola1107/kratos/v2/transport/http"
 	"github.com/yola1107/kratos/v2/transport/websocket"
-	v2 "github.com/yola1107/kratos/v2/ztest/transport/api/helloworld/v1"
+	v1 "github.com/yola1107/kratos/v2/ztest/transport/api/helloworld/v1"
 	//"github.com/yola1107/kratos/contrib/log/zap/v2"
 	//"github.com/yola1107/kratos/contrib/registry/etcd/v2"
 	//etcdv3 "go.etcd.io/etcd/client/v3"
@@ -19,11 +21,12 @@ import (
 
 // go build -ldflags "-X main.Version=x.y.z"
 var (
-	Name = "ws-server"
+	Name   = "ws-server"
+	wsLoop work.ITaskLoop
 )
 
 type server struct {
-	v2.UnimplementedGreeterServer
+	v1.UnimplementedGreeterServer
 
 	sessionsMap sync.Map
 }
@@ -31,22 +34,33 @@ type server struct {
 func (s *server) IsLoopFunc(f string) bool {
 	return false
 }
-func (s *server) SayHelloReq(ctx context.Context, in *v2.HelloRequest) (*v2.HelloReply, error) {
-	return &v2.HelloReply{Message: in.Name}, nil
+
+func (s *server) GetLoop() work.ITaskLoop {
+	return wsLoop
 }
 
-func (s *server) SayHello2Req(ctx context.Context, in *v2.Hello2Request) (*v2.Hello2Reply, error) {
+func (s *server) SayHelloReq(ctx context.Context, in *v1.HelloRequest) (*v1.HelloReply, error) {
+	return &v1.HelloReply{Message: in.Name}, nil
+}
+
+func (s *server) SayHello2Req(ctx context.Context, in *v1.Hello2Request) (*v1.Hello2Reply, error) {
 	session := ctx.Value("session")
 	if session != nil {
-		v2.GetLoop().Post(func() {
+		s.GetLoop().Post(func() {
 			ss := session.(*websocket.Session)
-			err := ss.Push(2, &v2.Hello2Reply{Message: "server push."})
-			if err != nil {
+			// push未定义的 cmd
+			if err := ss.Push(9876, &v1.Hello2Reply{Message: "from server push."}); err != nil {
+				log.Infof("push err:%v", err)
+			}
+
+			//
+			resp := &v1.Hello2Reply{Message: fmt.Sprintf("from server push. %s", in.Name)}
+			if err := ss.Push(int32(v1.GameCommand_SayHello2Rsp), resp); err != nil {
 				log.Infof("push err:%v", err)
 			}
 		})
 	}
-	return &v2.Hello2Reply{}, nil
+	return &v1.Hello2Reply{Message: fmt.Sprintf("ws server say hello.")}, nil
 }
 
 // OnOpenFunc 连接建立回调
@@ -98,9 +112,9 @@ func main() {
 		websocket.OnCloseFunc(s.OnCloseFunc),
 	)
 
-	v2.RegisterGreeterServer(grpcSrv, s)
-	v2.RegisterGreeterHTTPServer(httpSrv, s)
-	v2.RegisterGreeterWebsocketServer(wsSrv, s)
+	v1.RegisterGreeterServer(grpcSrv, s)
+	v1.RegisterGreeterHTTPServer(httpSrv, s)
+	v1.RegisterGreeterWebsocketServer(wsSrv, s)
 
 	app := kratos.New(
 		kratos.Name(Name),
@@ -113,6 +127,12 @@ func main() {
 		//kratos.Registrar(etcd.New(etcdClient)), // 注册中心 ETCD
 	)
 
+	wsLoop = work.NewAntsLoop(10000)
+	if err := wsLoop.Start(); err != nil {
+		panic(err)
+	}
+	defer wsLoop.Stop()
+
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
@@ -121,9 +141,16 @@ func main() {
 func loadLogger() *zap.Logger {
 	zapLogger, err := zap.NewLogger(
 		//zap.WithProduction(),
+		zap.WithLevel("debug"),
 		zap.WithDirectory("./logs"),
 		zap.WithFilename(Name+".log"),
 		zap.WithErrorFilename(Name+"_error.log"),
+		zap.WithMaxSizeMB(10),  //10M
+		zap.WithMaxAgeDays(10), //1天
+		zap.WithMaxBackups(10),
+		zap.WithCompress(true),
+		zap.WithLocalTime(true),
+		zap.WithSensitiveKeys([]string{"pwd", "password"}),
 		zap.WithPrefix(Name),
 		//zap.WithToken(os.Getenv("TG_TOKEN")),
 		//zap.WithChatID(os.Getenv("TG_CHAT_ID")),

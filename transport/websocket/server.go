@@ -19,7 +19,6 @@ import (
 	"github.com/yola1107/kratos/v2/internal/endpoint"
 	"github.com/yola1107/kratos/v2/internal/host"
 	"github.com/yola1107/kratos/v2/internal/matcher"
-	"github.com/yola1107/kratos/v2/library/task"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/middleware"
 	"github.com/yola1107/kratos/v2/transport"
@@ -64,9 +63,6 @@ func HeartDeadline(d time.Duration) ServerOption {
 func HeartThreshold(d time.Duration) ServerOption {
 	return func(s *Server) { s.opts.heartbeat.threshold = d }
 }
-func JobsChanSize(jobsChanSize int) ServerOption {
-	return func(s *Server) { s.opts.limits.jobsChanSize = jobsChanSize }
-}
 func OnOpenFunc(f func(*Session)) ServerOption {
 	return func(s *Server) { s.OnOpenFunc = f }
 }
@@ -97,7 +93,6 @@ type heartbeat struct {
 	threshold time.Duration
 }
 type limits struct {
-	jobsChanSize   int
 	maxConnections int32
 	maxMessageSize int64
 	rateLimit      int
@@ -115,7 +110,6 @@ type Server struct {
 	sessionMgr   *SessionManager          // 会话管理
 	handlers     []UnaryServerInterceptor // 拦截器链
 	m            *service                 // 注册的服务
-	loop         *task.Loop               // 任务处理池
 	register     chan *Session            // 注册通道
 	unregister   chan *Session            // 注销通道
 	OnOpenFunc   func(*Session)           // 连接建立回调
@@ -143,7 +137,6 @@ func NewServer(opts ...ServerOption) *Server {
 				threshold: 30 * time.Second,
 			},
 			limits: &limits{
-				jobsChanSize:   10000,
 				maxConnections: 100000,
 				maxMessageSize: 10 * 1024 * 1024, // 10MB
 				rateLimit:      1000,             // 每秒消息数,
@@ -167,9 +160,6 @@ func NewServer(opts ...ServerOption) *Server {
 		o(s)
 	}
 
-	s.loop = task.NewLoop(s.opts.limits.jobsChanSize)
-	s.loop.Start()
-
 	s.Use(s.recovery())
 	return s
 }
@@ -191,10 +181,6 @@ func (s *Server) Endpoint() (*url.URL, error) {
 		return nil, err
 	}
 	return s.opts.endpoint, nil
-}
-
-func (s *Server) GetLoop() *task.Loop {
-	return s.loop
 }
 
 func (s *Server) listenAndEndpoint() error {
@@ -341,9 +327,6 @@ func (s *Server) Stop(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
-
-	// 4. 关闭任务循环
-	s.loop.Stop()
 
 	log.Info("[webSocket] server stopping")
 	return nil

@@ -50,9 +50,15 @@ message HelloReply {
 // The request message containing the user's name.
 message Hello2Request {
     string name = 1;
+    int32 seq   = 2;
 }
 
 // The response message containing the greetings
 message Hello2Reply {
     string message = 1;
+}
+
+message Hello3Request {
+    int32 age       = 1;
+    string nameTest = 2;
 }

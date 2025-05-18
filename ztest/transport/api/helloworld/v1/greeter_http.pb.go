@@ -7,10 +7,9 @@
 package v1
 
 import (
-	"context"
-
-	"github.com/yola1107/kratos/v2/transport/http"
-	"github.com/yola1107/kratos/v2/transport/http/binding"
+	context "context"
+	http "github.com/yola1107/kratos/v2/transport/http"
+	binding "github.com/yola1107/kratos/v2/transport/http/binding"
 )
 
 // This is a compile-time assertion to ensure that this generated file

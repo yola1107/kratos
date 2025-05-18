@@ -7,13 +7,12 @@
 package v1
 
 import (
-	"reflect"
-	"sync"
-	"unsafe"
-
 	_ "google.golang.org/genproto/googleapis/api/annotations"
-	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/runtime/protoimpl"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	reflect "reflect"
+	sync "sync"
+	unsafe "unsafe"
 )
 
 const (
@@ -178,6 +177,7 @@ func (x *HelloReply) GetMessage() string {
 type Hello2Request struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Seq           int32                  `protobuf:"varint,2,opt,name=seq,proto3" json:"seq,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -217,6 +217,13 @@ func (x *Hello2Request) GetName() string {
 		return x.Name
 	}
 	return ""
+}
+
+func (x *Hello2Request) GetSeq() int32 {
+	if x != nil {
+		return x.Seq
+	}
+	return 0
 }
 
 // The response message containing the greetings
@@ -264,6 +271,58 @@ func (x *Hello2Reply) GetMessage() string {
 	return ""
 }
 
+type Hello3Request struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Age           int32                  `protobuf:"varint,1,opt,name=age,proto3" json:"age,omitempty"`
+	NameTest      string                 `protobuf:"bytes,2,opt,name=nameTest,proto3" json:"nameTest,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Hello3Request) Reset() {
+	*x = Hello3Request{}
+	mi := &file_helloworld_v1_greeter_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Hello3Request) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Hello3Request) ProtoMessage() {}
+
+func (x *Hello3Request) ProtoReflect() protoreflect.Message {
+	mi := &file_helloworld_v1_greeter_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Hello3Request.ProtoReflect.Descriptor instead.
+func (*Hello3Request) Descriptor() ([]byte, []int) {
+	return file_helloworld_v1_greeter_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *Hello3Request) GetAge() int32 {
+	if x != nil {
+		return x.Age
+	}
+	return 0
+}
+
+func (x *Hello3Request) GetNameTest() string {
+	if x != nil {
+		return x.NameTest
+	}
+	return ""
+}
+
 var File_helloworld_v1_greeter_proto protoreflect.FileDescriptor
 
 const file_helloworld_v1_greeter_proto_rawDesc = "" +
@@ -273,11 +332,15 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"&\n" +
 	"\n" +
 	"HelloReply\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\"#\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"5\n" +
 	"\rHello2Request\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\"'\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n" +
+	"\x03seq\x18\x02 \x01(\x05R\x03seq\"'\n" +
 	"\vHello2Reply\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage*\x7f\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"=\n" +
+	"\rHello3Request\x12\x10\n" +
+	"\x03age\x18\x01 \x01(\x05R\x03age\x12\x1a\n" +
+	"\bnameTest\x18\x02 \x01(\tR\bnameTest*\x7f\n" +
 	"\vGameCommand\x12\v\n" +
 	"\aNothing\x10\x00\x12\b\n" +
 	"\x04Ping\x10\x01\x12\x0f\n" +
@@ -304,13 +367,14 @@ func file_helloworld_v1_greeter_proto_rawDescGZIP() []byte {
 }
 
 var file_helloworld_v1_greeter_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_helloworld_v1_greeter_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_helloworld_v1_greeter_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_helloworld_v1_greeter_proto_goTypes = []any{
 	(GameCommand)(0),      // 0: helloworld.v1.GameCommand
 	(*HelloRequest)(nil),  // 1: helloworld.v1.HelloRequest
 	(*HelloReply)(nil),    // 2: helloworld.v1.HelloReply
 	(*Hello2Request)(nil), // 3: helloworld.v1.Hello2Request
 	(*Hello2Reply)(nil),   // 4: helloworld.v1.Hello2Reply
+	(*Hello3Request)(nil), // 5: helloworld.v1.Hello3Request
 }
 var file_helloworld_v1_greeter_proto_depIdxs = []int32{
 	1, // 0: helloworld.v1.Greeter.SayHelloReq:input_type -> helloworld.v1.HelloRequest
@@ -335,7 +399,7 @@ func file_helloworld_v1_greeter_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_helloworld_v1_greeter_proto_rawDesc), len(file_helloworld_v1_greeter_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   4,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

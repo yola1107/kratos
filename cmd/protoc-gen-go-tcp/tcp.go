@@ -65,8 +65,8 @@ func generateImports(gen *protogen.Plugin, file *protogen.File, g *protogen.Gene
 
 func generateLoop(g *protogen.GeneratedFile) {
 	g.P()
-	g.P(`var tcpLoopIns *task.Loop`)
-	g.P(`func GetLoopTcp() *task.Loop { return tcpLoopIns }`)
+	//g.P(`var tcpLoopIns *task.Loop`)
+	//g.P(`func GetLoopTcp() *task.Loop { return tcpLoopIns }`)
 	//g.P(`type Loop struct {`)
 	//g.P(`jobs   chan func()`)
 	//g.P(`toggle chan byte}`)
@@ -141,8 +141,8 @@ func genService(gen *protogen.Plugin, file *protogen.File, g *protogen.Generated
 	//g.P("	s.RegisterService(&", serviceName, "_TCP_ServiceDesc, srv)")
 	g.P(`	chanList := s.RegisterService(&`, serviceDescVar, `, srv)`)
 	g.P("	srv.SetCometChan(chanList, s)")
-	g.P(`	tcpLoopIns = task.NewLoop(10000)`)
-	g.P(`	tcpLoopIns.Start()`)
+	//g.P(`	tcpLoopIns = task.NewLoop(10000)`)
+	//g.P(`	tcpLoopIns.Start()`)
 	//g.P(`	ins = &Loop{ jobs:   make(chan func(), 10000), toggle: make(chan byte),}`)
 	//g.P("	ins.Start()")
 
@@ -213,6 +213,7 @@ func generateTCPInterface(gen *protogen.Plugin, file *protogen.File, g *protogen
 	g.P("// " + serviceName + "TcpServer is the server API for " + serviceName + " service.")
 
 	g.P("type ", serviceName, "TCPServer interface {")
+	g.P(`GetTCPLoop() task.ILoop`)
 	g.P(`SetCometChan(cl *tcp.ChanList, cs *tcp.Server)`)
 	g.P(`IsLoopFunc(f string) (isLoop bool)`)
 	for _, method := range service.Methods {
@@ -289,7 +290,7 @@ func generateServerMethod(g *protogen.GeneratedFile, servName, fullServName stri
 	g.P(`		if srv.(`, servName, `TCPServer).IsLoopFunc("`, methName, `") {`)
 	g.P(`			rspChan := make(chan *`, outputType, `)`)
 	g.P(`			errChan := make(chan error)`)
-	g.P(`			tcpLoopIns.Post(func() {`)
+	g.P(`			srv.(`, servName, `TCPServer).GetTCPLoop().Post(func() {`)
 	g.P(`				resp, err := srv.(`, servName, `TCPServer).`, methName, `(ctx, req.(*`, inputType, `))`)
 	g.P(`				rspChan <- resp`)
 	g.P(`				errChan <- err`)

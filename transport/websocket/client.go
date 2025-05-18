@@ -403,7 +403,7 @@ func (c *Client) handleMessage(data []byte) error {
 		if handler, ok := c.opts.responseHandler[p.Op]; ok {
 			safeCall(func() { handler(p.Body, p.Code) })
 		} else {
-			log.Warnf("Unkonwn Ops(%+v). response", p.Type)
+			log.Warnf("handle func is not exist with resp Ops(%+v)", p.Op)
 		}
 
 	case int32(proto.Push):
@@ -414,7 +414,7 @@ func (c *Client) handleMessage(data []byte) error {
 		if handler, ok := c.opts.pushHandler[body.Ops]; ok {
 			safeCall(func() { handler(body.Data) })
 		} else {
-			log.Warnf("Unkonwn Ops(%+v). push", body.Ops)
+			log.Warnf("handle func is not exist with push Ops(%+v)", body.Ops)
 		}
 
 	case int32(proto.Ping):

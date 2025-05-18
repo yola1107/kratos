@@ -51,14 +51,11 @@ func generateImports(gen *protogen.Plugin, file *protogen.File, g *protogen.Gene
 
 	g.P(`import (`)
 	g.P(`	"context"`)
-	//g.P(`	"runtime/debug"`)
+	g.P(`	"fmt"`)
 	g.P()
-	//g.P(`	"github.com/yola1107/kratos/v2/log"`)
-	//g.P(`	"github.com/yola1107/kratos/v2/library/task"`)
 	g.P(`	"github.com/yola1107/kratos/v2/library/work"`)
 	g.P(`	"github.com/yola1107/kratos/v2/transport/websocket"`)
 	g.P()
-	//google.golang.org/protobuf/proto
 	g.P(`	"google.golang.org/protobuf/proto"`)
 	g.P(`)`)
 	g.P()
@@ -66,58 +63,6 @@ func generateImports(gen *protogen.Plugin, file *protogen.File, g *protogen.Gene
 
 func generateLoop(g *protogen.GeneratedFile) {
 	g.P()
-	//g.P(`var websocketLoopIns *task.Loop`)
-	//g.P(`func GetLoop() *task.Loop { return websocketLoopIns }`)
-	//g.P(`func setLoop(lp *task.Loop) { websocketLoopIns = lp }`)
-	//g.P(`type Loop struct {`)
-	//g.P(`jobs   chan func()`)
-	//g.P(`toggle chan byte}`)
-	//
-	//g.P(`func RecoverFromError(cb func()) {`)
-	//g.P(`if e := recover(); e != nil {`)
-	//g.P(`log.Error("Recover => %s:%s\n", e, debug.Stack())`)
-	//g.P(`if cb != nil {`)
-	//g.P(`cb()`)
-	//g.P(`}}}`)
-	//
-	//g.P(`func (lp *Loop) Start() { `)
-	//g.P(`log.Info("loop routine start.")`)
-	//g.P(`go func() {`)
-	//g.P(`defer RecoverFromError(func() {`)
-	//g.P(`lp.Start() })`)
-	//g.P(`for {`)
-	//g.P(`select {`)
-	//g.P(`case <-lp.toggle:`)
-	//g.P(`log.Info("Loop routine stop.")`)
-	//g.P(`return`)
-	//g.P(`case job := <-lp.jobs:job()}`)
-	//g.P(`}}()}`)
-	//
-	//g.P(`func (lp *Loop) Stop() {`)
-	//g.P(`go func() {`)
-	//g.P(`lp.toggle <- 1`)
-	//g.P(`}()}`)
-	//g.P(`func Stop() { websocketLoopIns.Stop() }`)
-	//
-	//g.P(`func (lp *Loop) Jobs() int {`)
-	//g.P(`return len(lp.jobs)`)
-	//g.P(`}`)
-	//g.P(`func Jobs() int { return websocketLoopIns.Jobs() }`)
-	//
-	//g.P(`func (lp *Loop) Post(job func()) {`)
-	//g.P(`go func() {`)
-	//g.P(`lp.jobs <- job`)
-	//g.P(`}()}`)
-	//g.P(`func Post(job func()) { websocketLoopIns.Post(job) }`)
-	//
-	//g.P(`func (lp *Loop) PostAndWait(job func() interface{}) interface{} {`)
-	//g.P(`ch := make(chan interface{})`)
-	//g.P(`go func() {`)
-	//g.P(`lp.jobs <- func() {`)
-	//g.P(`ch <- job()`)
-	//g.P(`}}()`)
-	//g.P(`return <-ch}`)
-	//g.P(`func PostAndWait(job func() interface{}) interface{} { return websocketLoopIns.PostAndWait(job) }`)
 	g.P()
 }
 
@@ -140,24 +85,9 @@ func genService(gen *protogen.Plugin, file *protogen.File, g *protogen.Generated
 
 	// 生成 websocket 服务器注册代码 RegisterGreeterWebsocketServer
 	g.P("func Register", serviceName, "WebsocketServer(s *websocket.Server, srv ", serviceName, "WebsocketServer) {")
-	//g.P("	s.RegisterService(&", serviceName, "_Websocket_ServiceDesc, srv)")
-	//g.P(`	setLoop(s.GetLoop())`)
-	//g.P(`	websocketLoopIns = s.GetLoop()`)
 	g.P(`	s.RegisterService(&`, serviceDescVar, `, srv)`)
-	//g.P(`	chanList := s.RegisterService(&`, serviceDescVar, `, srv)`)
-	//g.P("	srv.SetCometChan(chanList, s)")
-	//g.P(`	ins = &Loop{ jobs:   make(chan func(), 10000), toggle: make(chan byte),}`)
-	//g.P("	websocketLoopIns.Start()")
 	g.P("}")
 	g.P()
-	// 生成 Websocket 服务器处理函数 和 请求code
-	//handlerNames, gameCommand := generateServerMethods(gen, file, g, service, serviceDescVar)
-	//// 生成 Websocket 服务器处理函数
-	//for _, method := range service.Methods {
-	//	g.P("func _", serviceName, "_", method.GoName, "0_TCP", "_Handler(srv interface{}", "TCPServer, ctx context.Context, req *", method.Input.GoIdent, ") (*", method.Output.GoIdent, ", error) {")
-	//	g.P("return srv.", method.GoName, "(ctx, req)")
-	//	g.P("}")
-	//}
 
 	// 生成 Websocket 服务器处理函数
 	var handlerNames []string
@@ -179,7 +109,6 @@ func genService(gen *protogen.Plugin, file *protogen.File, g *protogen.Generated
 	}
 
 	// 生成Service descriptor
-	//g.P(`var `, serviceName, `_TCP_ServiceDesc`, ` = websocket.ServiceDesc{`)
 	g.P(`var `, serviceDescVar, ` = websocket.ServiceDesc{`)
 	g.P(`	ServiceName: `, strconv.Quote(fullServName), `,`)
 	g.P(`	HandlerType: (*`, serviceName, `WebsocketServer)(nil),`)
@@ -201,29 +130,12 @@ func genService(gen *protogen.Plugin, file *protogen.File, g *protogen.Generated
 //			SayHello2(context.Context, *Hello2Request) (*Hello2Reply, error)
 //		}
 func generateWebsocketInterface(gen *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile, service *protogen.Service) int {
-
-	//// 生成 websocket 服务器接口
-	//g.P("type ", serviceName, "TCPServer interface {")
-	//for _, method := range service.Methods {
-	//	g.P("	", method.GoName, "(context.Context, *", method.Input.GoIdent, ") (*", method.Output.GoIdent, ", error)")
-	//}
-	//g.P("}")
-
 	count := 0
 	serviceName := service.GoName
 	g.P("// " + serviceName + "WebsocketServer is the server API for " + serviceName + " service.")
-
 	g.P("type ", serviceName, "WebsocketServer interface {")
-	//g.P(`SetCometChan(cl *websocket.ChanList, cs *websocket.Server)`)
-	g.P(`GetLoop() work.ILoop`)
-	g.P(`IsLoopFunc(f string) (isLoop bool)`)
+	g.P(`GetLoop() work.ITaskLoop`)
 	for _, method := range service.Methods {
-		//if !t.ShouldGenForMethod(file, service, method) {
-		//	continue
-		//}
-		//count++
-		//t.generateInterfaceMethod(file, service, method, comments)
-		//g.P()
 		if method.Desc.IsStreamingClient() || method.Desc.IsStreamingServer() {
 			continue
 		}
@@ -234,35 +146,6 @@ func generateWebsocketInterface(gen *protogen.Plugin, file *protogen.File, g *pr
 	g.P()
 	return count
 }
-
-//func generateServerMethods(gen *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile, service *protogen.Service, serviceName string) ([]string, map[string]string) {
-//	//// 生成 TCP 服务器处理函数
-//	//for _, method := range service.Methods {
-//	//	g.P("func _", serviceName, "_", method.GoName, "0_TCP", "_Handler(srv interface{}", "TCPServer, ctx context.Context, req *", method.Input.GoIdent, ") (*", method.Output.GoIdent, ", error) {")
-//	//	g.P("return srv.", method.GoName, "(ctx, req)")
-//	//	g.P("}")
-//	//}
-//
-//	// 生成 TCP 服务器处理函数
-//	var handlerNames []string
-//	for _, method := range service.Methods {
-//		hname := generateServerMethod(g, serviceName, method)
-//		handlerNames = append(handlerNames, hname)
-//	}
-//
-//	// 生成 TCP 服务器处理函数的Ops (请求协议code)
-//	gameCommand := make(map[string]string)
-//	for _, enum := range file.Enums {
-//		if enum.Desc.Name() != "GameCommand" {
-//			continue
-//		}
-//		for _, v := range enum.Values {
-//			// GameCommand,OnLoginReq,1001
-//			gameCommand[string(v.Desc.Name())] = fmt.Sprintf("%d", v.Desc.Number())
-//		}
-//	}
-//	return handlerNames, gameCommand
-//}
 
 // _Metadata_GetServiceDesc_Websocket_Handler
 func generateServerMethod2(g *protogen.GeneratedFile, servName, fullServName string, method *protogen.Method) string {
@@ -316,36 +199,48 @@ func generateServerMethod(g *protogen.GeneratedFile, servName, fullServName stri
 	methName := method.GoName
 	hname := fmt.Sprintf("_%s_%s_Websocket_Handler", servName, methName)
 	inputType := method.Input.Desc.Name()
-	//outputType := method.Output.Desc.Name()
+
 	g.P(`func `, hname, `(srv interface{}, ctx context.Context, data []byte, interceptor websocket.UnaryServerInterceptor) ([]byte, error) {`)
 	g.P(`	in := new(`, inputType, `)`)
 	g.P(`	if err := proto.Unmarshal(data, in); err != nil {`)
 	g.P(`		return nil, err`)
 	g.P(`	}`)
-	g.P(`	loop := srv.(`, servName, `WebsocketServer).GetLoop()`)
-	g.P(`	job := func() ([]byte, error) {`)
-	g.P(`		out, err := srv.(`, servName, `WebsocketServer).`, methName, `(ctx, in)`)
-	g.P(`		if out !=nil {`)
-	g.P(`			data, _ := proto.Marshal(out)`)
-	g.P(`			return data, err`)
+
+	// 核心处理逻辑
+	g.P(`	doFunc := func(ctx context.Context) ([]byte, error) {`)
+	g.P(`		resp, err := srv.(`, servName, `WebsocketServer).`, methName, `(ctx, in)`)
+	g.P(`		if err != nil || resp == nil {`)
+	g.P(`			return nil, err`)
 	g.P(`		}`)
-	g.P(`		return nil, err`)
+	g.P(`		data, err := proto.Marshal(resp)`)
+	g.P(`		if err != nil {`)
+	g.P(`			return nil, err`)
+	g.P(`		}`)
+	g.P(`		return data, nil`)
 	g.P(`	}`)
-	g.P(`	doFunc := func() ([]byte, error) {`)
-	g.P(`		if loop == nil {`)
-	g.P(`			return job()`)
+
+	// 任务执行策略
+	g.P(`	execute := func(ctx context.Context) ([]byte, error) {`)
+	g.P(`		if loop := srv.(`, servName, `WebsocketServer).GetLoop(); loop != nil {`)
+	g.P(`			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) {`)
+	g.P(`				return doFunc(ctx)`)
+	g.P(`			})`)
 	g.P(`		}`)
-	g.P(`		return loop.PostAndWaitCtx(ctx, job)`)
+	g.P(`		return doFunc(ctx)`)
 	g.P(`	}`)
 	g.P(`	if interceptor == nil {`)
-	g.P(`			return doFunc()`)
+	g.P(`		return execute(ctx)`)
 	g.P(`	}`)
 	g.P(`	info := &websocket.UnaryServerInfo{`)
 	g.P(`		Server:     srv,`)
 	g.P(`		FullMethod: `, strconv.Quote(fmt.Sprintf("/%s/%s", fullServName, methName)), `,`)
 	g.P(`	}`)
 	g.P(`	handler := func(ctx context.Context, req interface{}) ([]byte, error) {`)
-	g.P(`		return doFunc()`)
+	g.P(`		typedReq, ok := req.(*`, inputType, `)`)
+	g.P(`		if !ok || !proto.Equal(typedReq, in) {`)
+	g.P(`			return nil, fmt.Errorf("Invalid Request Argument (`, inputType, `)")`)
+	g.P(`		}`)
+	g.P(`		return execute(ctx)`)
 	g.P(`	}`)
 	g.P(`	return interceptor(ctx, in, info, handler)`)
 	g.P(`}`)

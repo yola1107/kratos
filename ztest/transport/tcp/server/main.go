@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	gproto "github.com/golang/protobuf/proto"
+	"github.com/yola1107/kratos/v2/library/task"
 	"github.com/yola1107/kratos/v2/metadata"
 	v2 "github.com/yola1107/kratos/v2/ztest/transport/api/helloworld/v1"
 
@@ -19,11 +20,31 @@ import (
 
 // go build -ldflags "-X main.Version=x.y.z"
 var (
-	Name = "helloworld"
+	Name    = "helloworld"
+	tcpLoop *task.Loop
 )
 
 type server struct {
 	v2.UnimplementedGreeterServer
+}
+
+// var key string
+var session *tcp.ChanList
+
+func (s *server) SetCometChan(cl *tcp.ChanList, cs *tcp.Server) {
+	session = cl
+}
+
+func (s *server) IsLoopFunc(f string) (isLoop bool) {
+	m := map[string]bool{
+		"SayHelloReq":  true,
+		"SayHello2Req": true,
+	}
+	return m[f]
+}
+
+func (s *server) GetTCPLoop() task.ILoop {
+	return tcpLoop
 }
 
 func (s *server) SayHelloReq(ctx context.Context, in *v2.HelloRequest) (*v2.HelloReply, error) {
@@ -55,18 +76,11 @@ func (s *server) SayHello2Req(ctx context.Context, in *v2.Hello2Request) (*v2.He
 	return &v2.Hello2Reply{Message: "SayHello2Req. Hello " + in.Name}, nil
 }
 
-// var key string
-var session *tcp.ChanList
-
-func (s *server) SetCometChan(cl *tcp.ChanList, cs *tcp.Server) {
-	session = cl
-}
-
-func (s *server) IsLoopFunc(f string) (isLoop bool) {
-	return false
-}
-
 func main() {
+	tcpLoop = task.NewLoop(10000)
+	tcpLoop.Start()
+	defer tcpLoop.Stop()
+
 	s := &server{}
 	httpSrv := http.NewServer(
 		http.Address(":8000"),

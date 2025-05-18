@@ -10,26 +10,22 @@ package v1
 // is compatible with the kratos package it is being compiled against.
 import (
 	"context"
+	"fmt"
 
-	"github.com/yola1107/kratos/v2/library/task"
+	"github.com/yola1107/kratos/v2/library/work"
 	"github.com/yola1107/kratos/v2/transport/websocket"
 
 	"google.golang.org/protobuf/proto"
 )
 
-var websocketLoopIns *task.Loop
-
-func GetLoop() *task.Loop { return websocketLoopIns }
-
 // GreeterWebsocketServer is the server API for Greeter service.
 type GreeterWebsocketServer interface {
-	IsLoopFunc(f string) (isLoop bool)
+	GetLoop() work.ITaskLoop
 	SayHelloReq(context.Context, *HelloRequest) (*HelloReply, error)
 	SayHello2Req(context.Context, *Hello2Request) (*Hello2Reply, error)
 }
 
 func RegisterGreeterWebsocketServer(s *websocket.Server, srv GreeterWebsocketServer) {
-	websocketLoopIns = s.GetLoop()
 	s.RegisterService(&Greeter_Websocket_ServiceDesc, srv)
 }
 
@@ -38,36 +34,38 @@ func _Greeter_SayHelloReq_Websocket_Handler(srv interface{}, ctx context.Context
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
+	doFunc := func(ctx context.Context) ([]byte, error) {
+		resp, err := srv.(GreeterWebsocketServer).SayHelloReq(ctx, in)
+		if err != nil || resp == nil {
+			return nil, err
+		}
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
+		}
+		return data, nil
+	}
+	execute := func(ctx context.Context) ([]byte, error) {
+		if loop := srv.(GreeterWebsocketServer).GetLoop(); loop != nil {
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) {
+				return doFunc(ctx)
+			})
+		}
+		return doFunc(ctx)
+	}
 	if interceptor == nil {
-		out, err := srv.(GreeterWebsocketServer).SayHelloReq(ctx, in)
-		data, _ := proto.Marshal(out)
-		return data, err
+		return execute(ctx)
 	}
 	info := &websocket.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/helloworld.v1.Greeter/SayHelloReq",
 	}
 	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
-		out := new(HelloReply)
-		var err error
-		if srv.(GreeterWebsocketServer).IsLoopFunc("SayHelloReq") {
-			rspChan := make(chan *HelloReply)
-			errChan := make(chan error)
-			websocketLoopIns.Post(func() {
-				resp, err := srv.(GreeterWebsocketServer).SayHelloReq(ctx, req.(*HelloRequest))
-				rspChan <- resp
-				errChan <- err
-			})
-			out = <-rspChan
-			err = <-errChan
-		} else {
-			out, err = srv.(GreeterWebsocketServer).SayHelloReq(ctx, req.(*HelloRequest))
+		typedReq, ok := req.(*HelloRequest)
+		if !ok || !proto.Equal(typedReq, in) {
+			return nil, fmt.Errorf("Invalid Request Argument (HelloRequest)")
 		}
-		if out != nil {
-			data, _ := proto.Marshal(out)
-			return data, err
-		}
-		return nil, err
+		return execute(ctx)
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -77,36 +75,38 @@ func _Greeter_SayHello2Req_Websocket_Handler(srv interface{}, ctx context.Contex
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
+	doFunc := func(ctx context.Context) ([]byte, error) {
+		resp, err := srv.(GreeterWebsocketServer).SayHello2Req(ctx, in)
+		if err != nil || resp == nil {
+			return nil, err
+		}
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
+		}
+		return data, nil
+	}
+	execute := func(ctx context.Context) ([]byte, error) {
+		if loop := srv.(GreeterWebsocketServer).GetLoop(); loop != nil {
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) {
+				return doFunc(ctx)
+			})
+		}
+		return doFunc(ctx)
+	}
 	if interceptor == nil {
-		out, err := srv.(GreeterWebsocketServer).SayHello2Req(ctx, in)
-		data, _ := proto.Marshal(out)
-		return data, err
+		return execute(ctx)
 	}
 	info := &websocket.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/helloworld.v1.Greeter/SayHello2Req",
 	}
 	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
-		out := new(Hello2Reply)
-		var err error
-		if srv.(GreeterWebsocketServer).IsLoopFunc("SayHello2Req") {
-			rspChan := make(chan *Hello2Reply)
-			errChan := make(chan error)
-			websocketLoopIns.Post(func() {
-				resp, err := srv.(GreeterWebsocketServer).SayHello2Req(ctx, req.(*Hello2Request))
-				rspChan <- resp
-				errChan <- err
-			})
-			out = <-rspChan
-			err = <-errChan
-		} else {
-			out, err = srv.(GreeterWebsocketServer).SayHello2Req(ctx, req.(*Hello2Request))
+		typedReq, ok := req.(*Hello2Request)
+		if !ok || !proto.Equal(typedReq, in) {
+			return nil, fmt.Errorf("Invalid Request Argument (Hello2Request)")
 		}
-		if out != nil {
-			data, _ := proto.Marshal(out)
-			return data, err
-		}
-		return nil, err
+		return execute(ctx)
 	}
 	return interceptor(ctx, in, info, handler)
 }

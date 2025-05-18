@@ -17,12 +17,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-var tcpLoopIns *task.Loop
-
-func GetLoopTcp() *task.Loop { return tcpLoopIns }
-
 // GreeterTcpServer is the server API for Greeter service.
 type GreeterTCPServer interface {
+	GetTCPLoop() task.ILoop
 	SetCometChan(cl *tcp.ChanList, cs *tcp.Server)
 	IsLoopFunc(f string) (isLoop bool)
 	SayHelloReq(context.Context, *HelloRequest) (*HelloReply, error)
@@ -32,8 +29,6 @@ type GreeterTCPServer interface {
 func RegisterGreeterTCPServer(s *tcp.Server, srv GreeterTCPServer) {
 	chanList := s.RegisterService(&Greeter_TCP_ServiceDesc, srv)
 	srv.SetCometChan(chanList, s)
-	tcpLoopIns = task.NewLoop(10000)
-	tcpLoopIns.Start()
 }
 
 func _Greeter_SayHelloReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
@@ -56,7 +51,7 @@ func _Greeter_SayHelloReq_TCP_Handler(srv interface{}, ctx context.Context, data
 		if srv.(GreeterTCPServer).IsLoopFunc("SayHelloReq") {
 			rspChan := make(chan *HelloReply)
 			errChan := make(chan error)
-			tcpLoopIns.Post(func() {
+			srv.(GreeterTCPServer).GetTCPLoop().Post(func() {
 				resp, err := srv.(GreeterTCPServer).SayHelloReq(ctx, req.(*HelloRequest))
 				rspChan <- resp
 				errChan <- err
@@ -95,7 +90,7 @@ func _Greeter_SayHello2Req_TCP_Handler(srv interface{}, ctx context.Context, dat
 		if srv.(GreeterTCPServer).IsLoopFunc("SayHello2Req") {
 			rspChan := make(chan *Hello2Reply)
 			errChan := make(chan error)
-			tcpLoopIns.Post(func() {
+			srv.(GreeterTCPServer).GetTCPLoop().Post(func() {
 				resp, err := srv.(GreeterTCPServer).SayHello2Req(ctx, req.(*Hello2Request))
 				rspChan <- resp
 				errChan <- err

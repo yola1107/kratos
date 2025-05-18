@@ -82,10 +82,10 @@ func (l *antsLoop) Stop() {
 	if l.pool != nil {
 		p := l.pool
 		l.pool = nil
-		go func() {
-			p.Release()
-			log.Infof("antsLoop stopped [running:%d]", p.Running())
-		}()
+		//go func() {
+		p.Release()
+		log.Infof("antsLoop stopped [running:%d]", p.Running())
+		//}()
 	}
 }
 
@@ -140,7 +140,7 @@ func (l *antsLoop) submit(ctx context.Context, fn func()) {
 	defer l.mu.RUnlock()
 
 	if l.pool == nil || l.pool.IsClosed() {
-		l.triggerFallback(ctx, fn, "nil or closed pool")
+		l.triggerFallback(ctx, fn, "loop not started or loop is closed.")
 		return
 	}
 
@@ -150,7 +150,7 @@ func (l *antsLoop) submit(ctx context.Context, fn func()) {
 }
 
 func (l *antsLoop) triggerFallback(ctx context.Context, fn func(), reason string) {
-	log.Warnf("Using fallback. reason:%s", reason)
+	log.Warnf("ansloop fallback. reason=%s", reason)
 	l.fallback(ctx, fn)
 }
 
