@@ -128,8 +128,8 @@ func NewServer(opts ...ServerOption) *Server {
 				timeout:  time.Second * 5,
 				read:     30 * time.Second,
 				write:    15 * time.Second,
-				shutdown: 5 * time.Second,
-				dial:     2 * time.Second,
+				shutdown: 2 * time.Second,
+				dial:     1 * time.Second,
 			},
 			heartbeat: &heartbeat{
 				interval:  10 * time.Second,
@@ -139,8 +139,8 @@ func NewServer(opts ...ServerOption) *Server {
 			limits: &limits{
 				maxConnections: 100000,
 				maxMessageSize: 10 * 1024 * 1024, // 10MB
-				rateLimit:      1000,             // 每秒消息数,
-				burstLimit:     500,              // 突发消息数,
+				rateLimit:      100,              // 每秒消息数,
+				burstLimit:     50,               // 突发消息数,
 				sendChanSize:   256,
 			},
 		},
