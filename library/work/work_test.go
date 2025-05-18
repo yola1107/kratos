@@ -16,7 +16,7 @@ func init() {
 }
 
 //func TestLoop(t *testing.T) {
-//	l := NewTaskBuffer(2)
+//	l := NewLoop(2)
 //	l.Start()
 //
 //	t.Run("Post simple task", func(t *testing.T) {
