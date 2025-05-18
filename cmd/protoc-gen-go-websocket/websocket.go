@@ -54,7 +54,8 @@ func generateImports(gen *protogen.Plugin, file *protogen.File, g *protogen.Gene
 	//g.P(`	"runtime/debug"`)
 	g.P()
 	//g.P(`	"github.com/yola1107/kratos/v2/log"`)
-	g.P(`	"github.com/yola1107/kratos/v2/library/task"`)
+	//g.P(`	"github.com/yola1107/kratos/v2/library/task"`)
+	g.P(`	"github.com/yola1107/kratos/v2/library/work"`)
 	g.P(`	"github.com/yola1107/kratos/v2/transport/websocket"`)
 	g.P()
 	//google.golang.org/protobuf/proto
@@ -65,8 +66,8 @@ func generateImports(gen *protogen.Plugin, file *protogen.File, g *protogen.Gene
 
 func generateLoop(g *protogen.GeneratedFile) {
 	g.P()
-	g.P(`var websocketLoopIns *task.Loop`)
-	g.P(`func GetLoop() *task.Loop { return websocketLoopIns }`)
+	//g.P(`var websocketLoopIns *task.Loop`)
+	//g.P(`func GetLoop() *task.Loop { return websocketLoopIns }`)
 	//g.P(`func setLoop(lp *task.Loop) { websocketLoopIns = lp }`)
 	//g.P(`type Loop struct {`)
 	//g.P(`jobs   chan func()`)
@@ -141,7 +142,7 @@ func genService(gen *protogen.Plugin, file *protogen.File, g *protogen.Generated
 	g.P("func Register", serviceName, "WebsocketServer(s *websocket.Server, srv ", serviceName, "WebsocketServer) {")
 	//g.P("	s.RegisterService(&", serviceName, "_Websocket_ServiceDesc, srv)")
 	//g.P(`	setLoop(s.GetLoop())`)
-	g.P(`	websocketLoopIns = s.GetLoop()`)
+	//g.P(`	websocketLoopIns = s.GetLoop()`)
 	g.P(`	s.RegisterService(&`, serviceDescVar, `, srv)`)
 	//g.P(`	chanList := s.RegisterService(&`, serviceDescVar, `, srv)`)
 	//g.P("	srv.SetCometChan(chanList, s)")
@@ -214,6 +215,7 @@ func generateWebsocketInterface(gen *protogen.Plugin, file *protogen.File, g *pr
 
 	g.P("type ", serviceName, "WebsocketServer interface {")
 	//g.P(`SetCometChan(cl *websocket.ChanList, cs *websocket.Server)`)
+	g.P(`GetLoop() work.ILoop`)
 	g.P(`IsLoopFunc(f string) (isLoop bool)`)
 	for _, method := range service.Methods {
 		//if !t.ShouldGenForMethod(file, service, method) {
@@ -263,7 +265,7 @@ func generateWebsocketInterface(gen *protogen.Plugin, file *protogen.File, g *pr
 //}
 
 // _Metadata_GetServiceDesc_Websocket_Handler
-func generateServerMethod(g *protogen.GeneratedFile, servName, fullServName string, method *protogen.Method) string {
+func generateServerMethod2(g *protogen.GeneratedFile, servName, fullServName string, method *protogen.Method) string {
 	methName := method.GoName
 	hname := fmt.Sprintf("_%s_%s_Websocket_Handler", servName, methName)
 	inputType := method.Input.Desc.Name()
@@ -280,7 +282,6 @@ func generateServerMethod(g *protogen.GeneratedFile, servName, fullServName stri
 	g.P(`	}`)
 	g.P(`	info := &websocket.UnaryServerInfo{`)
 	g.P(`		Server:     srv,`)
-	//g.P(`		FullMethod: `, strconv.Quote(fmt.Sprintf("/%s/%s", hname, methName)), `,`)
 	g.P(`		FullMethod: `, strconv.Quote(fmt.Sprintf("/%s/%s", fullServName, methName)), `,`)
 	g.P(`	}`)
 	g.P(`	handler := func(ctx context.Context, req interface{}) ([]byte, error) {`)
@@ -289,7 +290,7 @@ func generateServerMethod(g *protogen.GeneratedFile, servName, fullServName stri
 	g.P(`		if srv.(`, servName, `WebsocketServer).IsLoopFunc("`, methName, `") {`)
 	g.P(`			rspChan := make(chan *`, outputType, `)`)
 	g.P(`			errChan := make(chan error)`)
-	g.P(`			websocketLoopIns.Post(func() {`)
+	g.P(`			srv.(`, servName, `WebsocketServer).GetLoop().Post(func() {`)
 	g.P(`				resp, err := srv.(`, servName, `WebsocketServer).`, methName, `(ctx, req.(*`, inputType, `))`)
 	g.P(`				rspChan <- resp`)
 	g.P(`				errChan <- err`)
@@ -304,6 +305,47 @@ func generateServerMethod(g *protogen.GeneratedFile, servName, fullServName stri
 	g.P(`			return data, err`)
 	g.P(`		}`)
 	g.P(`		return nil, err`)
+	g.P(`	}`)
+	g.P(`	return interceptor(ctx, in, info, handler)`)
+	g.P(`}`)
+	g.P()
+	return hname
+}
+
+func generateServerMethod(g *protogen.GeneratedFile, servName, fullServName string, method *protogen.Method) string {
+	methName := method.GoName
+	hname := fmt.Sprintf("_%s_%s_Websocket_Handler", servName, methName)
+	inputType := method.Input.Desc.Name()
+	//outputType := method.Output.Desc.Name()
+	g.P(`func `, hname, `(srv interface{}, ctx context.Context, data []byte, interceptor websocket.UnaryServerInterceptor) ([]byte, error) {`)
+	g.P(`	in := new(`, inputType, `)`)
+	g.P(`	if err := proto.Unmarshal(data, in); err != nil {`)
+	g.P(`		return nil, err`)
+	g.P(`	}`)
+	g.P(`	loop := srv.(`, servName, `WebsocketServer).GetLoop()`)
+	g.P(`	job := func() ([]byte, error) {`)
+	g.P(`		out, err := srv.(`, servName, `WebsocketServer).`, methName, `(ctx, in)`)
+	g.P(`		if out !=nil {`)
+	g.P(`			data, _ := proto.Marshal(out)`)
+	g.P(`			return data, err`)
+	g.P(`		}`)
+	g.P(`		return nil, err`)
+	g.P(`	}`)
+	g.P(`	doFunc := func() ([]byte, error) {`)
+	g.P(`		if loop == nil {`)
+	g.P(`			return job()`)
+	g.P(`		}`)
+	g.P(`		return loop.PostAndWaitCtx(ctx, job)`)
+	g.P(`	}`)
+	g.P(`	if interceptor == nil {`)
+	g.P(`			return doFunc()`)
+	g.P(`	}`)
+	g.P(`	info := &websocket.UnaryServerInfo{`)
+	g.P(`		Server:     srv,`)
+	g.P(`		FullMethod: `, strconv.Quote(fmt.Sprintf("/%s/%s", fullServName, methName)), `,`)
+	g.P(`	}`)
+	g.P(`	handler := func(ctx context.Context, req interface{}) ([]byte, error) {`)
+	g.P(`		return doFunc()`)
 	g.P(`	}`)
 	g.P(`	return interceptor(ctx, in, info, handler)`)
 	g.P(`}`)
