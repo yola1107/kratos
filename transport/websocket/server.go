@@ -125,9 +125,9 @@ func NewServer(opts ...ServerOption) *Server {
 			lis:     nil,
 			tlsConf: nil,
 			timeouts: &timeouts{
-				timeout:  time.Second * 5,
+				timeout:  1 * time.Second,
 				read:     30 * time.Second,
-				write:    15 * time.Second,
+				write:    5 * time.Second,
 				shutdown: 2 * time.Second,
 				dial:     1 * time.Second,
 			},
