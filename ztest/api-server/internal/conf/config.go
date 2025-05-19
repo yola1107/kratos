@@ -1,11 +1,9 @@
 package conf
 
 import (
-	"fmt"
 	"sync/atomic"
 
 	"github.com/yola1107/kratos/v2/config"
-	"github.com/yola1107/kratos/v2/config/file"
 	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/library/log/zap"
 	"github.com/yola1107/kratos/v2/log"
@@ -17,51 +15,17 @@ const (
 
 var (
 	//Ins 配置实例  *Bootstrap
-	ins atomic.Value
+	ins atomic.Pointer[Bootstrap]
 )
 
-// Init 加载配置文件并监听变更
-func Init(flagconf string) config.Config {
-	c := config.New(
-		config.WithSource(
-			file.NewSource(fmt.Sprintf("%s", flagconf)),
-		),
-	)
-
-	if err := c.Load(); err != nil {
-		panic(err)
-	}
-
-	var bc Bootstrap
-	if err := c.Scan(&bc); err != nil {
-		panic(err)
-	}
-
-	// 加载配置
-	set(&bc)
-
-	// 热更新配置
-	watch(c)
-
-	log.Infof("config initialized: flagconf=%s config=%+v", flagconf, ext.ToJSON(get()))
-	return c
+// 加载配置
+func loadConfig(newConf *Bootstrap) {
+	ins.Store(newConf)
 }
 
-// 设置当前配置
-func set(bs *Bootstrap) {
-	ins.Store(bs)
-}
-
-// Get 获取当前配置
-func get() *Bootstrap {
-	v, ok := ins.Load().(*Bootstrap)
-	if !ok {
-		return &Bootstrap{}
-	}
-	return v
-}
-
-func watch(c config.Config) {
+// Watch 监听配置变更 热更新
+func Watch(c config.Config, bc *Bootstrap) {
+	loadConfig(bc)
 	for _, key := range []string{"log", "room", logLevelKey} {
 		if err := c.Watch(key, func(key string, value config.Value) {
 			updateConfig(c, key, value)
@@ -74,14 +38,14 @@ func watch(c config.Config) {
 
 // updateConfig 扫描并比较变更，保存新配置
 func updateConfig(c config.Config, key string, v config.Value) {
-	oldCfg := get()
-	newCfg := &Bootstrap{}
-	if err := c.Scan(newCfg); err != nil {
+	oldCfg := ins.Load()
+	newCfg := Bootstrap{}
+	if err := c.Scan(&newCfg); err != nil {
 		log.Errorf("updated config err: %v", err)
 		return
 	}
-	if _, diff, _ := ext.DiffLog(oldCfg, newCfg); len(diff) > 0 {
-		set(newCfg)
+	if _, diff, _ := ext.DiffLog(oldCfg, &newCfg); len(diff) > 0 {
+		loadConfig(&newCfg)
 		log.Warnf("Config key=\"%s\" changed: \n%s", key, ext.ToJSONPretty(diff))
 	}
 }
@@ -89,7 +53,11 @@ func updateConfig(c config.Config, key string, v config.Value) {
 func refreshEvent(c config.Config, key string, value config.Value) {
 	switch key {
 	case logLevelKey:
-		setLogLevel(value.Load().(string))
+		if lv, err := value.String(); err != nil {
+			log.Errorf("log level set err:%v", value)
+		} else {
+			setLogLevel(lv)
+		}
 	}
 }
 
@@ -105,26 +73,27 @@ func setLogLevel(lv string) {
 	log.Infof("success set logger level to \"%s\"", lv)
 }
 
-func GetBS() *Bootstrap {
-	return get()
+// 获取配置（只读访问）
+func GetConfig() *Bootstrap {
+	return ins.Load()
 }
 
-func GetLC() *Log {
-	return get().Log
+func GetLogConfig() *Log {
+	return GetConfig().Log
 }
 
-func GetRC() *Room {
-	return get().Room
+func GetRoomConfig() *Room {
+	return GetConfig().Room
 }
 
-func GetTC() *TableConfig {
-	return get().Room.Table
+func GetTableConfig() *TableConfig {
+	return GetConfig().Room.Table
 }
 
-func GetGC() *GameConfig {
-	return get().Room.Game
+func GetGameConfig() *GameConfig {
+	return GetConfig().Room.Game
 }
 
-func GetRbC() *RobotConfig {
-	return get().Room.Robot
+func GetRobotConfig() *RobotConfig {
+	return GetConfig().Room.Robot
 }

@@ -6,17 +6,15 @@
 package main
 
 import (
+	"github.com/google/wire"
+	"github.com/yola1107/kratos/v2"
+	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/core/room"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/data"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/server"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/service"
-
-	"github.com/google/wire"
-
-	"github.com/yola1107/kratos/v2"
-	"github.com/yola1107/kratos/v2/log"
 )
 
 // wireApp init kratos application.

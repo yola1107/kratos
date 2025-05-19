@@ -17,7 +17,7 @@ var ProviderSet = wire.NewSet(NewTableManager)
 type TableManager struct {
 	tableList []*Table
 	tableMap  map[int32]*Table
-	roomRepo  iface.IRoomRepo
+	repo      iface.IRoomRepo
 }
 
 func NewTableManager(c *conf.Room, repo iface.IRoomRepo) *TableManager {
@@ -25,7 +25,7 @@ func NewTableManager(c *conf.Room, repo iface.IRoomRepo) *TableManager {
 	mgr := &TableManager{
 		tableList: make([]*Table, tc.TableNum),
 		tableMap:  make(map[int32]*Table),
-		roomRepo:  repo,
+		repo:      repo,
 	}
 	for i := int32(1); i <= tc.TableNum; i++ {
 		tb := &Table{ID: i, MaxCnt: int16(tc.ChairNum)}
@@ -38,8 +38,8 @@ func NewTableManager(c *conf.Room, repo iface.IRoomRepo) *TableManager {
 }
 
 func (m *TableManager) Start() {
-	log.Infof("TableMgr start")
-	m.roomRepo.GetTimer().Once(5*time.Second, func() {
+	//log.Infof("TableMgr start")
+	m.repo.GetTimer().Once(5*time.Second, func() {
 		log.Infof("im back")
 	})
 	//gtimer.Forever(nil, time.Second/2, m.onTimer)

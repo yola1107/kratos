@@ -3,12 +3,15 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"math"
 	"math/rand"
 	"os"
 	"time"
 
 	"github.com/yola1107/kratos/v2"
+	"github.com/yola1107/kratos/v2/config"
+	"github.com/yola1107/kratos/v2/config/file"
 	"github.com/yola1107/kratos/v2/library/log/zap"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/transport/grpc"
@@ -44,6 +47,8 @@ func newApp(logger log.Logger, gs *grpc.Server, hs *http.Server, ws *websocket.S
 		),
 		//通过 Kratos 的 App Hook（适合全生命周期统一管理）
 		kratos.BeforeStart(func(ctx context.Context) error {
+			log.Infof("start server \"%s\" version:%+v", Name, Version)
+			log.Infof("GameID=%d ArenaID=%d ServerID=%s", conf.GameID, conf.ArenaID, conf.ServerID)
 			go rr.Start()
 			return nil
 		}),
@@ -57,15 +62,27 @@ func newApp(logger log.Logger, gs *grpc.Server, hs *http.Server, ws *websocket.S
 func main() {
 	flag.Parse()
 
-	c := conf.Init(flagconf)
+	c := config.New(
+		config.WithSource(
+			file.NewSource(fmt.Sprintf("%s", flagconf)),
+		),
+	)
+
+	if err := c.Load(); err != nil {
+		panic(err)
+	}
+
+	var bc conf.Bootstrap
+	if err := c.Scan(&bc); err != nil {
+		panic(err)
+	}
+	conf.Watch(c, &bc)
 	defer c.Close()
 
-	logger := loadLogger(Name)
+	logger := loadLogger(Name, bc.Log)
 	defer logger.Close()
 
 	testLog()
-
-	bc := conf.GetBS()
 
 	app, cleanup, err := wireApp(bc.Server, bc.Data, bc.Room, logger)
 	if err != nil {
@@ -79,14 +96,13 @@ func main() {
 	}
 }
 
-func loadLogger(Name string) *zap.Logger {
-	c := conf.GetLC()
-	if c == nil {
-		panic("config is nil")
+func loadLogger(Name string, lc *conf.Log) *zap.Logger {
+	if lc == nil {
+		panic("log config is nil")
 	}
 	opts := []zap.Option{
 		zap.WithProduction(),
-		zap.WithDirectory(c.Directory),
+		zap.WithDirectory(lc.Directory),
 		zap.WithFilename(Name + ".log"),
 		zap.WithErrorFilename(Name + "_error.log"),
 		zap.WithPrefix(Name),
@@ -104,21 +120,20 @@ func loadLogger(Name string) *zap.Logger {
 	if os.Getenv("ENV_LOG_MODE") != "" {
 		opts = append(opts, zap.WithProduction())
 	}
-	if c.Level != "" {
-		opts = append(opts, zap.WithLevel(c.Level))
+	if lc.Level != "" {
+		opts = append(opts, zap.WithLevel(lc.Level))
 	}
-	if c.Directory != "" {
-		opts = append(opts, zap.WithDirectory(c.Directory))
+	if lc.Directory != "" {
+		opts = append(opts, zap.WithDirectory(lc.Directory))
 	}
-	if len(c.Sensitive) > 0 {
-		opts = append(opts, zap.WithSensitiveKeys(c.Sensitive))
+	if len(lc.Sensitive) > 0 {
+		opts = append(opts, zap.WithSensitiveKeys(lc.Sensitive))
 	}
 
 	logger, err := zap.NewLogger(opts...)
 	if err != nil {
 		panic(err)
 	}
-	//log.SetLogger(logger)
 	return logger
 }
 
@@ -145,7 +160,7 @@ func testLog() {
 				log.Errorf("error incr: (%d)", incr)
 			}
 
-			time.Sleep(time.Duration(rand.Int()%20+100) * time.Millisecond)
+			time.Sleep(time.Duration(rand.Int()%20+1000) * time.Millisecond)
 		}
 	}()
 
@@ -156,7 +171,7 @@ func testLog() {
 				incr = 0
 			}
 			log.Errorf("error incr: (%d)", incr)
-			time.Sleep(time.Duration(rand.Int()%20+1) * time.Millisecond)
+			time.Sleep(time.Duration(rand.Int()%20000+1) * time.Millisecond)
 		}
 	}()
 }

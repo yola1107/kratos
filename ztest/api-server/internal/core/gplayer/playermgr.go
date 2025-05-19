@@ -5,7 +5,6 @@ import (
 
 	"github.com/google/wire"
 
-	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/core/iface"
 )
@@ -15,20 +14,20 @@ var ProviderSet = wire.NewSet(NewPlayerManager)
 
 type Manager struct {
 	playerMap sync.Map // key: playerID, value: *Player
-	roomRepo  iface.IRoomRepo
+	repo      iface.IRoomRepo
 }
 
 func NewPlayerManager(c *conf.Room, repo iface.IRoomRepo) *Manager {
 	//log.Infof("playerMgr init. ")
 	return &Manager{
 		playerMap: sync.Map{},
-		roomRepo:  repo,
+		repo:      repo,
 	}
 }
 
 func (m *Manager) Start() {
 	// 启动相关定时、回收、广播逻辑
-	log.Infof("PlayerMgr start")
+	//log.Infof("PlayerMgr start")
 
 }
 

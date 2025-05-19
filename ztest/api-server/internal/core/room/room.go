@@ -44,8 +44,6 @@ func (r *Room) Start() {
 	}
 	r.playerMgr.Start()
 	r.tableMgr.Start()
-	log.Infof("Room start. Name=\"%s\" GameID=%d ArenaID=%d ServerID=%s",
-		conf.Name, conf.GameID, conf.ArenaID, conf.ServerID)
 }
 
 func (r *Room) Close() {
