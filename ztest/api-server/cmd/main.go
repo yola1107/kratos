@@ -11,7 +11,7 @@ import (
 	"github.com/yola1107/kratos/v2/library/log/zap"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/core/room"
 )
 
 // go build -ldflags "-X main.Version=x.y.z"
@@ -34,8 +34,14 @@ func main() {
 
 	logger := loadLogger(Name)
 	defer logger.Close()
+	log.SetLogger(logger)
 
 	testLog()
+
+	//room.Init
+	r := room.New()
+	r.Start()
+	defer r.Close()
 
 	//logger.Info("<UNK>")
 	//log.Info("room started",
@@ -47,10 +53,6 @@ func main() {
 		kratos.Name(Name),
 		kratos.Logger(logger), // 使用自定义 Logger
 	)
-
-	//room.Init
-	room.Init()
-	defer room.Close()
 
 	if err := app.Run(); err != nil {
 		log.Fatal(err)

@@ -113,6 +113,10 @@ func GetLC() *Log {
 	return get().Log
 }
 
+func GetRC() *Room {
+	return get().Room
+}
+
 func GetTC() *TableConfig {
 	return get().Room.Table
 }
