@@ -3,6 +3,8 @@ package room
 import (
 	"context"
 
+	"github.com/google/wire"
+
 	"github.com/yola1107/kratos/v2/library/work"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
@@ -10,6 +12,12 @@ import (
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/core/gtable"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/core/iface"
 )
+
+// 确保Room实现iface.IRoomRepo
+var _ iface.IRoomRepo = (*Room)(nil)
+
+// ProviderSet is service providers.
+var ProviderSet = wire.NewSet(New)
 
 var (
 	defaultPendingNum = 10000
@@ -21,12 +29,7 @@ type Room struct {
 	tableMgr  *gtable.TableManager
 }
 
-//使用依赖注入
-//func New(tableMgr *gtable.TableManager, playerMgr *gplayer.Manager) *Room {
-
-func New() *Room {
-	log.Infof("start server:%s version:%s ", conf.Name, conf.Version)
-	c := conf.GetRC()
+func New(c *conf.Room) *Room {
 	r := &Room{}
 	r.playerMgr = gplayer.NewPlayerManager(c, r)
 	r.tableMgr = gtable.NewTableManager(c, r)

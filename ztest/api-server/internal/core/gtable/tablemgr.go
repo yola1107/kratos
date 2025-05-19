@@ -3,11 +3,16 @@ package gtable
 import (
 	"time"
 
+	"github.com/google/wire"
+
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/core/gplayer"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/core/iface"
 )
+
+// ProviderSet is service providers.
+var ProviderSet = wire.NewSet(NewTableManager)
 
 type TableManager struct {
 	tableList []*Table
@@ -28,7 +33,7 @@ func NewTableManager(c *conf.Room, repo iface.IRoomRepo) *TableManager {
 		mgr.tableMap[i] = tb
 		mgr.tableList[i-1] = tb
 	}
-	log.Infof("tableMgr init. tables=%d chairs=%d", tc.TableNum, tc.ChairNum)
+	//log.Infof("tableMgr init. tables=%d chairs=%d", tc.TableNum, tc.ChairNum)
 	return mgr
 }
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"math"
 	"math/rand"
@@ -10,6 +11,9 @@ import (
 	"github.com/yola1107/kratos/v2"
 	"github.com/yola1107/kratos/v2/library/log/zap"
 	"github.com/yola1107/kratos/v2/log"
+	"github.com/yola1107/kratos/v2/transport/grpc"
+	"github.com/yola1107/kratos/v2/transport/http"
+	"github.com/yola1107/kratos/v2/transport/websocket"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/core/room"
 )
@@ -26,6 +30,30 @@ func init() {
 	flag.StringVar(&flagconf, "conf", "../../configs", "config path, eg: -conf config.yaml")
 }
 
+func newApp(logger log.Logger, gs *grpc.Server, hs *http.Server, ws *websocket.Server, rr *room.Room) *kratos.App {
+	return kratos.New(
+		kratos.ID(id),
+		kratos.Name(Name),
+		kratos.Version(Version),
+		kratos.Metadata(map[string]string{}),
+		kratos.Logger(logger),
+		kratos.Server(
+			gs,
+			hs,
+			ws,
+		),
+		//通过 Kratos 的 App Hook（适合全生命周期统一管理）
+		kratos.BeforeStart(func(ctx context.Context) error {
+			go rr.Start()
+			return nil
+		}),
+		kratos.AfterStop(func(ctx context.Context) error {
+			rr.Close()
+			return nil
+		}),
+	)
+}
+
 func main() {
 	flag.Parse()
 
@@ -37,24 +65,17 @@ func main() {
 
 	testLog()
 
-	//room.Init
-	r := room.New()
-	r.Start()
-	defer r.Close()
+	bc := conf.GetBS()
 
-	//logger.Info("<UNK>")
-	//log.Info("room started",
-	//	"game_id", conf.GameID,
-	//	"arena_id", conf.ArenaID,
-	//	"server_id", conf.ServerID)
+	app, cleanup, err := wireApp(bc.Server, bc.Data, bc.Room, logger)
+	if err != nil {
+		panic(err)
+	}
+	defer cleanup()
 
-	app := kratos.New(
-		kratos.Name(Name),
-		kratos.Logger(logger), // 使用自定义 Logger
-	)
-
+	// start and wait for stop signal
 	if err := app.Run(); err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 }
 
@@ -97,7 +118,7 @@ func loadLogger(Name string) *zap.Logger {
 	if err != nil {
 		panic(err)
 	}
-	log.SetLogger(logger)
+	//log.SetLogger(logger)
 	return logger
 }
 

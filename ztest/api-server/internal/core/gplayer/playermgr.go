@@ -3,10 +3,15 @@ package gplayer
 import (
 	"sync"
 
+	"github.com/google/wire"
+
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/core/iface"
 )
+
+// ProviderSet is service providers.
+var ProviderSet = wire.NewSet(NewPlayerManager)
 
 type Manager struct {
 	playerMap sync.Map // key: playerID, value: *Player
@@ -14,7 +19,7 @@ type Manager struct {
 }
 
 func NewPlayerManager(c *conf.Room, repo iface.IRoomRepo) *Manager {
-	log.Infof("playerMgr init. ")
+	//log.Infof("playerMgr init. ")
 	return &Manager{
 		playerMap: sync.Map{},
 		roomRepo:  repo,
