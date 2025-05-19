@@ -20,8 +20,8 @@ data:
     read_timeout: 0.2s
     write_timeout: 0.2s
 log:
-  mode: 100
-  level: info0
+  mode: 1
+  level: info
   directory: ./logs
   sensitive: ["password", "token"]
 room:

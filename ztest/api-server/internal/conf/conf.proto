@@ -62,17 +62,17 @@ message Log {
 }
 
 message Room {
-    TableConfig table = 1;
-    GameConfig game   = 2;
-    RobotConfig robot = 3;
+    Table table = 1;
+    Game game   = 2;
+    Robot robot = 3;
 }
 
-message TableConfig {
+message Table {
     int32 tableNum = 1;
     int32 chairNum = 2;
 }
 
-message GameConfig {
+message Game {
     int32 vid                = 1;
     int32 see_round          = 2;
     int32 auto_see_round     = 3;
@@ -90,7 +90,7 @@ message GameConfig {
 }
 
 // 机器人配置
-message RobotConfig {
+message Robot {
     bool open              = 1;
     int32 num              = 2;
     int32 table_max_count  = 3;

@@ -3,15 +3,9 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
-	"math"
-	"math/rand"
 	"os"
-	"time"
 
 	"github.com/yola1107/kratos/v2"
-	"github.com/yola1107/kratos/v2/config"
-	"github.com/yola1107/kratos/v2/config/file"
 	"github.com/yola1107/kratos/v2/library/log/zap"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/transport/grpc"
@@ -62,28 +56,11 @@ func newApp(logger log.Logger, gs *grpc.Server, hs *http.Server, ws *websocket.S
 func main() {
 	flag.Parse()
 
-	c := config.New(
-		config.WithSource(
-			file.NewSource(fmt.Sprintf("%s/config.yaml", flagconf)),
-		),
-	)
-
-	if err := c.Load(); err != nil {
-		panic(err)
-	}
-
-	var bc conf.Bootstrap
-	if err := c.Scan(&bc); err != nil {
-		panic(err)
-	}
-	conf.InitConfig(&bc)
-	conf.Watch(c)
+	c, bc := conf.InitConfig(flagconf)
 	defer c.Close()
 
 	logger := loadLogger(Name, bc.Log)
 	defer logger.Close()
-
-	testLog()
 
 	app, cleanup, err := wireApp(bc.Server, bc.Data, bc.Room, logger)
 	if err != nil {
@@ -103,6 +80,7 @@ func loadLogger(Name string, lc *conf.Log) *zap.Logger {
 	}
 	opts := []zap.Option{
 		zap.WithProduction(),
+		zap.WithLevel("debug"),
 		zap.WithDirectory(lc.Directory),
 		zap.WithFilename(Name + ".log"),
 		zap.WithErrorFilename(Name + "_error.log"),
@@ -136,43 +114,4 @@ func loadLogger(Name string, lc *conf.Log) *zap.Logger {
 		panic(err)
 	}
 	return logger
-}
-
-func testLog() {
-	if true {
-		return
-	}
-
-	go func() {
-		incr := int64(0)
-		for {
-			if incr++; incr >= math.MaxInt64-1 {
-				incr = 0
-			}
-			x := rand.Intn(10)
-			switch x {
-			case 0:
-				log.Debugf("debug incr:%d", incr)
-			case 1:
-				log.Infof("info incr:%d", incr)
-			case 2:
-				log.Warnf("warn incr:%d", incr)
-			case 3:
-				log.Errorf("error incr: (%d)", incr)
-			}
-
-			time.Sleep(time.Duration(rand.Int()%20+1000) * time.Millisecond)
-		}
-	}()
-
-	go func() {
-		incr := int64(0)
-		for {
-			if incr++; incr >= math.MaxInt64-1 {
-				incr = 0
-			}
-			log.Errorf("error incr: (%d)", incr)
-			time.Sleep(time.Duration(rand.Int()%20000+1) * time.Millisecond)
-		}
-	}()
 }

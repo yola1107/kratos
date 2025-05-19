@@ -280,9 +280,9 @@ func (x *Log) GetSensitive() []string {
 
 type Room struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Table         *TableConfig           `protobuf:"bytes,1,opt,name=table,proto3" json:"table,omitempty"`
-	Game          *GameConfig            `protobuf:"bytes,2,opt,name=game,proto3" json:"game,omitempty"`
-	Robot         *RobotConfig           `protobuf:"bytes,3,opt,name=robot,proto3" json:"robot,omitempty"`
+	Table         *Table                 `protobuf:"bytes,1,opt,name=table,proto3" json:"table,omitempty"`
+	Game          *Game                  `protobuf:"bytes,2,opt,name=game,proto3" json:"game,omitempty"`
+	Robot         *Robot                 `protobuf:"bytes,3,opt,name=robot,proto3" json:"robot,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -317,28 +317,28 @@ func (*Room) Descriptor() ([]byte, []int) {
 	return file_conf_conf_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *Room) GetTable() *TableConfig {
+func (x *Room) GetTable() *Table {
 	if x != nil {
 		return x.Table
 	}
 	return nil
 }
 
-func (x *Room) GetGame() *GameConfig {
+func (x *Room) GetGame() *Game {
 	if x != nil {
 		return x.Game
 	}
 	return nil
 }
 
-func (x *Room) GetRobot() *RobotConfig {
+func (x *Room) GetRobot() *Robot {
 	if x != nil {
 		return x.Robot
 	}
 	return nil
 }
 
-type TableConfig struct {
+type Table struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TableNum      int32                  `protobuf:"varint,1,opt,name=tableNum,proto3" json:"tableNum,omitempty"`
 	ChairNum      int32                  `protobuf:"varint,2,opt,name=chairNum,proto3" json:"chairNum,omitempty"`
@@ -346,20 +346,20 @@ type TableConfig struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *TableConfig) Reset() {
-	*x = TableConfig{}
+func (x *Table) Reset() {
+	*x = Table{}
 	mi := &file_conf_conf_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *TableConfig) String() string {
+func (x *Table) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*TableConfig) ProtoMessage() {}
+func (*Table) ProtoMessage() {}
 
-func (x *TableConfig) ProtoReflect() protoreflect.Message {
+func (x *Table) ProtoReflect() protoreflect.Message {
 	mi := &file_conf_conf_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -371,26 +371,26 @@ func (x *TableConfig) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use TableConfig.ProtoReflect.Descriptor instead.
-func (*TableConfig) Descriptor() ([]byte, []int) {
+// Deprecated: Use Table.ProtoReflect.Descriptor instead.
+func (*Table) Descriptor() ([]byte, []int) {
 	return file_conf_conf_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *TableConfig) GetTableNum() int32 {
+func (x *Table) GetTableNum() int32 {
 	if x != nil {
 		return x.TableNum
 	}
 	return 0
 }
 
-func (x *TableConfig) GetChairNum() int32 {
+func (x *Table) GetChairNum() int32 {
 	if x != nil {
 		return x.ChairNum
 	}
 	return 0
 }
 
-type GameConfig struct {
+type Game struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	Vid              int32                  `protobuf:"varint,1,opt,name=vid,proto3" json:"vid,omitempty"`
 	SeeRound         int32                  `protobuf:"varint,2,opt,name=see_round,json=seeRound,proto3" json:"see_round,omitempty"`
@@ -410,20 +410,20 @@ type GameConfig struct {
 	sizeCache        protoimpl.SizeCache
 }
 
-func (x *GameConfig) Reset() {
-	*x = GameConfig{}
+func (x *Game) Reset() {
+	*x = Game{}
 	mi := &file_conf_conf_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GameConfig) String() string {
+func (x *Game) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GameConfig) ProtoMessage() {}
+func (*Game) ProtoMessage() {}
 
-func (x *GameConfig) ProtoReflect() protoreflect.Message {
+func (x *Game) ProtoReflect() protoreflect.Message {
 	mi := &file_conf_conf_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -435,103 +435,103 @@ func (x *GameConfig) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GameConfig.ProtoReflect.Descriptor instead.
-func (*GameConfig) Descriptor() ([]byte, []int) {
+// Deprecated: Use Game.ProtoReflect.Descriptor instead.
+func (*Game) Descriptor() ([]byte, []int) {
 	return file_conf_conf_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *GameConfig) GetVid() int32 {
+func (x *Game) GetVid() int32 {
 	if x != nil {
 		return x.Vid
 	}
 	return 0
 }
 
-func (x *GameConfig) GetSeeRound() int32 {
+func (x *Game) GetSeeRound() int32 {
 	if x != nil {
 		return x.SeeRound
 	}
 	return 0
 }
 
-func (x *GameConfig) GetAutoSeeRound() int32 {
+func (x *Game) GetAutoSeeRound() int32 {
 	if x != nil {
 		return x.AutoSeeRound
 	}
 	return 0
 }
 
-func (x *GameConfig) GetSpeakerCardType() int32 {
+func (x *Game) GetSpeakerCardType() int32 {
 	if x != nil {
 		return x.SpeakerCardType
 	}
 	return 0
 }
 
-func (x *GameConfig) GetHighStrengthRate() int32 {
+func (x *Game) GetHighStrengthRate() int32 {
 	if x != nil {
 		return x.HighStrengthRate
 	}
 	return 0
 }
 
-func (x *GameConfig) GetIsNewbie() bool {
+func (x *Game) GetIsNewbie() bool {
 	if x != nil {
 		return x.IsNewbie
 	}
 	return false
 }
 
-func (x *GameConfig) GetAutoReady() bool {
+func (x *Game) GetAutoReady() bool {
 	if x != nil {
 		return x.AutoReady
 	}
 	return false
 }
 
-func (x *GameConfig) GetMinMoney() float64 {
+func (x *Game) GetMinMoney() float64 {
 	if x != nil {
 		return x.MinMoney
 	}
 	return 0
 }
 
-func (x *GameConfig) GetMaxMoney() float64 {
+func (x *Game) GetMaxMoney() float64 {
 	if x != nil {
 		return x.MaxMoney
 	}
 	return 0
 }
 
-func (x *GameConfig) GetBaseMoney() float64 {
+func (x *Game) GetBaseMoney() float64 {
 	if x != nil {
 		return x.BaseMoney
 	}
 	return 0
 }
 
-func (x *GameConfig) GetChLimit() float64 {
+func (x *Game) GetChLimit() float64 {
 	if x != nil {
 		return x.ChLimit
 	}
 	return 0
 }
 
-func (x *GameConfig) GetPotLimit() float64 {
+func (x *Game) GetPotLimit() float64 {
 	if x != nil {
 		return x.PotLimit
 	}
 	return 0
 }
 
-func (x *GameConfig) GetFee() float64 {
+func (x *Game) GetFee() float64 {
 	if x != nil {
 		return x.Fee
 	}
 	return 0
 }
 
-func (x *GameConfig) GetSpeakerMinmoney() float64 {
+func (x *Game) GetSpeakerMinmoney() float64 {
 	if x != nil {
 		return x.SpeakerMinmoney
 	}
@@ -539,7 +539,7 @@ func (x *GameConfig) GetSpeakerMinmoney() float64 {
 }
 
 // 机器人配置
-type RobotConfig struct {
+type Robot struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Open          bool                   `protobuf:"varint,1,opt,name=open,proto3" json:"open,omitempty"`
 	Num           int32                  `protobuf:"varint,2,opt,name=num,proto3" json:"num,omitempty"`
@@ -554,20 +554,20 @@ type RobotConfig struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *RobotConfig) Reset() {
-	*x = RobotConfig{}
+func (x *Robot) Reset() {
+	*x = Robot{}
 	mi := &file_conf_conf_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *RobotConfig) String() string {
+func (x *Robot) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*RobotConfig) ProtoMessage() {}
+func (*Robot) ProtoMessage() {}
 
-func (x *RobotConfig) ProtoReflect() protoreflect.Message {
+func (x *Robot) ProtoReflect() protoreflect.Message {
 	mi := &file_conf_conf_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -579,68 +579,68 @@ func (x *RobotConfig) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use RobotConfig.ProtoReflect.Descriptor instead.
-func (*RobotConfig) Descriptor() ([]byte, []int) {
+// Deprecated: Use Robot.ProtoReflect.Descriptor instead.
+func (*Robot) Descriptor() ([]byte, []int) {
 	return file_conf_conf_proto_rawDescGZIP(), []int{7}
 }
 
-func (x *RobotConfig) GetOpen() bool {
+func (x *Robot) GetOpen() bool {
 	if x != nil {
 		return x.Open
 	}
 	return false
 }
 
-func (x *RobotConfig) GetNum() int32 {
+func (x *Robot) GetNum() int32 {
 	if x != nil {
 		return x.Num
 	}
 	return 0
 }
 
-func (x *RobotConfig) GetTableMaxCount() int32 {
+func (x *Robot) GetTableMaxCount() int32 {
 	if x != nil {
 		return x.TableMaxCount
 	}
 	return 0
 }
 
-func (x *RobotConfig) GetMinPlayCount() int32 {
+func (x *Robot) GetMinPlayCount() int32 {
 	if x != nil {
 		return x.MinPlayCount
 	}
 	return 0
 }
 
-func (x *RobotConfig) GetIdBegin() int64 {
+func (x *Robot) GetIdBegin() int64 {
 	if x != nil {
 		return x.IdBegin
 	}
 	return 0
 }
 
-func (x *RobotConfig) GetMinMoney() float64 {
+func (x *Robot) GetMinMoney() float64 {
 	if x != nil {
 		return x.MinMoney
 	}
 	return 0
 }
 
-func (x *RobotConfig) GetMaxMoney() float64 {
+func (x *Robot) GetMaxMoney() float64 {
 	if x != nil {
 		return x.MaxMoney
 	}
 	return 0
 }
 
-func (x *RobotConfig) GetStandMinMoney() float64 {
+func (x *Robot) GetStandMinMoney() float64 {
 	if x != nil {
 		return x.StandMinMoney
 	}
 	return 0
 }
 
-func (x *RobotConfig) GetStandMaxMoney() float64 {
+func (x *Robot) GetStandMaxMoney() float64 {
 	if x != nil {
 		return x.StandMaxMoney
 	}
@@ -1054,16 +1054,15 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\x04mode\x18\x01 \x01(\x05R\x04mode\x12\x14\n" +
 	"\x05level\x18\x02 \x01(\tR\x05level\x12\x1c\n" +
 	"\tdirectory\x18\x03 \x01(\tR\tdirectory\x12\x1c\n" +
-	"\tsensitive\x18\x04 \x03(\tR\tsensitive\"\x90\x01\n" +
-	"\x04Room\x12-\n" +
-	"\x05table\x18\x01 \x01(\v2\x17.kratos.api.TableConfigR\x05table\x12*\n" +
-	"\x04game\x18\x02 \x01(\v2\x16.kratos.api.GameConfigR\x04game\x12-\n" +
-	"\x05robot\x18\x03 \x01(\v2\x17.kratos.api.RobotConfigR\x05robot\"E\n" +
-	"\vTableConfig\x12\x1a\n" +
+	"\tsensitive\x18\x04 \x03(\tR\tsensitive\"~\n" +
+	"\x04Room\x12'\n" +
+	"\x05table\x18\x01 \x01(\v2\x11.kratos.api.TableR\x05table\x12$\n" +
+	"\x04game\x18\x02 \x01(\v2\x10.kratos.api.GameR\x04game\x12'\n" +
+	"\x05robot\x18\x03 \x01(\v2\x11.kratos.api.RobotR\x05robot\"?\n" +
+	"\x05Table\x12\x1a\n" +
 	"\btableNum\x18\x01 \x01(\x05R\btableNum\x12\x1a\n" +
-	"\bchairNum\x18\x02 \x01(\x05R\bchairNum\"\xc5\x03\n" +
-	"\n" +
-	"GameConfig\x12\x10\n" +
+	"\bchairNum\x18\x02 \x01(\x05R\bchairNum\"\xbf\x03\n" +
+	"\x04Game\x12\x10\n" +
 	"\x03vid\x18\x01 \x01(\x05R\x03vid\x12\x1b\n" +
 	"\tsee_round\x18\x02 \x01(\x05R\bseeRound\x12$\n" +
 	"\x0eauto_see_round\x18\x03 \x01(\x05R\fautoSeeRound\x12*\n" +
@@ -1080,8 +1079,8 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\bch_limit\x18\v \x01(\x01R\achLimit\x12\x1b\n" +
 	"\tpot_limit\x18\f \x01(\x01R\bpotLimit\x12\x10\n" +
 	"\x03fee\x18\r \x01(\x01R\x03fee\x12)\n" +
-	"\x10speaker_minmoney\x18\x0e \x01(\x01R\x0fspeakerMinmoney\"\xa6\x02\n" +
-	"\vRobotConfig\x12\x12\n" +
+	"\x10speaker_minmoney\x18\x0e \x01(\x01R\x0fspeakerMinmoney\"\xa0\x02\n" +
+	"\x05Robot\x12\x12\n" +
 	"\x04open\x18\x01 \x01(\bR\x04open\x12\x10\n" +
 	"\x03num\x18\x02 \x01(\x05R\x03num\x12&\n" +
 	"\x0ftable_max_count\x18\x03 \x01(\x05R\rtableMaxCount\x12$\n" +
@@ -1111,9 +1110,9 @@ var file_conf_conf_proto_goTypes = []any{
 	(*Data)(nil),                // 2: kratos.api.Data
 	(*Log)(nil),                 // 3: kratos.api.Log
 	(*Room)(nil),                // 4: kratos.api.Room
-	(*TableConfig)(nil),         // 5: kratos.api.TableConfig
-	(*GameConfig)(nil),          // 6: kratos.api.GameConfig
-	(*RobotConfig)(nil),         // 7: kratos.api.RobotConfig
+	(*Table)(nil),               // 5: kratos.api.Table
+	(*Game)(nil),                // 6: kratos.api.Game
+	(*Robot)(nil),               // 7: kratos.api.Robot
 	(*Server_HTTP)(nil),         // 8: kratos.api.Server.HTTP
 	(*Server_GRPC)(nil),         // 9: kratos.api.Server.GRPC
 	(*Server_TCP)(nil),          // 10: kratos.api.Server.TCP
@@ -1133,9 +1132,9 @@ var file_conf_conf_proto_depIdxs = []int32{
 	11, // 7: kratos.api.Server.websocket:type_name -> kratos.api.Server.Websocket
 	12, // 8: kratos.api.Data.database:type_name -> kratos.api.Data.Database
 	13, // 9: kratos.api.Data.redis:type_name -> kratos.api.Data.Redis
-	5,  // 10: kratos.api.Room.table:type_name -> kratos.api.TableConfig
-	6,  // 11: kratos.api.Room.game:type_name -> kratos.api.GameConfig
-	7,  // 12: kratos.api.Room.robot:type_name -> kratos.api.RobotConfig
+	5,  // 10: kratos.api.Room.table:type_name -> kratos.api.Table
+	6,  // 11: kratos.api.Room.game:type_name -> kratos.api.Game
+	7,  // 12: kratos.api.Room.robot:type_name -> kratos.api.Robot
 	14, // 13: kratos.api.Server.HTTP.timeout:type_name -> google.protobuf.Duration
 	14, // 14: kratos.api.Server.GRPC.timeout:type_name -> google.protobuf.Duration
 	14, // 15: kratos.api.Server.TCP.timeout:type_name -> google.protobuf.Duration
