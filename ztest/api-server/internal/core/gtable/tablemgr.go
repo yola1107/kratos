@@ -33,11 +33,11 @@ func NewTableManager(c *conf.Room, repo iface.IRoomRepo) *TableManager {
 }
 
 func (m *TableManager) Start() {
-	//gtimer.Forever(nil, time.Second/2, m.onTimer)
 	log.Infof("TableMgr start")
 	m.roomRepo.GetTimer().Once(5*time.Second, func() {
 		log.Infof("im back")
 	})
+	//gtimer.Forever(nil, time.Second/2, m.onTimer)
 }
 
 func (m *TableManager) Close() {

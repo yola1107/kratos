@@ -34,7 +34,6 @@ func main() {
 
 	logger := loadLogger(Name)
 	defer logger.Close()
-	log.SetLogger(logger)
 
 	testLog()
 
@@ -98,7 +97,7 @@ func loadLogger(Name string) *zap.Logger {
 	if err != nil {
 		panic(err)
 	}
-
+	log.SetLogger(logger)
 	return logger
 }
 

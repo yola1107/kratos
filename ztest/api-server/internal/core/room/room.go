@@ -2,42 +2,26 @@ package room
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/yola1107/kratos/v2/library/work"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/core/gplayer"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/core/gtable"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/core/iface"
 )
 
-//import (
-//	"github.com/yola1107/kratos/v2/log"
-//	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
-//	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/gplayer"
-//	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/gtimer"
-//	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/tablemgr"
-//)
-//
-//func Init() {
-//	log.Infof("start server:%s version:%s GameID:%d ArenaID:%d ServerID:%s",
-//		conf.Name, conf.Version, conf.GameID, conf.ArenaID, conf.ServerID)
-//
-//	gtimer.Init()
-//	gplayer.Init()
-//	tablemgr.Init()
-//}
-//
-//func Close() {
-//	gtimer.Close()
-//}
+var (
+	defaultPendingNum = 10000
+)
 
 type Room struct {
-	tableMgr  *gtable.TableManager
-	playerMgr *gplayer.Manager
 	worker    work.IWorkStore
+	playerMgr *gplayer.Manager
+	tableMgr  *gtable.TableManager
 }
 
+//使用依赖注入
 //func New(tableMgr *gtable.TableManager, playerMgr *gplayer.Manager) *Room {
 
 func New() *Room {
@@ -46,8 +30,7 @@ func New() *Room {
 	r := &Room{}
 	r.playerMgr = gplayer.NewPlayerManager(c, r)
 	r.tableMgr = gtable.NewTableManager(c, r)
-	r.worker = work.NewWorkStore(context.Background(), 10000)
-
+	r.worker = work.NewWorkStore(context.Background(), defaultPendingNum)
 	return r
 }
 
@@ -71,12 +54,26 @@ func (r *Room) Close() {
 func (r *Room) GetLoop() work.ITaskLoop {
 	return r.worker
 }
+
 func (r *Room) GetTimer() work.ITaskScheduler {
 	return r.worker
 }
+
 func (r *Room) OnTableEvent(tableID string, evt string) {
-	fmt.Println("Room handling table event:", tableID, evt)
+	log.Infof("Room handling table event:%+v %+v", tableID, evt)
 }
+
 func (r *Room) OnPlayerLeave(playerID string) {
-	fmt.Println("Room handling player leave:", playerID)
+	log.Infof("Room handling player leave:%+v", playerID)
+}
+
+func (r *Room) SubmitEvent(eventID iface.EventID, cb iface.EventCallback) {
+	switch eventID {
+	default:
+	}
+
+	// ...
+	//if cb != nil {
+	//	cb(eventID)
+	//}
 }

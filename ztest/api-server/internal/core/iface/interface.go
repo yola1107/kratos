@@ -17,10 +17,21 @@ import (
 //                         ↑
 //                   注入回调实现（room.Room）
 
-// IRoomRepo room提供callback给table、player等回调使用
+// IRoomRepo room提供callback给table、player等使用
 type IRoomRepo interface {
 	GetLoop() work.ITaskLoop
 	GetTimer() work.ITaskScheduler
 	OnPlayerLeave(playerID string)
 	OnTableEvent(tableID string, evt string)
 }
+
+type EventID int32
+
+type EventCallback func(EventID)
+
+const (
+	EventNothing EventID = iota
+	EventGameStart
+	EventGameEnd
+	// ...
+)

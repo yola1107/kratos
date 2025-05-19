@@ -62,7 +62,7 @@ func (t *taskScheduler) ForeverTime(durFirst, durRepeat time.Duration, f func())
 	return t.run(durFirst, durRepeat, true, f)
 }
 
-// Cancel 停止指定ID的任务
+// Cancel 停止指定ID的定时任务
 func (t *taskScheduler) Cancel(taskID int64) {
 	if cancel, ok := t.tasks.LoadAndDelete(taskID); ok {
 		if cancelFn, ok := cancel.(context.CancelFunc); ok {
