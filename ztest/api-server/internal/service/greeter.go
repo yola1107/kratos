@@ -20,7 +20,7 @@ type GreeterService struct {
 }
 
 // NewGreeterService new a greeter service.
-func NewGreeterService(uc *biz.GreeterUsecase, rc *room.Room) *GreeterService {
+func NewGreeterService(uc *biz.GreeterUsecase, rc *room.Room, logger log.Logger) *GreeterService {
 	return &GreeterService{uc: uc, rc: rc}
 }
 

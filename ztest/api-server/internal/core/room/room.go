@@ -27,9 +27,10 @@ type Room struct {
 	worker    work.IWorkStore
 	playerMgr *gplayer.Manager
 	tableMgr  *gtable.TableManager
+	logger    log.Logger
 }
 
-func New(c *conf.Room) *Room {
+func New(c *conf.Room, logger log.Logger) *Room {
 	r := &Room{}
 	r.playerMgr = gplayer.NewPlayerManager(c, r)
 	r.tableMgr = gtable.NewTableManager(c, r)

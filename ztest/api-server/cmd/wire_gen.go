@@ -27,8 +27,8 @@ func wireApp(confServer *conf.Server, confData *conf.Data, confRoom *conf.Room, 
 	}
 	greeterRepo := data.NewGreeterRepo(dataData, logger)
 	greeterUsecase := biz.NewGreeterUsecase(greeterRepo, logger)
-	roomRoom := room.New(confRoom)
-	greeterService := service.NewGreeterService(greeterUsecase, roomRoom)
+	roomRoom := room.New(confRoom, logger)
+	greeterService := service.NewGreeterService(greeterUsecase, roomRoom, logger)
 	grpcServer := server.NewGRPCServer(confServer, greeterService, logger)
 	httpServer := server.NewHTTPServer(confServer, greeterService, logger)
 	websocketServer := server.NewWebsocketServer(confServer, greeterService, logger)
