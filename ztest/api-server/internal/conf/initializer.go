@@ -9,7 +9,7 @@ import (
 
 /*
 	protobuf容错处理,
-	- FillNilMessage自动将所有内层结构为nil的字段设置为非nil零值字段
+	- FillNilMessage自动将所有内层结构为nil的proto字段设置为非nil零值字段
 */
 // FillNilMessage recursively fills nil embedded messages in a proto.Message
 func FillNilMessage(msg proto.Message) {
