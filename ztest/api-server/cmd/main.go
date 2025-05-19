@@ -64,7 +64,7 @@ func main() {
 
 	c := config.New(
 		config.WithSource(
-			file.NewSource(fmt.Sprintf("%s", flagconf)),
+			file.NewSource(fmt.Sprintf("%s/config.yaml", flagconf)),
 		),
 	)
 
@@ -76,7 +76,8 @@ func main() {
 	if err := c.Scan(&bc); err != nil {
 		panic(err)
 	}
-	conf.Watch(c, &bc)
+	conf.InitConfig(&bc)
+	conf.Watch(c)
 	defer c.Close()
 
 	logger := loadLogger(Name, bc.Log)

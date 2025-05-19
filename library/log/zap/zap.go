@@ -325,6 +325,10 @@ func (l *Logger) SetLevel(level string) error {
 	return l.level.UnmarshalText([]byte(level))
 }
 
+func (l *Logger) GetLevel() string {
+	return l.level.String()
+}
+
 // With 方法创建子Logger，共享资源管理器
 func (l *Logger) With(keys ...any) *Logger {
 	fields := l.fieldPool.Get()

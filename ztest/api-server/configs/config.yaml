@@ -20,16 +20,16 @@ data:
     read_timeout: 0.2s
     write_timeout: 0.2s
 log:
-  mode: 1
-  level: info
+  mode: 100
+  level: info0
   directory: ./logs
   sensitive: ["password", "token"]
 room:
   table:
-    tableNum: 100
+    tableNum: 1000
     chairNum: 6
   game:
-    vid: 1001
+    vid: 100
     min_money: 100.0
     max_money: 10000.0
     base_money: 50.0

@@ -1,6 +1,7 @@
 package conf
 
 import (
+	"sync"
 	"sync/atomic"
 
 	"github.com/yola1107/kratos/v2/config"
@@ -9,91 +10,107 @@ import (
 	"github.com/yola1107/kratos/v2/log"
 )
 
-const (
-	logLevelKey = "log.level"
-)
-
 var (
-	//Ins 配置实例  *Bootstrap
-	ins atomic.Pointer[Bootstrap]
+	ins   atomic.Pointer[Bootstrap] // 原子指针存储配置
+	logMu sync.RWMutex              // 日志级别修改锁
 )
 
-// 加载配置
-func loadConfig(newConf *Bootstrap) {
-	ins.Store(newConf)
+// InitConfig 安全初始化配置（深拷贝）
+func InitConfig(initial *Bootstrap) {
+	if initial == nil {
+		panic("nil initial config")
+	}
+
+	copyConfig := &Bootstrap{}
+	if err := ext.DeepCopy(copyConfig, initial); err != nil {
+		panic("failed to deep copy initial config: " + err.Error())
+	}
+	ins.Store(copyConfig)
 }
 
-// Watch 监听配置变更 热更新
-func Watch(c config.Config, bc *Bootstrap) {
-	loadConfig(bc)
-	for _, key := range []string{"log", "room", logLevelKey} {
-		if err := c.Watch(key, func(key string, value config.Value) {
-			updateConfig(c, key, value)
-			refreshEvent(c, key, value)
-		}); err != nil {
-			log.Errorf("watch config key=%s failed: %v", key, err)
+// Watch 启动配置监听
+func Watch(c config.Config) {
+	watchKeys := []string{"log", "room", "log.level"}
+	for _, key := range watchKeys {
+		if err := c.Watch(key, configWatcher); err != nil {
+			log.Errorf("watch key=%s err=%v", key, err)
+			return
 		}
 	}
+	return
 }
 
-// updateConfig 扫描并比较变更，保存新配置
-func updateConfig(c config.Config, key string, v config.Value) {
-	oldCfg := ins.Load()
-	newCfg := Bootstrap{}
-	if err := c.Scan(&newCfg); err != nil {
-		log.Errorf("updated config err: %v", err)
+// 应用增量配置变更
+func configWatcher(key string, value config.Value) {
+	oldConf := ins.Load()
+	if oldConf == nil {
+		log.Errorf("config key=%s err=%+v", key, "配置未初始化")
 		return
 	}
-	if _, diff, _ := ext.DiffLog(oldCfg, &newCfg); len(diff) > 0 {
-		loadConfig(&newCfg)
+
+	// 防御性深拷贝
+	newConf := &Bootstrap{}
+	if err := ext.DeepCopy(newConf, oldConf); err != nil {
+		log.Errorf("config key=%s err=%+v", key, err)
+		return
+	}
+
+	// 按需更新配置字段
+	switch key {
+	case "log":
+		if err := value.Scan(newConf.Log); err != nil {
+			log.Errorf("config key=%s err=%+v", key, err)
+			return
+		}
+	case "room":
+		if err := value.Scan(newConf.Room); err != nil {
+			log.Errorf("config key=%s err=%+v", key, err)
+			return
+		}
+	case "log.level":
+		lv, err := value.String()
+		if err != nil {
+			log.Errorf("config key=%s err=%+v", key, err)
+			return
+		}
+		newConf.Log.Level = lv
+		safeSetLogLevel(lv)
+	default:
+		return
+	}
+
+	if _, diff, _ := ext.DiffLog(oldConf, newConf); len(diff) > 0 {
+		// 原子替换新配置
+		ins.Store(newConf)
 		log.Warnf("Config key=\"%s\" changed: \n%s", key, ext.ToJSONPretty(diff))
 	}
+	return
 }
 
-func refreshEvent(c config.Config, key string, value config.Value) {
-	switch key {
-	case logLevelKey:
-		if lv, err := value.String(); err != nil {
-			log.Errorf("log level set err:%v", value)
-		} else {
-			setLogLevel(lv)
-		}
-	}
-}
+// 线程安全的日志级别修改
+func safeSetLogLevel(lv string) {
+	logMu.Lock()
+	defer logMu.Unlock()
 
-func setLogLevel(lv string) {
 	logger, ok := log.GetLogger().(*zap.Logger)
 	if !ok {
+		log.Error("日志器类型不匹配")
 		return
 	}
+
+	prevLevel := logger.GetLevel()
 	if err := logger.SetLevel(lv); err != nil {
-		log.Errorf("Failed to set log level: %v", err)
+		log.Errorf("日志级别修改失败: %v (尝试从 %s 改为 %s)",
+			err, prevLevel, lv)
 		return
 	}
-	log.Infof("success set logger level to \"%s\"", lv)
+	log.Infof("日志级别已变更: %s → %s", prevLevel, lv)
 }
 
-// 获取配置（只读访问）
-func GetConfig() *Bootstrap {
-	return ins.Load()
-}
-
-func GetLogConfig() *Log {
-	return GetConfig().Log
-}
-
-func GetRoomConfig() *Room {
-	return GetConfig().Room
-}
-
-func GetTableConfig() *TableConfig {
-	return GetConfig().Room.Table
-}
-
-func GetGameConfig() *GameConfig {
-	return GetConfig().Room.Game
-}
-
-func GetRobotConfig() *RobotConfig {
-	return GetConfig().Room.Robot
-}
+// GetConfig 配置获取方法
+func GetConfig() *Bootstrap        { return ins.Load() }
+func GetLogConfig() *Log           { return GetConfig().Log }
+func GetRoomConfig() *Room         { return GetConfig().Room }
+func GetTableConfig() *TableConfig { return GetConfig().Room.Table }
+func GetGameConfig() *GameConfig   { return GetConfig().Room.Game }
+func GetRobotConfig() *RobotConfig { return GetConfig().Room.Robot }
