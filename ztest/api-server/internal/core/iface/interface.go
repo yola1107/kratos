@@ -27,11 +27,11 @@ type IRoomRepo interface {
 
 type EventID int32
 
-type EventCallback func(EventID)
-
 const (
 	EventNothing EventID = iota
 	EventGameStart
 	EventGameEnd
 	// ...
 )
+
+type EventCallback func(EventID)
