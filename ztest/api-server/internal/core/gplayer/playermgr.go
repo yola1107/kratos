@@ -3,21 +3,16 @@ package gplayer
 import (
 	"sync"
 
-	"github.com/google/wire"
-
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/core/iface"
 )
-
-// ProviderSet is service providers.
-var ProviderSet = wire.NewSet(NewPlayerManager)
 
 type Manager struct {
 	playerMap sync.Map // key: playerID, value: *Player
 	repo      iface.IRoomRepo
 }
 
-func NewPlayerManager(c *conf.Room, repo iface.IRoomRepo) *Manager {
+func NewManager(c *conf.Room, repo iface.IRoomRepo) *Manager {
 	//log.Infof("playerMgr init. ")
 	return &Manager{
 		playerMap: sync.Map{},
@@ -28,6 +23,7 @@ func NewPlayerManager(c *conf.Room, repo iface.IRoomRepo) *Manager {
 func (m *Manager) Start() error {
 	// 启动相关定时、回收、广播逻辑
 	//log.Infof("PlayerMgr start")
+	m.repo.OnPlayerLeave("abc")
 	return nil
 }
 
