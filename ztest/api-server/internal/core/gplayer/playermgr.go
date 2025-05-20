@@ -73,7 +73,7 @@ func (m *PlayerManager) ExitGame(p *Player, code int32, msg string) {
 	if p == nil {
 		return
 	}
-	m.playerMap.Delete(p.baseData.ID)
+	m.playerMap.Delete(p.baseData.UID)
 	m.repo.OnPlayerLeave(p.session.ID)
 }
 

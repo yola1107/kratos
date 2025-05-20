@@ -8,112 +8,99 @@ import (
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/model"
 )
 
-const (
-	TableStateStopped = 0
-	TableStateRunning = 1
-)
-
 type Table struct {
-	ID     int32 // 桌子ID
-	MaxCnt int16 // 最大玩家数
-
-	// old 可以去除
-	uiGameState uint16 // 游戏状态
+	ID       int32 // 桌子ID
+	MaxCnt   int16 // 最大玩家数
+	isClosed bool  // 是否停服
 
 	// 游戏逻辑变量
 	stage         int32         // 阶段
 	lastStage     int32         // 上一阶段
+	stageTimerID  int64         // 阶段定时器ID
 	stageStart    time.Time     // 阶段开始时间
 	stageDuration time.Duration // 阶段持续时间
-	stageTimerID  int64         // 阶段定时器ID
 
-	sitCnt      int16             // 座位上的玩家
-	activeChair int32             // 当前操作玩家
-	chairList   []*gplayer.Player // 玩家列表
+	sitCnt      int16             // 入座玩家数量
+	active      int32             // 当前操作玩家
+	seats       []*gplayer.Player // 玩家列表
 	gameCards   model.GameCards   // card信息
 	tableLogger glog.TableLog     // 桌子日志
 
-	isClosed bool // 是否停服
+	totalBet float64 // 总投注
+	curRound int     // 当前轮数
+	curBet   float64 // 当前投注
 }
 
-func (tb *Table) Init() {
-	tb.sitCnt = 0
-	tb.chairList = make([]*gplayer.Player, tb.MaxCnt)
-	tb.uiGameState = TableStateStopped
+func (t *Table) Init() {
+	t.sitCnt = 0
+	t.seats = make([]*gplayer.Player, t.MaxCnt)
 }
+
+func (t *Table) Reset() {}
 
 // IsFull full
-func (tb *Table) IsFull() bool {
-	return tb.sitCnt >= tb.MaxCnt
+func (t *Table) IsFull() bool {
+	return t.sitCnt >= t.MaxCnt
 }
 
-func (tb *Table) GetSitCnt() int32 {
-	return int32(tb.sitCnt)
+func (t *Table) GetSitCnt() int32 {
+	return int32(t.sitCnt)
 }
 
-func (tb *Table) Empty() bool {
-	return tb.sitCnt <= 0
+func (t *Table) Empty() bool {
+	return t.sitCnt <= 0
 }
 
-func (tb *Table) IsRunning() bool {
-	return tb.uiGameState == TableStateRunning
+func (t *Table) SetClose(b bool) {
+	t.isClosed = b
 }
 
-func (tb *Table) SetClose(b bool) {
-	tb.isClosed = b
-}
-
-func (tb *Table) IsClosed() bool {
-	return tb.isClosed
+func (t *Table) IsClosed() bool {
+	return t.isClosed
 }
 
 // ThrowInto 入座
-func (tb *Table) ThrowInto(p *gplayer.Player) bool {
-	for k, v := range tb.chairList {
+func (t *Table) ThrowInto(p *gplayer.Player) bool {
+	for k, v := range t.seats {
 		if v != nil {
 			continue
 		}
 
 		// 桌子信息
-		tb.chairList[k] = p
-		tb.sitCnt++
+		t.seats[k] = p
+		t.sitCnt++
 
 		// 玩家信息
-		p.SetTableID(tb.ID)
+		p.SetTableID(t.ID)
 		p.SetChairID(int32(k))
 
 		// 广播入座信息
-		tb.BroadcastUserEnter(p)
-		tb.SendTableInfo(p)
+		t.BroadcastUserEnter(p)
+		t.SendTableInfo(p)
 
 		//
 		p.Reset()
 
 		/// 检查游戏是否开始
-		if tb.canStart() {
-			if tb.uiGameState == TableStateStopped {
-				tb.start()
-			}
-			tb.uiGameState = TableStateRunning
-		}
+
 		return true
 	}
 	return false
 }
 
 // ThrowOff 出座
-func (tb *Table) ThrowOff(p *gplayer.Player) bool {
+func (t *Table) ThrowOff(p *gplayer.Player) bool {
 	if p == nil {
 		return false
 	}
 
-	if !tb.canExit(p) {
+	if !t.canExit(p) {
 		return false
 	}
 
 	isFind := false
 	if p.GetChairID() >= 0 {
-		if p == tb.chairList[p.GetChairID()] {
+		if p == t.seats[p.GetChairID()] {
 			isFind = true
 		}
 	}
@@ -122,27 +109,27 @@ func (tb *Table) ThrowOff(p *gplayer.Player) bool {
 		return false
 	}
 
-	tb.chairList[p.GetChairID()] = nil
-	tb.sitCnt--
+	t.seats[p.GetChairID()] = nil
+	t.sitCnt--
 
 	return true
 }
 
 // ReEnter 重进游戏
-func (tb *Table) ReEnter(p *gplayer.Player) {
+func (t *Table) ReEnter(p *gplayer.Player) {
 }
 
 // LastPlayer 上一家
-func (tb *Table) LastPlayer(chair int32) *gplayer.Player {
-	maxCnt := tb.MaxCnt
+func (t *Table) LastPlayer(chair int32) *gplayer.Player {
+	maxCnt := t.MaxCnt
 	for {
 		chair--
 
 		if chair < 0 {
-			chair = int32(tb.MaxCnt) - 1
+			chair = int32(t.MaxCnt) - 1
 		}
 
-		p := tb.chairList[chair]
+		p := t.seats[chair]
 		if p != nil {
 			return p
 		}
@@ -155,16 +142,16 @@ func (tb *Table) LastPlayer(chair int32) *gplayer.Player {
 }
 
 // NextPlayer 轮流寻找玩家
-func (tb *Table) NextPlayer(chair int32) *gplayer.Player {
-	maxCnt := tb.MaxCnt
+func (t *Table) NextPlayer(chair int32) *gplayer.Player {
+	maxCnt := t.MaxCnt
 	for {
 		chair++
 
-		if chair >= int32(tb.MaxCnt) {
+		if chair >= int32(t.MaxCnt) {
 			chair = 0
 		}
 
-		p := tb.chairList[chair]
+		p := t.seats[chair]
 		if p != nil {
 			return p
 		}
@@ -177,11 +164,11 @@ func (tb *Table) NextPlayer(chair int32) *gplayer.Player {
 }
 
 // RangePlayer 遍历玩家
-func (tb *Table) RangePlayer(cb func(k int32, p *gplayer.Player) bool) {
+func (t *Table) RangePlayer(cb func(k int32, p *gplayer.Player) bool) {
 	if cb == nil {
 		return
 	}
-	for k, p := range tb.chairList {
+	for k, p := range t.seats {
 		if p == nil {
 			continue
 		}
@@ -191,24 +178,24 @@ func (tb *Table) RangePlayer(cb func(k int32, p *gplayer.Player) bool) {
 	}
 }
 
-func (tb *Table) GetActivePlayer() *gplayer.Player {
-	active := tb.activeChair
-	if active < 0 || active >= int32(tb.MaxCnt) {
+func (t *Table) GetActivePlayer() *gplayer.Player {
+	active := t.active
+	if active < 0 || active >= int32(t.MaxCnt) {
 		return nil
 	}
-	return tb.chairList[active]
+	return t.seats[active]
 }
 
-func (tb *Table) GetNextActivePlayer() *gplayer.Player {
-	if tb.activeChair < 0 || tb.activeChair >= int32(tb.MaxCnt) {
+func (t *Table) GetNextActivePlayer() *gplayer.Player {
+	if t.active < 0 || t.active >= int32(t.MaxCnt) {
 		return nil
 	}
-	return tb.NextPlayer(tb.activeChair)
+	return t.NextPlayer(t.active)
 }
 
-func (tb *Table) GetPlayerByChair(chair int32) *gplayer.Player {
-	if chair < 0 || chair >= int32(tb.MaxCnt) {
+func (t *Table) GetPlayerByChair(chair int32) *gplayer.Player {
+	if chair < 0 || chair >= int32(t.MaxCnt) {
 		return nil
 	}
-	return tb.chairList[chair]
+	return t.seats[chair]
 }

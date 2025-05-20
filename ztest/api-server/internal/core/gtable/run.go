@@ -6,10 +6,10 @@ import (
 )
 
 //// OnTimer 桌子定时
-//func (tb *Table) OnTimer() {
+//func (t *Table) OnTimer() {
 //	// 超时处理
-//	if ext.GetTick() > tb.nTimeOut {
-//		switch tb.nStage {
+//	if ext.GetTick() > t.nTimeOut {
+//		switch t.nStage {
 //		case conf.StPrepare:
 //			//tl.prepareStart()
 //		case conf.StSendCard:
@@ -29,29 +29,29 @@ import (
 //	}
 //}
 
-func (tb *Table) OnTimer() {
-	oldState := tb.stage
+func (t *Table) OnTimer() {
+	oldState := t.stage
 	defer func() {
-		log.Infof("TimeOut... %v->%v", oldState, tb.stage)
+		log.Infof("TimeOut... %v->%v", oldState, t.stage)
 	}()
 
-	switch tb.stage {
+	switch t.stage {
 	case conf.StPrepare:
-		//tb.gameStart()
+		//t.gameStart()
 	case conf.StSendCard:
-		//tb.notifyAction(false, ACTION)
+		//t.notifyAction(false, ACTION)
 	case conf.StAction: // 超时操作
-		//tb.OnAction(tb.CurrPlayer(), network.Packet{"action": PLAYER_PACK}, true)
+		//t.OnAction(t.CurrPlayer(), network.Packet{"action": PLAYER_PACK}, true)
 	case conf.StWaitSiderShow: // 比牌操作超时
-		//tb.OnAction(tb.CurrPlayer(), network.Packet{"action": PLAYER_OK_SIDER_SHOW, "allow": false}, true)
+		//t.OnAction(t.CurrPlayer(), network.Packet{"action": PLAYER_OK_SIDER_SHOW, "allow": false}, true)
 	case conf.StSiderShow: // 操作之后等待时间
-		//tb.notifyAction(true, ACTION)
+		//t.notifyAction(true, ACTION)
 	case conf.StWaitEnd:
-		//tb.gameEnd()
+		//t.gameEnd()
 	case conf.StEnd: // 游戏结束后判断
-		//tb.clearAnomalyPlayers()
-		//tb.Reset()
-		//tb.checkReady()
-		//tb.mLog.End(fmt.Sprintf("结束清理完成。"))
+		//t.clearAnomalyPlayers()
+		//t.Reset()
+		//t.checkReady()
+		//t.mLog.End(fmt.Sprintf("结束清理完成。"))
 	}
 }

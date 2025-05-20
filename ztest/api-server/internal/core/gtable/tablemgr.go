@@ -45,11 +45,6 @@ func (m *TableManager) Close() {
 }
 
 func (m *TableManager) onTimer() {
-	for _, t := range m.tableList {
-		if t.IsRunning() {
-			t.OnTimer()
-		}
-	}
 }
 
 func (m *TableManager) GetTable(id int32) *Table {
