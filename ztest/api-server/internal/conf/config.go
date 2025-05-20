@@ -2,6 +2,7 @@ package conf
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -95,7 +96,7 @@ func handleConfigChange(key string, value config.Value) {
 
 		//log level 刷新
 		if key == ConfigKeyLog && newConf.Log.Level != oldConf.Log.Level {
-			safeSetLogLevel(newConf.Log.Level)
+			safeSetLogLevel(strings.ToLower(newConf.Log.Level))
 		}
 	}
 }

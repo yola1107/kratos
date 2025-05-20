@@ -8,7 +8,7 @@ import (
 // baseData 结构体
 type baseData struct {
 	TableID       int32
-	UID           int64
+	ID            int64
 	Money         float64
 	BMoney        float64
 	GMoney        float64
@@ -42,7 +42,7 @@ func (b *baseData) ToRedisMap() map[string]string {
 	m := make(map[string]string)
 
 	m[PlayerTableIDField] = ext.Int64ToStr(int64(b.TableID))
-	m[PlayerUIDField] = ext.Int64ToStr(b.UID)
+	m[PlayerUIDField] = ext.Int64ToStr(b.ID)
 	m[PlayerMoneyField] = ext.Float64ToStr(b.Money)
 	m[PlayerBMoneyField] = ext.Float64ToStr(b.BMoney)
 	m[PlayerGMoneyField] = ext.Float64ToStr(b.GMoney)
@@ -73,7 +73,7 @@ func (b *baseData) ToRedisMap() map[string]string {
 // FromRedisData 从 Redis hash 的 map[string]string 转为 baseData
 func (b *baseData) FromRedisData(data map[string]string) {
 	b.TableID = ext.StrToInt32(data[PlayerTableIDField])
-	b.UID = ext.StrToInt64(data[PlayerUIDField])
+	b.ID = ext.StrToInt64(data[PlayerUIDField])
 	b.Money = ext.StrToFloat64(data[PlayerMoneyField])
 	b.BMoney = ext.StrToFloat64(data[PlayerBMoneyField])
 	b.GMoney = ext.StrToFloat64(data[PlayerGMoneyField])

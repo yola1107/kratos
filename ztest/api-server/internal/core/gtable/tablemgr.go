@@ -79,7 +79,7 @@ func (m *TableManager) getTopTable(p *gplayer.Player, canSwitch bool) *Table {
 		best = t
 	}
 	if best == nil {
-		log.Warn("无可用桌子，玩家ID: %d", p.GetUID())
+		log.Warn("无可用桌子，玩家ID: %d", p.GetPlayerID())
 	}
 	return best
 }
