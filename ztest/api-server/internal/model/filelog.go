@@ -1,4 +1,4 @@
-package glog
+package model
 
 import (
 	"fmt"
@@ -11,38 +11,37 @@ import (
 )
 
 const (
-	timeFormat = "2006/01/02 15:04:05"
+	timeFormat        = "2006/01/02 15:04:05"
+	defaultMaxSize    = 10 //10 MB
+	defaultMaxAge     = 7  //7 days
+	defaultMaxBackups = 3  //3 back
 )
 
-// TableLog 单个桌子的日志
-type TableLog struct {
-	id      int64
+// FileLog 单个文件的日志
+type FileLog struct {
 	closers io.Closer
 	logger  *zap.Logger // zap 日志记录器
-	enable  bool        // write enable
 }
 
-// NewTableLog 创建一个新的 TableLog
-func NewTableLog(id int64, enable bool) *TableLog {
+// NewFileLog 创建一个新的 TableLog
+func NewFileLog(filename string) *FileLog {
 	encoderCfg := zap.NewProductionEncoderConfig()
 	encoderCfg.EncodeLevel = nil
 	encoderCfg.EncodeTime = customTimeEncoder
 	encoderCfg.ConsoleSeparator = " "
 	fileEnc := zapcore.NewConsoleEncoder(encoderCfg)
 	lj := &lumberjack.Logger{
-		Filename:   fmt.Sprintf("./logs/table_%d.log", id),
-		MaxSize:    10, //10 MB
-		MaxAge:     7,  //7 days
-		MaxBackups: 3,  //3 back
+		Filename:   filename,
+		MaxSize:    defaultMaxSize,
+		MaxAge:     defaultMaxAge,
+		MaxBackups: defaultMaxBackups,
 		LocalTime:  true,
 		Compress:   true,
 	}
 	logger := zap.New(zapcore.NewTee(zapcore.NewCore(fileEnc, zapcore.AddSync(lj), zapcore.InfoLevel)))
-	return &TableLog{
-		id:      id,
+	return &FileLog{
 		closers: lj,
 		logger:  logger,
-		enable:  enable,
 	}
 }
 
@@ -52,29 +51,22 @@ func customTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 }
 
 // Sync 确保日志被写入
-func (l *TableLog) Sync() error {
+func (l *FileLog) Sync() error {
 	return l.logger.Sync()
 }
 
 // Close 关闭日志资源
-func (l *TableLog) Close() error {
+func (l *FileLog) Close() error {
 	_ = l.Sync()
 	return l.closers.Close()
 }
 
-func (l *TableLog) SetEnable(enable bool) {
-	l.enable = enable
-}
-
 // WriteLog 写入日志
-func (l *TableLog) WriteLog(msg string, args ...interface{}) {
-	if !l.enable {
-		return
-	}
+func (l *FileLog) WriteLog(msg string, args ...interface{}) {
 	l.logger.Sugar().Infof(msg, args...)
 }
 
-// UserEnter 玩家进入游戏的日志记录
-func (l *TableLog) UserEnter(uid int64, seat int32, money int64) {
-	l.WriteLog("<进入游戏> 玩家[%d %d] 金币[%d] 桌子号[%d]", uid, seat, money, l.id)
+// userEnter 玩家进入游戏的日志记录
+func (l *FileLog) userEnter(tableID, uid int64, seat int32, money int64) {
+	l.WriteLog("<进入游戏> 玩家[%d %d] 金币[%d] 桌子号[%d]", uid, seat, money, tableID)
 }

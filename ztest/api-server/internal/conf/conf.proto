@@ -87,6 +87,7 @@ message Game {
     double pot_limit         = 12;
     double fee               = 13;
     double speaker_minmoney  = 14;
+    bool  logCacheOpen       = 15;
 }
 
 // 机器人配置

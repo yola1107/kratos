@@ -406,6 +406,7 @@ type Game struct {
 	PotLimit         float64                `protobuf:"fixed64,12,opt,name=pot_limit,json=potLimit,proto3" json:"pot_limit,omitempty"`
 	Fee              float64                `protobuf:"fixed64,13,opt,name=fee,proto3" json:"fee,omitempty"`
 	SpeakerMinmoney  float64                `protobuf:"fixed64,14,opt,name=speaker_minmoney,json=speakerMinmoney,proto3" json:"speaker_minmoney,omitempty"`
+	LogCacheOpen     bool                   `protobuf:"varint,15,opt,name=logCacheOpen,proto3" json:"logCacheOpen,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -536,6 +537,13 @@ func (x *Game) GetSpeakerMinmoney() float64 {
 		return x.SpeakerMinmoney
 	}
 	return 0
+}
+
+func (x *Game) GetLogCacheOpen() bool {
+	if x != nil {
+		return x.LogCacheOpen
+	}
+	return false
 }
 
 // 机器人配置
@@ -1061,7 +1069,7 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\x05robot\x18\x03 \x01(\v2\x11.kratos.api.RobotR\x05robot\"?\n" +
 	"\x05Table\x12\x1a\n" +
 	"\btableNum\x18\x01 \x01(\x05R\btableNum\x12\x1a\n" +
-	"\bchairNum\x18\x02 \x01(\x05R\bchairNum\"\xbf\x03\n" +
+	"\bchairNum\x18\x02 \x01(\x05R\bchairNum\"\xe3\x03\n" +
 	"\x04Game\x12\x10\n" +
 	"\x03vid\x18\x01 \x01(\x05R\x03vid\x12\x1b\n" +
 	"\tsee_round\x18\x02 \x01(\x05R\bseeRound\x12$\n" +
@@ -1079,7 +1087,8 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\bch_limit\x18\v \x01(\x01R\achLimit\x12\x1b\n" +
 	"\tpot_limit\x18\f \x01(\x01R\bpotLimit\x12\x10\n" +
 	"\x03fee\x18\r \x01(\x01R\x03fee\x12)\n" +
-	"\x10speaker_minmoney\x18\x0e \x01(\x01R\x0fspeakerMinmoney\"\xa0\x02\n" +
+	"\x10speaker_minmoney\x18\x0e \x01(\x01R\x0fspeakerMinmoney\x12\"\n" +
+	"\flogCacheOpen\x18\x0f \x01(\bR\flogCacheOpen\"\xa0\x02\n" +
 	"\x05Robot\x12\x12\n" +
 	"\x04open\x18\x01 \x01(\bR\x04open\x12\x10\n" +
 	"\x03num\x18\x02 \x01(\x05R\x03num\x12&\n" +
