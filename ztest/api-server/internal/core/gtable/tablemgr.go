@@ -37,12 +37,13 @@ func NewTableManager(c *conf.Room, repo iface.IRoomRepo) *TableManager {
 	return mgr
 }
 
-func (m *TableManager) Start() {
+func (m *TableManager) Start() error {
 	//log.Infof("TableMgr start")
 	m.repo.GetTimer().Once(5*time.Second, func() {
 		log.Infof("im back")
 	})
 	//gtimer.Forever(nil, time.Second/2, m.onTimer)
+	return nil
 }
 
 func (m *TableManager) Close() {

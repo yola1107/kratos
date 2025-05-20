@@ -44,14 +44,14 @@ func InitConfig(flagconf string) (config.Config, *Bootstrap) {
 	ins.Store(bc)
 
 	// 热更新配置
-	Watch(c)
+	watch(c)
 
 	log.Infof("config initialized: flagconf=%s", flagconf)
 	return c, bc
 }
 
-// Watch 启动配置监听
-func Watch(c config.Config) {
+// watch 配置变更监听
+func watch(c config.Config) {
 	for _, key := range []string{ConfigKeyLog, ConfigKeyRoom} {
 		if err := c.Watch(key, func(key string, value config.Value) {
 			handleConfigChange(key, value)

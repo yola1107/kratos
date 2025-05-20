@@ -2,6 +2,7 @@ package room
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/wire"
 
@@ -38,17 +39,15 @@ func New(c *conf.Room, logger log.Logger) *Room {
 	return r
 }
 
-func (r *Room) Start() {
+func (r *Room) Start() error {
 	log.Infof("start server:\"%s\" version:%+v", conf.Name, conf.Version)
 	log.Infof("GameID=%d ArenaID=%d ServerID=%s", conf.GameID, conf.ArenaID, conf.ServerID)
-	go func() {
-		err := r.worker.Start()
-		if err != nil {
-			panic(err)
-		}
-		r.playerMgr.Start()
-		r.tableMgr.Start()
-	}()
+
+	err := r.worker.Start()
+	perr := r.playerMgr.Start()
+	terr := r.tableMgr.Start()
+	return errors.Join(err, perr, terr)
+
 }
 
 func (r *Room) Close() {

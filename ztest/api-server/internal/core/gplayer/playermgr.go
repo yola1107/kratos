@@ -25,10 +25,10 @@ func NewPlayerManager(c *conf.Room, repo iface.IRoomRepo) *Manager {
 	}
 }
 
-func (m *Manager) Start() {
+func (m *Manager) Start() error {
 	// 启动相关定时、回收、广播逻辑
 	//log.Infof("PlayerMgr start")
-
+	return nil
 }
 
 func (m *Manager) Close() {
