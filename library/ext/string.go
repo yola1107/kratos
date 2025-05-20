@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/yola1107/kratos/v2/log"
 	"golang.org/x/exp/constraints"
+
+	"github.com/yola1107/kratos/v2/log"
 )
 
 // ToString .
@@ -14,15 +15,15 @@ func ToString(v any) string {
 }
 
 func IntToStr(n int) string {
-	return intToStr(n)
+	return strconv.FormatInt(int64(n), 10)
 }
 
 func Int32ToStr(n int32) string {
-	return intToStr(n)
+	return strconv.FormatInt(int64(n), 10)
 }
 
 func Int64ToStr(n int64) string {
-	return intToStr(n)
+	return strconv.FormatInt(int64(n), 10)
 }
 
 func Float64ToStr(f float64, prec ...int) string {
@@ -53,10 +54,6 @@ func StrToFloat64(s string) float64 {
 		return v
 	}
 	return 0
-}
-
-func intToStr[T constraints.Integer](n T) string {
-	return strconv.FormatInt(int64(n), 10)
 }
 
 func strToInt[T constraints.Integer](s string) T {

@@ -41,9 +41,7 @@ func newApp(logger log.Logger, gs *grpc.Server, hs *http.Server, ws *websocket.S
 		),
 		//通过 Kratos 的 App Hook（适合全生命周期统一管理）
 		kratos.BeforeStart(func(ctx context.Context) error {
-			log.Infof("start server \"%s\" version:%+v", Name, Version)
-			log.Infof("GameID=%d ArenaID=%d ServerID=%s", conf.GameID, conf.ArenaID, conf.ServerID)
-			go rr.Start()
+			rr.Start()
 			return nil
 		}),
 		kratos.AfterStop(func(ctx context.Context) error {

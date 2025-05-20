@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/panjf2000/ants/v2"
+
 	"github.com/yola1107/kratos/v2/log"
 )
 
@@ -84,7 +85,7 @@ func (l *antsLoop) Stop() {
 		l.pool = nil
 		//go func() {
 		p.Release()
-		log.Infof("antsLoop stopped [running:%d]", p.Running())
+		log.Infof("antsLoop stopping [running:%d]", p.Running())
 		//}()
 	}
 }

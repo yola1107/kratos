@@ -1,17 +1,16 @@
 package ext
 
-import (
-	"github.com/yola1107/kratos/v2/log"
-)
-
 // SafeCall 安全执行回调
 func SafeCall(fn func()) {
-	defer func() {
-		if r := recover(); r != nil {
-			log.Errorf("handler panic: %v", r)
-		}
-	}()
+	defer RecoverFromError(nil)
 	if fn != nil {
 		fn()
 	}
+}
+
+// SafeSyncCall 异步安全执行回调
+func SafeSyncCall(fn func()) {
+	go func() {
+		SafeCall(fn)
+	}()
 }

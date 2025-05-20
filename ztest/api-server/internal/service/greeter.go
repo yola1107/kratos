@@ -24,6 +24,21 @@ func NewGreeterService(uc *biz.GreeterUsecase, rc *room.Room, logger log.Logger)
 	return &GreeterService{uc: uc, rc: rc}
 }
 
+// GetLoop 获取任务池
+func (s *GreeterService) GetLoop() work.ITaskLoop {
+	return s.rc.GetLoop()
+}
+
+// OnOpenFunc 连接建立回调
+func (s *GreeterService) OnOpenFunc(sess *websocket.Session) {
+	log.Infof("OnOpenFunc: %+v", sess.ID())
+}
+
+// OnCloseFunc 连接关闭回调
+func (s *GreeterService) OnCloseFunc(sess *websocket.Session) {
+	log.Infof("OnCloseFunc: %+v", sess.ID())
+}
+
 // SayHelloReq implements helloworld.GreeterServer.
 func (s *GreeterService) SayHelloReq(ctx context.Context, in *v1.HelloRequest) (*v1.HelloReply, error) {
 	g, err := s.uc.CreateGreeter(ctx, &biz.Greeter{Hello: in.Name})
@@ -46,17 +61,3 @@ func (s *GreeterService) SayHello2Req(ctx context.Context, in *v1.Hello2Request)
 //func (s *GreeterService) SetCometChan(cl *tcp.ChanList, cs *tcp.Server) {}
 //
 //func (s *GreeterService) IsLoopFunc(f string) (isLoop bool) { return false }
-
-func (s *GreeterService) GetLoop() work.ITaskLoop {
-	return nil
-}
-
-// OnOpenFunc 连接建立回调
-func (s *GreeterService) OnOpenFunc(sess *websocket.Session) {
-	log.Infof("OnOpenFunc: %+v", sess.ID())
-}
-
-// OnCloseFunc 连接关闭回调
-func (s *GreeterService) OnCloseFunc(sess *websocket.Session) {
-	log.Infof("OnCloseFunc: %+v", sess.ID())
-}

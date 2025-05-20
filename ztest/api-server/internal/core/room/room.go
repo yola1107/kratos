@@ -39,18 +39,22 @@ func New(c *conf.Room, logger log.Logger) *Room {
 }
 
 func (r *Room) Start() {
-	if err := r.worker.Start(); err != nil {
-		panic(err)
-	}
-	r.playerMgr.Start()
-	r.tableMgr.Start()
+	log.Infof("start server:\"%s\" version:%+v", conf.Name, conf.Version)
+	log.Infof("GameID=%d ArenaID=%d ServerID=%s", conf.GameID, conf.ArenaID, conf.ServerID)
+	go func() {
+		err := r.worker.Start()
+		if err != nil {
+			panic(err)
+		}
+		r.playerMgr.Start()
+		r.tableMgr.Start()
+	}()
 }
 
 func (r *Room) Close() {
 	r.playerMgr.Close()
 	r.tableMgr.Close()
 	r.worker.Stop()
-	log.Infof("Room stop.")
 }
 
 func (r *Room) GetLoop() work.ITaskLoop {
