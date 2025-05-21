@@ -61,7 +61,7 @@ func NewSession(server *Server, conn *websocket.Conn) *Session {
 	// 设置连接参数
 	conn.SetReadLimit(server.opts.limits.maxMessageSize)
 	conn.SetPongHandler(func(string) error {
-		s.updateHeartbeat()
+		s.setLastActive()
 		return nil
 	})
 
@@ -167,9 +167,7 @@ func (s *Session) readPump() {
 			return
 		}
 
-		//log.Infof("recv. data=%+v type=%+v ", data, messageType)
-
-		s.updateHeartbeat()
+		s.setLastActive()
 
 		switch messageType {
 		case websocket.BinaryMessage:
@@ -235,6 +233,11 @@ func (s *Session) Closed() bool {
 	return s.closed.Load()
 }
 
+// setLastActive 设置最后活跃时间
+func (s *Session) setLastActive() {
+	s.lastActive.Store(time.Now())
+}
+
 // LastActive 返回最后活跃时间
 func (s *Session) LastActive() time.Time {
 	return s.lastActive.Load().(time.Time)
@@ -297,16 +300,11 @@ func (s *Session) writeMessageLocked(data []byte) error {
 	if s.conn == nil {
 		return errSessionClosed
 	}
-
-	if err := s.conn.SetWriteDeadline(time.Now().Add(s.server.opts.timeouts.write)); err != nil {
+	timeout := time.Now().Add(s.server.opts.timeouts.write)
+	if err := s.conn.SetWriteDeadline(timeout); err != nil {
 		return err
 	}
-
 	return s.conn.WriteMessage(websocket.BinaryMessage, data)
-}
-
-func (s *Session) updateHeartbeat() {
-	s.lastActive.Store(time.Now())
 }
 
 func mustMarshal(pb gproto.Message) []byte {

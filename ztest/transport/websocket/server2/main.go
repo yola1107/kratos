@@ -40,33 +40,55 @@ func (s *server) SayHelloReq(ctx context.Context, in *v1.HelloRequest) (*v1.Hell
 }
 
 func (s *server) SayHello2Req(ctx context.Context, in *v1.Hello2Request) (*v1.Hello2Reply, error) {
-	session := ctx.Value("session")
-	if session != nil {
-		s.GetLoop().Post(func() {
-			ss := session.(*websocket.Session)
-			// push未定义的 cmd
-			if err := ss.Push(9876, &v1.Hello2Reply{Message: "from server push."}); err != nil {
-				log.Infof("push err:%v", err)
-			}
+	//session := ctx.Value("session")
+	//if session != nil {
+	//
+	//	s.GetLoop().Post(func() {
+	//		ss := session.(*websocket.Session)
+	//		//// push未定义的 cmd
+	//		//if err := ss.Push(9876, &v1.Hello2Reply{Message: "from server push."}); err != nil {
+	//		//	log.Infof("push err:%v", err)
+	//		//}
+	//		//
+	//		////
+	//		//resp := &v1.Hello2Reply{Message: fmt.Sprintf("from server push. %s", in.Name)}
+	//		//if err := ss.Push(int32(v1.GameCommand_SayHello2Rsp), resp); err != nil {
+	//		//	log.Infof("push err:%v", err)
+	//		//}
+	//
+	//		log.Infof("sessionId:%v", ss.ID())
+	//	})
+	//}
 
-			//
-			resp := &v1.Hello2Reply{Message: fmt.Sprintf("from server push. %s", in.Name)}
-			if err := ss.Push(int32(v1.GameCommand_SayHello2Rsp), resp); err != nil {
-				log.Infof("push err:%v", err)
-			}
-		})
+	if session, err := s.GetSessionByID(ctx.Value("sessionID").(string)); err == nil {
+		if err = session.Push(9876, &v1.Hello2Reply{Message: "from server push."}); err != nil {
+			log.Infof("push err:%v", err)
+		}
+	} else {
+		log.Errorf("GetSessionByID err:%v", err)
 	}
-	return &v1.Hello2Reply{Message: fmt.Sprintf("ws server say hello.")}, nil
+	return &v1.Hello2Reply{Message: fmt.Sprintf("ws server say hello. %s", in.Name)}, nil
 }
 
 // OnOpenFunc 连接建立回调
 func (s *server) OnOpenFunc(session *websocket.Session) {
+	log.Infof("[ws] OnOpenFunc session:%+v", session.ID())
 	s.sessionsMap.Store(session.ID(), session)
 }
 
 // OnCloseFunc 连接关闭回调
 func (s *server) OnCloseFunc(session *websocket.Session) {
+	log.Infof("[ws] OnCloseFunc session:%+v", session.ID())
 	s.sessionsMap.Delete(session.ID())
+}
+
+func (s *server) GetSessionByID(sessionID string) (session *websocket.Session, err error) {
+	ss, ok := s.sessionsMap.Load(sessionID)
+	if !ok {
+		return nil, fmt.Errorf("session:%s not exist", sessionID)
+	}
+	session = ss.(*websocket.Session)
+	return
 }
 
 // GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o app main.go

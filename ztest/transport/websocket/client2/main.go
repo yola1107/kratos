@@ -96,8 +96,7 @@ func main() {
 		}),
 		websocket.WithResponseHandler(map[int32]websocket.ResponseHandler{
 			int32(v1.GameCommand_SayHelloReq):  func(data []byte, code int32) {}, //空
-			int32(v1.GameCommand_SayHello2Req): func(data []byte, code int32) {}, //
-			int32(6666):                        func(data []byte, code int32) {},
+			int32(v1.GameCommand_SayHello2Req): func(data []byte, code int32) {}, //空
 		}),
 		websocket.WithDisconnectFunc(func() { log.Infof("disconnect called") }),
 		websocket.WithStateFunc(func(connected bool) { log.Infof("连接状态变更. connectd=%+v", connected) }),
@@ -140,16 +139,6 @@ func callGRPC(connGRPC *grpc.ClientConn) {
 }
 
 func callWebsocket(c *websocket.Client) {
-	if _, err := c.Request(int32(v1.GameCommand_SayHelloReq), &v1.HelloRequest{Name: fmt.Sprintf("kratos_ws:%d", seed)}); err != nil {
-		log.Errorf("[ws] %+v", err)
-	}
-	if _, err := c.Request(int32(v1.GameCommand_SayHello2Req), &v1.Hello2Request{Name: fmt.Sprintf("kratos_ws:%d", seed)}); err != nil {
-		log.Errorf("[ws] %+v", err)
-	}
-	if _, err := c.Request(6666, &v1.HelloRequest{Name: fmt.Sprintf("ws:666")}); err != nil {
-		log.Errorf("[ws] %+v", err)
-	}
-
 	payload, err := c.Request(int32(v1.GameCommand_SayHello2Req), &v1.Hello2Request{Name: fmt.Sprintf("kratos_ws:%d", seed)})
 	if err != nil {
 		log.Errorf("err:%+v", err)

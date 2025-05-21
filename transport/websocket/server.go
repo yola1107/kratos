@@ -33,7 +33,15 @@ var (
 )
 
 var (
-	unknownOpsCode = int32(501)
+	unknownErrCode  = int32(500) //未知的服务器错误/服务器内部错误 （兜底错误）
+	unknownOpsCode  = int32(501) //服务器未实现该方法
+	tooManyRequests = int32(429) //全局流量限制 429 Too Many Requests
+
+)
+
+const (
+	ContextSessionKey   = "session"
+	ContextSessionIDKey = "sessionID"
 )
 
 // ServerOption is a Websocket server option.
@@ -140,7 +148,7 @@ func NewServer(opts ...ServerOption) *Server {
 				maxConnections: 100000,
 				maxMessageSize: 10 * 1024 * 1024, // 10MB
 				rateLimit:      100,              // 每秒消息数,
-				burstLimit:     50,               // 突发消息数,
+				burstLimit:     10,               // 突发消息数,
 				sendChanSize:   256,
 			},
 		},
@@ -339,7 +347,11 @@ func (s *Server) dispatchMessage(sess *Session, data []byte) error {
 	if err = gproto.Unmarshal(data, &p); err != nil {
 		return err
 	}
-	ctx := context.WithValue(context.Background(), "session", sess)
+
+	// 通过context传递给session等数据给调用方
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, ContextSessionKey, sess)
+	ctx = context.WithValue(ctx, ContextSessionIDKey, sess.id)
 
 	switch p.Type {
 	case int32(proto.Ping):
@@ -382,16 +394,17 @@ func (s *Server) operate(ctx context.Context, sess *Session, p *proto.Payload) (
 	srv := s.m
 	md, ok := srv.md[reqBody.Ops]
 	if !ok {
-		log.Warnf("Unknown Ops(%+v) ", reqBody.Ops)
 		// 返回错误响应给客户端
 		p.Code = unknownOpsCode // 或自定义错误码
+		log.Warnf("websocket server operate Unknown Ops(%+v) code=%d", reqBody.Ops, p.Code)
 		return sess.Send(mustMarshal(p))
 	}
 	reply, errCode := md.Handler(srv.server, ctx, reqBody.Data, s.interceptor)
 	if errCode != nil {
-		p.Code = 1
+		// 返回错误响应给客户端
+		p.Code = unknownErrCode
 		p.Body = reply
-		log.Errorf("websocket server operate err=%+v reply=%+v p=%+v", errCode, reply, p)
+		log.Errorf("websocket server operate err=%+v reply=%+v code=%d", errCode, reply, p.Code)
 	} else {
 		p.Code = 0
 		p.Body = reply
