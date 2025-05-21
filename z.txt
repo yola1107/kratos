@@ -3,10 +3,11 @@
 kratos learn
 
 
-kratos new helloworld -r https://github.com/yola1107/kratos-layout.git
-
 kratos new helloworld
 
+kratos new helloworld -r https://github.com/yola1107/kratos-layout.git
+
+kratos new helloworld --repo-url=https://github.com/yola1107/kratos-layout.git
 
 
 
@@ -25,7 +26,6 @@ last:     20250427 17:30   ==>  v2.8.6
 删除远端所有tag
 git fetch --tags
 git tag -l | xargs -n 1 git push --delete origin
-
 
 # 检查本地是否存在tag
 git tag -l | grep 'v2.8.6'
