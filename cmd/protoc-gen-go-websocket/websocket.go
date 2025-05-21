@@ -124,11 +124,6 @@ func genService(gen *protogen.Plugin, file *protogen.File, g *protogen.Generated
 	g.P(`}`)
 }
 
-//	 生成server接口:
-//		type GreeterWebsocketServer interface {
-//			SayHello(context.Context, *HelloRequest) (*HelloReply, error)
-//			SayHello2(context.Context, *Hello2Request) (*Hello2Reply, error)
-//		}
 func generateWebsocketInterface(gen *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile, service *protogen.Service) int {
 	count := 0
 	serviceName := service.GoName
@@ -145,54 +140,6 @@ func generateWebsocketInterface(gen *protogen.Plugin, file *protogen.File, g *pr
 	g.P(`}`)
 	g.P()
 	return count
-}
-
-// _Metadata_GetServiceDesc_Websocket_Handler
-func generateServerMethod2(g *protogen.GeneratedFile, servName, fullServName string, method *protogen.Method) string {
-	methName := method.GoName
-	hname := fmt.Sprintf("_%s_%s_Websocket_Handler", servName, methName)
-	inputType := method.Input.Desc.Name()
-	outputType := method.Output.Desc.Name()
-	g.P(`func `, hname, `(srv interface{}, ctx context.Context, data []byte, interceptor websocket.UnaryServerInterceptor) ([]byte, error) {`)
-	g.P(`	in := new(`, inputType, `)`)
-	g.P(`	if err := proto.Unmarshal(data, in); err != nil {`)
-	g.P(`		return nil, err`)
-	g.P(`	}`)
-	g.P(`	if interceptor == nil {`)
-	g.P(`		out, err := srv.(`, servName, `WebsocketServer).`, methName, `(ctx, in)`)
-	g.P(`		data, _ := proto.Marshal(out)`)
-	g.P(`			return data, err`)
-	g.P(`	}`)
-	g.P(`	info := &websocket.UnaryServerInfo{`)
-	g.P(`		Server:     srv,`)
-	g.P(`		FullMethod: `, strconv.Quote(fmt.Sprintf("/%s/%s", fullServName, methName)), `,`)
-	g.P(`	}`)
-	g.P(`	handler := func(ctx context.Context, req interface{}) ([]byte, error) {`)
-	g.P(`		out := new(`, outputType, `)`)
-	g.P(`		var err error`)
-	g.P(`		if srv.(`, servName, `WebsocketServer).IsLoopFunc("`, methName, `") {`)
-	g.P(`			rspChan := make(chan *`, outputType, `)`)
-	g.P(`			errChan := make(chan error)`)
-	g.P(`			srv.(`, servName, `WebsocketServer).GetLoop().Post(func() {`)
-	g.P(`				resp, err := srv.(`, servName, `WebsocketServer).`, methName, `(ctx, req.(*`, inputType, `))`)
-	g.P(`				rspChan <- resp`)
-	g.P(`				errChan <- err`)
-	g.P(`			})`)
-	g.P(`			out = <- rspChan`)
-	g.P(`			err = <- errChan`)
-	g.P(`		} else {`)
-	g.P(`			out, err = srv.(`, servName, `WebsocketServer).`, methName, `(ctx, req.(*`, inputType, `))`)
-	g.P(`		}`)
-	g.P(`		if out != nil {`)
-	g.P(`			data, _ := proto.Marshal(out)`)
-	g.P(`			return data, err`)
-	g.P(`		}`)
-	g.P(`		return nil, err`)
-	g.P(`	}`)
-	g.P(`	return interceptor(ctx, in, info, handler)`)
-	g.P(`}`)
-	g.P()
-	return hname
 }
 
 func generateServerMethod(g *protogen.GeneratedFile, servName, fullServName string, method *protogen.Method) string {

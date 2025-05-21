@@ -54,7 +54,7 @@ func generateImports(gen *protogen.Plugin, file *protogen.File, g *protogen.Gene
 	//g.P(`	"runtime/debug"`)
 	g.P()
 	//g.P(`	"github.com/yola1107/kratos/v2/log"`)
-	g.P(`	"github.com/yola1107/kratos/v2/library/task"`)
+	g.P(`	"github.com/yola1107/kratos/v2/library/work"`)
 	g.P(`	"github.com/yola1107/kratos/v2/transport/tcp"`)
 	g.P()
 	//google.golang.org/protobuf/proto
@@ -149,15 +149,6 @@ func genService(gen *protogen.Plugin, file *protogen.File, g *protogen.Generated
 	g.P("}")
 	g.P()
 
-	// 生成 TCP 服务器处理函数 和 请求code
-	//handlerNames, gameCommand := generateServerMethods(gen, file, g, service, serviceDescVar)
-	//// 生成 TCP 服务器处理函数
-	//for _, method := range service.Methods {
-	//	g.P("func _", serviceName, "_", method.GoName, "0_TCP", "_Handler(srv interface{}", "TCPServer, ctx context.Context, req *", method.Input.GoIdent, ") (*", method.Output.GoIdent, ", error) {")
-	//	g.P("return srv.", method.GoName, "(ctx, req)")
-	//	g.P("}")
-	//}
-
 	// 生成 TCP 服务器处理函数
 	var handlerNames []string
 	for _, method := range service.Methods {
@@ -213,7 +204,7 @@ func generateTCPInterface(gen *protogen.Plugin, file *protogen.File, g *protogen
 	g.P("// " + serviceName + "TcpServer is the server API for " + serviceName + " service.")
 
 	g.P("type ", serviceName, "TCPServer interface {")
-	g.P(`GetTCPLoop() task.ILoop`)
+	g.P(`GetTCPLoop() work.ITaskLoop`)
 	g.P(`SetCometChan(cl *tcp.ChanList, cs *tcp.Server)`)
 	g.P(`IsLoopFunc(f string) (isLoop bool)`)
 	for _, method := range service.Methods {

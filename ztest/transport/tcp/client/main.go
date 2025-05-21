@@ -39,7 +39,7 @@ func main() {
 	// 向tcp服务器发请求
 	i := 0
 	for {
-		req := pb.HelloRequest{Name: fmt.Sprintf("tcp_%d", i)}
+		req := pb.HelloRequest{Name: fmt.Sprintf("kratos_tcp_%d", i)}
 		if err = c.Request(int32(v1.GameCommand_SayHelloReq), &req); err != nil {
 			panic(err)
 		}

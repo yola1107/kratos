@@ -11,7 +11,7 @@ package v1
 import (
 	"context"
 
-	"github.com/yola1107/kratos/v2/library/task"
+	"github.com/yola1107/kratos/v2/library/work"
 	"github.com/yola1107/kratos/v2/transport/tcp"
 
 	"google.golang.org/protobuf/proto"
@@ -19,7 +19,7 @@ import (
 
 // GreeterTcpServer is the server API for Greeter service.
 type GreeterTCPServer interface {
-	GetTCPLoop() task.ILoop
+	GetTCPLoop() work.ITaskLoop
 	SetCometChan(cl *tcp.ChanList, cs *tcp.Server)
 	IsLoopFunc(f string) (isLoop bool)
 	SayHelloReq(context.Context, *HelloRequest) (*HelloReply, error)

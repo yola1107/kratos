@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	gproto "github.com/golang/protobuf/proto"
-	"github.com/yola1107/kratos/v2/library/task"
+	"github.com/yola1107/kratos/v2/library/work"
 	"github.com/yola1107/kratos/v2/metadata"
 	v2 "github.com/yola1107/kratos/v2/ztest/transport/api/helloworld/v1"
 
@@ -21,7 +21,7 @@ import (
 // go build -ldflags "-X main.Version=x.y.z"
 var (
 	Name    = "helloworld"
-	tcpLoop *task.Loop
+	tcpLoop work.ITaskLoop
 )
 
 type server struct {
@@ -43,7 +43,7 @@ func (s *server) IsLoopFunc(f string) (isLoop bool) {
 	return m[f]
 }
 
-func (s *server) GetTCPLoop() task.ILoop {
+func (s *server) GetTCPLoop() work.ITaskLoop {
 	return tcpLoop
 }
 
@@ -77,10 +77,6 @@ func (s *server) SayHello2Req(ctx context.Context, in *v2.Hello2Request) (*v2.He
 }
 
 func main() {
-	tcpLoop = task.NewLoop(10000)
-	tcpLoop.Start()
-	defer tcpLoop.Stop()
-
 	s := &server{}
 	httpSrv := http.NewServer(
 		http.Address(":8000"),
@@ -111,6 +107,14 @@ func main() {
 			grpcSrv,
 			tcpSrv,
 		),
+		kratos.BeforeStart(func(ctx context.Context) error {
+			tcpLoop = work.NewAntsLoop(100)
+			return tcpLoop.Start()
+		}),
+		kratos.AfterStop(func(ctx context.Context) error {
+			tcpLoop.Stop()
+			return nil
+		}),
 	)
 
 	if err := app.Run(); err != nil {

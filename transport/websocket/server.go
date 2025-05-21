@@ -127,7 +127,7 @@ func NewServer(opts ...ServerOption) *Server {
 			timeouts: &timeouts{
 				timeout:  1 * time.Second,
 				read:     30 * time.Second,
-				write:    5 * time.Second,
+				write:    10 * time.Second,
 				shutdown: 2 * time.Second,
 				dial:     1 * time.Second,
 			},
@@ -389,10 +389,13 @@ func (s *Server) operate(ctx context.Context, sess *Session, p *proto.Payload) (
 	}
 	reply, errCode := md.Handler(srv.server, ctx, reqBody.Data, s.interceptor)
 	if errCode != nil {
-		log.Errorf("errCord=%+v p:%+v", errCode, p)
+		p.Code = 1
+		p.Body = reply
+		log.Errorf("websocket server operate err=%+v reply=%+v p=%+v", errCode, reply, p)
+	} else {
+		p.Code = 0
+		p.Body = reply
 	}
-	p.Code = 0
-	p.Body = reply
 
 	// send. 将回调handle的结果send给client
 	err = sess.Send(mustMarshal(p))

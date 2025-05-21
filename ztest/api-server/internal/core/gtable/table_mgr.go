@@ -23,8 +23,10 @@ func NewTableManager(c *conf.Room, repo iface.IRoomRepo) *TableManager {
 		repo:      repo,
 	}
 	for i := int32(1); i <= tc.TableNum; i++ {
-		tb := &Table{ID: i, MaxCnt: int16(tc.ChairNum)}
-		tb.Init()
+		//tb := &Table{TableID: i, MaxCnt: int16(tc.ChairNum)}
+		tb := &Table{
+			TableID: i,
+		}
 		mgr.tableMap[i] = tb
 		mgr.tableList[i-1] = tb
 	}

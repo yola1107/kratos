@@ -10,7 +10,7 @@ import (
 )
 
 type Table struct {
-	ID       int32 // 桌子ID
+	TableID  int32 // 桌子ID
 	MaxCnt   int16 // 最大玩家数
 	isClosed bool  // 是否停服
 
@@ -21,7 +21,7 @@ type Table struct {
 	active int32             // 当前操作玩家
 	seats  []*gplayer.Player // 玩家列表
 	cards  model.GameCards   // card信息
-	mLog   *tableLogger      // 桌子日志
+	logger *tableLogger      // 桌子日志
 
 	// 游戏逻辑变量
 	curRound int32   // 当前轮数
@@ -30,7 +30,7 @@ type Table struct {
 }
 
 type gameStage struct {
-	stage     int32         // 阶段
+	curr      int32         // 阶段
 	last      int32         // 上一阶段
 	timerID   int64         // 阶段定时器ID
 	startTime time.Time     // 阶段开始时间
@@ -77,7 +77,7 @@ func (t *Table) ThrowInto(p *gplayer.Player) bool {
 		t.sitCnt++
 
 		// 玩家信息
-		p.SetTableID(t.ID)
+		p.SetTableID(t.TableID)
 		p.SetChairID(int32(k))
 		p.Reset()
 
@@ -86,7 +86,7 @@ func (t *Table) ThrowInto(p *gplayer.Player) bool {
 		t.SendTableInfo(p)
 
 		// 检查游戏是否开始
-		if t.stage.stage == conf.StWait {
+		if t.stage.curr == conf.StWait {
 
 		}
 

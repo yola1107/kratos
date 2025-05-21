@@ -9,9 +9,9 @@ import (
 )
 
 func (t *Table) OnTimer() {
-	log.Infof("Stage=%d timeID=%d TimeOut... ", t.stage.stage, t.stage.timerID)
+	log.Infof("Stage=%d timeID=%d TimeOut... ", t.stage.curr, t.stage.timerID)
 
-	switch t.stage.stage {
+	switch t.stage.curr {
 	case conf.StPrepare:
 		//t.gameStart()
 	case conf.StSendCard:
@@ -35,12 +35,12 @@ func (t *Table) OnTimer() {
 func (t *Table) updateStage(state int32) {
 	timer := t.repo.GetTimer()
 	timer.Cancel(t.stage.timerID) //取消当前阶段的定时任务
-	t.stage.last = t.stage.stage
-	t.stage.stage = state
+	t.stage.last = t.stage.curr
+	t.stage.curr = state
 	t.stage.startTime = time.Now()
 	t.stage.duration = conf.GetStageTimeout(state)
 	t.stage.timerID = timer.Once(t.stage.duration, t.OnTimer)
-	log.Infof("stage changed. timerID(%d) stage:(%d -> %d) ", t.stage.timerID, t.stage.last, t.stage.stage)
+	log.Infof("stage changed. timerID(%d) stage:(%d -> %d) ", t.stage.timerID, t.stage.last, t.stage.curr)
 }
 
 func (t *Table) canStart() bool {
