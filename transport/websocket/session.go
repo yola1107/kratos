@@ -26,7 +26,7 @@ type Session struct {
 	id       string
 	server   *Server
 	conn     *websocket.Conn
-	connMu   sync.RWMutex
+	connMu   sync.Mutex
 	values   sync.Map
 	sendChan chan []byte
 
@@ -131,9 +131,7 @@ func (s *Session) writePump() {
 				return
 			}
 
-			s.connMu.RLock()
 			err := s.writeMessageLocked(data)
-			s.connMu.RUnlock()
 
 			if err != nil {
 				log.Errorf("write error: %v", err)
@@ -141,6 +139,8 @@ func (s *Session) writePump() {
 			}
 
 		case <-s.closeCh:
+			return
+		case <-s.ctx.Done():
 			return
 		}
 	}
@@ -151,9 +151,9 @@ func (s *Session) readPump() {
 	defer s.Close()
 
 	for {
-		s.connMu.RLock()
+		s.connMu.Lock()
 		err := s.conn.SetReadDeadline(time.Now().Add(s.server.opts.heartbeat.deadline))
-		s.connMu.RUnlock()
+		s.connMu.Unlock()
 		if err != nil {
 			log.Errorf("set read deadline error: %v", err)
 			return
@@ -179,9 +179,9 @@ func (s *Session) readPump() {
 			}
 
 		case websocket.PingMessage:
-			s.connMu.RLock()
+			s.connMu.Lock()
 			_ = s.conn.WriteControl(websocket.PongMessage, nil, time.Now().Add(s.server.opts.timeouts.write))
-			s.connMu.RUnlock()
+			s.connMu.Unlock()
 
 		case websocket.PongMessage:
 
@@ -302,6 +302,8 @@ func (s *Session) unregisterFromServer() {
 }
 
 func (s *Session) writeMessageLocked(data []byte) error {
+	s.connMu.Lock()
+	defer s.connMu.Unlock()
 	if s.conn == nil {
 		return errSessionClosed
 	}
