@@ -126,9 +126,6 @@ func (s *Session) writePump() {
 
 	for {
 		select {
-		case <-s.closeCh:
-			return
-
 		case data, ok := <-s.sendChan:
 			if !ok {
 				return
@@ -142,6 +139,9 @@ func (s *Session) writePump() {
 				log.Errorf("write error: %v", err)
 				return
 			}
+
+		case <-s.closeCh:
+			return
 		}
 	}
 }
@@ -161,7 +161,10 @@ func (s *Session) readPump() {
 
 		messageType, data, err := s.conn.ReadMessage()
 		if err != nil {
-			if !websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+			if s.closed.Load() {
+				return
+			}
+			if !websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Warnf("unexpected close: %v", err)
 			}
 			return
@@ -177,8 +180,10 @@ func (s *Session) readPump() {
 
 		case websocket.PingMessage:
 			s.connMu.RLock()
-			_ = s.conn.WriteMessage(websocket.PongMessage, nil)
+			_ = s.conn.WriteControl(websocket.PongMessage, nil, time.Now().Add(s.server.opts.timeouts.write))
 			s.connMu.RUnlock()
+
+		case websocket.PongMessage:
 
 		case websocket.CloseMessage:
 			return
@@ -300,8 +305,7 @@ func (s *Session) writeMessageLocked(data []byte) error {
 	if s.conn == nil {
 		return errSessionClosed
 	}
-	timeout := time.Now().Add(s.server.opts.timeouts.write)
-	if err := s.conn.SetWriteDeadline(timeout); err != nil {
+	if err := s.conn.SetWriteDeadline(time.Now().Add(s.server.opts.timeouts.write)); err != nil {
 		return err
 	}
 	return s.conn.WriteMessage(websocket.BinaryMessage, data)

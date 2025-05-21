@@ -40,33 +40,7 @@ func (s *server) SayHelloReq(ctx context.Context, in *v1.HelloRequest) (*v1.Hell
 }
 
 func (s *server) SayHello2Req(ctx context.Context, in *v1.Hello2Request) (*v1.Hello2Reply, error) {
-	//session := ctx.Value("session")
-	//if session != nil {
-	//
-	//	s.GetLoop().Post(func() {
-	//		ss := session.(*websocket.Session)
-	//		//// push未定义的 cmd
-	//		//if err := ss.Push(9876, &v1.Hello2Reply{Message: "from server push."}); err != nil {
-	//		//	log.Infof("push err:%v", err)
-	//		//}
-	//		//
-	//		////
-	//		//resp := &v1.Hello2Reply{Message: fmt.Sprintf("from server push. %s", in.Name)}
-	//		//if err := ss.Push(int32(v1.GameCommand_SayHello2Rsp), resp); err != nil {
-	//		//	log.Infof("push err:%v", err)
-	//		//}
-	//
-	//		log.Infof("sessionId:%v", ss.ID())
-	//	})
-	//}
-
-	if session, err := s.GetSessionByID(ctx.Value("sessionID").(string)); err == nil {
-		if err = session.Push(9876, &v1.Hello2Reply{Message: "from server push."}); err != nil {
-			log.Infof("push err:%v", err)
-		}
-	} else {
-		log.Errorf("GetSessionByID err:%v", err)
-	}
+	s.TestPushDataByID(ctx.Value("sessionID").(string)) //测试push功能
 	return &v1.Hello2Reply{Message: fmt.Sprintf("ws server say hello. %s", in.Name)}, nil
 }
 
@@ -80,6 +54,27 @@ func (s *server) OnOpenFunc(session *websocket.Session) {
 func (s *server) OnCloseFunc(session *websocket.Session) {
 	log.Infof("[ws] OnCloseFunc session:%+v", session.ID())
 	s.sessionsMap.Delete(session.ID())
+}
+
+func (s *server) TestPushDataByID(sessionID string) {
+	session, err := s.GetSessionByID(sessionID)
+	if err != nil {
+		log.Errorf("TestPushDataByID err:%v", err)
+		return
+	}
+
+	fn := func() {
+		if err = session.Push(int32(v1.GameCommand_SayHello2Rsp), &v1.Hello2Reply{Message: "from server push."}); err != nil {
+			log.Warnf("TestPushDataByID err:%v", err)
+		}
+	}
+
+	if loop := s.GetLoop(); loop == nil {
+		log.Warnf("loop is nil")
+		fn()
+	} else {
+		loop.Post(fn)
+	}
 }
 
 func (s *server) GetSessionByID(sessionID string) (session *websocket.Session, err error) {

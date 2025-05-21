@@ -33,7 +33,7 @@ var (
 )
 
 var (
-	unknownErrCode  = int32(500) //未知的服务器错误/服务器内部错误 （兜底错误）
+	unknownErrCode  = int32(500) //未知的服务器错误/服务器内部错误
 	unknownOpsCode  = int32(501) //服务器未实现该方法
 	tooManyRequests = int32(429) //全局流量限制 429 Too Many Requests
 
@@ -134,7 +134,7 @@ func NewServer(opts ...ServerOption) *Server {
 			tlsConf: nil,
 			timeouts: &timeouts{
 				timeout:  1 * time.Second,
-				read:     30 * time.Second,
+				read:     60 * time.Second,
 				write:    10 * time.Second,
 				shutdown: 2 * time.Second,
 				dial:     1 * time.Second,
@@ -295,6 +295,11 @@ func (s *Server) keepHeartbeat(ctx context.Context) {
 			cutoff := time.Now().Add(-1 * s.opts.heartbeat.deadline)
 			threshold := time.Now().Add(-1 * s.opts.heartbeat.threshold)
 			s.sessionMgr.Range(func(sess *Session) {
+				//双向心跳 服务器端主动发websocket.PingMessage
+				sess.connMu.Lock()
+				_ = sess.conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(s.opts.timeouts.write))
+				sess.connMu.Unlock()
+				//检查TTL
 				if sess.LastActive().Before(cutoff) {
 					log.Warnf("key %s heartbeat dead line.", sess.id)
 					sess.Close()
