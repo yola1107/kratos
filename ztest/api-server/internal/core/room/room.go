@@ -48,7 +48,6 @@ func (r *Room) Start() error {
 	perr := r.playerMgr.Start()
 	terr := r.tableMgr.Start()
 	return errors.Join(err, perr, terr)
-
 }
 
 func (r *Room) Close() {

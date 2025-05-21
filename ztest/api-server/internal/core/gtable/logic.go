@@ -34,7 +34,7 @@ func (t *Table) OnTimer() {
 
 func (t *Table) updateStage(state int32) {
 	timer := t.repo.GetTimer()
-	timer.Cancel(t.stage.timerID) //取消阶段定时任务
+	timer.Cancel(t.stage.timerID) //取消当前阶段的定时任务
 	t.stage.last = t.stage.stage
 	t.stage.stage = state
 	t.stage.startTime = time.Now()

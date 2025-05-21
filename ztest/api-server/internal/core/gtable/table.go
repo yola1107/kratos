@@ -9,6 +9,13 @@ import (
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/model"
 )
 
+type tagA struct {
+	b *tagB
+}
+type tagB struct {
+	a *tagA
+}
+
 type Table struct {
 	ID       int32 // 桌子ID
 	MaxCnt   int16 // 最大玩家数
@@ -17,16 +24,16 @@ type Table struct {
 	stage gameStage       // 阶段状态
 	repo  iface.IRoomRepo // 定时任务
 
-	sitCnt    int16             // 入座玩家数量
-	active    int32             // 当前操作玩家
-	seats     []*gplayer.Player // 玩家列表
-	gameCards model.GameCards   // card信息
-	mLog      *tableLogger      // 桌子日志
+	sitCnt int16             // 入座玩家数量
+	active int32             // 当前操作玩家
+	seats  []*gplayer.Player // 玩家列表
+	cards  model.GameCards   // card信息
+	mLog   *tableLogger      // 桌子日志
 
 	// 游戏逻辑变量
-	totalBet float64 // 总投注
-	curRound int     // 当前轮数
+	curRound int32   // 当前轮数
 	curBet   float64 // 当前投注
+	totalBet float64 // 总投注
 }
 
 type gameStage struct {
