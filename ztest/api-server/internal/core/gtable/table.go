@@ -14,23 +14,27 @@ type Table struct {
 	MaxCnt   int16 // 最大玩家数
 	isClosed bool  // 是否停服
 
-	stage         int32           // 阶段
-	lastStage     int32           // 上一阶段
-	stageTimerID  int64           // 阶段定时器ID
-	stageStart    time.Time       // 阶段开始时间
-	stageDuration time.Duration   // 阶段持续时间
-	repo          iface.IRoomRepo // 定时任务
+	stage gameStage       // 阶段状态
+	repo  iface.IRoomRepo // 定时任务
 
-	sitCnt      int16             // 入座玩家数量
-	active      int32             // 当前操作玩家
-	seats       []*gplayer.Player // 玩家列表
-	gameCards   model.GameCards   // card信息
-	tableLogger *tableLogger      // 桌子日志
+	sitCnt    int16             // 入座玩家数量
+	active    int32             // 当前操作玩家
+	seats     []*gplayer.Player // 玩家列表
+	gameCards model.GameCards   // card信息
+	mLog      *tableLogger      // 桌子日志
 
 	// 游戏逻辑变量
 	totalBet float64 // 总投注
 	curRound int     // 当前轮数
 	curBet   float64 // 当前投注
+}
+
+type gameStage struct {
+	stage     int32         // 阶段
+	last      int32         // 上一阶段
+	timerID   int64         // 阶段定时器ID
+	startTime time.Time     // 阶段开始时间
+	duration  time.Duration // 阶段持续时间
 }
 
 func (t *Table) Init() {
@@ -82,7 +86,7 @@ func (t *Table) ThrowInto(p *gplayer.Player) bool {
 		t.SendTableInfo(p)
 
 		// 检查游戏是否开始
-		if t.stage == conf.StWait {
+		if t.stage.stage == conf.StWait {
 
 		}
 
