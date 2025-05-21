@@ -31,10 +31,6 @@ type server struct {
 	sessionsMap sync.Map
 }
 
-func (s *server) IsLoopFunc(f string) bool {
-	return false
-}
-
 func (s *server) GetLoop() work.ITaskLoop {
 	return wsLoop
 }
@@ -125,13 +121,15 @@ func main() {
 		),
 		kratos.Logger(zapLogger), // 使用自定义 Logger
 		//kratos.Registrar(etcd.New(etcdClient)), // 注册中心 ETCD
+		kratos.BeforeStart(func(ctx context.Context) error {
+			wsLoop = work.NewAntsLoop(10000)
+			return wsLoop.Start()
+		}),
+		kratos.AfterStop(func(ctx context.Context) error {
+			wsLoop.Stop()
+			return nil
+		}),
 	)
-
-	wsLoop = work.NewAntsLoop(10000)
-	if err := wsLoop.Start(); err != nil {
-		panic(err)
-	}
-	defer wsLoop.Stop()
 
 	if err := app.Run(); err != nil {
 		log.Fatal(err)

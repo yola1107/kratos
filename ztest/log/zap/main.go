@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	Name = "hello-server"
+	Name = "log-server"
 )
 
 func main() {
@@ -141,10 +141,6 @@ func testLog(zapLogger *zap.Logger) {
 				}
 
 				time.Sleep(time.Duration(rand.Int()%10+1) * time.Millisecond)
-
-				//incr++
-				//log.Errorf("test %d", incr)
-				//time.Sleep(time.Duration(rand.Intn(100)+100) * time.Millisecond)
 			}
 		}()
 	}
