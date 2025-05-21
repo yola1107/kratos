@@ -32,7 +32,7 @@ func (s *Server) RegisterService(sd *ServiceDesc, ss interface{}) {
 	ht := reflect.TypeOf(sd.HandlerType).Elem()
 	st := reflect.TypeOf(ss)
 	if !st.Implements(ht) {
-		log.Fatalf("tcp: Server.RegisterService found the handler of type %v that does not satisfy %v", st, ht)
+		log.Fatalf("websocket: Server.RegisterService found the handler of type %v that does not satisfy %v", st, ht)
 	}
 	if s.m != nil {
 		log.Fatalf("grpc: Server.RegisterService found duplicate service registration for %q", sd.ServiceName)
