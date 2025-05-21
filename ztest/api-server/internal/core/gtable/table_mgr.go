@@ -15,7 +15,7 @@ type TableManager struct {
 	repo      iface.IRoomRepo
 }
 
-func NewManager(c *conf.Room, repo iface.IRoomRepo) *TableManager {
+func NewTableManager(c *conf.Room, repo iface.IRoomRepo) *TableManager {
 	tc := c.GetTable()
 	mgr := &TableManager{
 		tableList: make([]*Table, tc.TableNum),

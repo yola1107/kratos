@@ -6,6 +6,16 @@ type Player struct {
 	baseData PlayerBaseData // 私有，不暴露
 }
 
+func (p *Player) GetSession() Session {
+	return p.session
+}
+func (p *Player) GetGameData() PlayerGameData {
+	return p.gameData
+}
+func (p *Player) GetBaseData() PlayerBaseData {
+	return p.baseData
+}
+
 func (p *Player) Reset() {
 }
 

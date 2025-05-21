@@ -9,7 +9,7 @@ import (
 )
 
 func (t *Table) OnTimer() {
-	log.Infof("Stage=%d timeID=%d TimeOut... ", t.stage, t.stage.timerID)
+	log.Infof("Stage=%d timeID=%d TimeOut... ", t.stage.stage, t.stage.timerID)
 
 	switch t.stage.stage {
 	case conf.StPrepare:

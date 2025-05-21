@@ -9,13 +9,6 @@ import (
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/model"
 )
 
-type tagA struct {
-	b *tagB
-}
-type tagB struct {
-	a *tagA
-}
-
 type Table struct {
 	ID       int32 // 桌子ID
 	MaxCnt   int16 // 最大玩家数

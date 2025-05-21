@@ -34,8 +34,8 @@ type Room struct {
 func New(c *conf.Room, logger log.Logger) *Room {
 	r := &Room{}
 	r.logger = logger
-	r.tableMgr = gtable.NewManager(c, r)
-	r.playerMgr = gplayer.NewManager(c, r)
+	r.tableMgr = gtable.NewTableManager(c, r)
+	r.playerMgr = gplayer.NewPlayerManager(c, r)
 	r.worker = work.NewWorkStore(context.Background(), defaultPendingNum)
 	return r
 }

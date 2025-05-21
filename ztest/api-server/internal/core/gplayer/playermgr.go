@@ -20,7 +20,7 @@ type PlayerRaw struct {
 	SessionID string
 }
 
-func NewManager(c *conf.Room, repo iface.IRoomRepo) *PlayerManager {
+func NewPlayerManager(c *conf.Room, repo iface.IRoomRepo) *PlayerManager {
 	return &PlayerManager{
 		playerMap: sync.Map{},
 		repo:      repo,
@@ -59,7 +59,7 @@ func (m *PlayerManager) GetPlayerBySessionID(id string) *Player {
 	var result *Player
 	m.playerMap.Range(func(_, value interface{}) bool {
 		p := value.(*Player)
-		if p.session.ID == id {
+		if p.GetSession().ID == id {
 			result = p
 			return false // 终止遍历
 		}
@@ -73,8 +73,8 @@ func (m *PlayerManager) ExitGame(p *Player, code int32, msg string) {
 	if p == nil {
 		return
 	}
-	m.playerMap.Delete(p.baseData.UID)
-	m.repo.OnPlayerLeave(p.session.ID)
+	m.playerMap.Delete(p.GetBaseData().UID)
+	m.repo.OnPlayerLeave(p.GetSession().ID)
 }
 
 func (m *PlayerManager) Range(cb func(id int64, p *Player)) {
