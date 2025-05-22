@@ -110,6 +110,23 @@ type limits struct {
 	sendChanSize int
 }
 
+var defaultSessionConf = &sessionConfig{
+	timeouts: &timeouts{
+		timeout: 1 * time.Second,
+		write:   10 * time.Second,
+	},
+	heartbeat: &heartbeat{
+		interval:  10 * time.Second,
+		deadline:  60 * time.Second,
+		threshold: 30 * time.Second,
+	},
+	limits: &limits{
+		rateLimit:    100, // 每秒消息数,
+		burstLimit:   10,  // 突发消息数,
+		sendChanSize: 256,
+	},
+}
+
 // Server is a Websocket server wrapper.
 type Server struct {
 	*http.Server // 内嵌标准HTTP服务器
@@ -127,26 +144,11 @@ type Server struct {
 func NewServer(opts ...ServerOption) *Server {
 	s := &Server{
 		opts: serverOptions{
-			network: "tcp",
-			address: ":0",
-			lis:     nil,
-			tlsConf: nil,
-			sessionConf: &sessionConfig{
-				timeouts: &timeouts{
-					timeout: 1 * time.Second,
-					write:   10 * time.Second,
-				},
-				heartbeat: &heartbeat{
-					interval:  10 * time.Second,
-					deadline:  60 * time.Second,
-					threshold: 30 * time.Second,
-				},
-				limits: &limits{
-					rateLimit:    100, // 每秒消息数,
-					burstLimit:   10,  // 突发消息数,
-					sendChanSize: 256,
-				},
-			},
+			network:        "tcp",
+			address:        ":0",
+			lis:            nil,
+			tlsConf:        nil,
+			sessionConf:    defaultSessionConf,
 			maxConnections: 100000,
 		},
 		err:        nil,
@@ -331,7 +333,7 @@ func (s *Server) onClose(sess *Session) {
 }
 
 // Dispatch 消息分发
-func (s *Server) dispatchMessage(sess *Session, data []byte) error {
+func (s *Server) dispatch(sess *Session, data []byte) error {
 	var err error
 	var p proto.Payload
 	if err = gproto.Unmarshal(data, &p); err != nil {

@@ -22,22 +22,19 @@ var (
 
 type iHandler interface {
 	onClose(*Session)
-	dispatchMessage(sess *Session, data []byte) error
+	dispatch(sess *Session, data []byte) error
 }
 
 // Session 表示一个WebSocket连接会话
 type Session struct {
-	id string
-	h  iHandler
-
-	connMu sync.Mutex
-	conn   *websocket.Conn
-	config *sessionConfig
-
-	sendChan  chan []byte
-	closeChan chan struct{}
-	closed    atomic.Bool
-
+	id          string
+	h           iHandler
+	connMu      sync.Mutex
+	conn        *websocket.Conn
+	config      *sessionConfig
+	sendChan    chan []byte
+	closeChan   chan struct{}
+	closed      atomic.Bool
 	lastActive  atomic.Value // time.Time
 	rateLimiter *rate.Limiter
 }
@@ -56,6 +53,7 @@ func NewSession(h iHandler, conn *websocket.Conn, config *sessionConfig) *Sessio
 	s.lastActive.Store(time.Now())
 	go s.writePump()
 	go s.readPump()
+	go s.keepWebsocketPing()
 	return s
 }
 
@@ -139,7 +137,7 @@ func (s *Session) readPump() {
 				return
 			}
 			if !websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Warnf("unexpected close: %v", err)
+				log.Warnf("key=%s unexpected close: %v", s.id, err)
 			}
 			return
 		}
@@ -148,14 +146,17 @@ func (s *Session) readPump() {
 
 		switch messageType {
 		case websocket.BinaryMessage:
-			if err := s.h.dispatchMessage(s, data); err != nil {
+			if err := s.h.dispatch(s, data); err != nil {
 				log.Errorf("dispatch error: %v", err)
 			}
 
 		case websocket.PingMessage:
 			s.connMu.Lock()
-			_ = s.conn.WriteControl(websocket.PongMessage, nil, time.Now().Add(s.config.timeouts.write))
+			err = s.conn.WriteControl(websocket.PongMessage, nil, time.Now().Add(s.config.timeouts.write))
 			s.connMu.Unlock()
+			if err != nil {
+				return
+			}
 
 		case websocket.PongMessage:
 
@@ -164,6 +165,24 @@ func (s *Session) readPump() {
 
 		default:
 			log.Warnf("unsupported message type: %d", messageType)
+		}
+	}
+}
+
+func (s *Session) keepWebsocketPing() {
+	ticker := time.NewTicker(s.config.heartbeat.interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			s.connMu.Lock()
+			err := s.conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(s.config.timeouts.write))
+			s.connMu.Unlock()
+			if err != nil {
+				return
+			}
+		case <-s.closeChan:
+			return
 		}
 	}
 }
@@ -194,24 +213,27 @@ func (s *Session) Close(force bool) bool {
 		log.Errorf("close error: %v", err)
 	}
 
-	log.Infof("conn %+v closed. force(%+v)", s.id, force)
+	log.Infof("key=%+v closed. force(%+v)", s.id, force)
 
 	s.h.onClose(s)
 
-	select {
-	case s.closeChan <- struct{}{}:
-	case <-time.After(time.Millisecond * 500):
-		log.Infof("conn [%s] closed send timeout.\n", s.ID())
-	}
+	close(s.closeChan)
+
+	//select {
+	//case s.closeChan <- struct{}{}:
+	//case <-time.After(time.Millisecond * 500):
+	//	log.Infof("key=%+v closed timeout.\n", s.ID())
+	//}
 	return true
 }
 
 func (s *Session) writeMessageLocked(data []byte) error {
-	s.connMu.Lock()
-	defer s.connMu.Unlock()
-	if s.conn == nil {
+	if s.Closed() {
 		return errSessionClosed
 	}
+	s.connMu.Lock()
+	defer s.connMu.Unlock()
+
 	if err := s.conn.SetWriteDeadline(time.Now().Add(s.config.timeouts.write)); err != nil {
 		return err
 	}
