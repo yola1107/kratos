@@ -46,13 +46,13 @@ func (s *server) SayHello2Req(ctx context.Context, in *v1.Hello2Request) (*v1.He
 
 // OnOpenFunc 连接建立回调
 func (s *server) OnOpenFunc(session *websocket.Session) {
-	log.Infof("[ws] OnOpenFunc session:%+v", session.ID())
+	log.Infof("[ws] OnOpenFunc key=%+v", session.ID())
 	s.sessionsMap.Store(session.ID(), session)
 }
 
 // OnCloseFunc 连接关闭回调
 func (s *server) OnCloseFunc(session *websocket.Session) {
-	log.Infof("[ws] OnCloseFunc session:%+v", session.ID())
+	log.Infof("[ws] OnCloseFunc key=%+v", session.ID())
 	s.sessionsMap.Delete(session.ID())
 }
 
