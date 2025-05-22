@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"os"
 	"runtime"
-	"sync"
 	"time"
 
 	gproto "github.com/golang/protobuf/proto"
@@ -56,19 +55,13 @@ func Endpoint(u *url.URL) ServerOption {
 	return func(s *Server) { s.opts.endpoint = u }
 }
 func Timeout(d time.Duration) ServerOption {
-	return func(s *Server) { s.opts.timeout = d }
+	return func(s *Server) { s.opts.session.Timeout = d }
+}
+func SessionConf(c *SessionConfig) ServerOption {
+	return func(s *Server) { s.opts.session = c }
 }
 func Middleware(m ...middleware.Middleware) ServerOption {
 	return func(s *Server) { s.middleware.Use(m...) }
-}
-func HeartInterval(d time.Duration) ServerOption {
-	return func(s *Server) { s.opts.interval = d }
-}
-func HeartDeadline(d time.Duration) ServerOption {
-	return func(s *Server) { s.opts.deadline = d }
-}
-func HeartThreshold(d time.Duration) ServerOption {
-	return func(s *Server) { s.opts.threshold = d }
 }
 func OnOpenFunc(f func(*Session)) ServerOption {
 	return func(s *Server) { s.opts.OnOpenFunc = f }
@@ -83,21 +76,10 @@ type serverOptions struct {
 	endpoint       *url.URL
 	lis            net.Listener
 	tlsConf        *tls.Config
-	timeout        time.Duration
-	writeTimeout   time.Duration
-	interval       time.Duration
-	deadline       time.Duration
-	threshold      time.Duration
-	limits         *limits
 	maxConnections int32
+	session        *SessionConfig
 	OnOpenFunc     func(*Session) // 连接建立回调
 	OnCloseFunc    func(*Session) // 连接关闭回调
-}
-
-type limits struct {
-	rateLimit    int
-	burstLimit   int
-	sendChanSize int
 }
 
 // Server is a Websocket server wrapper.
@@ -110,26 +92,25 @@ type Server struct {
 	sessionMgr   *SessionManager          // 会话管理
 	handlers     []UnaryServerInterceptor // 拦截器链
 	m            *service                 // 注册的服务
-
 }
 
 // NewServer creates a Websocket server by options.
 func NewServer(opts ...ServerOption) *Server {
 	s := &Server{
 		opts: serverOptions{
-			network:      "tcp",
-			address:      ":0",
-			lis:          nil,
-			tlsConf:      nil,
-			timeout:      1 * time.Second,
-			writeTimeout: 10 * time.Second,
-			interval:     10 * time.Second,
-			deadline:     60 * time.Second,
-			threshold:    30 * time.Second,
-			limits: &limits{
-				rateLimit:    100, // 每秒消息数,
-				burstLimit:   10,  // 突发消息数,
-				sendChanSize: 256,
+			network: "tcp",
+			address: ":0",
+			lis:     nil,
+			tlsConf: nil,
+			session: &SessionConfig{
+				Timeout:      1 * time.Second,
+				WriteTimeout: 10 * time.Second,
+				Interval:     10 * time.Second,
+				Deadline:     60 * time.Second,
+				Threshold:    30 * time.Second,
+				RateLimit:    100, // 每秒消息数,
+				BurstLimit:   10,  // 突发消息数,
+				SendChanSize: 256,
 			},
 			maxConnections: 100000,
 		},
@@ -230,14 +211,7 @@ func (s *Server) handleConnections() http.HandlerFunc {
 			return
 		}
 
-		sess := NewSession(s, conn, &sessionConfig{
-			timeout:      s.opts.timeout,
-			writeTimeout: s.opts.writeTimeout,
-			interval:     s.opts.interval,
-			deadline:     s.opts.deadline,
-			threshold:    s.opts.threshold,
-			limits:       s.opts.limits,
-		})
+		sess := NewSession(s, conn, s.opts.session)
 		s.onOpen(sess) //
 	}
 }
@@ -250,7 +224,7 @@ func (s *Server) keepHeartbeat(ctx context.Context) {
 		}
 	}()
 
-	ticker := time.NewTicker(s.opts.interval)
+	ticker := time.NewTicker(s.opts.session.Interval)
 	defer ticker.Stop()
 
 	for {
@@ -258,8 +232,8 @@ func (s *Server) keepHeartbeat(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			cutoff := time.Now().Add(-1 * s.opts.deadline)
-			threshold := time.Now().Add(-1 * s.opts.threshold)
+			cutoff := time.Now().Add(-1 * s.opts.session.Deadline)
+			threshold := time.Now().Add(-1 * s.opts.session.Threshold)
 			s.sessionMgr.Range(func(sess *Session) {
 				//检查TTL
 				if sess.LastActive().Before(cutoff) {
@@ -282,25 +256,8 @@ func (s *Server) Stop(ctx context.Context) error {
 	}
 
 	// 2. 关闭所有会话
-	var wg sync.WaitGroup
-	s.sessionMgr.Range(func(sess *Session) {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			sess.Close(true)
-		}()
-	})
-
-	// 3. 等待会话关闭完成
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
-	select {
-	case <-done:
-	case <-ctx.Done():
-		return ctx.Err()
+	if err := s.sessionMgr.CloseAllSessions(ctx); err != nil {
+		return err
 	}
 
 	log.Info("[webSocket] server stopping")

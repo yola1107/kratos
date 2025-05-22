@@ -35,29 +35,33 @@ type ClientOption func(*clientConfig)
 func WithTlsConf(tlsConfig *tls.Config) ClientOption {
 	return func(o *clientConfig) { o.tlsConf = tlsConfig }
 }
+
 func WithTimeout(timeout time.Duration) ClientOption {
-	return func(o *clientConfig) { o.timeout = timeout }
+	return func(o *clientConfig) { o.session.Timeout = timeout }
 }
-func WithWriteTimeout(write time.Duration) ClientOption {
-	return func(o *clientConfig) { o.writeTimeout = write }
+
+func WithSessionConfig(c *SessionConfig) ClientOption {
+	return func(o *clientConfig) { o.session = c }
 }
-func WithHeartInterval(heartInterval time.Duration) ClientOption {
-	return func(o *clientConfig) { o.interval = heartInterval }
-}
+
 func WithEndpoint(endpoint string) ClientOption {
 	return func(o *clientConfig) { o.endpoint = endpoint }
 }
+
 func WithToken(token string) ClientOption {
 	return func(o *clientConfig) { o.token = token }
 }
+
+func WithDisconnectFunc(disconnectFunc func()) ClientOption {
+	return func(o *clientConfig) { o.disconnectFunc = disconnectFunc }
+}
+
 func WithPushHandler(pushHandler map[int32]PushHandler) ClientOption {
 	return func(o *clientConfig) { o.pushHandler = pushHandler }
 }
+
 func WithResponseHandler(responseHandler map[int32]ResponseHandler) ClientOption {
 	return func(o *clientConfig) { o.responseHandler = responseHandler }
-}
-func WithDisconnectFunc(disconnectFunc func()) ClientOption {
-	return func(o *clientConfig) { o.disconnectFunc = disconnectFunc }
 }
 
 //func WithDiscovery(d registry.Discovery) ClientOption {
@@ -80,12 +84,7 @@ type clientConfig struct {
 	disconnectFunc  func()
 	pushHandler     map[int32]PushHandler
 	responseHandler map[int32]ResponseHandler
-	timeout         time.Duration
-	writeTimeout    time.Duration
-	interval        time.Duration
-	deadline        time.Duration
-	threshold       time.Duration
-	limits          *limits
+	session         *SessionConfig
 	retryPolicy     *retryPolicy //重连
 
 	////服务发现
@@ -128,15 +127,15 @@ func NewClient(ctx context.Context, opts ...ClientOption) (*Client, error) {
 		disconnectFunc:  nil,
 		pushHandler:     map[int32]PushHandler{},
 		responseHandler: map[int32]ResponseHandler{},
-		timeout:         1 * time.Second,
-		writeTimeout:    10 * time.Second,
-		interval:        10 * time.Second,
-		deadline:        60 * time.Second,
-		threshold:       30 * time.Second,
-		limits: &limits{
-			rateLimit:    100, // 每秒消息数,
-			burstLimit:   10,  // 突发消息数,
-			sendChanSize: 256,
+		session: &SessionConfig{
+			Timeout:      1 * time.Second,
+			WriteTimeout: 10 * time.Second,
+			Interval:     10 * time.Second,
+			Deadline:     60 * time.Second,
+			Threshold:    30 * time.Second,
+			RateLimit:    100, // 每秒消息数,
+			BurstLimit:   10,  // 突发消息数,
+			SendChanSize: 256,
 		},
 		retryPolicy: &retryPolicy{
 			baseDelay:  3 * time.Second,
@@ -184,7 +183,7 @@ func parseUrl(endpoint string, insecure bool) (*url.URL, error) {
 
 func (c *Client) Reconnect() error {
 	dialer := websocket.Dialer{
-		HandshakeTimeout: c.config.writeTimeout,
+		HandshakeTimeout: c.config.session.WriteTimeout,
 		TLSClientConfig:  c.config.tlsConf,
 	}
 
@@ -200,15 +199,8 @@ func (c *Client) Reconnect() error {
 
 		conn, _, err := dialer.DialContext(c.config.ctx, c.url.String(), nil)
 		if err == nil {
-			c.session = NewSession(c, conn, &sessionConfig{
-				timeout:      c.config.timeout,
-				writeTimeout: c.config.writeTimeout,
-				interval:     c.config.interval,
-				deadline:     c.config.deadline,
-				threshold:    c.config.threshold,
-				limits:       c.config.limits,
-			})
-			go c.keepHeartbeat()
+			c.session = NewSession(c, conn, c.config.session)
+			go c.keepAlive()
 			return nil
 		}
 
@@ -235,9 +227,9 @@ func (c *Client) calculateBackoff(attempt int32) time.Duration {
 	return time.Duration(backoff * (0.9 + 0.2*rand.Float64()))
 }
 
-func (c *Client) keepHeartbeat() {
+func (c *Client) keepAlive() {
 	defer RecoverFromError(nil)
-	ticker := time.NewTicker(c.config.interval)
+	ticker := time.NewTicker(c.config.session.Interval)
 	defer ticker.Stop()
 
 	c.wg.Add(1)
@@ -260,8 +252,8 @@ func (c *Client) keepHeartbeat() {
 
 			// 检查心跳
 			lastActive := sess.LastActive()
-			cutoff := time.Now().Add(-c.config.deadline)
-			threshold := time.Now().Add(-c.config.threshold)
+			cutoff := time.Now().Add(-c.config.session.Deadline)
+			threshold := time.Now().Add(-c.config.session.Threshold)
 
 			if lastActive.Before(cutoff) {
 				log.Warnf("Session %s heartbeat timeout", sess.id)
@@ -314,7 +306,7 @@ func (c *Client) Request(ops int32, msg gproto.Message) (*proto.Payload, error) 
 		return resp, nil
 	case <-c.config.ctx.Done():
 		return nil, c.config.ctx.Err()
-	case <-time.After(c.config.writeTimeout):
+	case <-time.After(c.config.session.WriteTimeout):
 		return nil, ErrRequestTimeout
 	}
 }
