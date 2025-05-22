@@ -23,6 +23,7 @@ import (
 var (
 	ErrClientClosed   = errors.New("websocket client is closed")
 	ErrRequestTimeout = errors.New("request timeout")
+	ErrMaxRetries     = errors.New("max retries reached")
 	ErrInvalidURL     = errors.New("invalid URL")
 )
 
@@ -87,10 +88,10 @@ type clientOptions struct {
 }
 
 type retryPolicy struct {
-	autoRetry bool
-	baseDelay time.Duration
-	maxDelay  time.Duration
-	//maxAttempt int32
+	//autoRetry bool
+	baseDelay  time.Duration
+	maxDelay   time.Duration
+	maxAttempt int32
 }
 
 // Client is a websocket client.
@@ -103,7 +104,7 @@ type Client struct {
 	retryCount  atomic.Int32
 	wg          *sync.WaitGroup
 	keepAliveCh chan struct{}
-	closed      int32
+	closed      atomic.Bool
 
 	//selector selector.Selector
 	//resolver *resolver
@@ -125,10 +126,10 @@ func NewClient(ctx context.Context, opts ...ClientOption) (*Client, error) {
 		responseHandler: map[int32]ResponseHandler{},
 		sessionConf:     defaultSessionConf,
 		retryPolicy: &retryPolicy{
-			autoRetry: false,
-			baseDelay: 3 * time.Second,
-			maxDelay:  15 * time.Second,
-			//maxAttempt: 5,
+			//autoRetry: false,
+			baseDelay:  3 * time.Second,
+			maxDelay:   15 * time.Second,
+			maxAttempt: 5,
 		},
 	}
 	for _, o := range opts {
@@ -200,6 +201,10 @@ func (c *Client) Reconnect() error {
 		case <-time.After(delay):
 		case <-c.opts.ctx.Done():
 			return c.opts.ctx.Err()
+		default:
+			if attempt >= c.opts.retryPolicy.maxAttempt {
+				return ErrMaxRetries
+			}
 		}
 	}
 }
@@ -346,27 +351,21 @@ func (c *Client) dispatch(sess *Session, data []byte) error {
 }
 
 func (c *Client) Close() {
-	// 原子标记关闭状态
-	if !atomic.CompareAndSwapInt32(&c.closed, 0, 1) {
+	if !c.closed.CompareAndSwap(false, true) {
 		return
 	}
-
-	// 关闭控制通道
 	close(c.keepAliveCh)
 
-	// 关闭会话
 	if c.session != nil {
 		c.session.Close(true)
 		c.session = nil
 	}
 
-	// 清理请求池
 	c.clearPendingRequests()
-
-	// 等待所有协程退出
 	c.wg.Wait()
 	log.Info("Client shutdown complete")
 }
+
 func (c *Client) Closed() bool {
 	return c.session == nil || c.session.Closed()
 }
@@ -417,11 +416,12 @@ func buildPayload(ops int32, typ int32, msg gproto.Message) (*proto.Payload, err
 	}, nil
 }
 
-func RecoverFromError(cb func()) {
-	if e := recover(); e != nil {
-		log.Errorf("Recover => %v:%s\n", e, debug.Stack())
-		if cb != nil {
-			cb()
+func RecoverFromError(logFn func(err any)) {
+	if r := recover(); r != nil {
+		if logFn != nil {
+			logFn(r)
+		} else {
+			log.Errorf("panic recovered: %v\n%s", r, debug.Stack())
 		}
 	}
 }
