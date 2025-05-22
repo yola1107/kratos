@@ -116,6 +116,8 @@ func main() {
 		callWebsocket(wsClient)
 		time.Sleep(time.Millisecond * 10000)
 	}
+
+	log.Info("ws client exit")
 }
 
 func callHTTP(connHTTP *transhttp.Client) {
