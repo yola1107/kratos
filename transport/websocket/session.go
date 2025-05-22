@@ -97,7 +97,7 @@ func (s *Session) Send(message []byte) error {
 	case <-s.closeChan:
 		log.Infof("session:%+v send closes ", s.id)
 		return errSessionClosed
-	case <-time.After(s.config.timeouts.write):
+	case <-time.After(s.config.writeTimeout):
 		return errWriteTimeout
 	}
 }
@@ -124,7 +124,7 @@ func (s *Session) readPump() {
 
 	for {
 		s.connMu.Lock()
-		err := s.conn.SetReadDeadline(time.Now().Add(s.config.heartbeat.deadline))
+		err := s.conn.SetReadDeadline(time.Now().Add(s.config.deadline))
 		s.connMu.Unlock()
 		if err != nil {
 			log.Errorf("set read deadline error: %v", err)
@@ -152,7 +152,7 @@ func (s *Session) readPump() {
 
 		case websocket.PingMessage:
 			s.connMu.Lock()
-			err = s.conn.WriteControl(websocket.PongMessage, nil, time.Now().Add(s.config.timeouts.write))
+			err = s.conn.WriteControl(websocket.PongMessage, nil, time.Now().Add(s.config.writeTimeout))
 			s.connMu.Unlock()
 			if err != nil {
 				return
@@ -170,15 +170,16 @@ func (s *Session) readPump() {
 }
 
 func (s *Session) keepWebsocketPing() {
-	ticker := time.NewTicker(s.config.heartbeat.interval)
+	ticker := time.NewTicker(s.config.interval)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
 			s.connMu.Lock()
-			err := s.conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(s.config.timeouts.write))
+			err := s.conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(s.config.writeTimeout))
 			s.connMu.Unlock()
 			if err != nil {
+				s.Close(true)
 				return
 			}
 		case <-s.closeChan:
@@ -218,12 +219,6 @@ func (s *Session) Close(force bool) bool {
 	s.h.onClose(s)
 
 	close(s.closeChan)
-
-	//select {
-	//case s.closeChan <- struct{}{}:
-	//case <-time.After(time.Millisecond * 500):
-	//	log.Infof("key=%+v closed timeout.\n", s.ID())
-	//}
 	return true
 }
 
@@ -234,7 +229,7 @@ func (s *Session) writeMessageLocked(data []byte) error {
 	s.connMu.Lock()
 	defer s.connMu.Unlock()
 
-	if err := s.conn.SetWriteDeadline(time.Now().Add(s.config.timeouts.write)); err != nil {
+	if err := s.conn.SetWriteDeadline(time.Now().Add(s.config.writeTimeout)); err != nil {
 		return err
 	}
 	return s.conn.WriteMessage(websocket.BinaryMessage, data)

@@ -56,19 +56,19 @@ func Endpoint(u *url.URL) ServerOption {
 	return func(s *Server) { s.opts.endpoint = u }
 }
 func Timeout(d time.Duration) ServerOption {
-	return func(s *Server) { s.opts.sessionConf.timeouts.timeout = d }
+	return func(s *Server) { s.opts.timeout = d }
 }
 func Middleware(m ...middleware.Middleware) ServerOption {
 	return func(s *Server) { s.middleware.Use(m...) }
 }
 func HeartInterval(d time.Duration) ServerOption {
-	return func(s *Server) { s.opts.sessionConf.heartbeat.interval = d }
+	return func(s *Server) { s.opts.interval = d }
 }
 func HeartDeadline(d time.Duration) ServerOption {
-	return func(s *Server) { s.opts.sessionConf.heartbeat.deadline = d }
+	return func(s *Server) { s.opts.deadline = d }
 }
 func HeartThreshold(d time.Duration) ServerOption {
-	return func(s *Server) { s.opts.sessionConf.heartbeat.threshold = d }
+	return func(s *Server) { s.opts.threshold = d }
 }
 func OnOpenFunc(f func(*Session)) ServerOption {
 	return func(s *Server) { s.opts.OnOpenFunc = f }
@@ -83,48 +83,30 @@ type serverOptions struct {
 	endpoint       *url.URL
 	lis            net.Listener
 	tlsConf        *tls.Config
-	sessionConf    *sessionConfig
+	timeout        time.Duration
+	writeTimeout   time.Duration
+	interval       time.Duration
+	deadline       time.Duration
+	threshold      time.Duration
+	limits         *limits
 	maxConnections int32
 	OnOpenFunc     func(*Session) // 连接建立回调
 	OnCloseFunc    func(*Session) // 连接关闭回调
 }
 
 type sessionConfig struct {
-	timeouts  *timeouts
-	heartbeat *heartbeat
-	limits    *limits
+	timeout      time.Duration
+	writeTimeout time.Duration
+	interval     time.Duration
+	deadline     time.Duration
+	threshold    time.Duration
+	limits       *limits
 }
 
-type timeouts struct {
-	timeout time.Duration
-	write   time.Duration
-}
-type heartbeat struct {
-	interval  time.Duration
-	deadline  time.Duration
-	threshold time.Duration
-}
 type limits struct {
 	rateLimit    int
 	burstLimit   int
 	sendChanSize int
-}
-
-var defaultSessionConf = &sessionConfig{
-	timeouts: &timeouts{
-		timeout: 1 * time.Second,
-		write:   10 * time.Second,
-	},
-	heartbeat: &heartbeat{
-		interval:  10 * time.Second,
-		deadline:  60 * time.Second,
-		threshold: 30 * time.Second,
-	},
-	limits: &limits{
-		rateLimit:    100, // 每秒消息数,
-		burstLimit:   10,  // 突发消息数,
-		sendChanSize: 256,
-	},
 }
 
 // Server is a Websocket server wrapper.
@@ -144,11 +126,20 @@ type Server struct {
 func NewServer(opts ...ServerOption) *Server {
 	s := &Server{
 		opts: serverOptions{
-			network:        "tcp",
-			address:        ":0",
-			lis:            nil,
-			tlsConf:        nil,
-			sessionConf:    defaultSessionConf,
+			network:      "tcp",
+			address:      ":0",
+			lis:          nil,
+			tlsConf:      nil,
+			timeout:      1 * time.Second,
+			writeTimeout: 10 * time.Second,
+			interval:     10 * time.Second,
+			deadline:     60 * time.Second,
+			threshold:    30 * time.Second,
+			limits: &limits{
+				rateLimit:    100, // 每秒消息数,
+				burstLimit:   10,  // 突发消息数,
+				sendChanSize: 256,
+			},
 			maxConnections: 100000,
 		},
 		err:        nil,
@@ -248,7 +239,14 @@ func (s *Server) handleConnections() http.HandlerFunc {
 			return
 		}
 
-		sess := NewSession(s, conn, s.opts.sessionConf)
+		sess := NewSession(s, conn, &sessionConfig{
+			timeout:      s.opts.timeout,
+			writeTimeout: s.opts.writeTimeout,
+			interval:     s.opts.interval,
+			deadline:     s.opts.deadline,
+			threshold:    s.opts.threshold,
+			limits:       s.opts.limits,
+		})
 		s.onOpen(sess) //
 	}
 }
@@ -261,7 +259,7 @@ func (s *Server) keepHeartbeat(ctx context.Context) {
 		}
 	}()
 
-	ticker := time.NewTicker(s.opts.sessionConf.heartbeat.interval)
+	ticker := time.NewTicker(s.opts.interval)
 	defer ticker.Stop()
 
 	for {
@@ -269,8 +267,8 @@ func (s *Server) keepHeartbeat(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			cutoff := time.Now().Add(-1 * s.opts.sessionConf.heartbeat.deadline)
-			threshold := time.Now().Add(-1 * s.opts.sessionConf.heartbeat.threshold)
+			cutoff := time.Now().Add(-1 * s.opts.deadline)
+			threshold := time.Now().Add(-1 * s.opts.threshold)
 			s.sessionMgr.Range(func(sess *Session) {
 				//检查TTL
 				if sess.LastActive().Before(cutoff) {
