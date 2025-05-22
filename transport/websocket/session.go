@@ -25,6 +25,15 @@ type iHandler interface {
 	dispatch(sess *Session, data []byte) error
 }
 
+type sessionConfig struct {
+	timeout      time.Duration
+	writeTimeout time.Duration
+	interval     time.Duration
+	deadline     time.Duration
+	threshold    time.Duration
+	limits       *limits
+}
+
 // Session 表示一个WebSocket连接会话
 type Session struct {
 	id          string

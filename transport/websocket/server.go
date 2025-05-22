@@ -94,15 +94,6 @@ type serverOptions struct {
 	OnCloseFunc    func(*Session) // 连接关闭回调
 }
 
-type sessionConfig struct {
-	timeout      time.Duration
-	writeTimeout time.Duration
-	interval     time.Duration
-	deadline     time.Duration
-	threshold    time.Duration
-	limits       *limits
-}
-
 type limits struct {
 	rateLimit    int
 	burstLimit   int
