@@ -99,7 +99,6 @@ func main() {
 			int32(v1.GameCommand_SayHello2Req): func(data []byte, code int32) {}, //空
 		}),
 		websocket.WithDisconnectFunc(func() { log.Infof("disconnect called") }),
-		websocket.WithStateFunc(func(connected bool) { log.Infof("连接状态变更. connectd=%+v", connected) }),
 	)
 	if err != nil {
 		panic(err)

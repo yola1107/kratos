@@ -49,18 +49,14 @@ func WithEndpoint(endpoint string) ClientOption {
 func WithToken(token string) ClientOption {
 	return func(o *clientOptions) { o.token = token }
 }
-func WithDisconnectFunc(disconnectFunc func()) ClientOption {
-	return func(o *clientOptions) { o.disconnectFunc = disconnectFunc }
-}
 func WithPushHandler(pushHandler map[int32]PushHandler) ClientOption {
 	return func(o *clientOptions) { o.pushHandler = pushHandler }
 }
 func WithResponseHandler(responseHandler map[int32]ResponseHandler) ClientOption {
 	return func(o *clientOptions) { o.responseHandler = responseHandler }
 }
-
-func WithStateFunc(f func(bool)) ClientOption {
-	return func(o *clientOptions) { o.stateFunc = f }
+func WithDisconnectFunc(disconnectFunc func()) ClientOption {
+	return func(o *clientOptions) { o.disconnectFunc = disconnectFunc }
 }
 
 //func WithDiscovery(d registry.Discovery) ClientOption {
@@ -83,7 +79,6 @@ type clientOptions struct {
 	disconnectFunc  func()
 	pushHandler     map[int32]PushHandler
 	responseHandler map[int32]ResponseHandler
-	stateFunc       func(connected bool)
 	sessionConf     *sessionConfig //
 	retryPolicy     *retryPolicy   //重连
 
@@ -108,6 +103,7 @@ type Client struct {
 	retryCount  atomic.Int32
 	wg          *sync.WaitGroup
 	keepAliveCh chan struct{}
+	closed      int32
 
 	//selector selector.Selector
 	//resolver *resolver
@@ -174,81 +170,95 @@ func parseUrl(endpoint string, insecure bool) (*url.URL, error) {
 }
 
 func (c *Client) Reconnect() error {
-	var (
-		dialer websocket.Dialer
-		err    error
-		conn   *websocket.Conn
-	)
-
-	// 使用带超时和TLS的Dialer
-	dialer = websocket.Dialer{
+	dialer := websocket.Dialer{
 		HandshakeTimeout: c.opts.sessionConf.timeouts.write,
-		TLSClientConfig: &tls.Config{
-			MinVersion: tls.VersionTLS12,
-			//InsecureSkipVerify: true, // 开发用，跳过证书校验
-		},
+		TLSClientConfig:  c.opts.tlsConf,
 	}
 
-	// close first
-	c.Close()
+	c.Close() // 清理旧连接
 
+	var attempt int32
 	for {
-		conn, _, err = dialer.Dial(c.url.String(), nil)
-		if err != nil {
-			log.Infof("connect failed : %v\n", err)
-
-			if c.opts.retryPolicy.autoRetry {
-				select {
-				case <-time.After(c.opts.retryPolicy.baseDelay):
-					log.Infof("reconnecting ...")
-				}
-				continue
-			}
-			log.Infof("you can set `autoRetryEnabled` true to do auto reconnect stuff.")
-			return err
+		select {
+		case <-c.opts.ctx.Done():
+			return c.opts.ctx.Err()
+		default:
 		}
-		break
-	}
 
-	c.session = NewSession(c, conn, c.opts.sessionConf)
-	c.keepHeartbeat()
-	return nil
+		conn, _, err := dialer.DialContext(c.opts.ctx, c.url.String(), nil)
+		if err == nil {
+			c.session = NewSession(c, conn, c.opts.sessionConf)
+			go c.keepHeartbeat()
+			return nil
+		}
+
+		// 计算退避时间
+		delay := c.calculateBackoff(atomic.AddInt32(&attempt, 1))
+		log.Warnf("Connect failed (attempt %d), retrying in %v: %v", attempt, delay, err)
+
+		select {
+		case <-time.After(delay):
+		case <-c.opts.ctx.Done():
+			return c.opts.ctx.Err()
+		}
+	}
+}
+
+// 添加退避时间计算方法
+func (c *Client) calculateBackoff(attempt int32) time.Duration {
+	base := float64(c.opts.retryPolicy.baseDelay)
+	max := float64(c.opts.retryPolicy.maxDelay)
+	backoff := base * math.Pow(1.5, float64(attempt))
+	backoff = math.Min(backoff, max)
+	jitter := backoff * 0.1 * rand.Float64()
+	return time.Duration(backoff + jitter)
 }
 
 func (c *Client) keepHeartbeat() {
 	defer RecoverFromError(nil)
-
 	ticker := time.NewTicker(c.opts.sessionConf.heartbeat.interval)
 	defer ticker.Stop()
 
 	c.wg.Add(1)
-	go func() {
-		defer c.wg.Done()
-		for {
-			select {
-			case <-ticker.C:
-				cutoff := time.Now().Add(-1 * c.opts.sessionConf.heartbeat.deadline)
-				threshold := time.Now().Add(-1 * c.opts.sessionConf.heartbeat.threshold)
-				if c.session == nil {
-					break
-				}
-				//检查TTL
-				if c.session.LastActive().Before(cutoff) {
-					log.Warnf("key %s heartbeat dead line.", c.session.id)
-					c.session.Close(true)
-				} else if c.session.LastActive().Before(threshold) {
-					log.Warnf("key %s heartbeat threshold. send ping", c.session.id)
-					err := c.session.Send(mustMarshal(&proto.Payload{Type: int32(proto.Ping)}))
-					if err != nil {
-						log.Errorf("send ping failed : %v\n", err)
-					}
-				}
-			case <-c.keepAliveCh:
-				log.Infof("keepAlive channel closed.")
+	defer c.wg.Done()
+
+	for {
+		select {
+		case <-ticker.C:
+			// 安全获取 session 实例
+			var sess *Session
+			if c.session != nil {
+				c.session.connMu.Lock()
+				sess = c.session
+				c.session.connMu.Unlock()
+			}
+
+			if sess == nil || sess.Closed() {
 				return
 			}
+
+			// 检查心跳
+			lastActive := sess.LastActive()
+			cutoff := time.Now().Add(-c.opts.sessionConf.heartbeat.deadline)
+			threshold := time.Now().Add(-c.opts.sessionConf.heartbeat.threshold)
+
+			if lastActive.Before(cutoff) {
+				log.Warnf("Session %s heartbeat timeout", sess.id)
+				sess.Close(true)
+				return
+			} else if lastActive.Before(threshold) {
+				log.Infof("Session %s send keepalive ping", sess.id)
+				if err := sess.Send(mustMarshal(&proto.Payload{Type: int32(proto.Ping)})); err != nil {
+					log.Errorf("Send ping failed: %v", err)
+				}
+			}
+
+		case <-c.keepAliveCh:
+			return
+		case <-c.opts.ctx.Done():
+			return
 		}
-	}()
+	}
 }
 
 func (c *Client) Request(ops int32, msg gproto.Message) (*proto.Payload, error) {
@@ -283,32 +293,10 @@ func (c *Client) Request(ops int32, msg gproto.Message) (*proto.Payload, error) 
 		return resp, nil
 	case <-c.opts.ctx.Done():
 		return nil, c.opts.ctx.Err()
-	case <-time.After(c.opts.sessionConf.timeouts.write - 1):
+	case <-time.After(c.opts.sessionConf.timeouts.write):
 		return nil, ErrRequestTimeout
 	}
 }
-func (c *Client) Close() {
-	s := c.session
-	c.session = nil
-
-	if s == nil {
-		return
-	}
-
-	c.session.Close(true)
-	go func() {
-		c.keepAliveCh <- struct{}{}
-	}()
-	c.wg.Wait()
-
-	log.Infof("client closed.")
-}
-
-func (c *Client) Closed() bool {
-	return c.session == nil || c.session.Closed()
-}
-
-func (c *Client) onClose(*Session) {}
 
 // dispatch 消息分发
 func (c *Client) dispatch(sess *Session, data []byte) error {
@@ -329,7 +317,7 @@ func (c *Client) dispatch(sess *Session, data []byte) error {
 		if handler, ok := c.opts.responseHandler[p.Op]; ok {
 			safeCall(func() { handler(p.Body, p.Code) })
 		} else {
-			log.Warnf("handle func is not exist with resp Ops(%+v)", p.Op)
+			log.Warnf("no response handler for op: %d", p.Op)
 		}
 
 	case int32(proto.Push):
@@ -340,7 +328,7 @@ func (c *Client) dispatch(sess *Session, data []byte) error {
 		if handler, ok := c.opts.pushHandler[body.Ops]; ok {
 			safeCall(func() { handler(body.Data) })
 		} else {
-			log.Warnf("handle func is not exist with push Ops(%+v)", body.Ops)
+			log.Warnf("no push handler for ops: %d", body.Ops)
 		}
 
 	case int32(proto.Ping):
@@ -351,27 +339,53 @@ func (c *Client) dispatch(sess *Session, data []byte) error {
 		// server端回pong包. 不处理
 
 	default:
-		log.Warnf("Unknown message type(%+v). ", p.Type)
+		log.Warnf("unknown payload type: %d", p.Type)
 	}
 
 	return nil
 }
 
-// calculateBackoff 计算退避时间
-func (c *Client) calculateBackoff(attempt int32) time.Duration {
-	base := float64(c.opts.retryPolicy.baseDelay)
-	max := float64(c.opts.retryPolicy.maxDelay)
-	jitter := 0.2 * rand.Float64()
+func (c *Client) Close() {
+	// 原子标记关闭状态
+	if !atomic.CompareAndSwapInt32(&c.closed, 0, 1) {
+		return
+	}
 
-	delay := time.Duration(base * math.Pow(1.5, float64(attempt-1)) * (1 + jitter))
-	return time.Duration(math.Min(float64(delay), max))
+	// 关闭控制通道
+	close(c.keepAliveCh)
+
+	// 关闭会话
+	if c.session != nil {
+		c.session.Close(true)
+		c.session = nil
+	}
+
+	// 清理请求池
+	c.clearPendingRequests()
+
+	// 等待所有协程退出
+	c.wg.Wait()
+	log.Info("Client shutdown complete")
+}
+func (c *Client) Closed() bool {
+	return c.session == nil || c.session.Closed()
 }
 
-// 清理所有等待响应的请求，防止 goroutine 泄露或 deadlock
+func (c *Client) onClose(*Session) {
+	if c.opts.disconnectFunc != nil {
+		c.opts.disconnectFunc()
+	}
+}
+
 func (c *Client) clearPendingRequests() {
 	c.reqPool.Range(func(key, value interface{}) bool {
-		ch := value.(chan *proto.Payload)
-		close(ch)
+		if ch, ok := value.(chan *proto.Payload); ok {
+			select {
+			case <-ch: // 尝试消费残留数据
+			default:
+				close(ch)
+			}
+		}
 		c.reqPool.Delete(key)
 		return true
 	})
