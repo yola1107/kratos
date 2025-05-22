@@ -9,7 +9,7 @@ import (
 
 type SessionManager struct {
 	count    int32
-	sessions sync.Map
+	sessions sync.Map // sessionID -> *Session
 }
 
 func NewSessionManager() *SessionManager {
@@ -43,13 +43,27 @@ func (s *SessionManager) Get(sessionId string) *Session {
 	if !ok {
 		return nil
 	}
-	return v.(*Session)
+	if session, ok := v.(*Session); ok {
+		return session
+	}
+	log.Warnf("未知类型存储 sessionID:%+v", sessionId)
+	return nil
 }
 
 func (s *SessionManager) Range(fn func(*Session)) {
 	s.sessions.Range(func(k, v interface{}) bool {
-		session := v.(*Session)
-		fn(session)
+		if session, ok := v.(*Session); ok {
+			fn(session)
+		}
 		return true
 	})
+}
+func (s *SessionManager) CloseAllSessions() {
+	s.sessions.Range(func(_, v interface{}) bool {
+		if session, ok := v.(*Session); ok {
+			session.Close(true)
+		}
+		return true
+	})
+	return
 }
