@@ -25,24 +25,13 @@ type iHandler interface {
 	dispatch(sess *Session, data []byte) error
 }
 
-type SessionConfig struct {
-	Timeout      time.Duration
-	WriteTimeout time.Duration
-	Interval     time.Duration
-	Deadline     time.Duration
-	Threshold    time.Duration
-	RateLimit    int
-	BurstLimit   int
-	SendChanSize int
-}
-
 // Session 表示一个WebSocket连接会话
 type Session struct {
 	id          string
 	h           iHandler
 	connMu      sync.Mutex
 	conn        *websocket.Conn
-	config      *SessionConfig
+	config      *sessionConfig
 	sendChan    chan []byte
 	closeChan   chan struct{}
 	closed      atomic.Bool
@@ -51,15 +40,15 @@ type Session struct {
 }
 
 // NewSession 创建新的WebSocket会话
-func NewSession(h iHandler, conn *websocket.Conn, config *SessionConfig) *Session {
+func NewSession(h iHandler, conn *websocket.Conn, config *sessionConfig) *Session {
 	s := &Session{
 		id:          uuid.New().String(),
 		h:           h,
 		config:      config,
 		conn:        conn,
-		sendChan:    make(chan []byte, config.SendChanSize),
+		sendChan:    make(chan []byte, config.limits.sendChanSize),
 		closeChan:   make(chan struct{}),
-		rateLimiter: rate.NewLimiter(rate.Limit(config.RateLimit), config.BurstLimit),
+		rateLimiter: rate.NewLimiter(rate.Limit(config.limits.rateLimit), config.limits.burstLimit),
 	}
 	s.lastActive.Store(time.Now())
 	go s.writePump()
@@ -108,7 +97,7 @@ func (s *Session) Send(message []byte) error {
 	case <-s.closeChan:
 		log.Infof("session:%+v send closes ", s.id)
 		return errSessionClosed
-	case <-time.After(s.config.WriteTimeout):
+	case <-time.After(s.config.timeouts.write):
 		return errWriteTimeout
 	}
 }
@@ -135,7 +124,7 @@ func (s *Session) readPump() {
 
 	for {
 		s.connMu.Lock()
-		err := s.conn.SetReadDeadline(time.Now().Add(s.config.Deadline))
+		err := s.conn.SetReadDeadline(time.Now().Add(s.config.heartbeat.deadline))
 		s.connMu.Unlock()
 		if err != nil {
 			log.Errorf("set read deadline error: %v", err)
@@ -163,7 +152,7 @@ func (s *Session) readPump() {
 
 		case websocket.PingMessage:
 			s.connMu.Lock()
-			err = s.conn.WriteControl(websocket.PongMessage, nil, time.Now().Add(s.config.WriteTimeout))
+			err = s.conn.WriteControl(websocket.PongMessage, nil, time.Now().Add(s.config.timeouts.write))
 			s.connMu.Unlock()
 			if err != nil {
 				return
@@ -181,16 +170,15 @@ func (s *Session) readPump() {
 }
 
 func (s *Session) keepWebsocketPing() {
-	ticker := time.NewTicker(s.config.Interval)
+	ticker := time.NewTicker(s.config.heartbeat.interval)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
 			s.connMu.Lock()
-			err := s.conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(s.config.WriteTimeout))
+			err := s.conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(s.config.timeouts.write))
 			s.connMu.Unlock()
 			if err != nil {
-				s.Close(true)
 				return
 			}
 		case <-s.closeChan:
@@ -230,6 +218,12 @@ func (s *Session) Close(force bool) bool {
 	s.h.onClose(s)
 
 	close(s.closeChan)
+
+	//select {
+	//case s.closeChan <- struct{}{}:
+	//case <-time.After(time.Millisecond * 500):
+	//	log.Infof("key=%+v closed timeout.\n", s.ID())
+	//}
 	return true
 }
 
@@ -240,7 +234,7 @@ func (s *Session) writeMessageLocked(data []byte) error {
 	s.connMu.Lock()
 	defer s.connMu.Unlock()
 
-	if err := s.conn.SetWriteDeadline(time.Now().Add(s.config.WriteTimeout)); err != nil {
+	if err := s.conn.SetWriteDeadline(time.Now().Add(s.config.timeouts.write)); err != nil {
 		return err
 	}
 	return s.conn.WriteMessage(websocket.BinaryMessage, data)

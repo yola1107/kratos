@@ -30,53 +30,49 @@ var (
 type PushHandler func(data []byte)
 type ResponseHandler func(data []byte, code int32)
 
-type ClientOption func(*clientConfig)
+type ClientOption func(*clientOptions)
 
 func WithTlsConf(tlsConfig *tls.Config) ClientOption {
-	return func(o *clientConfig) { o.tlsConf = tlsConfig }
+	return func(o *clientOptions) { o.tlsConf = tlsConfig }
 }
-
 func WithTimeout(timeout time.Duration) ClientOption {
-	return func(o *clientConfig) { o.session.Timeout = timeout }
+	return func(o *clientOptions) { o.sessionConf.timeouts.timeout = timeout }
 }
-
-func WithSessionConfig(c *SessionConfig) ClientOption {
-	return func(o *clientConfig) { o.session = c }
+func WithWriteTimeout(write time.Duration) ClientOption {
+	return func(o *clientOptions) { o.sessionConf.timeouts.write = write }
 }
-
+func WithHeartInterval(heartInterval time.Duration) ClientOption {
+	return func(o *clientOptions) { o.sessionConf.heartbeat.interval = heartInterval }
+}
 func WithEndpoint(endpoint string) ClientOption {
-	return func(o *clientConfig) { o.endpoint = endpoint }
+	return func(o *clientOptions) { o.endpoint = endpoint }
 }
-
 func WithToken(token string) ClientOption {
-	return func(o *clientConfig) { o.token = token }
+	return func(o *clientOptions) { o.token = token }
 }
-
-func WithDisconnectFunc(disconnectFunc func()) ClientOption {
-	return func(o *clientConfig) { o.disconnectFunc = disconnectFunc }
-}
-
 func WithPushHandler(pushHandler map[int32]PushHandler) ClientOption {
-	return func(o *clientConfig) { o.pushHandler = pushHandler }
+	return func(o *clientOptions) { o.pushHandler = pushHandler }
 }
-
 func WithResponseHandler(responseHandler map[int32]ResponseHandler) ClientOption {
-	return func(o *clientConfig) { o.responseHandler = responseHandler }
+	return func(o *clientOptions) { o.responseHandler = responseHandler }
+}
+func WithDisconnectFunc(disconnectFunc func()) ClientOption {
+	return func(o *clientOptions) { o.disconnectFunc = disconnectFunc }
 }
 
 //func WithDiscovery(d registry.Discovery) ClientOption {
-//	return func(o *clientConfig) {
+//	return func(o *clientOptions) {
 //		o.discovery = d
 //	}
 //}
 
 //func WithSelector(s selector.Selector) ClientOption {
-//	return func(o *clientConfig) {
+//	return func(o *clientOptions) {
 //		o.selector = s
 //	}
 //}
 
-type clientConfig struct {
+type clientOptions struct {
 	ctx             context.Context
 	tlsConf         *tls.Config
 	endpoint        string
@@ -84,14 +80,15 @@ type clientConfig struct {
 	disconnectFunc  func()
 	pushHandler     map[int32]PushHandler
 	responseHandler map[int32]ResponseHandler
-	session         *SessionConfig
-	retryPolicy     *retryPolicy //重连
+	sessionConf     *sessionConfig //
+	retryPolicy     *retryPolicy   //重连
 
 	////服务发现
 	//discovery registry.Discovery
 }
 
 type retryPolicy struct {
+	//autoRetry bool
 	baseDelay  time.Duration
 	maxDelay   time.Duration
 	maxAttempt int32
@@ -99,7 +96,7 @@ type retryPolicy struct {
 
 // Client is a websocket client.
 type Client struct {
-	config      *clientConfig
+	opts        clientOptions
 	url         *url.URL
 	seq         int32
 	reqPool     sync.Map // seq -> chan *proto.Payload
@@ -118,7 +115,7 @@ type Client struct {
 
 // NewClient returns an websocket client.
 func NewClient(ctx context.Context, opts ...ClientOption) (*Client, error) {
-	cfg := &clientConfig{
+	options := clientOptions{
 		ctx:     ctx,
 		tlsConf: nil,
 
@@ -127,33 +124,25 @@ func NewClient(ctx context.Context, opts ...ClientOption) (*Client, error) {
 		disconnectFunc:  nil,
 		pushHandler:     map[int32]PushHandler{},
 		responseHandler: map[int32]ResponseHandler{},
-		session: &SessionConfig{
-			Timeout:      1 * time.Second,
-			WriteTimeout: 10 * time.Second,
-			Interval:     10 * time.Second,
-			Deadline:     60 * time.Second,
-			Threshold:    30 * time.Second,
-			RateLimit:    100, // 每秒消息数,
-			BurstLimit:   10,  // 突发消息数,
-			SendChanSize: 256,
-		},
+		sessionConf:     defaultSessionConf,
 		retryPolicy: &retryPolicy{
+			//autoRetry: false,
 			baseDelay:  3 * time.Second,
 			maxDelay:   15 * time.Second,
 			maxAttempt: 5,
 		},
 	}
 	for _, o := range opts {
-		o(cfg)
+		o(&options)
 	}
 
-	u, err := parseUrl(cfg.endpoint, cfg.tlsConf == nil)
+	u, err := parseUrl(options.endpoint, options.tlsConf == nil)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidURL, err)
 	}
 
 	c := &Client{
-		config:      cfg,
+		opts:        options,
 		url:         u,
 		seq:         0,
 		reqPool:     sync.Map{},
@@ -183,8 +172,8 @@ func parseUrl(endpoint string, insecure bool) (*url.URL, error) {
 
 func (c *Client) Reconnect() error {
 	dialer := websocket.Dialer{
-		HandshakeTimeout: c.config.session.WriteTimeout,
-		TLSClientConfig:  c.config.tlsConf,
+		HandshakeTimeout: c.opts.sessionConf.timeouts.write,
+		TLSClientConfig:  c.opts.tlsConf,
 	}
 
 	c.Close() // 清理旧连接
@@ -192,20 +181,16 @@ func (c *Client) Reconnect() error {
 	var attempt int32
 	for {
 		select {
-		case <-c.config.ctx.Done():
-			return c.config.ctx.Err()
+		case <-c.opts.ctx.Done():
+			return c.opts.ctx.Err()
 		default:
 		}
 
-		conn, _, err := dialer.DialContext(c.config.ctx, c.url.String(), nil)
+		conn, _, err := dialer.DialContext(c.opts.ctx, c.url.String(), nil)
 		if err == nil {
-			c.session = NewSession(c, conn, c.config.session)
-			go c.keepAlive()
+			c.session = NewSession(c, conn, c.opts.sessionConf)
+			go c.keepHeartbeat()
 			return nil
-		}
-
-		if attempt >= c.config.retryPolicy.maxAttempt {
-			return fmt.Errorf("%w: %d attempts", ErrMaxRetries, attempt)
 		}
 
 		// 计算退避时间
@@ -214,22 +199,29 @@ func (c *Client) Reconnect() error {
 
 		select {
 		case <-time.After(delay):
-		case <-c.config.ctx.Done():
-			return c.config.ctx.Err()
+		case <-c.opts.ctx.Done():
+			return c.opts.ctx.Err()
+		default:
+			if attempt >= c.opts.retryPolicy.maxAttempt {
+				return ErrMaxRetries
+			}
 		}
 	}
 }
 
 // 添加退避时间计算方法
 func (c *Client) calculateBackoff(attempt int32) time.Duration {
-	backoff := float64(c.config.retryPolicy.baseDelay) * math.Pow(1.5, float64(attempt))
-	backoff = math.Min(backoff, float64(c.config.retryPolicy.maxDelay))
-	return time.Duration(backoff * (0.9 + 0.2*rand.Float64()))
+	base := float64(c.opts.retryPolicy.baseDelay)
+	max := float64(c.opts.retryPolicy.maxDelay)
+	backoff := base * math.Pow(1.5, float64(attempt))
+	backoff = math.Min(backoff, max)
+	jitter := backoff * 0.1 * rand.Float64()
+	return time.Duration(backoff + jitter)
 }
 
-func (c *Client) keepAlive() {
+func (c *Client) keepHeartbeat() {
 	defer RecoverFromError(nil)
-	ticker := time.NewTicker(c.config.session.Interval)
+	ticker := time.NewTicker(c.opts.sessionConf.heartbeat.interval)
 	defer ticker.Stop()
 
 	c.wg.Add(1)
@@ -252,8 +244,8 @@ func (c *Client) keepAlive() {
 
 			// 检查心跳
 			lastActive := sess.LastActive()
-			cutoff := time.Now().Add(-c.config.session.Deadline)
-			threshold := time.Now().Add(-c.config.session.Threshold)
+			cutoff := time.Now().Add(-c.opts.sessionConf.heartbeat.deadline)
+			threshold := time.Now().Add(-c.opts.sessionConf.heartbeat.threshold)
 
 			if lastActive.Before(cutoff) {
 				log.Warnf("Session %s heartbeat timeout", sess.id)
@@ -268,14 +260,14 @@ func (c *Client) keepAlive() {
 
 		case <-c.keepAliveCh:
 			return
-		case <-c.config.ctx.Done():
+		case <-c.opts.ctx.Done():
 			return
 		}
 	}
 }
 
 func (c *Client) Request(ops int32, msg gproto.Message) (*proto.Payload, error) {
-	if c.closed.Load() {
+	if c.session.Closed() {
 		return nil, ErrClientClosed
 	}
 
@@ -304,9 +296,9 @@ func (c *Client) Request(ops int32, msg gproto.Message) (*proto.Payload, error) 
 	select {
 	case resp := <-respChan:
 		return resp, nil
-	case <-c.config.ctx.Done():
-		return nil, c.config.ctx.Err()
-	case <-time.After(c.config.session.WriteTimeout):
+	case <-c.opts.ctx.Done():
+		return nil, c.opts.ctx.Err()
+	case <-time.After(c.opts.sessionConf.timeouts.write):
 		return nil, ErrRequestTimeout
 	}
 }
@@ -327,7 +319,7 @@ func (c *Client) dispatch(sess *Session, data []byte) error {
 				log.Warnf("response channel closed for seq %d", p.Seq)
 			}
 		}
-		if handler, ok := c.config.responseHandler[p.Op]; ok {
+		if handler, ok := c.opts.responseHandler[p.Op]; ok {
 			safeCall(func() { handler(p.Body, p.Code) })
 		} else {
 			log.Warnf("no response handler for op: %d", p.Op)
@@ -338,7 +330,7 @@ func (c *Client) dispatch(sess *Session, data []byte) error {
 		if err := gproto.Unmarshal(p.Body, &body); err != nil {
 			return fmt.Errorf("unmarshal push body error: %w", err)
 		}
-		if handler, ok := c.config.pushHandler[body.Ops]; ok {
+		if handler, ok := c.opts.pushHandler[body.Ops]; ok {
 			safeCall(func() { handler(body.Data) })
 		} else {
 			log.Warnf("no push handler for ops: %d", body.Ops)
@@ -379,8 +371,8 @@ func (c *Client) Closed() bool {
 }
 
 func (c *Client) onClose(*Session) {
-	if c.config.disconnectFunc != nil {
-		c.config.disconnectFunc()
+	if c.opts.disconnectFunc != nil {
+		c.opts.disconnectFunc()
 	}
 }
 

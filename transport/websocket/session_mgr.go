@@ -1,7 +1,6 @@
 package websocket
 
 import (
-	"context"
 	"sync"
 	"sync/atomic"
 
@@ -53,31 +52,4 @@ func (s *SessionManager) Range(fn func(*Session)) {
 		fn(session)
 		return true
 	})
-}
-
-func (s *SessionManager) CloseAllSessions(ctx context.Context) error {
-	// 1. 关闭所有会话
-	var wg sync.WaitGroup
-	s.sessions.Range(func(k, v interface{}) bool {
-		session := v.(*Session)
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			session.Close(true)
-		}()
-		return true
-	})
-
-	// 2. 等待会话关闭完成
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
-	select {
-	case <-done:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
 }
