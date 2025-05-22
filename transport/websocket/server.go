@@ -30,13 +30,13 @@ import (
 var (
 	_ transport.Server     = (*Server)(nil)
 	_ transport.Endpointer = (*Server)(nil)
+	_ iHandler             = (*Server)(nil)
 )
 
 var (
 	unknownErrCode  = int32(500) //未知的服务器错误/服务器内部错误
 	unknownOpsCode  = int32(501) //服务器未实现该方法
 	tooManyRequests = int32(429) //全局流量限制 429 Too Many Requests
-
 )
 
 const (
@@ -57,37 +57,45 @@ func Endpoint(u *url.URL) ServerOption {
 	return func(s *Server) { s.opts.endpoint = u }
 }
 func Timeout(d time.Duration) ServerOption {
-	return func(s *Server) { s.opts.timeouts.timeout = d }
+	return func(s *Server) { s.opts.sessionConf.timeouts.timeout = d }
 }
 func Middleware(m ...middleware.Middleware) ServerOption {
 	return func(s *Server) { s.middleware.Use(m...) }
 }
 func HeartInterval(d time.Duration) ServerOption {
-	return func(s *Server) { s.opts.heartbeat.interval = d }
+	return func(s *Server) { s.opts.sessionConf.heartbeat.interval = d }
 }
 func HeartDeadline(d time.Duration) ServerOption {
-	return func(s *Server) { s.opts.heartbeat.deadline = d }
+	return func(s *Server) { s.opts.sessionConf.heartbeat.deadline = d }
 }
 func HeartThreshold(d time.Duration) ServerOption {
-	return func(s *Server) { s.opts.heartbeat.threshold = d }
+	return func(s *Server) { s.opts.sessionConf.heartbeat.threshold = d }
 }
 func OnOpenFunc(f func(*Session)) ServerOption {
-	return func(s *Server) { s.OnOpenFunc = f }
+	return func(s *Server) { s.opts.OnOpenFunc = f }
 }
 func OnCloseFunc(f func(*Session)) ServerOption {
-	return func(s *Server) { s.OnCloseFunc = f }
+	return func(s *Server) { s.opts.OnCloseFunc = f }
 }
 
 type serverOptions struct {
-	network   string
-	address   string
-	endpoint  *url.URL
-	lis       net.Listener
-	tlsConf   *tls.Config
+	network        string
+	address        string
+	endpoint       *url.URL
+	lis            net.Listener
+	tlsConf        *tls.Config
+	sessionConf    *sessionConfig
+	maxConnections int32
+	OnOpenFunc     func(*Session) // 连接建立回调
+	OnCloseFunc    func(*Session) // 连接关闭回调
+}
+
+type sessionConfig struct {
 	timeouts  *timeouts
 	heartbeat *heartbeat
 	limits    *limits
 }
+
 type timeouts struct {
 	timeout  time.Duration
 	read     time.Duration
@@ -101,7 +109,6 @@ type heartbeat struct {
 	threshold time.Duration
 }
 type limits struct {
-	maxConnections int32
 	maxMessageSize int64
 	rateLimit      int
 	burstLimit     int
@@ -118,10 +125,7 @@ type Server struct {
 	sessionMgr   *SessionManager          // 会话管理
 	handlers     []UnaryServerInterceptor // 拦截器链
 	m            *service                 // 注册的服务
-	register     chan *Session            // 注册通道
-	unregister   chan *Session            // 注销通道
-	OnOpenFunc   func(*Session)           // 连接建立回调
-	OnCloseFunc  func(*Session)           // 连接关闭回调
+
 }
 
 // NewServer creates a Websocket server by options.
@@ -132,25 +136,27 @@ func NewServer(opts ...ServerOption) *Server {
 			address: ":0",
 			lis:     nil,
 			tlsConf: nil,
-			timeouts: &timeouts{
-				timeout:  1 * time.Second,
-				read:     60 * time.Second,
-				write:    10 * time.Second,
-				shutdown: 2 * time.Second,
-				dial:     1 * time.Second,
+			sessionConf: &sessionConfig{
+				timeouts: &timeouts{
+					timeout:  1 * time.Second,
+					read:     60 * time.Second,
+					write:    10 * time.Second,
+					shutdown: 2 * time.Second,
+					dial:     1 * time.Second,
+				},
+				heartbeat: &heartbeat{
+					interval:  10 * time.Second,
+					deadline:  60 * time.Second,
+					threshold: 30 * time.Second,
+				},
+				limits: &limits{
+					maxMessageSize: 10 * 1024 * 1024, // 10MB
+					rateLimit:      100,              // 每秒消息数,
+					burstLimit:     10,               // 突发消息数,
+					sendChanSize:   256,
+				},
 			},
-			heartbeat: &heartbeat{
-				interval:  10 * time.Second,
-				deadline:  60 * time.Second,
-				threshold: 30 * time.Second,
-			},
-			limits: &limits{
-				maxConnections: 100000,
-				maxMessageSize: 10 * 1024 * 1024, // 10MB
-				rateLimit:      100,              // 每秒消息数,
-				burstLimit:     10,               // 突发消息数,
-				sendChanSize:   256,
-			},
+			maxConnections: 100000,
 		},
 		err:        nil,
 		middleware: matcher.New(),
@@ -160,8 +166,6 @@ func NewServer(opts ...ServerOption) *Server {
 			CheckOrigin:     func(r *http.Request) bool { return true },
 		},
 		sessionMgr: NewSessionManager(),
-		register:   make(chan *Session, 100),
-		unregister: make(chan *Session, 100),
 	}
 
 	for _, o := range opts {
@@ -218,7 +222,6 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 
 	go s.serve()
-	go s.manageSessions()
 	go s.keepHeartbeat(ctx)
 
 	return s.err
@@ -238,27 +241,10 @@ func (s *Server) serve() {
 	}
 }
 
-func (s *Server) manageSessions() {
-	for {
-		select {
-		case sess := <-s.register:
-			s.sessionMgr.Add(sess)
-			if s.OnOpenFunc != nil {
-				s.OnOpenFunc(sess)
-			}
-		case sess := <-s.unregister:
-			s.sessionMgr.Delete(sess)
-			if s.OnCloseFunc != nil {
-				s.OnCloseFunc(sess)
-			}
-		}
-	}
-}
-
 func (s *Server) handleConnections() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// 连接数限制
-		if cnt := s.sessionMgr.Len(); cnt >= s.opts.limits.maxConnections {
+		if cnt := s.sessionMgr.Len(); cnt >= s.opts.maxConnections {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			log.Warnf("StatusServiceUnavailable. over maxConnections(%d)", cnt)
 			return
@@ -270,9 +256,9 @@ func (s *Server) handleConnections() http.HandlerFunc {
 			return
 		}
 
-		sess := NewSession(s, conn)
+		sess := NewSession(s, conn, s.opts.sessionConf)
 		sess.listen()
-		s.register <- sess
+		//s.register <- sess
 	}
 }
 
@@ -284,7 +270,7 @@ func (s *Server) keepHeartbeat(ctx context.Context) {
 		}
 	}()
 
-	ticker := time.NewTicker(s.opts.heartbeat.interval)
+	ticker := time.NewTicker(s.opts.sessionConf.heartbeat.interval)
 	defer ticker.Stop()
 
 	for {
@@ -292,12 +278,12 @@ func (s *Server) keepHeartbeat(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			cutoff := time.Now().Add(-1 * s.opts.heartbeat.deadline)
-			threshold := time.Now().Add(-1 * s.opts.heartbeat.threshold)
+			cutoff := time.Now().Add(-1 * s.opts.sessionConf.heartbeat.deadline)
+			threshold := time.Now().Add(-1 * s.opts.sessionConf.heartbeat.threshold)
 			s.sessionMgr.Range(func(sess *Session) {
 				//双向心跳 服务器端主动发websocket.PingMessage
 				sess.connMu.Lock()
-				_ = sess.conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(s.opts.timeouts.write))
+				_ = sess.conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(s.opts.sessionConf.timeouts.write))
 				sess.connMu.Unlock()
 				//检查TTL
 				if sess.LastActive().Before(cutoff) {
@@ -343,6 +329,20 @@ func (s *Server) Stop(ctx context.Context) error {
 
 	log.Info("[webSocket] server stopping")
 	return nil
+}
+
+func (s *Server) onOpen(sess *Session) {
+	s.sessionMgr.Add(sess)
+	if s.opts.OnOpenFunc != nil {
+		s.opts.OnOpenFunc(sess)
+	}
+}
+
+func (s *Server) onClose(sess *Session) {
+	s.sessionMgr.Delete(sess)
+	if s.opts.OnCloseFunc != nil {
+		s.opts.OnCloseFunc(sess)
+	}
 }
 
 // Dispatch 消息分发

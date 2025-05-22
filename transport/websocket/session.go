@@ -21,10 +21,17 @@ var (
 	errRateLimitExceeded = errors.New("rate limit exceeded")
 )
 
+type iHandler interface {
+	onOpen(*Session)
+	onClose(*Session)
+	dispatchMessage(sess *Session, data []byte) error
+}
+
 // Session 表示一个WebSocket连接会话
 type Session struct {
 	id       string
-	server   *Server
+	h        iHandler
+	config   *sessionConfig
 	conn     *websocket.Conn
 	connMu   sync.Mutex
 	values   sync.Map
@@ -42,29 +49,30 @@ type Session struct {
 }
 
 // NewSession 创建新的WebSocket会话
-func NewSession(server *Server, conn *websocket.Conn) *Session {
+func NewSession(h iHandler, conn *websocket.Conn, config *sessionConfig) *Session {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	s := &Session{
 		id:          uuid.New().String(),
-		server:      server,
+		h:           h,
+		config:      config,
 		conn:        conn,
 		values:      sync.Map{},
-		sendChan:    make(chan []byte, server.opts.limits.sendChanSize),
+		sendChan:    make(chan []byte, config.limits.sendChanSize),
 		ctx:         ctx,
 		cancel:      cancel,
 		closeCh:     make(chan struct{}),
-		rateLimiter: rate.NewLimiter(rate.Limit(server.opts.limits.rateLimit), server.opts.limits.burstLimit),
+		rateLimiter: rate.NewLimiter(rate.Limit(config.limits.rateLimit), config.limits.burstLimit),
 	}
 	s.lastActive.Store(time.Now())
 
 	// 设置连接参数
-	conn.SetReadLimit(server.opts.limits.maxMessageSize)
+	conn.SetReadLimit(s.config.limits.maxMessageSize)
 	conn.SetPongHandler(func(string) error {
 		s.setLastActive()
 		return nil
 	})
-
+	s.h.onOpen(s) //通知server
 	return s
 }
 
@@ -115,7 +123,7 @@ func (s *Session) Send(message []byte) error {
 		return nil
 	case <-s.closeCh:
 		return errSessionClosed
-	case <-time.After(s.server.opts.timeouts.write):
+	case <-time.After(s.config.timeouts.write):
 		return errWriteTimeout
 	}
 }
@@ -152,7 +160,7 @@ func (s *Session) readPump() {
 
 	for {
 		s.connMu.Lock()
-		err := s.conn.SetReadDeadline(time.Now().Add(s.server.opts.heartbeat.deadline))
+		err := s.conn.SetReadDeadline(time.Now().Add(s.config.heartbeat.deadline))
 		s.connMu.Unlock()
 		if err != nil {
 			log.Errorf("set read deadline error: %v", err)
@@ -174,13 +182,13 @@ func (s *Session) readPump() {
 
 		switch messageType {
 		case websocket.BinaryMessage:
-			if err := s.server.dispatchMessage(s, data); err != nil {
+			if err := s.h.dispatchMessage(s, data); err != nil {
 				log.Errorf("dispatch error: %v", err)
 			}
 
 		case websocket.PingMessage:
 			s.connMu.Lock()
-			_ = s.conn.WriteControl(websocket.PongMessage, nil, time.Now().Add(s.server.opts.timeouts.write))
+			_ = s.conn.WriteControl(websocket.PongMessage, nil, time.Now().Add(s.config.timeouts.write))
 			s.connMu.Unlock()
 
 		case websocket.PongMessage:
@@ -259,13 +267,13 @@ func (s *Session) sendCloseFrame() {
 			_ = s.conn.WriteControl(
 				websocket.CloseMessage,
 				websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
-				time.Now().Add(s.server.opts.timeouts.write),
+				time.Now().Add(s.config.timeouts.write),
 			)
 		}
 	}()
 	select {
 	case <-done:
-	case <-time.After(s.server.opts.timeouts.dial):
+	case <-time.After(s.config.timeouts.dial):
 		log.Warnf("key %+v close frame timeout", s.id)
 	}
 }
@@ -278,7 +286,7 @@ func (s *Session) waitForGoroutines() {
 	}()
 	select {
 	case <-done:
-	case <-time.After(s.server.opts.timeouts.shutdown):
+	case <-time.After(s.config.timeouts.shutdown):
 		log.Warnf("key: %s close timeout", s.id)
 	}
 }
@@ -294,11 +302,7 @@ func (s *Session) closeUnderlyingConn() {
 }
 
 func (s *Session) unregisterFromServer() {
-	select {
-	case s.server.unregister <- s:
-	case <-time.After(s.server.opts.timeouts.shutdown):
-		log.Warnf("key: %s unregister timeout", s.id)
-	}
+	s.h.onClose(s)
 }
 
 func (s *Session) writeMessageLocked(data []byte) error {
@@ -307,7 +311,7 @@ func (s *Session) writeMessageLocked(data []byte) error {
 	if s.conn == nil {
 		return errSessionClosed
 	}
-	if err := s.conn.SetWriteDeadline(time.Now().Add(s.server.opts.timeouts.write)); err != nil {
+	if err := s.conn.SetWriteDeadline(time.Now().Add(s.config.timeouts.write)); err != nil {
 		return err
 	}
 	return s.conn.WriteMessage(websocket.BinaryMessage, data)
