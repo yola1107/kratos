@@ -52,7 +52,11 @@ func WithToken(token string) ClientOption {
 	return func(o *clientConfig) { o.token = token }
 }
 
-func WithDisconnectFunc(disconnectFunc func()) ClientOption {
+func WithConnectFunc(fn func(*Session)) ClientOption {
+	return func(o *clientConfig) { o.connectFunc = fn }
+}
+
+func WithDisconnectFunc(disconnectFunc func(*Session)) ClientOption {
 	return func(o *clientConfig) { o.disconnectFunc = disconnectFunc }
 }
 
@@ -81,7 +85,8 @@ type clientConfig struct {
 	tlsConf         *tls.Config
 	endpoint        string
 	token           string
-	disconnectFunc  func()
+	connectFunc     func(*Session)
+	disconnectFunc  func(*Session)
 	pushHandler     map[int32]PushHandler
 	responseHandler map[int32]ResponseHandler
 	session         *SessionConfig
@@ -107,7 +112,6 @@ type Client struct {
 	retryCount  atomic.Int32
 	wg          *sync.WaitGroup
 	keepAliveCh chan struct{}
-	closed      atomic.Bool
 
 	//selector selector.Selector
 	//resolver *resolver
@@ -119,9 +123,8 @@ type Client struct {
 // NewClient returns an websocket client.
 func NewClient(ctx context.Context, opts ...ClientOption) (*Client, error) {
 	cfg := &clientConfig{
-		ctx:     ctx,
-		tlsConf: nil,
-
+		ctx:             ctx,
+		tlsConf:         nil,
 		endpoint:        "ws://0.0.0.0:3102",
 		token:           "",
 		disconnectFunc:  nil,
@@ -201,10 +204,14 @@ func (c *Client) Reconnect() error {
 		if err == nil {
 			c.session = NewSession(c, conn, c.config.session)
 			go c.keepAlive()
+			if c.config.connectFunc != nil {
+				c.config.connectFunc(c.session)
+			}
 			return nil
 		}
 
 		if attempt >= c.config.retryPolicy.maxAttempt {
+			c.retryCount.Store(attempt)
 			return fmt.Errorf("%w: %d attempts", ErrMaxRetries, attempt)
 		}
 
@@ -242,23 +249,7 @@ func (c *Client) keepAlive() {
 			if sess == nil || sess.Closed() {
 				return
 			}
-
-			// 检查心跳
-			lastActive := sess.LastActive()
-			cutoff := time.Now().Add(-c.config.session.Deadline)
-			threshold := time.Now().Add(-c.config.session.Threshold)
-
-			if lastActive.Before(cutoff) {
-				log.Warnf("Session %s heartbeat timeout", sess.id)
-				sess.Close(true)
-				return
-			} else if lastActive.Before(threshold) {
-				log.Infof("Session %s send keepalive ping", sess.id)
-				if err := sess.Send(mustMarshal(&proto.Payload{Type: int32(proto.Ping)})); err != nil {
-					log.Errorf("Send ping failed: %v", err)
-				}
-			}
-
+			sess.keepAlive()
 		case <-c.keepAliveCh:
 			return
 		case <-c.config.ctx.Done():
@@ -352,31 +343,34 @@ func (c *Client) dispatch(sess *Session, data []byte) error {
 }
 
 func (c *Client) Close() {
-	if !c.closed.CompareAndSwap(false, true) {
+	s := c.session
+	c.session = nil
+
+	if s == nil {
 		return
 	}
+
+	s.Close(true)
 	close(c.keepAliveCh)
-
-	if c.session != nil {
-		c.session.Close(true)
-		c.session = nil
-	}
-
 	c.clearPendingRequests()
 	c.wg.Wait()
-	log.Info("Client shutdown complete")
+	log.Info("client shutdown complete")
 }
 
-func (c *Client) Closed() bool {
+func (c *Client) ISClosed() bool {
 	return c.session == nil || c.session.Closed()
 }
 
-func (c *Client) onClose(*Session) {
+func (c *Client) onClose(sess *Session) {
 	if c.config.disconnectFunc != nil {
-		c.config.disconnectFunc()
+		c.config.disconnectFunc(sess)
+	}
+
+	if c.retryCount.Load() < c.config.retryPolicy.maxAttempt {
+		log.Infof("reconnecting ...")
+		_ = c.Reconnect()
 	}
 }
-
 func (c *Client) clearPendingRequests() {
 	c.reqPool.Range(func(key, value interface{}) bool {
 		if ch, ok := value.(chan *proto.Payload); ok {

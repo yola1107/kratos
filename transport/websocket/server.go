@@ -178,7 +178,7 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 
 	go s.serve()
-	go s.keepHeartbeat(ctx)
+	go s.keepAlive(ctx)
 	return s.err
 }
 
@@ -217,10 +217,10 @@ func (s *Server) handleConnections() http.HandlerFunc {
 }
 
 // server检查所有session心跳
-func (s *Server) keepHeartbeat(ctx context.Context) {
+func (s *Server) keepAlive(ctx context.Context) {
 	defer func() {
 		if err := s.recoveryServer(); err != nil {
-			log.Error("keepHeartbeat %v", err)
+			log.Error("keepAlive %v", err)
 		}
 	}()
 
@@ -232,17 +232,8 @@ func (s *Server) keepHeartbeat(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			cutoff := time.Now().Add(-1 * s.opts.session.Deadline)
-			threshold := time.Now().Add(-1 * s.opts.session.Threshold)
 			s.sessionMgr.Range(func(sess *Session) {
-				//检查TTL
-				if sess.LastActive().Before(cutoff) {
-					log.Warnf("key %s heartbeat dead line.", sess.id)
-					sess.Close(true)
-				} else if sess.LastActive().Before(threshold) {
-					log.Warnf("key %s heartbeat threshold. send ping", sess.id)
-					_ = sess.Send(mustMarshal(&proto.Payload{Type: int32(proto.Ping)}))
-				}
+				sess.keepAlive()
 			})
 		}
 	}

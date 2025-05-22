@@ -64,7 +64,7 @@ func NewSession(h iHandler, conn *websocket.Conn, config *SessionConfig) *Sessio
 	s.lastActive.Store(time.Now())
 	go s.writePump()
 	go s.readPump()
-	go s.keepWebsocketPing()
+	go s.sendHeartbeat()
 	return s
 }
 
@@ -180,7 +180,7 @@ func (s *Session) readPump() {
 	}
 }
 
-func (s *Session) keepWebsocketPing() {
+func (s *Session) sendHeartbeat() {
 	ticker := time.NewTicker(s.config.Interval)
 	defer ticker.Stop()
 	for {
@@ -196,6 +196,27 @@ func (s *Session) keepWebsocketPing() {
 		case <-s.closeChan:
 			return
 		}
+	}
+}
+
+func (s *Session) keepAlive() {
+	if s.Closed() {
+		return
+	}
+	// 超时检测
+	if time.Since(s.LastActive()) > s.config.Deadline {
+		log.Warnf("Session %s heartbeat dead line.", s.id)
+		s.Close(true)
+		return
+	}
+
+	// 主动心跳检测
+	if time.Since(s.LastActive()) > s.config.Threshold {
+		log.Warnf("Session %s heartbeat threshold. send ping", s.id)
+		if err := s.Send(mustMarshal(&proto.Payload{Type: int32(proto.Ping)})); err != nil {
+			log.Errorf("Send ping failed: %v", err)
+		}
+		return
 	}
 }
 

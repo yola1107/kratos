@@ -98,7 +98,8 @@ func main() {
 			int32(v1.GameCommand_SayHelloReq):  func(data []byte, code int32) {}, //空
 			int32(v1.GameCommand_SayHello2Req): func(data []byte, code int32) {}, //空
 		}),
-		websocket.WithDisconnectFunc(func() { log.Infof("disconnect called") }),
+		websocket.WithConnectFunc(func(session *websocket.Session) { log.Infof("connect called. %+v", session.ID()) }),
+		websocket.WithDisconnectFunc(func(session *websocket.Session) { log.Infof("disconnect called. %+v", session.ID()) }),
 	)
 	if err != nil {
 		panic(err)
@@ -106,14 +107,14 @@ func main() {
 	defer wsClient.Close()
 
 	for {
-		if wsClient.Closed() {
-			break
-		}
+		//if wsClient.Closed() {
+		//	break
+		//}
 		seed++
 		callHTTP(connHTTP)
 		callGRPC(connGRPC)
 		callWebsocket(wsClient)
-		time.Sleep(time.Millisecond * 10000)
+		time.Sleep(time.Millisecond * 32000)
 	}
 
 	log.Info("ws client exit")
