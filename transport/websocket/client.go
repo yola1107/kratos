@@ -256,7 +256,6 @@ func (c *Client) establishConnection() error {
 }
 
 func (c *Client) Request(ops int32, msg gproto.Message) (*proto.Payload, error) {
-
 	if c.closed.Load() {
 		return nil, ErrClientClosed
 	}

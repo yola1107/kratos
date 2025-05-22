@@ -30,7 +30,6 @@ import (
 var (
 	_ transport.Server     = (*Server)(nil)
 	_ transport.Endpointer = (*Server)(nil)
-	_ iHandler             = (*Server)(nil)
 )
 
 var (
@@ -97,11 +96,8 @@ type sessionConfig struct {
 }
 
 type timeouts struct {
-	timeout  time.Duration
-	read     time.Duration
-	write    time.Duration
-	shutdown time.Duration
-	dial     time.Duration
+	timeout time.Duration
+	write   time.Duration
 }
 type heartbeat struct {
 	interval  time.Duration
@@ -109,10 +105,9 @@ type heartbeat struct {
 	threshold time.Duration
 }
 type limits struct {
-	maxMessageSize int64
-	rateLimit      int
-	burstLimit     int
-	sendChanSize   int
+	rateLimit    int
+	burstLimit   int
+	sendChanSize int
 }
 
 // Server is a Websocket server wrapper.
@@ -138,11 +133,8 @@ func NewServer(opts ...ServerOption) *Server {
 			tlsConf: nil,
 			sessionConf: &sessionConfig{
 				timeouts: &timeouts{
-					timeout:  1 * time.Second,
-					read:     60 * time.Second,
-					write:    10 * time.Second,
-					shutdown: 2 * time.Second,
-					dial:     1 * time.Second,
+					timeout: 1 * time.Second,
+					write:   10 * time.Second,
 				},
 				heartbeat: &heartbeat{
 					interval:  10 * time.Second,
@@ -150,10 +142,9 @@ func NewServer(opts ...ServerOption) *Server {
 					threshold: 30 * time.Second,
 				},
 				limits: &limits{
-					maxMessageSize: 10 * 1024 * 1024, // 10MB
-					rateLimit:      100,              // 每秒消息数,
-					burstLimit:     10,               // 突发消息数,
-					sendChanSize:   256,
+					rateLimit:    100, // 每秒消息数,
+					burstLimit:   10,  // 突发消息数,
+					sendChanSize: 256,
 				},
 			},
 			maxConnections: 100000,
@@ -223,7 +214,6 @@ func (s *Server) Start(ctx context.Context) error {
 
 	go s.serve()
 	go s.keepHeartbeat(ctx)
-
 	return s.err
 }
 
@@ -257,8 +247,7 @@ func (s *Server) handleConnections() http.HandlerFunc {
 		}
 
 		sess := NewSession(s, conn, s.opts.sessionConf)
-		sess.listen()
-		//s.register <- sess
+		s.onOpen(sess) //
 	}
 }
 
@@ -281,14 +270,10 @@ func (s *Server) keepHeartbeat(ctx context.Context) {
 			cutoff := time.Now().Add(-1 * s.opts.sessionConf.heartbeat.deadline)
 			threshold := time.Now().Add(-1 * s.opts.sessionConf.heartbeat.threshold)
 			s.sessionMgr.Range(func(sess *Session) {
-				//双向心跳 服务器端主动发websocket.PingMessage
-				sess.connMu.Lock()
-				_ = sess.conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(s.opts.sessionConf.timeouts.write))
-				sess.connMu.Unlock()
 				//检查TTL
 				if sess.LastActive().Before(cutoff) {
 					log.Warnf("key %s heartbeat dead line.", sess.id)
-					sess.Close()
+					sess.Close(true)
 				} else if sess.LastActive().Before(threshold) {
 					log.Warnf("key %s heartbeat threshold. send ping", sess.id)
 					_ = sess.Send(mustMarshal(&proto.Payload{Type: int32(proto.Ping)}))
@@ -311,7 +296,7 @@ func (s *Server) Stop(ctx context.Context) error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			sess.Close()
+			sess.Close(true)
 		}()
 	})
 

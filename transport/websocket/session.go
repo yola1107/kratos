@@ -1,7 +1,6 @@
 package websocket
 
 import (
-	"context"
 	"errors"
 	"sync"
 	"sync/atomic"
@@ -16,33 +15,28 @@ import (
 )
 
 var (
-	errSessionClosed     = errors.New("session is closed")
+	errSessionClosed     = errors.New("session already closed")
 	errWriteTimeout      = errors.New("write timeout")
 	errRateLimitExceeded = errors.New("rate limit exceeded")
 )
 
 type iHandler interface {
-	onOpen(*Session)
 	onClose(*Session)
 	dispatchMessage(sess *Session, data []byte) error
 }
 
 // Session 表示一个WebSocket连接会话
 type Session struct {
-	id       string
-	h        iHandler
-	config   *sessionConfig
-	conn     *websocket.Conn
-	connMu   sync.Mutex
-	values   sync.Map
-	sendChan chan []byte
+	id string
+	h  iHandler
 
-	ctx       context.Context
-	cancel    context.CancelFunc
-	closeCh   chan struct{}
+	connMu sync.Mutex
+	conn   *websocket.Conn
+	config *sessionConfig
+
+	sendChan  chan []byte
+	closeChan chan struct{}
 	closed    atomic.Bool
-	closeOnce sync.Once
-	wg        sync.WaitGroup
 
 	lastActive  atomic.Value // time.Time
 	rateLimiter *rate.Limiter
@@ -50,29 +44,18 @@ type Session struct {
 
 // NewSession 创建新的WebSocket会话
 func NewSession(h iHandler, conn *websocket.Conn, config *sessionConfig) *Session {
-	ctx, cancel := context.WithCancel(context.Background())
-
 	s := &Session{
 		id:          uuid.New().String(),
 		h:           h,
 		config:      config,
 		conn:        conn,
-		values:      sync.Map{},
 		sendChan:    make(chan []byte, config.limits.sendChanSize),
-		ctx:         ctx,
-		cancel:      cancel,
-		closeCh:     make(chan struct{}),
+		closeChan:   make(chan struct{}),
 		rateLimiter: rate.NewLimiter(rate.Limit(config.limits.rateLimit), config.limits.burstLimit),
 	}
 	s.lastActive.Store(time.Now())
-
-	// 设置连接参数
-	conn.SetReadLimit(s.config.limits.maxMessageSize)
-	conn.SetPongHandler(func(string) error {
-		s.setLastActive()
-		return nil
-	})
-	s.h.onOpen(s) //通知server
+	go s.writePump()
+	go s.readPump()
 	return s
 }
 
@@ -81,31 +64,23 @@ func (s *Session) ID() string {
 	return s.id
 }
 
-// Set 设置会话键值对
-func (s *Session) Set(key string, value interface{}) {
-	s.values.Store(key, value)
+func (s *Session) GetRemoteIP() string {
+	return s.conn.RemoteAddr().String()
 }
 
-// Get 获取会话值
-func (s *Session) Get(key string) (interface{}, bool) {
-	return s.values.Load(key)
+// setLastActive 设置最后活跃时间
+func (s *Session) setLastActive() {
+	s.lastActive.Store(time.Now())
 }
 
-// Metadata 获取所有元数据
-func (s *Session) Metadata() map[string]interface{} {
-	metadata := make(map[string]interface{})
-	s.values.Range(func(k, v interface{}) bool {
-		metadata[k.(string)] = v
-		return true
-	})
-	return metadata
+// LastActive 返回最后活跃时间
+func (s *Session) LastActive() time.Time {
+	return s.lastActive.Load().(time.Time)
 }
 
-// listen 启动会话监听
-func (s *Session) listen() {
-	s.wg.Add(2)
-	go s.writePump()
-	go s.readPump()
+// Closed 检查会话是否已关闭
+func (s *Session) Closed() bool {
+	return s.closed.Load()
 }
 
 // Send 发送消息到客户端
@@ -121,7 +96,8 @@ func (s *Session) Send(message []byte) error {
 	select {
 	case s.sendChan <- message:
 		return nil
-	case <-s.closeCh:
+	case <-s.closeChan:
+		log.Infof("session:%+v send closes ", s.id)
 		return errSessionClosed
 	case <-time.After(s.config.timeouts.write):
 		return errWriteTimeout
@@ -129,34 +105,24 @@ func (s *Session) Send(message []byte) error {
 }
 
 func (s *Session) writePump() {
-	defer s.wg.Done()
-	defer s.Close()
-
 	for {
 		select {
 		case data, ok := <-s.sendChan:
 			if !ok {
 				return
 			}
-
-			err := s.writeMessageLocked(data)
-
-			if err != nil {
+			if err := s.writeMessageLocked(data); err != nil {
 				log.Errorf("write error: %v", err)
 				return
 			}
-
-		case <-s.closeCh:
-			return
-		case <-s.ctx.Done():
+		case <-s.closeChan:
 			return
 		}
 	}
 }
 
 func (s *Session) readPump() {
-	defer s.wg.Done()
-	defer s.Close()
+	defer s.Close(false)
 
 	for {
 		s.connMu.Lock()
@@ -169,7 +135,7 @@ func (s *Session) readPump() {
 
 		messageType, data, err := s.conn.ReadMessage()
 		if err != nil {
-			if s.closed.Load() {
+			if s.Closed() {
 				return
 			}
 			if !websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
@@ -216,93 +182,28 @@ func (s *Session) Push(ops int32, msg gproto.Message) error {
 }
 
 // Close 优雅关闭会话
-func (s *Session) Close() {
-	s.closeOnce.Do(func() {
-		s.closed.Store(true)
-
-		// 1. 关闭chan
-		close(s.sendChan)
-		close(s.closeCh)
-
-		// 2. 取消上下文
-		s.cancel()
-
-		// 3. 发送关闭帧
-		s.sendCloseFrame()
-
-		// 4. 等待协程退出
-		s.waitForGoroutines()
-
-		// 5. 关闭底层连接
-		s.closeUnderlyingConn()
-
-		// 6. 从服务器注销
-		s.unregisterFromServer()
-	})
-}
-
-// Closed 检查会话是否已关闭
-func (s *Session) Closed() bool {
-	return s.closed.Load()
-}
-
-// setLastActive 设置最后活跃时间
-func (s *Session) setLastActive() {
-	s.lastActive.Store(time.Now())
-}
-
-// LastActive 返回最后活跃时间
-func (s *Session) LastActive() time.Time {
-	return s.lastActive.Load().(time.Time)
-}
-
-func (s *Session) sendCloseFrame() {
-	done := make(chan struct{})
-	go func() {
-		s.connMu.Lock()
-		defer s.connMu.Unlock()
-		defer close(done)
-
-		if s.conn != nil {
-			_ = s.conn.WriteControl(
-				websocket.CloseMessage,
-				websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
-				time.Now().Add(s.config.timeouts.write),
-			)
-		}
-	}()
-	select {
-	case <-done:
-	case <-time.After(s.config.timeouts.dial):
-		log.Warnf("key %+v close frame timeout", s.id)
+func (s *Session) Close(force bool) bool {
+	if !s.closed.CompareAndSwap(false, true) {
+		return false
 	}
-}
 
-func (s *Session) waitForGoroutines() {
-	done := make(chan struct{})
-	go func() {
-		s.wg.Wait()
-		close(done)
-	}()
-	select {
-	case <-done:
-	case <-time.After(s.config.timeouts.shutdown):
-		log.Warnf("key: %s close timeout", s.id)
-	}
-}
-
-func (s *Session) closeUnderlyingConn() {
 	s.connMu.Lock()
-	defer s.connMu.Unlock()
-
-	if s.conn != nil {
-		_ = s.conn.Close()
-		s.conn = nil
+	err := s.conn.Close()
+	s.connMu.Unlock()
+	if err != nil {
+		log.Errorf("close error: %v", err)
 	}
-}
 
-func (s *Session) unregisterFromServer() {
+	log.Infof("conn %+v closed. force(%+v)", s.id, force)
+
 	s.h.onClose(s)
+
+	select {
+	case s.closeChan <- struct{}{}:
+	case <-time.After(time.Millisecond * 500):
+		log.Infof("conn [%s] closed send timeout.\n", s.ID())
+	}
+	return true
 }
 
 func (s *Session) writeMessageLocked(data []byte) error {
