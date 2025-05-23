@@ -207,8 +207,8 @@ func (c *Client) Reconnect() error {
 
 		conn, _, err := dialer.DialContext(c.config.ctx, c.url.String(), nil)
 		if err == nil {
-			c.session = NewSession(c, conn, c.config.session)
 			c.retryCount.Store(0) // reset retry count on success
+			c.session = NewSession(c, conn, c.config.session)
 			if c.config.connectFunc != nil {
 				c.config.connectFunc(c.session)
 			}
@@ -289,7 +289,7 @@ func (c *Client) dispatch(sess *Session, data []byte) error {
 			select {
 			case ch.(chan *proto.Payload) <- &p:
 			default:
-				log.Warnf("response channel closed for seq %d", p.Seq)
+				log.Warnf("response channel blocked or closed for seq %d", p.Seq)
 			}
 		}
 		if handler, ok := c.config.responseHandler[p.Op]; ok {

@@ -352,8 +352,8 @@ func (s *Server) recoveryServer() (err error) {
 		}
 		buf = buf[:rs]
 		pl := fmt.Sprintf("panic: %v\n%s\n", rerr, buf)
-		fmt.Fprintf(os.Stderr, pl)
-		err = fmt.Errorf(pl)
+		_, _ = fmt.Fprint(os.Stderr, pl)
+		err = errors.New(pl)
 	}
 	return
 }
@@ -375,7 +375,7 @@ func (s *Server) recovery() UnaryServerInterceptor {
 				}
 				buf = buf[:rs]
 				pl := fmt.Sprintf("websocket server panic: %v\n%v\n%s\n", req, rerr, buf)
-				fmt.Fprintf(os.Stderr, pl)
+				_, _ = fmt.Fprintf(os.Stderr, pl)
 				log.Error(pl)
 				err = status.Errorf(codes.Unknown, "server err")
 			}

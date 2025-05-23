@@ -40,7 +40,7 @@ go install github.com/go-delve/delve/cmd/dlv@master
 
 
 lsof -i -P | grep -E ':3102|:3103|:3104'
-
+watch -n 2 'ss -lntp | awk '\''/:(8000|9000|3102)/ {print $0}'\'
 
 tail -F logs/ws-*.log | grep --color=always -E '[a-zA-Z0-9_/.-]+\.go:[0-9]+\]|$'
 

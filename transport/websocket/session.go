@@ -191,7 +191,7 @@ func (s *Session) heartbeat() {
 				s.Close(true)
 				return
 			}
-			_ = s.Send(mustMarshal(&proto.Payload{Type: int32(proto.Ping)}))
+			_ = s.writeMessage(mustMarshal(&proto.Payload{Type: int32(proto.Ping)}))
 		}
 	}
 }
@@ -203,19 +203,15 @@ func (s *Session) Close(force bool) bool {
 
 	defer RecoverFromError(nil)
 
-	close(s.sendChan)
+	// 取消上下文，终止所有协程
 	s.cancel()
+
 	s.connMu.Lock()
-	err := s.conn.Close()
+	_ = s.conn.Close()
 	s.connMu.Unlock()
-	if err != nil {
-		log.Errorf("sessionID=\"%s\" close conn error: %v", s.id, err)
-	}
 
 	log.Infof("sessionID=\"%s\" closed. force(%+v)", s.id, force)
-
-	s.h.onClose(s)
-
+	s.h.onClose(s) // 回调处理器
 	return true
 }
 
