@@ -150,7 +150,7 @@ func callWebsocket(c *websocket.Client) {
 		return
 	}
 	payload, err := c.Request(int32(v1.GameCommand_SayHello2Req), &v1.Hello2Request{Name: fmt.Sprintf("kratos_ws:%d", seed)})
-	if err != nil {
+	if err != nil || payload == nil {
 		log.Errorf("err:%+v", err)
 	} else {
 		log.Infof("[ws] Request recv (1003). %s", unmarshalProtoMsg(payload.Body))

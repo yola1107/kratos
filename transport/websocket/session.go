@@ -94,14 +94,14 @@ func (s *Session) Send(message []byte) error {
 	if s.Closed() {
 		return errSessionClosed
 	}
-	if !s.rateLimiter.Allow() {
+	ctx, cancel := context.WithTimeout(s.ctx, s.config.WriteTimeout)
+	defer cancel()
+	if err := s.rateLimiter.Wait(ctx); err != nil {
 		return errRateLimitExceeded
 	}
 	select {
 	case s.sendChan <- message:
 		return nil
-	case <-time.After(s.config.WriteTimeout):
-		return errWriteTimeout
 	case <-s.ctx.Done():
 		return errSessionClosed
 	}
