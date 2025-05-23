@@ -184,6 +184,14 @@ func parseUrl(endpoint string, insecure bool) (*url.URL, error) {
 	return url.Parse(endpoint)
 }
 
+func (c *Client) GetSession() *Session {
+	return c.session
+}
+
+func (c *Client) IsExitStatus() bool {
+	return c.retryCount.Load() >= c.config.retryPolicy.maxAttempt
+}
+
 func (c *Client) Reconnect() error {
 	dialer := websocket.Dialer{
 		HandshakeTimeout: c.config.session.WriteTimeout,
@@ -344,21 +352,16 @@ func (c *Client) dispatch(sess *Session, data []byte) error {
 
 func (c *Client) Close() {
 	s := c.session
-	c.session = nil
-
 	if s == nil {
 		return
 	}
 
+	c.session = nil
 	s.Close(true)
 	close(c.keepAliveCh)
 	c.clearPendingRequests()
 	c.wg.Wait()
 	log.Info("client shutdown complete")
-}
-
-func (c *Client) ISClosed() bool {
-	return c.session == nil || c.session.Closed()
 }
 
 func (c *Client) onClose(sess *Session) {
@@ -371,6 +374,7 @@ func (c *Client) onClose(sess *Session) {
 		_ = c.Reconnect()
 	}
 }
+
 func (c *Client) clearPendingRequests() {
 	c.reqPool.Range(func(key, value interface{}) bool {
 		if ch, ok := value.(chan *proto.Payload); ok {
@@ -411,12 +415,11 @@ func buildPayload(ops int32, typ int32, msg gproto.Message) (*proto.Payload, err
 	}, nil
 }
 
-func RecoverFromError(logFn func(err any)) {
-	if r := recover(); r != nil {
-		if logFn != nil {
-			logFn(r)
-		} else {
-			log.Errorf("panic recovered: %v\n%s", r, debug.Stack())
+func RecoverFromError(cb func(err any)) {
+	if e := recover(); e != nil {
+		log.Errorf("Recover => %v:%s\n", e, debug.Stack())
+		if cb != nil {
+			cb(e)
 		}
 	}
 }

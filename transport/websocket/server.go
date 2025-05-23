@@ -54,6 +54,12 @@ func Address(addr string) ServerOption {
 func Endpoint(u *url.URL) ServerOption {
 	return func(s *Server) { s.opts.endpoint = u }
 }
+func TlsConf(tlsConfig *tls.Config) ServerOption {
+	return func(o *Server) { o.opts.tlsConf = tlsConfig }
+}
+func MaxConnections(maxConnections int32) ServerOption {
+	return func(o *Server) { o.opts.maxConnections = maxConnections }
+}
 func Timeout(d time.Duration) ServerOption {
 	return func(s *Server) { s.opts.session.Timeout = d }
 }
@@ -232,7 +238,7 @@ func (s *Server) keepAlive(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			s.sessionMgr.Range(func(sess *Session) {
+			s.sessionMgr.ForEach(func(sess *Session) {
 				sess.keepAlive()
 			})
 		}

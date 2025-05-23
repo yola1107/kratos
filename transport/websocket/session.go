@@ -7,8 +7,8 @@ import (
 	"time"
 
 	gproto "github.com/golang/protobuf/proto"
-	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/matoous/go-nanoid/v2"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/transport/websocket/proto"
 	"golang.org/x/time/rate"
@@ -50,10 +50,16 @@ type Session struct {
 	rateLimiter *rate.Limiter
 }
 
+//生成 10 字符长度的 唯一ID
+func newNanoID() string {
+	shortID, _ := gonanoid.New(10)
+	return shortID
+}
+
 // NewSession 创建新的WebSocket会话
 func NewSession(h iHandler, conn *websocket.Conn, config *SessionConfig) *Session {
 	s := &Session{
-		id:          uuid.New().String(),
+		id:          newNanoID(),
 		h:           h,
 		config:      config,
 		conn:        conn,
@@ -89,7 +95,7 @@ func (s *Session) LastActive() time.Time {
 
 // Closed 检查会话是否已关闭
 func (s *Session) Closed() bool {
-	return s.closed.Load()
+	return s == nil || s.closed.Load()
 }
 
 // Send 发送消息到客户端
@@ -106,7 +112,7 @@ func (s *Session) Send(message []byte) error {
 	case s.sendChan <- message:
 		return nil
 	case <-s.closeChan:
-		log.Infof("session:%+v send closes ", s.id)
+		log.Infof("session.ID=%+v send closes ", s.id)
 		return errSessionClosed
 	case <-time.After(s.config.WriteTimeout):
 		return errWriteTimeout
@@ -121,7 +127,7 @@ func (s *Session) writePump() {
 				return
 			}
 			if err := s.writeMessageLocked(data); err != nil {
-				log.Errorf("write error: %v", err)
+				log.Errorf("session.ID=%+v write error: %v", s.id, err)
 				return
 			}
 		case <-s.closeChan:
@@ -138,7 +144,7 @@ func (s *Session) readPump() {
 		err := s.conn.SetReadDeadline(time.Now().Add(s.config.Deadline))
 		s.connMu.Unlock()
 		if err != nil {
-			log.Errorf("set read deadline error: %v", err)
+			log.Errorf("session.ID=%+v set read deadline error: %v", s.id, err)
 			return
 		}
 
@@ -148,7 +154,7 @@ func (s *Session) readPump() {
 				return
 			}
 			if !websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Warnf("key=%s unexpected close: %v", s.id, err)
+				log.Warnf("session.ID=%s unexpected close: %v", s.id, err)
 			}
 			return
 		}
@@ -158,7 +164,7 @@ func (s *Session) readPump() {
 		switch messageType {
 		case websocket.BinaryMessage:
 			if err := s.h.dispatch(s, data); err != nil {
-				log.Errorf("dispatch error: %v", err)
+				log.Errorf("session.ID=%s dispatch error: %v", s.id, err)
 			}
 
 		case websocket.PingMessage:
@@ -175,7 +181,7 @@ func (s *Session) readPump() {
 			return
 
 		default:
-			log.Warnf("unsupported message type: %d", messageType)
+			log.Warnf("session.ID=%s unsupported message type: %d", s.id, messageType)
 		}
 	}
 }
@@ -205,14 +211,14 @@ func (s *Session) keepAlive() {
 	}
 	// 超时检测
 	if time.Since(s.LastActive()) > s.config.Deadline {
-		log.Warnf("Session %s heartbeat dead line.", s.id)
+		log.Warnf("session.ID=%s heartbeat dead line.", s.id)
 		s.Close(true)
 		return
 	}
 
 	// 主动心跳检测
 	if time.Since(s.LastActive()) > s.config.Threshold {
-		log.Warnf("Session %s heartbeat threshold. send ping", s.id)
+		log.Warnf("session.ID=%s heartbeat threshold. send ping", s.id)
 		if err := s.Send(mustMarshal(&proto.Payload{Type: int32(proto.Ping)})); err != nil {
 			log.Errorf("Send ping failed: %v", err)
 		}
@@ -243,10 +249,10 @@ func (s *Session) Close(force bool) bool {
 	err := s.conn.Close()
 	s.connMu.Unlock()
 	if err != nil {
-		log.Errorf("close error: %v", err)
+		log.Errorf("session.ID=%s close error: %v", s.id, err)
 	}
 
-	log.Infof("key=%+v closed. force(%+v)", s.id, force)
+	log.Infof("session.ID=%+v closed. force(%+v)", s.id, force)
 
 	s.h.onClose(s)
 

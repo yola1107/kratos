@@ -106,15 +106,12 @@ func main() {
 	}
 	defer wsClient.Close()
 
-	for {
-		//if wsClient.Closed() {
-		//	break
-		//}
+	for !wsClient.IsExitStatus() {
 		seed++
 		callHTTP(connHTTP)
 		callGRPC(connGRPC)
 		callWebsocket(wsClient)
-		time.Sleep(time.Millisecond * 32000)
+		time.Sleep(time.Millisecond * 5000)
 	}
 
 	log.Info("ws client exit")
@@ -141,6 +138,9 @@ func callGRPC(connGRPC *grpc.ClientConn) {
 }
 
 func callWebsocket(c *websocket.Client) {
+	if c.GetSession().Closed() {
+		return
+	}
 	payload, err := c.Request(int32(v1.GameCommand_SayHello2Req), &v1.Hello2Request{Name: fmt.Sprintf("kratos_ws:%d", seed)})
 	if err != nil {
 		log.Errorf("err:%+v", err)

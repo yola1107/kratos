@@ -26,7 +26,7 @@ func (s *SessionManager) Len() int32 {
 func (s *SessionManager) Add(session *Session) {
 	if _, loaded := s.sessions.LoadOrStore(session.ID(), session); !loaded {
 		count := atomic.AddInt32(&s.count, 1)
-		log.Infof("start ws serve. \"%s\" with \"%s\" key=\"%s\" sessions=%d",
+		log.Infof("start ws serve. \"%s\" with \"%s\" session.ID=\"%s\" sessions=%d",
 			session.conn.LocalAddr(), session.conn.RemoteAddr(), session.ID(), count)
 	}
 }
@@ -34,7 +34,7 @@ func (s *SessionManager) Add(session *Session) {
 func (s *SessionManager) Delete(session *Session) {
 	if _, loaded := s.sessions.LoadAndDelete(session.ID()); loaded {
 		count := atomic.AddInt32(&s.count, -1)
-		log.Infof("key=%s deleted. sessions=%d", session.ID(), count)
+		log.Infof("session.ID=%s deleted. sessions=%d", session.ID(), count)
 	}
 }
 
@@ -50,7 +50,7 @@ func (s *SessionManager) Get(sessionId string) *Session {
 	return nil
 }
 
-func (s *SessionManager) Range(fn func(*Session)) {
+func (s *SessionManager) ForEach(fn func(*Session)) {
 	s.sessions.Range(func(k, v interface{}) bool {
 		if session, ok := v.(*Session); ok {
 			fn(session)
@@ -58,6 +58,20 @@ func (s *SessionManager) Range(fn func(*Session)) {
 		return true
 	})
 }
+
+func (s *SessionManager) Broadcast(data []byte) {
+	s.sessions.Range(func(k, v interface{}) bool {
+		if session, ok := v.(*Session); ok {
+			if !session.Closed() {
+				if err := session.Send(data); err != nil {
+					log.Errorf("session.ID=%s send error:%+v", session.ID(), err)
+				}
+			}
+		}
+		return true
+	})
+}
+
 func (s *SessionManager) CloseAllSessions() {
 	s.sessions.Range(func(_, v interface{}) bool {
 		if session, ok := v.(*Session); ok {
