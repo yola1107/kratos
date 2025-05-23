@@ -43,11 +43,13 @@ func (s *SessionManager) Get(sessionId string) *Session {
 	if !ok {
 		return nil
 	}
-	if session, ok := v.(*Session); ok {
-		return session
+	session, ok := v.(*Session)
+	if !ok {
+		log.Errorf("Invalid session type: key=%s", sessionId)
+		s.sessions.Delete(sessionId) // 自动清理无效数据
+		return nil
 	}
-	log.Warnf("未知类型存储 key=\"%s\"", sessionId)
-	return nil
+	return session
 }
 
 func (s *SessionManager) ForEach(fn func(*Session)) {
@@ -64,10 +66,23 @@ func (s *SessionManager) Broadcast(data []byte) {
 		if session, ok := v.(*Session); ok {
 			if !session.Closed() {
 				if err := session.Send(data); err != nil {
-					log.Errorf("key=\"%s\" send error:%+v", session.ID(), err)
+					log.Errorf("Broadcast failed: %v", err)
 				}
 			}
 		}
+		return true
+	})
+}
+
+func (s *SessionManager) BroadcastAsync(data []byte) {
+	s.sessions.Range(func(_, v interface{}) bool {
+		session := v.(*Session)
+		go func() {
+			if err := session.Send(data); err != nil {
+				log.Errorf("Broadcast failed: %v", err)
+				//s.Delete(session)
+			}
+		}()
 		return true
 	})
 }

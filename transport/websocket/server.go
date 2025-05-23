@@ -31,12 +31,6 @@ var (
 	_ transport.Endpointer = (*Server)(nil)
 )
 
-var (
-	unknownErrCode  = int32(500) //未知的服务器错误/服务器内部错误
-	unknownOpsCode  = int32(501) //服务器未实现该方法
-	tooManyRequests = int32(429) //全局流量限制 429 Too Many Requests
-)
-
 const (
 	ContextSessionKey   = "session"
 	ContextSessionIDKey = "sessionID"
@@ -299,23 +293,23 @@ func (s *Server) operate(ctx context.Context, sess *Session, p *proto.Payload) (
 	if err = gproto.Unmarshal(p.Body, reqBody); err != nil {
 		return
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, s.opts.session.WriteTimeout)
+	defer cancel()
+
 	srv := s.m
 	md, ok := srv.md[reqBody.Ops]
 	if !ok {
-		// 返回错误响应给客户端
-		p.Code = unknownOpsCode // 或自定义错误码
-		log.Warnf("websocket server operate Unknown Ops(%+v) code=%d", reqBody.Ops, p.Code)
+		p.Code = int32(codes.NotFound) // 	NotFound Code = 5 或自定义错误码501
+		log.Warnf("websocket server operate NotFound Ops(%+v) code=%d", reqBody.Ops, p.Code)
 		return sess.Send(mustMarshal(p))
 	}
 	reply, errCode := md.Handler(srv.server, ctx, reqBody.Data, s.interceptor)
+	st, _ := status.FromError(errCode)
+	p.Code = int32(st.Code())
+	p.Body = reply
 	if errCode != nil {
-		// 返回错误响应给客户端
-		p.Code = unknownErrCode
-		p.Body = reply
-		log.Errorf("websocket server operate err=%+v reply=%+v code=%d", errCode, reply, p.Code)
-	} else {
-		p.Code = 0
-		p.Body = reply
+		log.Errorf("websocket server operate err=%+v reply=%+v code=%d (内部错误500)", errCode, reply, p.Code)
 	}
 
 	// send. 将回调handle的结果send给client
@@ -323,39 +317,20 @@ func (s *Server) operate(ctx context.Context, sess *Session, p *proto.Payload) (
 	return
 }
 
+// 迭代方式执行拦截器链
 func (s *Server) interceptor(ctx context.Context, req interface{}, args *UnaryServerInfo, handler UnaryHandler) ([]byte, error) {
-	var (
-		i     int
-		chain UnaryHandler
-	)
-	n := len(s.handlers)
-	if n == 0 {
-		return handler(ctx, req)
+	chain := handler
+	// 反向包装中间件
+	for i := len(s.handlers) - 1; i >= 0; i-- {
+		chain = wrap(s.handlers[i], chain, args)
 	}
-	chain = func(ic context.Context, ir interface{}) ([]byte, error) {
-		if i == n-1 {
-			return handler(ic, ir)
-		}
-		i++
-		return s.handlers[i](ic, ir, args, chain)
-	}
-	return s.handlers[0](ctx, req, args, chain)
+	return chain(ctx, req)
 }
 
-func (s *Server) recoveryServer() (err error) {
-	if rerr := recover(); rerr != nil {
-		const size = 64 << 10
-		buf := make([]byte, size)
-		rs := runtime.Stack(buf, false)
-		if rs > size {
-			rs = size
-		}
-		buf = buf[:rs]
-		pl := fmt.Sprintf("panic: %v\n%s\n", rerr, buf)
-		_, _ = fmt.Fprint(os.Stderr, pl)
-		err = errors.New(pl)
+func wrap(h UnaryServerInterceptor, next UnaryHandler, args *UnaryServerInfo) UnaryHandler {
+	return func(ctx context.Context, req interface{}) ([]byte, error) {
+		return h(ctx, req, args, next)
 	}
-	return
 }
 
 // recovery is a server interceptor that recovers from any panics.

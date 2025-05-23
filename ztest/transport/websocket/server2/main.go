@@ -41,6 +41,7 @@ func (s *server) SayHelloReq(ctx context.Context, in *v1.HelloRequest) (*v1.Hell
 
 func (s *server) SayHello2Req(ctx context.Context, in *v1.Hello2Request) (*v1.Hello2Reply, error) {
 	s.TestPushDataByID(ctx.Value("sessionID").(string)) //测试push功能
+	//panic("websocket server panic test")
 	return &v1.Hello2Reply{Message: fmt.Sprintf("ws server say hello. %s", in.Name)}, nil
 }
 

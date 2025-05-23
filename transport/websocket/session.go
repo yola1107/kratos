@@ -17,7 +17,6 @@ import (
 
 var (
 	errSessionClosed     = errors.New("session is closed")
-	errWriteTimeout      = errors.New("write timeout")
 	errRateLimitExceeded = errors.New("rate limit exceeded")
 )
 
