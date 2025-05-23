@@ -33,8 +33,8 @@ func (s *SessionManager) Add(session *Session) {
 
 func (s *SessionManager) Delete(session *Session) {
 	if _, loaded := s.sessions.LoadAndDelete(session.ID()); loaded {
-		count := atomic.AddInt32(&s.count, -1)
-		log.Infof("key=\"%s\" deleted. sessions=%d", session.ID(), count)
+		_ = atomic.AddInt32(&s.count, -1)
+		//log.Infof("key=\"%s\" deleted. sessions=%d", session.ID(), count)
 	}
 }
 

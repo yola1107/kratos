@@ -42,6 +42,9 @@ go install github.com/go-delve/delve/cmd/dlv@master
 lsof -i -P | grep -E ':3102|:3103|:3104'
 
 
+tail -F logs/ws-*.log | grep --color=always -E '[a-zA-Z0-9_/.-]+\.go:[0-9]+\]|$'
+
+
 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o app main.go
 ./app -conf configs/ > /dev/null 2>&1 &
 nohup ./app -conf configs/ >> app.log 2>&1 &

@@ -133,7 +133,7 @@ func (s *Session) readPump() {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Warnf("key=\"%s\" unexpected close: %v", s.id, err)
 			} else {
-				log.Infof("key=\"%s\" readPump exit, triggering Close(false)", s.id)
+				log.Warnf("key=\"%s\" %v", s.id, err)
 			}
 			return
 		}
@@ -179,6 +179,9 @@ func (s *Session) heartbeat() {
 
 	for {
 		select {
+		case <-s.ctx.Done():
+			return
+
 		case <-ticker.C:
 			if s.Closed() {
 				return
@@ -190,8 +193,6 @@ func (s *Session) heartbeat() {
 			}
 			s.writeControl(websocket.PingMessage, nil)
 
-		case <-s.ctx.Done():
-			return
 		}
 	}
 }
@@ -202,7 +203,7 @@ func (s *Session) Close(force bool) bool {
 	}
 
 	s.cancel()
-
+	close(s.sendChan)
 	s.connMu.Lock()
 	err := s.conn.Close()
 	s.connMu.Unlock()

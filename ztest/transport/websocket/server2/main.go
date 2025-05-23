@@ -46,13 +46,13 @@ func (s *server) SayHello2Req(ctx context.Context, in *v1.Hello2Request) (*v1.He
 
 // OnOpenFunc 连接建立回调
 func (s *server) OnOpenFunc(session *websocket.Session) {
-	log.Infof("[ws] OnOpenFunc key=%+v", session.ID())
+	log.Infof("[ws] OnOpenFunc key=\"%s\"", session.ID())
 	s.sessionsMap.Store(session.ID(), session)
 }
 
 // OnCloseFunc 连接关闭回调
 func (s *server) OnCloseFunc(session *websocket.Session) {
-	log.Infof("[ws] OnCloseFunc key=%+v", session.ID())
+	log.Infof("[ws] OnCloseFunc  key=\"%s\"", session.ID())
 	s.sessionsMap.Delete(session.ID())
 }
 
@@ -80,7 +80,7 @@ func (s *server) TestPushDataByID(sessionID string) {
 func (s *server) GetSessionByID(sessionID string) (session *websocket.Session, err error) {
 	ss, ok := s.sessionsMap.Load(sessionID)
 	if !ok {
-		return nil, fmt.Errorf("session:%s not exist", sessionID)
+		return nil, fmt.Errorf(" key=\"%s\" not exist", sessionID)
 	}
 	session = ss.(*websocket.Session)
 	return
