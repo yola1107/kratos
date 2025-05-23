@@ -95,7 +95,7 @@ func (s *Session) LastActive() time.Time {
 
 // Closed 检查会话是否已关闭
 func (s *Session) Closed() bool {
-	return s == nil || s.closed.Load()
+	return s.closed.Load()
 }
 
 // Send 发送消息到客户端
@@ -168,10 +168,7 @@ func (s *Session) readPump() {
 			}
 
 		case websocket.PingMessage:
-			s.connMu.Lock()
-			err = s.conn.WriteControl(websocket.PongMessage, nil, time.Now().Add(s.config.WriteTimeout))
-			s.connMu.Unlock()
-			if err != nil {
+			if err := s.writeControl(websocket.PongMessage, s.config.WriteTimeout); err != nil {
 				return
 			}
 
@@ -192,10 +189,7 @@ func (s *Session) sendHeartbeat() {
 	for {
 		select {
 		case <-ticker.C:
-			s.connMu.Lock()
-			err := s.conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(s.config.WriteTimeout))
-			s.connMu.Unlock()
-			if err != nil {
+			if err := s.writeControl(websocket.PingMessage, s.config.WriteTimeout); err != nil {
 				s.Close(true)
 				return
 			}
@@ -258,6 +252,13 @@ func (s *Session) Close(force bool) bool {
 
 	close(s.closeChan)
 	return true
+}
+
+// 更安全的 write
+func (s *Session) writeControl(msgType int, deadline time.Duration) error {
+	s.connMu.Lock()
+	defer s.connMu.Unlock()
+	return s.conn.WriteControl(msgType, nil, time.Now().Add(deadline))
 }
 
 func (s *Session) writeMessageLocked(data []byte) error {

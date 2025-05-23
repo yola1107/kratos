@@ -138,7 +138,7 @@ func callGRPC(connGRPC *grpc.ClientConn) {
 }
 
 func callWebsocket(c *websocket.Client) {
-	if c.GetSession().Closed() {
+	if sess := c.GetSession(); sess == nil || sess.Closed() {
 		return
 	}
 	payload, err := c.Request(int32(v1.GameCommand_SayHello2Req), &v1.Hello2Request{Name: fmt.Sprintf("kratos_ws:%d", seed)})
