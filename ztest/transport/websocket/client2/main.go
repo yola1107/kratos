@@ -102,11 +102,12 @@ func main() {
 		websocket.WithDisconnectFunc(func(session *websocket.Session) { log.Infof("disconnect called. %+v", session.ID()) }),
 	)
 	if err != nil {
-		panic(err)
+		log.Warnf("connect to server failed. %+v", err)
+		return
 	}
 	defer wsClient.Close()
 
-	for !wsClient.IsExitStatus() {
+	for wsClient.CanRetry() {
 		seed++
 		callHTTP(connHTTP)
 		callGRPC(connGRPC)

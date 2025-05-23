@@ -104,14 +104,13 @@ type retryPolicy struct {
 
 // Client is a websocket client.
 type Client struct {
-	config      *clientConfig
-	url         *url.URL
-	seq         int32
-	reqPool     sync.Map // seq -> chan *proto.Payload
-	session     *Session //
-	retryCount  atomic.Int32
-	wg          *sync.WaitGroup
-	keepAliveCh chan struct{}
+	config     *clientConfig
+	url        *url.URL
+	seq        int32
+	reqPool    sync.Map // seq -> chan *proto.Payload
+	session    *Session //
+	retryCount atomic.Int32
+	wg         *sync.WaitGroup
 
 	//selector selector.Selector
 	//resolver *resolver
@@ -156,14 +155,13 @@ func NewClient(ctx context.Context, opts ...ClientOption) (*Client, error) {
 	}
 
 	c := &Client{
-		config:      cfg,
-		url:         u,
-		seq:         0,
-		reqPool:     sync.Map{},
-		session:     nil,
-		retryCount:  atomic.Int32{},
-		wg:          &sync.WaitGroup{},
-		keepAliveCh: make(chan struct{}),
+		config:     cfg,
+		url:        u,
+		seq:        0,
+		reqPool:    sync.Map{},
+		session:    nil,
+		retryCount: atomic.Int32{},
+		wg:         &sync.WaitGroup{},
 	}
 
 	if err := c.Reconnect(); err != nil {
@@ -188,8 +186,8 @@ func (c *Client) GetSession() *Session {
 	return c.session
 }
 
-func (c *Client) IsExitStatus() bool {
-	return c.retryCount.Load() >= c.config.retryPolicy.maxAttempt
+func (c *Client) CanRetry() bool {
+	return c.retryCount.Load() < c.config.retryPolicy.maxAttempt
 }
 
 func (c *Client) Reconnect() error {
@@ -211,7 +209,7 @@ func (c *Client) Reconnect() error {
 		conn, _, err := dialer.DialContext(c.config.ctx, c.url.String(), nil)
 		if err == nil {
 			c.session = NewSession(c, conn, c.config.session)
-			go c.keepAlive()
+			c.retryCount.Store(0) // reset retry count on success
 			if c.config.connectFunc != nil {
 				c.config.connectFunc(c.session)
 			}
@@ -225,7 +223,7 @@ func (c *Client) Reconnect() error {
 
 		// 计算退避时间
 		delay := c.calculateBackoff(atomic.AddInt32(&attempt, 1))
-		log.Warnf("Connect failed (attempt %d), retrying in %v: %v", attempt, delay, err)
+		log.Warnf("reconnecting to %s. attempt=%d retrying in %v: %v", c.url, attempt, delay, err)
 
 		select {
 		case <-time.After(delay):
@@ -240,30 +238,6 @@ func (c *Client) calculateBackoff(attempt int32) time.Duration {
 	backoff := float64(c.config.retryPolicy.baseDelay) * math.Pow(1.5, float64(attempt))
 	backoff = math.Min(backoff, float64(c.config.retryPolicy.maxDelay))
 	return time.Duration(backoff * (0.9 + 0.2*rand.Float64()))
-}
-
-func (c *Client) keepAlive() {
-	defer RecoverFromError(nil)
-	ticker := time.NewTicker(c.config.session.Interval)
-	defer ticker.Stop()
-
-	c.wg.Add(1)
-	defer c.wg.Done()
-
-	for {
-		select {
-		case <-ticker.C:
-			sess := c.session
-			if sess == nil || sess.Closed() {
-				return
-			}
-			sess.keepAlive()
-		case <-c.keepAliveCh:
-			return
-		case <-c.config.ctx.Done():
-			return
-		}
-	}
 }
 
 func (c *Client) Request(ops int32, msg gproto.Message) (*proto.Payload, error) {
@@ -358,10 +332,9 @@ func (c *Client) Close() {
 
 	c.session = nil
 	s.Close(true)
-	close(c.keepAliveCh)
 	c.clearPendingRequests()
 	c.wg.Wait()
-	log.Info("client shutdown complete")
+	log.Info("client close complete.")
 }
 
 func (c *Client) onClose(sess *Session) {
@@ -369,8 +342,7 @@ func (c *Client) onClose(sess *Session) {
 		c.config.disconnectFunc(sess)
 	}
 
-	if c.retryCount.Load() < c.config.retryPolicy.maxAttempt {
-		log.Infof("reconnecting ...")
+	if c.CanRetry() {
 		_ = c.Reconnect()
 	}
 }

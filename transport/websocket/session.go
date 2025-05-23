@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"sync/atomic"
@@ -15,7 +16,7 @@ import (
 )
 
 var (
-	errSessionClosed     = errors.New("session already closed")
+	errSessionClosed     = errors.New("session is closed")
 	errWriteTimeout      = errors.New("write timeout")
 	errRateLimitExceeded = errors.New("rate limit exceeded")
 )
@@ -36,7 +37,6 @@ type SessionConfig struct {
 	SendChanSize int
 }
 
-// Session 表示一个WebSocket连接会话
 type Session struct {
 	id          string
 	h           iHandler
@@ -44,37 +44,37 @@ type Session struct {
 	conn        *websocket.Conn
 	config      *SessionConfig
 	sendChan    chan []byte
-	closeChan   chan struct{}
 	closed      atomic.Bool
 	lastActive  atomic.Value // time.Time
 	rateLimiter *rate.Limiter
+	ctx         context.Context
+	cancel      context.CancelFunc
 }
 
-//生成 10 字符长度的 唯一ID
 func newNanoID() string {
 	shortID, _ := gonanoid.New(10)
 	return shortID
 }
 
-// NewSession 创建新的WebSocket会话
 func NewSession(h iHandler, conn *websocket.Conn, config *SessionConfig) *Session {
+	ctx, cancel := context.WithCancel(context.Background())
 	s := &Session{
 		id:          newNanoID(),
 		h:           h,
-		config:      config,
 		conn:        conn,
+		config:      config,
 		sendChan:    make(chan []byte, config.SendChanSize),
-		closeChan:   make(chan struct{}),
 		rateLimiter: rate.NewLimiter(rate.Limit(config.RateLimit), config.BurstLimit),
+		ctx:         ctx,
+		cancel:      cancel,
 	}
 	s.lastActive.Store(time.Now())
-	go s.writePump()
 	go s.readPump()
-	go s.sendHeartbeat()
+	go s.writePump()
+	go s.heartbeat()
 	return s
 }
 
-// ID 返回会话唯一标识
 func (s *Session) ID() string {
 	return s.id
 }
@@ -83,144 +83,31 @@ func (s *Session) GetRemoteIP() string {
 	return s.conn.RemoteAddr().String()
 }
 
-// setLastActive 设置最后活跃时间
-func (s *Session) setLastActive() {
-	s.lastActive.Store(time.Now())
-}
-
-// LastActive 返回最后活跃时间
 func (s *Session) LastActive() time.Time {
 	return s.lastActive.Load().(time.Time)
 }
 
-// Closed 检查会话是否已关闭
 func (s *Session) Closed() bool {
 	return s.closed.Load()
 }
 
-// Send 发送消息到客户端
 func (s *Session) Send(message []byte) error {
 	if s.Closed() {
 		return errSessionClosed
 	}
-
 	if !s.rateLimiter.Allow() {
 		return errRateLimitExceeded
 	}
-
 	select {
 	case s.sendChan <- message:
 		return nil
-	case <-s.closeChan:
-		log.Infof("session.ID=%+v send closes ", s.id)
-		return errSessionClosed
 	case <-time.After(s.config.WriteTimeout):
 		return errWriteTimeout
+	case <-s.ctx.Done():
+		return errSessionClosed
 	}
 }
 
-func (s *Session) writePump() {
-	for {
-		select {
-		case data, ok := <-s.sendChan:
-			if !ok {
-				return
-			}
-			if err := s.writeMessageLocked(data); err != nil {
-				log.Errorf("session.ID=%+v write error: %v", s.id, err)
-				return
-			}
-		case <-s.closeChan:
-			return
-		}
-	}
-}
-
-func (s *Session) readPump() {
-	defer s.Close(false)
-
-	for {
-		s.connMu.Lock()
-		err := s.conn.SetReadDeadline(time.Now().Add(s.config.Deadline))
-		s.connMu.Unlock()
-		if err != nil {
-			log.Errorf("session.ID=%+v set read deadline error: %v", s.id, err)
-			return
-		}
-
-		messageType, data, err := s.conn.ReadMessage()
-		if err != nil {
-			if s.Closed() {
-				return
-			}
-			if !websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Warnf("session.ID=%s unexpected close: %v", s.id, err)
-			}
-			return
-		}
-
-		s.setLastActive()
-
-		switch messageType {
-		case websocket.BinaryMessage:
-			if err := s.h.dispatch(s, data); err != nil {
-				log.Errorf("session.ID=%s dispatch error: %v", s.id, err)
-			}
-
-		case websocket.PingMessage:
-			if err := s.writeControl(websocket.PongMessage, s.config.WriteTimeout); err != nil {
-				return
-			}
-
-		case websocket.PongMessage:
-
-		case websocket.CloseMessage:
-			return
-
-		default:
-			log.Warnf("session.ID=%s unsupported message type: %d", s.id, messageType)
-		}
-	}
-}
-
-func (s *Session) sendHeartbeat() {
-	ticker := time.NewTicker(s.config.Interval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			if err := s.writeControl(websocket.PingMessage, s.config.WriteTimeout); err != nil {
-				s.Close(true)
-				return
-			}
-		case <-s.closeChan:
-			return
-		}
-	}
-}
-
-func (s *Session) keepAlive() {
-	if s.Closed() {
-		return
-	}
-	// 超时检测
-	if time.Since(s.LastActive()) > s.config.Deadline {
-		log.Warnf("session.ID=%s heartbeat dead line.", s.id)
-		s.Close(true)
-		return
-	}
-
-	// 主动心跳检测
-	if time.Since(s.LastActive()) > s.config.Threshold {
-		log.Warnf("session.ID=%s heartbeat threshold. send ping", s.id)
-		if err := s.Send(mustMarshal(&proto.Payload{Type: int32(proto.Ping)})); err != nil {
-			log.Errorf("Send ping failed: %v", err)
-		}
-		return
-	}
-}
-
-// Push 发送protobuf格式的推送消息
 func (s *Session) Push(ops int32, msg gproto.Message) error {
 	body := &proto.Body{
 		Ops:  ops,
@@ -233,11 +120,92 @@ func (s *Session) Push(ops int32, msg gproto.Message) error {
 	return s.Send(mustMarshal(payload))
 }
 
-// Close 优雅关闭会话
+func (s *Session) readPump() {
+	defer s.Close(false)
+
+	for {
+		if err := s.conn.SetReadDeadline(time.Now().Add(s.config.Deadline)); err != nil {
+			log.Errorf("session.ID=%s set read deadline error: %v", s.id, err)
+			return
+		}
+
+		msgType, data, err := s.conn.ReadMessage()
+		if err != nil {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				//if !websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				log.Warnf("session.ID=%s unexpected close: %v", s.id, err)
+			}
+			return
+		}
+
+		s.lastActive.Store(time.Now())
+
+		switch msgType {
+		case websocket.BinaryMessage:
+			if err := s.h.dispatch(s, data); err != nil {
+				log.Errorf("session.ID=%s dispatch error: %v", s.id, err)
+			}
+		case websocket.PingMessage:
+			s.writeControl(websocket.PongMessage, nil)
+		case websocket.CloseMessage:
+			return
+		default:
+			log.Warnf("session.ID=%s unsupported message type: %d", s.id, msgType)
+		}
+	}
+}
+
+func (s *Session) writePump() {
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case msg, ok := <-s.sendChan:
+			if !ok {
+				return
+			}
+			if err := s.writeMessage(msg); err != nil {
+				log.Errorf("session.ID=%+v write error: %v", s.id, err)
+				s.Close(true)
+				return
+			}
+		}
+	}
+}
+
+func (s *Session) heartbeat() {
+	ticker := time.NewTicker(s.config.Interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			if s.Closed() {
+				return
+			}
+			if time.Since(s.LastActive()) > s.config.Deadline {
+				log.Warnf("session.ID=%s heartbeat timeout", s.id)
+				s.Close(true)
+				return
+			}
+			if time.Since(s.LastActive()) > s.config.Threshold {
+				log.Warnf("session.ID=%s heartbeat threshold. send ping", s.id)
+				_ = s.Send(mustMarshal(&proto.Payload{Type: int32(proto.Ping)}))
+			}
+			s.writeControl(websocket.PingMessage, nil)
+
+		case <-s.ctx.Done():
+			return
+		}
+	}
+}
+
 func (s *Session) Close(force bool) bool {
 	if !s.closed.CompareAndSwap(false, true) {
 		return false
 	}
+
+	s.cancel()
 
 	s.connMu.Lock()
 	err := s.conn.Close()
@@ -250,24 +218,21 @@ func (s *Session) Close(force bool) bool {
 
 	s.h.onClose(s)
 
-	close(s.closeChan)
 	return true
 }
 
-// 更安全的 write
-func (s *Session) writeControl(msgType int, deadline time.Duration) error {
+func (s *Session) writeControl(msgType int, data []byte) {
 	s.connMu.Lock()
 	defer s.connMu.Unlock()
-	return s.conn.WriteControl(msgType, nil, time.Now().Add(deadline))
+	_ = s.conn.WriteControl(msgType, data, time.Now().Add(s.config.WriteTimeout))
 }
 
-func (s *Session) writeMessageLocked(data []byte) error {
+func (s *Session) writeMessage(data []byte) error {
 	if s.Closed() {
 		return errSessionClosed
 	}
 	s.connMu.Lock()
 	defer s.connMu.Unlock()
-
 	if err := s.conn.SetWriteDeadline(time.Now().Add(s.config.WriteTimeout)); err != nil {
 		return err
 	}

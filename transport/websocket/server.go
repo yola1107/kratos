@@ -111,7 +111,7 @@ func NewServer(opts ...ServerOption) *Server {
 			session: &SessionConfig{
 				Timeout:      1 * time.Second,
 				WriteTimeout: 10 * time.Second,
-				Interval:     10 * time.Second,
+				Interval:     15 * time.Second,
 				Deadline:     60 * time.Second,
 				Threshold:    30 * time.Second,
 				RateLimit:    100, // 每秒消息数,
@@ -184,7 +184,6 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 
 	go s.serve()
-	go s.keepAlive(ctx)
 	return s.err
 }
 
@@ -219,29 +218,6 @@ func (s *Server) handleConnections() http.HandlerFunc {
 
 		sess := NewSession(s, conn, s.opts.session)
 		s.onOpen(sess) //
-	}
-}
-
-// server检查所有session心跳
-func (s *Server) keepAlive(ctx context.Context) {
-	defer func() {
-		if err := s.recoveryServer(); err != nil {
-			log.Error("keepAlive %v", err)
-		}
-	}()
-
-	ticker := time.NewTicker(s.opts.session.Interval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			s.sessionMgr.ForEach(func(sess *Session) {
-				sess.keepAlive()
-			})
-		}
 	}
 }
 
