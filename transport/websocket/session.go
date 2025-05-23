@@ -17,7 +17,7 @@ import (
 
 var (
 	errSessionClosed     = errors.New("session is closed")
-	errRateLimitExceeded = errors.New("rate limit exceeded")
+	errRateLimitExceeded = errors.New("session rate limit exceeded")
 )
 
 type iHandler interface {

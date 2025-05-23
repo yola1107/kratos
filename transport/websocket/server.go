@@ -199,13 +199,13 @@ func (s *Server) handleConnections() http.HandlerFunc {
 		// 连接数限制
 		if cnt := s.sessionMgr.Len(); cnt >= s.opts.maxConnections {
 			w.WriteHeader(http.StatusServiceUnavailable)
-			log.Warnf("StatusServiceUnavailable. over maxConnections(%d)", cnt)
+			log.Warnf("[websocket] StatusServiceUnavailable. over maxConnections(%d)", cnt)
 			return
 		}
 
 		conn, err := s.upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			log.Errorf("upgrade error: %v", err)
+			log.Errorf("[websocket] upgrade error: %v", err)
 			return
 		}
 
@@ -270,7 +270,7 @@ func (s *Server) dispatch(sess *Session, data []byte) error {
 		err = s.operate(ctx, sess, &p)
 
 	default:
-		log.Warnf("Unkonwn Payload type(%+v). key %s body=%+v", p.Type, sess.id, string(p.Body))
+		log.Warnf("[websocket] Unkonwn Payload type(%+v). key %s body=%+v", p.Type, sess.id, string(p.Body))
 	}
 
 	return err
@@ -301,7 +301,7 @@ func (s *Server) operate(ctx context.Context, sess *Session, p *proto.Payload) (
 	md, ok := srv.md[reqBody.Ops]
 	if !ok {
 		p.Code = int32(codes.NotFound) // 	NotFound Code = 5 或自定义错误码501
-		log.Warnf("websocket server operate NotFound Ops(%+v) code=%d", reqBody.Ops, p.Code)
+		log.Warnf("[websocket] operate NotFound Ops(%+v) code=%d", reqBody.Ops, p.Code)
 		return sess.Send(mustMarshal(p))
 	}
 	reply, errCode := md.Handler(srv.server, ctx, reqBody.Data, s.interceptor)
@@ -309,7 +309,7 @@ func (s *Server) operate(ctx context.Context, sess *Session, p *proto.Payload) (
 	p.Code = int32(st.Code())
 	p.Body = reply
 	if errCode != nil {
-		log.Errorf("websocket server operate err=%+v reply=%+v code=%d (内部错误500)", errCode, reply, p.Code)
+		log.Errorf("[websocket] operate err=%+v reply=%+v code=%d (内部错误500)", errCode, reply, p.Code)
 	}
 
 	// send. 将回调handle的结果send给client

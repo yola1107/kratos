@@ -21,9 +21,9 @@ import (
 )
 
 var (
-	ErrClientClosed   = errors.New("websocket client is closed")
-	ErrRequestTimeout = errors.New("request timeout")
-	ErrMaxRetries     = errors.New("max retries reached")
+	ErrClientClosed   = errors.New("client is closed")
+	ErrRequestTimeout = errors.New("client request timeout")
+	ErrMaxRetries     = errors.New("client max retries reached")
 	ErrInvalidURL     = errors.New("invalid URL")
 )
 
@@ -310,8 +310,7 @@ func (c *Client) dispatch(sess *Session, data []byte) error {
 		}
 
 	case int32(proto.Ping):
-		// server端通知client端发送心跳包
-		_ = sess.Send(mustMarshal(&proto.Payload{Type: int32(proto.Ping)}))
+		_ = sess.Send(mustMarshal(&proto.Payload{Type: int32(proto.Pong)}))
 
 	case int32(proto.Pong):
 		// server端回pong包. 不处理
@@ -388,7 +387,7 @@ func buildPayload(ops int32, typ int32, msg gproto.Message) (*proto.Payload, err
 
 func RecoverFromError(cb func(err any)) {
 	if e := recover(); e != nil {
-		log.Errorf("Recover => %v:%s\n", e, debug.Stack())
+		log.Errorf("Recover => %v\n%s\n", e, debug.Stack())
 		if cb != nil {
 			cb(e)
 		}

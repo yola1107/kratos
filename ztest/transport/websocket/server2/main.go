@@ -121,6 +121,8 @@ func main() {
 		websocket.Address(":3102"),
 		websocket.Middleware(
 			recovery.Recovery(),
+			//logging.Server(zapLogger),
+			//ratelimit.Server(),
 		),
 		websocket.OnOpenFunc(s.OnOpenFunc),
 		websocket.OnCloseFunc(s.OnCloseFunc),
