@@ -19,10 +19,6 @@ done
 
 
 
-
-last:     20250427 17:30   ==>  v2.8.6
-
-
 删除远端所有tag
 git fetch --tags
 git tag -l | xargs -n 1 git push --delete origin
@@ -42,6 +38,8 @@ git push origin --delete dev2
 go clean -modcache
 go install github.com/go-delve/delve/cmd/dlv@master
 
+
+lsof -i -P | grep -E ':3102|:3103|:3104'
 
 
 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o app main.go

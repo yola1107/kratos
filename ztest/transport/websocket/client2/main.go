@@ -25,11 +25,19 @@ var (
 )
 
 func main() {
-	Name := "ws-cli"
+	Name := "ws-client"
 	zapLogger, err := zap.NewLogger(
+		//zap.WithProduction(),
+		zap.WithLevel("debug"),
 		zap.WithDirectory("./logs"),
 		zap.WithFilename(Name+".log"),
 		zap.WithErrorFilename(Name+"_error.log"),
+		zap.WithMaxSizeMB(10), //10M
+		zap.WithMaxAgeDays(1), //1天
+		zap.WithMaxBackups(1),
+		zap.WithCompress(true),
+		zap.WithLocalTime(true),
+		zap.WithSensitiveKeys([]string{"pwd", "password"}),
 		zap.WithPrefix(Name),
 		//zap.WithToken(os.Getenv("TG_TOKEN")),
 		//zap.WithChatID(os.Getenv("TG_CHAT_ID")),
@@ -42,8 +50,9 @@ func main() {
 	defer zapLogger.Close()
 
 	log.SetLogger(zapLogger)
-	//log.Infof("start clients.")
-	//defer log.Infof("stop clients.")
+
+	log.Infof("start clients.")
+	defer log.Infof("stop clients.")
 	//
 	//etcdClient, err := etcdv3.New(etcdv3.Config{
 	//	Endpoints: []string{"127.0.0.1:2379"},
@@ -114,8 +123,6 @@ func main() {
 		callWebsocket(wsClient)
 		time.Sleep(time.Millisecond * 5000)
 	}
-
-	log.Info("ws client exit")
 }
 
 func callHTTP(connHTTP *transhttp.Client) {

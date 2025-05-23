@@ -124,14 +124,16 @@ func (s *Session) readPump() {
 
 	for {
 		if err := s.conn.SetReadDeadline(time.Now().Add(s.config.Deadline)); err != nil {
-			log.Errorf("session.ID=\"%s\" set read deadline error: %v", s.id, err)
+			log.Errorf("key=\"%s\" set read deadline error: %v", s.id, err)
 			return
 		}
 
 		msgType, data, err := s.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Warnf("session.ID=\"%s\" unexpected close: %v", s.id, err)
+				log.Warnf("key=\"%s\" unexpected close: %v", s.id, err)
+			} else {
+				log.Infof("key=\"%s\" readPump exit, triggering Close(false)", s.id)
 			}
 			return
 		}
@@ -141,14 +143,14 @@ func (s *Session) readPump() {
 		switch msgType {
 		case websocket.BinaryMessage:
 			if err := s.h.dispatch(s, data); err != nil {
-				log.Errorf("session.ID=\"%s\" dispatch error: %v", s.id, err)
+				log.Errorf("key=\"%s\" dispatch error: %v", s.id, err)
 			}
 		case websocket.PingMessage:
 			s.writeControl(websocket.PongMessage, nil)
 		case websocket.CloseMessage:
 			return
 		default:
-			log.Warnf("session.ID=\"%s\" unsupported message type: %d", s.id, msgType)
+			log.Warnf("key=\"%s\" unsupported message type: %d", s.id, msgType)
 		}
 	}
 }
@@ -163,7 +165,7 @@ func (s *Session) writePump() {
 				return
 			}
 			if err := s.writeMessage(msg); err != nil {
-				log.Errorf("session.ID=\"%s\" write error: %v", s.id, err)
+				log.Errorf("key=\"%s\" write error: %v", s.id, err)
 				s.Close(true)
 				return
 			}
@@ -182,7 +184,7 @@ func (s *Session) heartbeat() {
 				return
 			}
 			if time.Since(s.LastActive()) > s.config.Deadline {
-				log.Warnf("session.ID=\"%s\" heartbeat timeout", s.id)
+				log.Warnf("key=\"%s\" heartbeat timeout", s.id)
 				s.Close(true)
 				return
 			}
@@ -205,10 +207,10 @@ func (s *Session) Close(force bool) bool {
 	err := s.conn.Close()
 	s.connMu.Unlock()
 	if err != nil {
-		log.Errorf("session.ID=\"%s\" close error: %v", s.id, err)
+		log.Errorf("key=\"%s\" close conn error: %v", s.id, err)
 	}
 
-	log.Infof("session.ID=\"%s\" closed. force(%+v)", s.id, force)
+	log.Infof("key=\"%s\" closed. force(%+v)", s.id, force)
 
 	s.h.onClose(s)
 

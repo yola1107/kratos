@@ -160,9 +160,9 @@ func loadLogger() *zap.Logger {
 		zap.WithDirectory("./logs"),
 		zap.WithFilename(Name+".log"),
 		zap.WithErrorFilename(Name+"_error.log"),
-		zap.WithMaxSizeMB(10),  //10M
-		zap.WithMaxAgeDays(10), //1天
-		zap.WithMaxBackups(10),
+		zap.WithMaxSizeMB(10), //10M
+		zap.WithMaxAgeDays(1), //1天
+		zap.WithMaxBackups(1),
 		zap.WithCompress(true),
 		zap.WithLocalTime(true),
 		zap.WithSensitiveKeys([]string{"pwd", "password"}),
