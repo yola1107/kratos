@@ -31,7 +31,6 @@ type SessionConfig struct {
 	WriteTimeout time.Duration
 	Interval     time.Duration
 	Deadline     time.Duration
-	Threshold    time.Duration
 	RateLimit    int
 	BurstLimit   int
 	SendChanSize int
@@ -125,15 +124,14 @@ func (s *Session) readPump() {
 
 	for {
 		if err := s.conn.SetReadDeadline(time.Now().Add(s.config.Deadline)); err != nil {
-			log.Errorf("session.ID=%s set read deadline error: %v", s.id, err)
+			log.Errorf("session.ID=\"%s\" set read deadline error: %v", s.id, err)
 			return
 		}
 
 		msgType, data, err := s.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				//if !websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Warnf("session.ID=%s unexpected close: %v", s.id, err)
+				log.Warnf("session.ID=\"%s\" unexpected close: %v", s.id, err)
 			}
 			return
 		}
@@ -143,14 +141,14 @@ func (s *Session) readPump() {
 		switch msgType {
 		case websocket.BinaryMessage:
 			if err := s.h.dispatch(s, data); err != nil {
-				log.Errorf("session.ID=%s dispatch error: %v", s.id, err)
+				log.Errorf("session.ID=\"%s\" dispatch error: %v", s.id, err)
 			}
 		case websocket.PingMessage:
 			s.writeControl(websocket.PongMessage, nil)
 		case websocket.CloseMessage:
 			return
 		default:
-			log.Warnf("session.ID=%s unsupported message type: %d", s.id, msgType)
+			log.Warnf("session.ID=\"%s\" unsupported message type: %d", s.id, msgType)
 		}
 	}
 }
@@ -165,7 +163,7 @@ func (s *Session) writePump() {
 				return
 			}
 			if err := s.writeMessage(msg); err != nil {
-				log.Errorf("session.ID=%+v write error: %v", s.id, err)
+				log.Errorf("session.ID=\"%s\" write error: %v", s.id, err)
 				s.Close(true)
 				return
 			}
@@ -184,13 +182,9 @@ func (s *Session) heartbeat() {
 				return
 			}
 			if time.Since(s.LastActive()) > s.config.Deadline {
-				log.Warnf("session.ID=%s heartbeat timeout", s.id)
+				log.Warnf("session.ID=\"%s\" heartbeat timeout", s.id)
 				s.Close(true)
 				return
-			}
-			if time.Since(s.LastActive()) > s.config.Threshold {
-				log.Warnf("session.ID=%s heartbeat threshold. send ping", s.id)
-				_ = s.Send(mustMarshal(&proto.Payload{Type: int32(proto.Ping)}))
 			}
 			s.writeControl(websocket.PingMessage, nil)
 
@@ -211,10 +205,10 @@ func (s *Session) Close(force bool) bool {
 	err := s.conn.Close()
 	s.connMu.Unlock()
 	if err != nil {
-		log.Errorf("session.ID=%s close error: %v", s.id, err)
+		log.Errorf("session.ID=\"%s\" close error: %v", s.id, err)
 	}
 
-	log.Infof("session.ID=%+v closed. force(%+v)", s.id, force)
+	log.Infof("session.ID=\"%s\" closed. force(%+v)", s.id, force)
 
 	s.h.onClose(s)
 

@@ -113,7 +113,6 @@ func NewServer(opts ...ServerOption) *Server {
 				WriteTimeout: 10 * time.Second,
 				Interval:     15 * time.Second,
 				Deadline:     60 * time.Second,
-				Threshold:    30 * time.Second,
 				RateLimit:    100, // 每秒消息数,
 				BurstLimit:   10,  // 突发消息数,
 				SendChanSize: 256,

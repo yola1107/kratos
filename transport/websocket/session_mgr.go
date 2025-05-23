@@ -26,7 +26,7 @@ func (s *SessionManager) Len() int32 {
 func (s *SessionManager) Add(session *Session) {
 	if _, loaded := s.sessions.LoadOrStore(session.ID(), session); !loaded {
 		count := atomic.AddInt32(&s.count, 1)
-		log.Infof("start ws serve. \"%s\" with \"%s\" session.ID=\"%s\" sessions=%d",
+		log.Infof("start ws serve. \"%s\" with \"%s\" key=\"%s\" sessions=%d",
 			session.conn.LocalAddr(), session.conn.RemoteAddr(), session.ID(), count)
 	}
 }
@@ -34,7 +34,7 @@ func (s *SessionManager) Add(session *Session) {
 func (s *SessionManager) Delete(session *Session) {
 	if _, loaded := s.sessions.LoadAndDelete(session.ID()); loaded {
 		count := atomic.AddInt32(&s.count, -1)
-		log.Infof("session.ID=%s deleted. sessions=%d", session.ID(), count)
+		log.Infof("key=\"%s\" deleted. sessions=%d", session.ID(), count)
 	}
 }
 
@@ -46,7 +46,7 @@ func (s *SessionManager) Get(sessionId string) *Session {
 	if session, ok := v.(*Session); ok {
 		return session
 	}
-	log.Warnf("未知类型存储 sessionID:%+v", sessionId)
+	log.Warnf("未知类型存储 key=\"%s\"", sessionId)
 	return nil
 }
 
@@ -64,7 +64,7 @@ func (s *SessionManager) Broadcast(data []byte) {
 		if session, ok := v.(*Session); ok {
 			if !session.Closed() {
 				if err := session.Send(data); err != nil {
-					log.Errorf("session.ID=%s send error:%+v", session.ID(), err)
+					log.Errorf("key=\"%s\" send error:%+v", session.ID(), err)
 				}
 			}
 		}
