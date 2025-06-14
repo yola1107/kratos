@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/yola1107/kratos/v2/errors"
 	"github.com/yola1107/kratos/v2/transport/websocket"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/iface"
@@ -44,8 +45,8 @@ func (m *PlayerManager) ExistPlayer(id int64) bool {
 	return ok
 }
 
-func (m *PlayerManager) CreatePlayer(raw *PlayerRaw) *Player {
-	return nil
+func (m *PlayerManager) CreatePlayer(raw *PlayerRaw) (*Player, *errors.Error) {
+	return nil, nil
 }
 
 // GetPlayerByID 获取玩家

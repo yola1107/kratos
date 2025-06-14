@@ -7,8 +7,9 @@ import (
 
 // PlayerBaseData 结构体
 type PlayerBaseData struct {
-	TID           int32   // 桌子ID
 	UID           int64   // 用户ID
+	TableID       int32   // 桌子ID
+	ChairID       int32   // 椅子ID
 	Money         float64 // 金币
 	BMoney        float64 // 充值所得金币
 	GMoney        float64 // 从bonus转换过来可提到BMoney额度
@@ -41,11 +42,46 @@ func NewPlayerBaseData(uid int64) *PlayerBaseData {
 	return &PlayerBaseData{}
 }
 
+func (p *Player) GetMoney() float64 {
+	return 0
+}
+
+func (p *Player) GetVipGrade() int32 {
+	return p.baseData.VIP
+}
+
+func (p *Player) GetPlayerID() int64 {
+	return p.baseData.UID
+}
+
+func (p *Player) SetTableID(tableID int32) {
+	p.baseData.TableID = tableID
+}
+
+func (p *Player) GetTableID() (TableID int32) {
+	return p.baseData.TableID
+}
+
+func (p *Player) SetChairID(ChairID int32) {
+	p.baseData.ChairID = ChairID
+	return
+}
+
+func (p *Player) GetChairID() (ChairID int32) {
+	return p.baseData.ChairID
+}
+
+func (p *Player) SaveBaseDataToDB() {
+}
+
+func (p *Player) LoadBaseDataFromDB() {
+}
+
 // ToRedisMap 转为 Redis hash 的 map[string]string
 func (b *PlayerBaseData) ToRedisMap() map[string]string {
 	m := make(map[string]string)
 
-	m[PlayerTableIDField] = ext.Int64ToStr(int64(b.TID))
+	m[PlayerTableIDField] = ext.Int64ToStr(int64(b.TableID))
 	m[PlayerUIDField] = ext.Int64ToStr(b.UID)
 	m[PlayerMoneyField] = ext.Float64ToStr(b.Money)
 	m[PlayerBMoneyField] = ext.Float64ToStr(b.BMoney)
@@ -76,7 +112,7 @@ func (b *PlayerBaseData) ToRedisMap() map[string]string {
 
 // FromRedisData 从 Redis hash 的 map[string]string 转为 baseData
 func (b *PlayerBaseData) FromRedisData(data map[string]string) {
-	b.TID = ext.StrToInt32(data[PlayerTableIDField])
+	b.TableID = ext.StrToInt32(data[PlayerTableIDField])
 	b.UID = ext.StrToInt64(data[PlayerUIDField])
 	b.Money = ext.StrToFloat64(data[PlayerMoneyField])
 	b.BMoney = ext.StrToFloat64(data[PlayerBMoneyField])

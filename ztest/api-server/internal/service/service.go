@@ -7,6 +7,7 @@ import (
 	"github.com/google/wire"
 	"github.com/yola1107/kratos/v2/library/work"
 	"github.com/yola1107/kratos/v2/log"
+	"github.com/yola1107/kratos/v2/transport/websocket"
 
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz"
@@ -58,4 +59,43 @@ func NewService(uc *biz.DataUsecase, logger log.Logger, c *conf.Room) (*Service,
 		s.ws.Stop()
 	}
 	return s, cleanup, errors.Join(s.ws.Start(), s.pm.Start(), s.tm.Start())
+}
+
+// GetLoop 获取任务池
+func (s *Service) GetLoop() work.ITaskLoop {
+	return s.ws
+}
+
+// GetTimer 获取定时器
+func (s *Service) GetTimer() work.ITaskScheduler {
+	return s.ws
+}
+
+// GetDataRepo 获取data
+func (s *Service) GetDataRepo() biz.DataRepo {
+	return s.uc.GetDataRepo()
+}
+
+// GetRoomConfig 获取房间配置
+func (s *Service) GetRoomConfig() *conf.Room {
+	return s.rc
+}
+
+// OnSessionOpen 连接建立回调
+func (s *Service) OnSessionOpen(sess *websocket.Session) {
+	log.Infof("OnOpenFunc: %q", sess.ID())
+	// s.pm.CreatePlayer()
+}
+
+// OnSessionClose 连接关闭回调
+func (s *Service) OnSessionClose(sess *websocket.Session) {
+	log.Infof("OnCloseFunc: %q", sess.ID())
+}
+
+func (s *Service) OnTableEvent(tableID string, evt string) {
+	log.Infof("Room handling table event:%+v %+v", tableID, evt)
+}
+
+func (s *Service) OnPlayerLeave(playerID string) {
+	log.Infof("Room handling player leave:%+v", playerID)
 }

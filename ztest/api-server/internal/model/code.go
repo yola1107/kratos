@@ -5,8 +5,8 @@ import (
 )
 
 var (
-	SUCCESS                = 0
-	Fail                   = 1
+	SUCCESS                = int32(0)
+	Fail                   = int32(1)
 	ErrFail                = errors.New(1, "", "Failed")
 	ErrRoomClosed          = errors.New(2, "", "RoomClosed")
 	ErrKickByError         = errors.New(3, "", "kick by error")

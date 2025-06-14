@@ -3,53 +3,12 @@ package service
 import (
 	"context"
 
-	"github.com/yola1107/kratos/v2/errors"
-	"github.com/yola1107/kratos/v2/library/work"
 	"github.com/yola1107/kratos/v2/log"
-	"github.com/yola1107/kratos/v2/transport/websocket"
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/model"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/gplayer"
 )
-
-func (s *Service) GetDataRepo() biz.DataRepo {
-	return s.uc.GetDataRepo()
-}
-
-func (s *Service) OnTableEvent(tableID string, evt string) {
-	log.Infof("Room handling table event:%+v %+v", tableID, evt)
-}
-
-func (s *Service) GetRoomConfig() *conf.Room {
-	return s.rc
-}
-
-func (s *Service) OnPlayerLeave(playerID string) {
-	log.Infof("Room handling player leave:%+v", playerID)
-}
-
-// GetTimer 获取定时器
-func (s *Service) GetTimer() work.ITaskScheduler {
-	return s.ws
-}
-
-// GetLoop 获取任务池
-func (s *Service) GetLoop() work.ITaskLoop {
-	return s.ws
-}
-
-// OnSessionOpen 连接建立回调
-func (s *Service) OnSessionOpen(sess *websocket.Session) {
-	log.Infof("OnOpenFunc: %q", sess.ID())
-	// s.pm.CreatePlayer()
-}
-
-// OnSessionClose 连接关闭回调
-func (s *Service) OnSessionClose(sess *websocket.Session) {
-	log.Infof("OnCloseFunc: %q", sess.ID())
-}
 
 // SayHelloReq implements helloworld.GreeterServer.
 func (s *Service) SayHelloReq(ctx context.Context, in *v1.HelloRequest) (*v1.HelloReply, error) {
@@ -92,17 +51,17 @@ func (s *Service) loginRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp,
 	if session == nil {
 		return nil, model.ErrSessionNotFound
 	}
-	p := s.pm.CreatePlayer(&gplayer.PlayerRaw{
+	p, err := s.pm.CreatePlayer(&gplayer.PlayerRaw{
 		ID:      in.UserID,
 		IP:      session.GetRemoteIP(),
 		Session: session,
 	})
 	if p == nil {
-		log.Warnf("loginRoom. UserID(%+v) err=%v", in.UserID, model.ErrPlayerNotFound)
-		return nil, model.ErrPlayerNotFound
+		log.Warnf("loginRoom. UserID(%+v) err=%v", in.UserID, err)
+		return nil, err
 	}
 	// 条件限制
-	if err := s.canEnterRoom(p, in); err != nil {
+	if err := s.tm.CanEnterRoom(p, in); err != nil {
 		log.Warnf("loginRoom. UserID(%+v) err=%v", in.UserID, err)
 		s.pm.ExitGame(p, err.Code, err.Message) // 释放玩家
 		return nil, err
@@ -115,34 +74,6 @@ func (s *Service) loginRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp,
 		}
 	})
 	return &v1.LoginRsp{}, nil
-}
-
-// CanEnterRoom 检查是否能进房
-func (s *Service) canEnterRoom(p *gplayer.Player, in *v1.LoginReq) (err *errors.Error) {
-	if p == nil {
-		return model.ErrPlayerNotFound
-	}
-	// 校验token
-	if in.Token == "" {
-		return model.ErrTokenFail
-	}
-
-	// room limit
-	m := p.GetMoney()
-	c := s.rc.Game
-	if m < c.MinMoney {
-		return model.ErrMoneyBelowMinLimit
-	}
-	if m > c.MaxMoney && c.MaxMoney != -1 {
-		return model.ErrMoneyOverMaxLimit
-	}
-	if m < c.BaseMoney {
-		return model.ErrMoneyBelowBaseLimit
-	}
-	if m < c.BaseMoney {
-		return model.ErrVipLimit
-	}
-	return nil
 }
 
 func (s *Service) OnLogoutReq(ctx context.Context, in *v1.LogoutReq) (*v1.LogoutRsp, error) {

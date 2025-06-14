@@ -345,9 +345,8 @@ components:
                 leftNum:
                     type: integer
                     format: int32
-                timeOut:
-                    type: integer
-                    format: int32
+                remainingTime:
+                    type: string
                 bankerId:
                     type: integer
                     format: int32

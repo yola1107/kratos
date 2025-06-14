@@ -12,21 +12,6 @@ func Diff(a, b any) (diff.Changelog, error) {
 	return diff.Diff(a, b)
 }
 
-func DiffLog2(a, b any) (diff.Changelog, string, error) {
-	changelog, err := diff.Diff(a, b)
-	if err != nil {
-		return nil, "", err
-	}
-	if len(changelog) == 0 {
-		return nil, "", nil
-	}
-	fields := make([]string, 0, len(changelog))
-	for _, change := range changelog {
-		fields = append(fields, fmt.Sprintf("Field=%s, From=%v, To=%v", change.Path, change.From, change.To))
-	}
-	return changelog, ToJSONPretty(fields), nil
-}
-
 func DiffLog(a, b any) (diff.Changelog, string, error) {
 	changelog, err := diff.Diff(a, b)
 	if err != nil {
@@ -52,7 +37,6 @@ func DiffLog(a, b any) (diff.Changelog, string, error) {
 	}
 
 	var sb strings.Builder
-	// sb.WriteString("────────────────────────────────────────────\n")
 	for _, change := range changelog {
 		field := fmt.Sprintf("%s", change.Path)
 		sb.WriteString(fmt.Sprintf(
@@ -60,7 +44,21 @@ func DiffLog(a, b any) (diff.Changelog, string, error) {
 			maxKeyLen, field, maxFromLen, change.From, change.To,
 		))
 	}
-	// sb.WriteString("────────────────────────────────────────────")
 
 	return changelog, sb.String(), nil
+}
+
+func DiffLog2(a, b any) (diff.Changelog, string, error) {
+	changelog, err := diff.Diff(a, b)
+	if err != nil {
+		return nil, "", err
+	}
+	if len(changelog) == 0 {
+		return nil, "", nil
+	}
+	fields := make([]string, len(changelog), len(changelog))
+	for i, change := range changelog {
+		fields[i] = fmt.Sprintf("Field=%s, From=%v, To=%v", change.Path, change.From, change.To)
+	}
+	return changelog, ToJSONPretty(fields), nil
 }

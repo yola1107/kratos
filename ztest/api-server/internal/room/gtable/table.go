@@ -1,8 +1,6 @@
 package gtable
 
 import (
-	"time"
-
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/model"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/gplayer"
@@ -10,59 +8,57 @@ import (
 )
 
 type Table struct {
-	TableID  int32 // 桌子ID
-	MaxCnt   int16 // 最大玩家数
-	isClosed bool  // 是否停服
+	ID       int32          // 桌子ID
+	Type     conf.TableType // 类型
+	MaxCnt   int16          // 最大玩家数
+	isClosed bool           // 是否停服
 
-	stage gameStage       // 阶段状态
+	stage *Stage          // 阶段状态
 	repo  iface.IRoomRepo // 定时任务
 
 	sitCnt int16             // 入座玩家数量
 	active int32             // 当前操作玩家
 	seats  []*gplayer.Player // 玩家列表
-	cards  model.GameCards   // card信息
-	logger *tableLogger      // 桌子日志
 
 	// 游戏逻辑变量
-	curRound int32   // 当前轮数
-	curBet   float64 // 当前投注
-	totalBet float64 // 总投注
+	curRound int32            // 当前轮数
+	curBet   float64          // 当前投注
+	totalBet float64          // 总投注
+	mLog     *TableLog        // 桌子日志
+	cards    *model.GameCards // card信息
 }
 
-type gameStage struct {
-	curr      int32         // 阶段
-	last      int32         // 上一阶段
-	timerID   int64         // 阶段定时器ID
-	startTime time.Time     // 阶段开始时间
-	duration  time.Duration // 阶段持续时间
+func NewTable(id int32, typ conf.TableType, c *conf.Room, repo iface.IRoomRepo) *Table {
+	t := &Table{
+		ID:     id,
+		Type:   typ,
+		MaxCnt: int16(c.Table.ChairNum),
+		stage:  &Stage{},
+		repo:   repo,
+		active: -1,
+		seats:  make([]*gplayer.Player, c.Table.ChairNum),
+		cards:  &model.GameCards{},
+		mLog:   &TableLog{},
+	}
+	t.cards.Init()
+	t.mLog.init(id, c.LogCache)
+	return t
 }
 
-func (t *Table) Init() {
-	t.sitCnt = 0
-	t.seats = make([]*gplayer.Player, t.MaxCnt)
-}
+func (t *Table) Reset() {
 
-func (t *Table) Reset() {}
-
-// IsFull full
-func (t *Table) IsFull() bool {
-	return t.sitCnt >= t.MaxCnt
-}
-
-func (t *Table) GetSitCnt() int32 {
-	return int32(t.sitCnt)
 }
 
 func (t *Table) Empty() bool {
 	return t.sitCnt <= 0
 }
 
-func (t *Table) SetClose(b bool) {
-	t.isClosed = b
+func (t *Table) IsFull() bool {
+	return t.sitCnt >= t.MaxCnt
 }
 
-func (t *Table) IsClosed() bool {
-	return t.isClosed
+func (t *Table) GetSitCnt() int32 {
+	return int32(t.sitCnt)
 }
 
 // ThrowInto 入座
@@ -77,18 +73,25 @@ func (t *Table) ThrowInto(p *gplayer.Player) bool {
 		t.sitCnt++
 
 		// 玩家信息
-		p.SetTableID(t.TableID)
+		p.SetTableID(t.ID)
 		p.SetChairID(int32(k))
 		p.Reset()
 
+		// 通知客户端登录成功
+		t.SendLoginRsp(p, model.SUCCESS, "")
+
 		// 广播入座信息
-		t.BroadcastUserEnter(p)
-		t.SendTableInfo(p)
+		t.BroadcastUserInfo(p)
+
+		// 发送场景信息
+		t.SendSceneInfo(p)
 
 		// 检查游戏是否开始
-		if t.stage.curr == conf.StWait {
+		if t.stage.state == conf.StWait {
 
 		}
+
+		// 上报桌子位置 todo
 
 		return true
 	}
@@ -101,7 +104,7 @@ func (t *Table) ThrowOff(p *gplayer.Player) bool {
 		return false
 	}
 
-	if !t.canExit(p) {
+	if !t.CanExit(p) {
 		return false
 	}
 
@@ -205,4 +208,12 @@ func (t *Table) GetPlayerByChair(chair int32) *gplayer.Player {
 		return nil
 	}
 	return t.seats[chair]
+}
+
+func (t *Table) CanEnter(p *gplayer.Player) bool {
+	return false
+}
+
+func (t *Table) CanExit(p *gplayer.Player) bool {
+	return false
 }

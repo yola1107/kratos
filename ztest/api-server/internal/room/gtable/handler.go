@@ -11,3 +11,7 @@ func (t *Table) OnExitGame(p *gplayer.Player, code int32, msg string) bool {
 func (t *Table) OnForwardReq(ty int32, msg string) {
 	return
 }
+
+func (t *Table) OnSceneReq(ty int32, msg string) {
+	return
+}

@@ -767,7 +767,7 @@ type SceneRsp struct {
 	Stage         int32                  `protobuf:"varint,1,opt,name=stage,proto3" json:"stage,omitempty"`                 //牌局状态
 	ActiveChairId int32                  `protobuf:"varint,2,opt,name=activeChairId,proto3" json:"activeChairId,omitempty"` //当前操作位置
 	LeftNum       int32                  `protobuf:"varint,4,opt,name=leftNum,proto3" json:"leftNum,omitempty"`             //剩余牌
-	TimeOut       int32                  `protobuf:"varint,5,opt,name=timeOut,proto3" json:"timeOut,omitempty"`             //剩余时间
+	RemainingTime int64                  `protobuf:"varint,5,opt,name=remainingTime,proto3" json:"remainingTime,omitempty"` //剩余时间 ms
 	BankerId      int32                  `protobuf:"varint,6,opt,name=bankerId,proto3" json:"bankerId,omitempty"`           //庄家位置
 	Players       []*PlayerScene         `protobuf:"bytes,7,rep,name=players,proto3" json:"players,omitempty"`              //玩家信息
 	ArenaID       int32                  `protobuf:"varint,9,opt,name=arenaID,proto3" json:"arenaID,omitempty"`             //场id
@@ -827,9 +827,9 @@ func (x *SceneRsp) GetLeftNum() int32 {
 	return 0
 }
 
-func (x *SceneRsp) GetTimeOut() int32 {
+func (x *SceneRsp) GetRemainingTime() int64 {
 	if x != nil {
-		return x.TimeOut
+		return x.RemainingTime
 	}
 	return 0
 }
@@ -1341,12 +1341,12 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	"\x06userID\x18\x02 \x01(\x03R\x06userID\x12\x18\n" +
 	"\achairId\x18\x03 \x01(\x05R\achairId\"\"\n" +
 	"\bSceneReq\x12\x16\n" +
-	"\x06userID\x18\x01 \x01(\x03R\x06userID\"\xf6\x01\n" +
+	"\x06userID\x18\x01 \x01(\x03R\x06userID\"\x82\x02\n" +
 	"\bSceneRsp\x12\x14\n" +
 	"\x05stage\x18\x01 \x01(\x05R\x05stage\x12$\n" +
 	"\ractiveChairId\x18\x02 \x01(\x05R\ractiveChairId\x12\x18\n" +
-	"\aleftNum\x18\x04 \x01(\x05R\aleftNum\x12\x18\n" +
-	"\atimeOut\x18\x05 \x01(\x05R\atimeOut\x12\x1a\n" +
+	"\aleftNum\x18\x04 \x01(\x05R\aleftNum\x12$\n" +
+	"\rremainingTime\x18\x05 \x01(\x03R\rremainingTime\x12\x1a\n" +
 	"\bbankerId\x18\x06 \x01(\x05R\bbankerId\x124\n" +
 	"\aplayers\x18\a \x03(\v2\x1a.helloworld.v1.PlayerSceneR\aplayers\x12\x18\n" +
 	"\aarenaID\x18\t \x01(\x05R\aarenaID\x12\x0e\n" +

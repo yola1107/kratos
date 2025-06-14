@@ -205,7 +205,7 @@ message SceneRsp {
     int32 stage                  = 1;   //牌局状态
     int32 activeChairId          = 2;   //当前操作位置
     int32 leftNum                = 4;   //剩余牌
-    int32 timeOut                = 5;   //剩余时间
+    int64 remainingTime          = 5;   //剩余时间 ms
     int32 bankerId               = 6;   //庄家位置
     repeated PlayerScene players = 7;   //玩家信息
     int32 arenaID                = 9;   //场id
