@@ -24,9 +24,7 @@ func (g *GameCards) Init() {
 
 func (g *GameCards) Shuffle() {
 	for i := 0; i < 3; i++ {
-		ext.GetRand().Shuffle(len(g.cardHeap), func(i, j int) {
-			g.cardHeap[i], g.cardHeap[j] = g.cardHeap[j], g.cardHeap[i]
-		})
+		ext.SliceShuffle(g.cardHeap)
 	}
 }
 

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/yola1107/kratos/v2"
-	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/library/log/zap"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/transport/grpc"
@@ -82,13 +81,13 @@ func testLog(logger *zap.Logger) {
 		go func(group int) {
 			incr := int64(0)
 			for {
-				log.Debugf("GroupID=%d debug: ", i)
-				log.Infof("GroupID=%d Infof: -", i)
-				log.Warnf("GroupID=%d Warnf: -", i)
-				// log.Errorf("GroupID=%d Errorf: -", i)
+				log.Debugf("GroupID=%d Debugf: %d", group, incr)
+				log.Infof("GroupID=%d Infof: %d", group, incr)
+				log.Warnf("GroupID=%d Warnf: %d", group, incr)
+				// log.Errorf("GroupID=%d Errorf: %d", group,incr)
 
-				if ext.IsHitFloat(0.000001) {
-					log.Errorf("(%d) error %d", group, incr)
+				if incr%5e6 == 0 {
+					log.Errorf("GroupID=%d Errorf: %d", group, incr)
 				}
 
 				incr = (incr + 1) % math.MaxInt64

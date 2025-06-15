@@ -1,7 +1,6 @@
 package ext
 
 import (
-	"math/rand"
 	"sort"
 
 	"golang.org/x/exp/constraints"
@@ -34,9 +33,12 @@ func SliceCopy[T any](src []T) []T {
 
 // SliceShuffle 打乱数据（原地修改）
 func SliceShuffle[T any](array []T) {
-	rand.Shuffle(len(array), func(i, j int) {
-		array[i], array[j] = array[j], array[i]
-	})
+	n := len(array)
+	for i := 0; i < 3; i++ {
+		secureRand.Shuffle(n, func(i, j int) {
+			array[i], array[j] = array[j], array[i]
+		})
+	}
 }
 
 // SliceSort 升序排序（原地修改）
