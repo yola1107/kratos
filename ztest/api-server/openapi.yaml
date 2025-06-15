@@ -7,6 +7,25 @@ info:
     description: The greeting service definition.
     version: 0.0.1
 paths:
+    /greeter/OnActionReq:
+        post:
+            tags:
+                - Greeter
+            description: game request
+            operationId: Greeter_OnActionReq
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/helloworld.v1.ActionReq'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/helloworld.v1.ActionRsp'
     /greeter/OnChatOrFaceReq:
         post:
             tags:
@@ -172,6 +191,40 @@ paths:
                                 $ref: '#/components/schemas/helloworld.v1.HelloReply'
 components:
     schemas:
+        helloworld.v1.ActionReq:
+            type: object
+            properties:
+                userID:
+                    type: string
+                action:
+                    type: integer
+                    format: enum
+        helloworld.v1.ActionRsp:
+            type: object
+            properties:
+                code:
+                    type: integer
+                    format: int32
+                msg:
+                    type: string
+                userID:
+                    type: string
+                action:
+                    type: integer
+                    format: enum
+                cards:
+                    $ref: '#/components/schemas/helloworld.v1.CardsInfo'
+        helloworld.v1.CardsInfo:
+            type: object
+            properties:
+                hands:
+                    type: array
+                    items:
+                        type: integer
+                        format: int32
+                Type:
+                    type: integer
+                    format: int32
         helloworld.v1.ChatReq:
             type: object
             properties:
@@ -186,6 +239,7 @@ components:
                     format: int32
                 msg:
                     type: string
+            description: 聊天/表情
         helloworld.v1.ChatRsp:
             type: object
             properties:
@@ -200,22 +254,22 @@ components:
                     format: int32
                 msg:
                     type: string
-            description: 服务器广播表情
         helloworld.v1.ForwardReq:
             type: object
             properties:
-                Type:
+                type:
                     type: integer
                     format: int32
-                Msg:
+                msg:
                     type: string
+            description: 转发
         helloworld.v1.ForwardRsp:
             type: object
             properties:
-                Type:
+                type:
                     type: integer
                     format: int32
-                Msg:
+                msg:
                     type: string
         helloworld.v1.HelloReply:
             type: object
@@ -228,6 +282,7 @@ components:
             properties:
                 isHosting:
                     type: boolean
+            description: 托管
         helloworld.v1.HostingRsp:
             type: object
             properties:
@@ -259,6 +314,7 @@ components:
                 chairID:
                     type: integer
                     format: int32
+            description: 登录
         helloworld.v1.LoginRsp:
             type: object
             properties:
@@ -283,6 +339,7 @@ components:
             properties:
                 userDBID:
                     type: string
+            description: 登出
         helloworld.v1.LogoutRsp:
             type: object
             properties:
@@ -299,20 +356,38 @@ components:
                 chairId:
                     type: integer
                     format: int32
-                hands:
+                status:
+                    type: integer
+                    format: int32
+                hosting:
+                    type: boolean
+                offline:
+                    type: boolean
+                lastOp:
+                    type: integer
+                    format: int32
+                curBet:
+                    type: number
+                    format: double
+                totalBet:
+                    type: number
+                    format: double
+                see:
+                    type: integer
+                    format: int32
+                autoCall:
+                    type: integer
+                    format: int32
+                paying:
+                    type: integer
+                    format: int32
+                cards:
+                    $ref: '#/components/schemas/helloworld.v1.CardsInfo'
+                canOp:
                     type: array
                     items:
                         type: integer
-                        format: int32
-                outCards:
-                    type: array
-                    items:
-                        type: integer
-                        format: int32
-                isHosting:
-                    type: boolean
-                isOffline:
-                    type: boolean
+                        format: enum
         helloworld.v1.ReadyReq:
             type: object
             properties:
@@ -333,33 +408,46 @@ components:
             properties:
                 userID:
                     type: string
+            description: 场景信息
         helloworld.v1.SceneRsp:
             type: object
             properties:
+                baseScore:
+                    type: number
+                    description: 配置信息
+                    format: double
+                chLimit:
+                    type: number
+                    format: double
+                potLimit:
+                    type: number
+                    format: double
+                autoSeeRound:
+                    type: integer
+                    format: int32
                 stage:
                     type: integer
+                    description: 游戏状态
                     format: int32
-                activeChairId:
-                    type: integer
-                    format: int32
-                leftNum:
-                    type: integer
-                    format: int32
-                remainingTime:
+                timeout:
                     type: string
-                bankerId:
+                active:
                     type: integer
                     format: int32
+                banker:
+                    type: integer
+                    format: int32
+                curRound:
+                    type: integer
+                    format: int32
+                totalBet:
+                    type: number
+                    format: double
                 players:
                     type: array
                     items:
                         $ref: '#/components/schemas/helloworld.v1.PlayerScene'
-                arenaID:
-                    type: integer
-                    format: int32
-                SN:
-                    type: integer
-                    format: int32
+                    description: 玩家信息
         helloworld.v1.SwitchChairReq:
             type: object
             properties:
@@ -368,6 +456,7 @@ components:
                 chairId:
                     type: integer
                     format: int32
+            description: 换位
         helloworld.v1.SwitchChairRsp:
             type: object
             properties:

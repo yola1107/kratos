@@ -28,6 +28,7 @@ const (
 	Greeter_OnChatReq_FullMethodName        = "/helloworld.v1.Greeter/OnChatReq"
 	Greeter_OnHostingReq_FullMethodName     = "/helloworld.v1.Greeter/OnHostingReq"
 	Greeter_OnForwardReq_FullMethodName     = "/helloworld.v1.Greeter/OnForwardReq"
+	Greeter_OnActionReq_FullMethodName      = "/helloworld.v1.Greeter/OnActionReq"
 )
 
 // GreeterClient is the client API for Greeter service.
@@ -46,6 +47,8 @@ type GreeterClient interface {
 	OnChatReq(ctx context.Context, in *ChatReq, opts ...grpc.CallOption) (*ChatRsp, error)
 	OnHostingReq(ctx context.Context, in *HostingReq, opts ...grpc.CallOption) (*HostingRsp, error)
 	OnForwardReq(ctx context.Context, in *ForwardReq, opts ...grpc.CallOption) (*ForwardRsp, error)
+	// game request
+	OnActionReq(ctx context.Context, in *ActionReq, opts ...grpc.CallOption) (*ActionRsp, error)
 }
 
 type greeterClient struct {
@@ -146,6 +149,16 @@ func (c *greeterClient) OnForwardReq(ctx context.Context, in *ForwardReq, opts .
 	return out, nil
 }
 
+func (c *greeterClient) OnActionReq(ctx context.Context, in *ActionReq, opts ...grpc.CallOption) (*ActionRsp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ActionRsp)
+	err := c.cc.Invoke(ctx, Greeter_OnActionReq_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // GreeterServer is the server API for Greeter service.
 // All implementations must embed UnimplementedGreeterServer
 // for forward compatibility.
@@ -162,6 +175,8 @@ type GreeterServer interface {
 	OnChatReq(context.Context, *ChatReq) (*ChatRsp, error)
 	OnHostingReq(context.Context, *HostingReq) (*HostingRsp, error)
 	OnForwardReq(context.Context, *ForwardReq) (*ForwardRsp, error)
+	// game request
+	OnActionReq(context.Context, *ActionReq) (*ActionRsp, error)
 	mustEmbedUnimplementedGreeterServer()
 }
 
@@ -198,6 +213,9 @@ func (UnimplementedGreeterServer) OnHostingReq(context.Context, *HostingReq) (*H
 }
 func (UnimplementedGreeterServer) OnForwardReq(context.Context, *ForwardReq) (*ForwardRsp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method OnForwardReq not implemented")
+}
+func (UnimplementedGreeterServer) OnActionReq(context.Context, *ActionReq) (*ActionRsp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method OnActionReq not implemented")
 }
 func (UnimplementedGreeterServer) mustEmbedUnimplementedGreeterServer() {}
 func (UnimplementedGreeterServer) testEmbeddedByValue()                 {}
@@ -382,6 +400,24 @@ func _Greeter_OnForwardReq_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Greeter_OnActionReq_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ActionReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GreeterServer).OnActionReq(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Greeter_OnActionReq_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GreeterServer).OnActionReq(ctx, req.(*ActionReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Greeter_ServiceDesc is the grpc.ServiceDesc for Greeter service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -424,6 +460,10 @@ var Greeter_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "OnForwardReq",
 			Handler:    _Greeter_OnForwardReq_Handler,
+		},
+		{
+			MethodName: "OnActionReq",
+			Handler:    _Greeter_OnActionReq_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

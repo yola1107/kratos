@@ -19,6 +19,7 @@ var _ = binding.EncodeURL
 
 const _ = http.SupportPackageIsVersion1
 
+const OperationGreeterOnActionReq = "/helloworld.v1.Greeter/OnActionReq"
 const OperationGreeterOnChatReq = "/helloworld.v1.Greeter/OnChatReq"
 const OperationGreeterOnForwardReq = "/helloworld.v1.Greeter/OnForwardReq"
 const OperationGreeterOnHostingReq = "/helloworld.v1.Greeter/OnHostingReq"
@@ -30,6 +31,8 @@ const OperationGreeterOnSwitchChairReq = "/helloworld.v1.Greeter/OnSwitchChairRe
 const OperationGreeterSayHelloReq = "/helloworld.v1.Greeter/SayHelloReq"
 
 type GreeterHTTPServer interface {
+	// OnActionReq game request
+	OnActionReq(context.Context, *ActionReq) (*ActionRsp, error)
 	OnChatReq(context.Context, *ChatReq) (*ChatRsp, error)
 	OnForwardReq(context.Context, *ForwardReq) (*ForwardRsp, error)
 	OnHostingReq(context.Context, *HostingReq) (*HostingRsp, error)
@@ -53,6 +56,7 @@ func RegisterGreeterHTTPServer(s *http.Server, srv GreeterHTTPServer) {
 	r.POST("/greeter/OnChatOrFaceReq", _Greeter_OnChatReq0_HTTP_Handler(srv))
 	r.POST("/greeter/OnHostingReq", _Greeter_OnHostingReq0_HTTP_Handler(srv))
 	r.POST("/greeter/OnForwardReq", _Greeter_OnForwardReq0_HTTP_Handler(srv))
+	r.POST("/greeter/OnActionReq", _Greeter_OnActionReq0_HTTP_Handler(srv))
 }
 
 func _Greeter_SayHelloReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Context) error {
@@ -253,7 +257,30 @@ func _Greeter_OnForwardReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Co
 	}
 }
 
+func _Greeter_OnActionReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in ActionReq
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationGreeterOnActionReq)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.OnActionReq(ctx, req.(*ActionReq))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*ActionRsp)
+		return ctx.Result(200, reply)
+	}
+}
+
 type GreeterHTTPClient interface {
+	OnActionReq(ctx context.Context, req *ActionReq, opts ...http.CallOption) (rsp *ActionRsp, err error)
 	OnChatReq(ctx context.Context, req *ChatReq, opts ...http.CallOption) (rsp *ChatRsp, err error)
 	OnForwardReq(ctx context.Context, req *ForwardReq, opts ...http.CallOption) (rsp *ForwardRsp, err error)
 	OnHostingReq(ctx context.Context, req *HostingReq, opts ...http.CallOption) (rsp *HostingRsp, err error)
@@ -271,6 +298,19 @@ type GreeterHTTPClientImpl struct {
 
 func NewGreeterHTTPClient(client *http.Client) GreeterHTTPClient {
 	return &GreeterHTTPClientImpl{client}
+}
+
+func (c *GreeterHTTPClientImpl) OnActionReq(ctx context.Context, in *ActionReq, opts ...http.CallOption) (*ActionRsp, error) {
+	var out ActionRsp
+	pattern := "/greeter/OnActionReq"
+	path := binding.EncodeURL(pattern, in, false)
+	opts = append(opts, http.Operation(OperationGreeterOnActionReq))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 func (c *GreeterHTTPClientImpl) OnChatReq(ctx context.Context, in *ChatReq, opts ...http.CallOption) (*ChatRsp, error) {

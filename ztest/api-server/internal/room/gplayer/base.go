@@ -42,6 +42,10 @@ func NewPlayerBaseData(uid int64) *PlayerBaseData {
 	return &PlayerBaseData{}
 }
 
+func (p *Player) UseMoney(money float64) bool {
+	return true
+}
+
 func (p *Player) GetMoney() float64 {
 	return 0
 }
@@ -71,6 +75,21 @@ func (p *Player) GetChairID() (ChairID int32) {
 	return p.baseData.ChairID
 }
 
+func (p *Player) GetNickName() string {
+	return p.baseData.NickName
+}
+
+func (p *Player) GetAvatar() string {
+	return p.baseData.Avatar
+}
+
+func (p *Player) GetAvatarUrl() string {
+	return p.baseData.AvatarUrl
+}
+
+func (p *Player) GetIP() string {
+	return ""
+}
 func (p *Player) SaveBaseDataToDB() {
 }
 

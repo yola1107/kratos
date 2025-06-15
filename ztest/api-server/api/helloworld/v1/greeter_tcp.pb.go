@@ -32,6 +32,7 @@ type GreeterTCPServer interface {
 	OnChatReq(context.Context, *ChatReq) (*ChatRsp, error)
 	OnHostingReq(context.Context, *HostingReq) (*HostingRsp, error)
 	OnForwardReq(context.Context, *ForwardReq) (*ForwardRsp, error)
+	OnActionReq(context.Context, *ActionReq) (*ActionRsp, error)
 }
 
 func RegisterGreeterTCPServer(s *tcp.Server, srv GreeterTCPServer) {
@@ -354,6 +355,41 @@ func _Greeter_OnForwardReq_TCP_Handler(srv interface{}, ctx context.Context, dat
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Greeter_OnActionReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
+	in := new(ActionReq)
+	if err := proto.Unmarshal(data, in); err != nil {
+		return nil, err
+	}
+	doFunc := func(ctx context.Context, req *ActionReq) ([]byte, error) {
+		doRequest := func() ([]byte, error) {
+			resp, err := srv.(GreeterTCPServer).OnActionReq(ctx, req)
+			if err != nil || resp == nil {
+				return nil, err
+			}
+			return proto.Marshal(resp)
+		}
+		if loop := srv.(GreeterTCPServer).GetTCPLoop(); loop != nil {
+			return loop.PostAndWaitCtx(ctx, doRequest)
+		}
+		return doRequest()
+	}
+	if interceptor == nil {
+		return doFunc(ctx, in)
+	}
+	info := &tcp.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/helloworld.v1.Greeter/OnActionReq",
+	}
+	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
+		r, ok := req.(*ActionReq)
+		if !ok {
+			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *ActionReq, Not: %T", req)
+		}
+		return doFunc(ctx, r)
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var Greeter_TCP_ServiceDesc = tcp.ServiceDesc{
 	ServiceName: "helloworld.v1.Greeter",
 	HandlerType: (*GreeterTCPServer)(nil),
@@ -402,6 +438,11 @@ var Greeter_TCP_ServiceDesc = tcp.ServiceDesc{
 			MethodName: "OnForwardReq",
 			Handler:    _Greeter_OnForwardReq_TCP_Handler,
 			Ops:        1015,
+		},
+		{
+			MethodName: "OnActionReq",
+			Handler:    _Greeter_OnActionReq_TCP_Handler,
+			Ops:        1101,
 		},
 	},
 }

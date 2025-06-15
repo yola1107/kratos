@@ -3,7 +3,6 @@ package conf
 import (
 	"flag"
 	"os"
-	"time"
 )
 
 const Name = "api-server"
@@ -20,7 +19,7 @@ func init() {
 
 const (
 	StWait          = 0  // 等待
-	StPrepare       = 1  // 准备
+	StReady         = 1  // 准备
 	StSendCard      = 2  // 发牌
 	StAction        = 3  // 操作
 	StCompare       = 4  // 比牌
@@ -31,7 +30,7 @@ const (
 )
 
 const (
-	StPrepareTimeout  = 2  // 准备时间 (s)
+	StReadyTimeout    = 2  // 准备时间 (s)
 	StSendCardTimeout = 3  // 发牌时间 (s)
 	StActionTimeout   = 12 // 操作时间 (s)
 	StCompareTimeout  = 1  // 比牌动画时间 (s)
@@ -41,7 +40,7 @@ const (
 
 var StageNames = map[int32]string{
 	StWait:          "等待",
-	StPrepare:       "准备",
+	StReady:         "准备",
 	StSendCard:      "发牌",
 	StAction:        "操作",
 	StCompare:       "比牌",
@@ -55,15 +54,10 @@ func StageName(s int32) string {
 	return StageNames[s]
 }
 
-func GetStageTimeout(s int32) time.Duration {
-	d := getStageTimeout(s)
-	return d * time.Second
-}
-
-func getStageTimeout(s int32) time.Duration {
+func GetStageTimeout(s int32) int64 {
 	switch s {
-	case StPrepare:
-		return StPrepareTimeout
+	case StReady:
+		return StReadyTimeout
 	case StSendCard:
 		return StSendCardTimeout
 	case StAction:

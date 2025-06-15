@@ -7,15 +7,15 @@ import (
 )
 
 type GameCards struct {
-	cardHeap []int // 所有牌
-	index    int   // 牌型使用位置
+	cardHeap []int32 // 所有牌
+	index    int     // 牌型使用位置
 }
 
 func (g *GameCards) Init() {
-	g.cardHeap = make([]int, 0, 13*4)
+	g.cardHeap = make([]int32, 0, 13*4)
 	for i := 0; i < 4; i++ {
 		for j := 1; j < 14; j++ {
-			g.cardHeap = append(g.cardHeap, j+i*0x10)
+			g.cardHeap = append(g.cardHeap, int32(j+i*0x10))
 		}
 	}
 
@@ -28,10 +28,10 @@ func (g *GameCards) Shuffle() {
 	}
 }
 
-func (g *GameCards) DispatchCards(n int) []int {
+func (g *GameCards) DispatchCards(n int) []int32 {
 	if g.index+n >= len(g.cardHeap) {
 		log.Printf("GameCards error.(overflow) cidx:%d n:%d", g.index, n)
-		return make([]int, n)
+		return make([]int32, n)
 	}
 
 	g.index += n

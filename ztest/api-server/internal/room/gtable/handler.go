@@ -9,9 +9,11 @@ func (t *Table) OnExitGame(p *gplayer.Player, code int32, msg string) bool {
 }
 
 func (t *Table) OnForwardReq(ty int32, msg string) {
+	t.broadcastForwardRsp(ty, msg)
 	return
 }
 
-func (t *Table) OnSceneReq(ty int32, msg string) {
+func (t *Table) OnSceneReq(p *gplayer.Player, isClient bool) {
+	t.SendSceneInfo(p)
 	return
 }

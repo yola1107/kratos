@@ -15,6 +15,14 @@ func (p *Player) IsRobot() bool {
 	return false
 }
 
+func (p *Player) SetHosting(hosting bool) {
+	return
+}
+
+func (p *Player) IsHosting() bool {
+	return false
+}
+
 func (p *Player) SetOffline() {
 }
 

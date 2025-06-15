@@ -33,6 +33,7 @@ type GreeterWebsocketServer interface {
 	OnChatReq(context.Context, *ChatReq) (*ChatRsp, error)
 	OnHostingReq(context.Context, *HostingReq) (*HostingRsp, error)
 	OnForwardReq(context.Context, *ForwardReq) (*ForwardRsp, error)
+	OnActionReq(context.Context, *ActionReq) (*ActionRsp, error)
 }
 
 func RegisterGreeterWebsocketServer(s *websocket.Server, srv GreeterWebsocketServer) {
@@ -354,6 +355,41 @@ func _Greeter_OnForwardReq_Websocket_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Greeter_OnActionReq_Websocket_Handler(srv interface{}, ctx context.Context, data []byte, interceptor websocket.UnaryServerInterceptor) ([]byte, error) {
+	in := new(ActionReq)
+	if err := proto.Unmarshal(data, in); err != nil {
+		return nil, err
+	}
+	doFunc := func(ctx context.Context, req *ActionReq) ([]byte, error) {
+		doRequest := func() ([]byte, error) {
+			resp, err := srv.(GreeterWebsocketServer).OnActionReq(ctx, req)
+			if err != nil || resp == nil {
+				return nil, err
+			}
+			return proto.Marshal(resp)
+		}
+		if loop := srv.(GreeterWebsocketServer).GetLoop(); loop != nil {
+			return loop.PostAndWaitCtx(ctx, doRequest)
+		}
+		return doRequest()
+	}
+	if interceptor == nil {
+		return doFunc(ctx, in)
+	}
+	info := &websocket.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/helloworld.v1.Greeter/OnActionReq",
+	}
+	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
+		r, ok := req.(*ActionReq)
+		if !ok {
+			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *ActionReq, Not: %T", req)
+		}
+		return doFunc(ctx, r)
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var Greeter_Websocket_ServiceDesc = websocket.ServiceDesc{
 	ServiceName: "helloworld.v1.Greeter",
 	HandlerType: (*GreeterWebsocketServer)(nil),
@@ -402,6 +438,11 @@ var Greeter_Websocket_ServiceDesc = websocket.ServiceDesc{
 			MethodName: "OnForwardReq",
 			Handler:    _Greeter_OnForwardReq_Websocket_Handler,
 			Ops:        1015,
+		},
+		{
+			MethodName: "OnActionReq",
+			Handler:    _Greeter_OnActionReq_Websocket_Handler,
+			Ops:        1101,
 		},
 	},
 }
