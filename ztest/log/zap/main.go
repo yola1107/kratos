@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"os"
 	"runtime/debug"
 	"time"
 
@@ -14,8 +15,11 @@ import (
 	"github.com/yola1107/kratos/v2/log"
 )
 
-const (
-	Name = "log-server"
+var (
+	Name     = "log-server"
+	Version  = "v0.0.1"
+	flagconf string // -conf path
+	id, _    = os.Hostname()
 )
 
 func main() {
@@ -100,7 +104,7 @@ func testLog(zapLogger *zap.Logger) {
 	h1.Infof("help")
 
 	// 绑定全局字段示例
-	log.SetLogger(log.With(zapLogger, "k1", "v1", "k2", 2))
+	log.SetLogger(log.With(zapLogger, "Version", Version, "Host", id))
 	log.Infof("field log test")
 
 	// 测试消息
