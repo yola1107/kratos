@@ -62,7 +62,7 @@ func loadLog() *zap.Logger {
 		// 文件切割配置
 		conf.WithMaxSizeMB(5),
 		conf.WithMaxAgeDays(3),
-		conf.WithMaxBackups(5),
+		conf.WithMaxBackups(1),
 		conf.WithCompress(true),
 		conf.WithLocalTime(true),
 
