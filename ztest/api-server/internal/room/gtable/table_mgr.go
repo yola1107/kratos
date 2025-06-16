@@ -57,33 +57,37 @@ func (m *TableManager) OnSwitchTable(p *gplayer.Player) (ok bool) {
 		return false
 	}
 
+	if err := checkRoomLimit(p, m.repo.GetRoomConfig().Game); err != nil {
+		p.SendSwitchTableRsp(err)
+	}
+
 	oldTable := m.tableMap[p.GetTableID()]
 	if oldTable == nil {
 		return
 	}
 
 	if !oldTable.CanSwitchTable(p) {
-		oldTable.SendSwitchTableRsp(p, model.ErrSwitchTable)
+		p.SendSwitchTableRsp(model.ErrSwitchTable)
 		return
 	}
 
 	newTable := m.getTopTable(p, true)
 	if newTable == nil {
-		oldTable.SendSwitchTableRsp(p, model.ErrNotEnoughTable)
+		p.SendSwitchTableRsp(model.ErrNotEnoughTable)
 		return
 	}
 
 	if !oldTable.ThrowOff(p) {
-		oldTable.SendSwitchTableRsp(p, model.ErrExitTable)
+		p.SendSwitchTableRsp(model.ErrExitTable)
 		return
 	}
 
 	if !newTable.ThrowInto(p) {
-		newTable.SendSwitchTableRsp(p, model.ErrEnterTable)
+		p.SendSwitchTableRsp(model.ErrEnterTable)
 		return
 	}
 	// 推送换桌成功消息
-	newTable.SendSwitchTableRsp(p, nil)
+	p.SendSwitchTableRsp(nil)
 	return true
 }
 
@@ -151,6 +155,7 @@ func (m *TableManager) CanEnterRoom(p *gplayer.Player, in *v1.LoginReq) (err *er
 
 func checkRoomLimit(p *gplayer.Player, c *conf.Room_Game) (err *errors.Error) {
 	money := p.GetMoney()
+	vip := p.GetVipGrade()
 	if money < c.MinMoney {
 		return model.ErrMoneyBelowMinLimit
 	}
@@ -160,7 +165,7 @@ func checkRoomLimit(p *gplayer.Player, c *conf.Room_Game) (err *errors.Error) {
 	if money < c.BaseMoney {
 		return model.ErrMoneyBelowBaseLimit
 	}
-	if money < c.BaseMoney {
+	if vip < c.VipLimit {
 		return model.ErrVipLimit
 	}
 	return nil

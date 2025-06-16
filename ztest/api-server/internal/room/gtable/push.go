@@ -2,7 +2,6 @@ package gtable
 
 import (
 	"github.com/golang/protobuf/proto"
-	"github.com/yola1107/kratos/v2/errors"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
 
@@ -188,20 +187,5 @@ func (t *Table) broadcastActivePlayerPush() {
 		Active:   t.active,
 		CurRound: t.curRound,
 		Player:   t.getScene(t.GetActivePlayer()),
-	})
-}
-
-func (t *Table) SendSwitchTableRsp(p *gplayer.Player, e *errors.Error) {
-	if p == nil {
-		return
-	}
-	code, msg := int32(0), ""
-	if e != nil {
-		code, msg = e.Code, e.Message
-	}
-	t.SendPacketToClient(p, v1.GameCommand_OnSwitchTableRsp, &v1.SwitchTableRsp{
-		Code:   code,
-		Msg:    msg,
-		UserID: p.GetPlayerID(),
 	})
 }
