@@ -42,6 +42,7 @@ func (t *Table) SendPacketToAll(cmd v1.GameCommand, msg proto.Message, uids ...i
 	}
 }
 
+// SendLoginRsp 发送玩家登录信息
 func (t *Table) SendLoginRsp(p *gplayer.Player, code int32, msg string) {
 	t.SendPacketToClient(p, v1.GameCommand_OnLoginRsp, &v1.LoginRsp{
 		Code:    code,
@@ -53,17 +54,18 @@ func (t *Table) SendLoginRsp(p *gplayer.Player, code int32, msg string) {
 	})
 }
 
-func (t *Table) BroadcastUserInfo(p *gplayer.Player) {
-	t.SendUserInfoToAnother(p, p)
+// 广播入座信息
+func (t *Table) broadcastUserInfo(p *gplayer.Player) {
+	t.sendUserInfoToAnother(p, p)
 	for k, v := range t.seats {
 		if v != nil && k != int(p.GetChairID()) {
-			t.SendUserInfoToAnother(p, v)
-			t.SendUserInfoToAnother(v, p)
+			t.sendUserInfoToAnother(p, v)
+			t.sendUserInfoToAnother(v, p)
 		}
 	}
 }
 
-func (t *Table) SendUserInfoToAnother(src *gplayer.Player, dst *gplayer.Player) {
+func (t *Table) sendUserInfoToAnother(src *gplayer.Player, dst *gplayer.Player) {
 	t.SendPacketToClient(dst, v1.GameCommand_OnUserInfoPush, &v1.UserInfoPush{
 		UserID:    src.GetPlayerID(),
 		ChairId:   src.GetChairID(),
@@ -77,6 +79,7 @@ func (t *Table) SendUserInfoToAnother(src *gplayer.Player, dst *gplayer.Player) 
 	})
 }
 
+// SendSceneInfo 发送游戏场景信息
 func (t *Table) SendSceneInfo(p *gplayer.Player) {
 	c := t.repo.GetRoomConfig()
 	rsp := &v1.SceneRsp{
@@ -108,21 +111,21 @@ func (t *Table) getScene(p *gplayer.Player) *v1.PlayerScene {
 		return nil
 	}
 	info := &v1.PlayerScene{
-		UserID:   p.GetPlayerID(),
-		ChairId:  p.GetChairID(),
-		Status:   int32(p.GetStatus()),
-		Hosting:  p.IsHosting(),
-		Offline:  p.IsOffline(),
-		LastOp:   p.GetLastOp(),
-		CurBet:   t.curBet, //
-		TotalBet: p.GetBet(),
-		See:      p.GetSee(),
-		Cards:    t.getPlayerCards(p),
-		AutoCall: p.GetAutoCall(),
-		Paying:   p.IsPaying(),
-		CanOp:    t.getPlayerCanOp(p),
+		UserID:     p.GetPlayerID(),
+		ChairId:    p.GetChairID(),
+		Status:     int32(p.GetStatus()),
+		Hosting:    p.IsHosting(),
+		Offline:    p.IsOffline(),
+		LastOp:     p.GetLastOp(),
+		CurBet:     t.curBet, //
+		TotalBet:   p.GetBet(),
+		See:        p.IstSee(),
+		Cards:      t.getPlayerCards(p),
+		IsAutoCall: p.IsAutoCall(),
+		IsPaying:   p.IsPaying(),
+		CanOp:      t.getPlayerCanOp(p),
 	}
-	if p.GetSee() > 0 {
+	if p.IstSee() {
 		info.CurBet = t.curBet * 2
 	}
 	return info
@@ -130,7 +133,7 @@ func (t *Table) getScene(p *gplayer.Player) *v1.PlayerScene {
 
 func (t *Table) getPlayerCards(p *gplayer.Player) *v1.CardsInfo {
 	c := &v1.CardsInfo{}
-	if p.GetSee() > 0 {
+	if p.IstSee() {
 		c.Hands = p.GetHands()
 		c.Type = p.GetCardsType()
 	}
@@ -144,26 +147,22 @@ func (t *Table) getPlayerCanOp(p *gplayer.Player) []v1.Action {
 	return nil
 }
 
-func (t *Table) BroadcastUserExit(p *gplayer.Player) {
-	t.SendPacketToAll(v1.GameCommand_OnPlayerQuitPush, &v1.PlayerQuitPush{
-		UserID:  p.GetPlayerID(),
-		ChairID: p.GetChairID(),
-	}, p.GetPlayerID())
-}
-
-func (t *Table) broadcastForwardRsp(ty int32, msg string) {
+// BroadcastForwardRsp 消息转发
+func (t *Table) BroadcastForwardRsp(ty int32, msg string) {
 	t.SendPacketToAll(v1.GameCommand_OnForwardRsp, &v1.ForwardRsp{
 		Type: ty,
 		Msg:  msg,
 	})
 }
 
+// 设置庄家推送
 func (t *Table) broadcastSetBankerRsp() {
 	t.SendPacketToAll(v1.GameCommand_OnSetBankerPush, &v1.SetBankerPush{
 		ChairId: t.banker,
 	})
 }
 
+// 发牌推送
 func (t *Table) dispatchCardPush(canGameSeats []*gplayer.Player) {
 	t.RangePlayer(func(k int32, p *gplayer.Player) bool {
 		t.SendPacketToClient(p, v1.GameCommand_OnSendCardPush, &v1.SendCardPush{
@@ -182,6 +181,7 @@ func (t *Table) broadcastUserOffline(p *gplayer.Player) {
 	})
 }
 
+// 当前活动玩家推送
 func (t *Table) broadcastActivePlayerPush() {
 	t.SendPacketToAll(v1.GameCommand_OnActivePush, &v1.ActivePush{
 		Stage:    t.stage.state,
@@ -190,4 +190,12 @@ func (t *Table) broadcastActivePlayerPush() {
 		CurRound: t.curRound,
 		Player:   t.getScene(t.GetActivePlayer()),
 	})
+}
+
+// 玩家离桌推送
+func (t *Table) broadcastUserQuitPush(p *gplayer.Player, isSwitchTable bool) {
+	t.SendPacketToAll(v1.GameCommand_OnPlayerQuitPush, &v1.PlayerQuitPush{
+		UserID:  p.GetPlayerID(),
+		ChairID: p.GetChairID(),
+	}, p.GetPlayerID())
 }

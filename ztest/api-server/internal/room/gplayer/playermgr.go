@@ -30,7 +30,7 @@ func NewPlayerManager(c *conf.Room, repo iface.IRoomRepo) *PlayerManager {
 
 func (m *PlayerManager) Start() error {
 	// 启动相关定时、回收、广播逻辑
-	m.repo.OnPlayerLeave("abc")
+	m.repo.OnPlayerLeave("abc") // test
 	_, _ = m.repo.GetDataRepo().FindByID(context.Background(), 1001)
 	return nil
 }
@@ -43,10 +43,6 @@ func (m *PlayerManager) Close() {
 func (m *PlayerManager) ExistPlayer(id int64) bool {
 	_, ok := m.playerMap.Load(id)
 	return ok
-}
-
-func (m *PlayerManager) CreatePlayer(raw *PlayerRaw) (*Player, *errors.Error) {
-	return nil, nil
 }
 
 // GetPlayerByID 获取玩家
@@ -70,19 +66,6 @@ func (m *PlayerManager) GetPlayerBySessionID(id string) *Player {
 	return result
 }
 
-// ExitGame 退出游戏
-func (m *PlayerManager) ExitGame(p *Player, code int32, msg string) {
-	if p == nil {
-		return
-	}
-	m.playerMap.Delete(p.GetPlayerID())
-	m.repo.OnPlayerLeave(p.GetSessionID())
-
-	go func() {
-		// p.UnSerialize(code, msg)
-	}()
-}
-
 func (m *PlayerManager) Range(cb func(id int64, p *Player)) {
 	if cb == nil {
 		return
@@ -93,4 +76,29 @@ func (m *PlayerManager) Range(cb func(id int64, p *Player)) {
 		}
 		return true
 	})
+}
+
+/*
+
+	玩家行为回调
+		OnLoginReq登录 CreatePlayer
+		OnLogoutReq登出/踢人/关服 LogoutGame
+*/
+
+// CreatePlayer 创建玩家
+func (m *PlayerManager) CreatePlayer(raw *PlayerRaw) (*Player, *errors.Error) {
+	return nil, nil
+}
+
+// LogoutGame 释放玩家
+func (m *PlayerManager) LogoutGame(p *Player, code int32, msg string) {
+	if p == nil {
+		return
+	}
+	m.playerMap.Delete(p.GetPlayerID())
+	m.repo.OnPlayerLeave(p.GetSessionID()) // test
+
+	go func() {
+		// p.UnSerialize(code, msg)
+	}()
 }

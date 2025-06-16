@@ -5,11 +5,22 @@ import (
 )
 
 func (t *Table) OnExitGame(p *gplayer.Player, code int32, msg string) bool {
+	if !t.ThrowOff(p, false) {
+		return false
+	}
+
+	// playermgr.LogoutGame(p, code, "")
+	// t.repo.LogoutGame(p, code, "")
+
 	return false
 }
 
+// func (t *Table) OnLogoutReq(p *gplayer.Player, code int32, msg string) bool {
+// 	return false
+// }
+
 func (t *Table) OnForwardReq(ty int32, msg string) {
-	t.broadcastForwardRsp(ty, msg)
+	t.BroadcastForwardRsp(ty, msg)
 	return
 }
 

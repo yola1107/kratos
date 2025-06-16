@@ -275,9 +275,9 @@ message PlayerScene {
     int32 lastOp          = 6;   //最后操作
     double curBet         = 7;   //
     double totalBet       = 8;   //
-    int32 see             = 9;   //
-    int32 autoCall        = 10;  //自动跟注 0:未开启 1:已开启
-    int32 paying          = 11;  //支付状态 1:支付中
+    bool see              = 9;   //
+    bool isAutoCall       = 10;  //自动跟注 0:未开启 1:已开启
+    bool isPaying         = 11;  //支付状态 1:支付中
     CardsInfo cards       = 12;  //手牌
     repeated Action canOp = 13;  //可操作列表
 }

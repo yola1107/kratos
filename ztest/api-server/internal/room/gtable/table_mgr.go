@@ -52,9 +52,9 @@ func (m *TableManager) GetTable(id int32) *Table {
 	return m.tableMap[id]
 }
 
-func (m *TableManager) OnSwitchTable(p *gplayer.Player) (ok bool) {
+func (m *TableManager) SwitchTable(p *gplayer.Player) (ok bool) {
 	if p == nil {
-		return false
+		return
 	}
 
 	if err := checkRoomLimit(p, m.repo.GetRoomConfig().Game); err != nil {
@@ -77,13 +77,13 @@ func (m *TableManager) OnSwitchTable(p *gplayer.Player) (ok bool) {
 		return
 	}
 
-	if !oldTable.ThrowOff(p) {
-		p.SendSwitchTableRsp(model.ErrExitTable)
+	if !oldTable.ThrowOff(p, true) {
+		p.SendSwitchTableRsp(model.ErrExitTableFail)
 		return
 	}
 
 	if !newTable.ThrowInto(p) {
-		p.SendSwitchTableRsp(model.ErrEnterTable)
+		p.SendSwitchTableRsp(model.ErrEnterTableFail)
 		return
 	}
 	// 推送换桌成功消息

@@ -373,14 +373,11 @@ components:
                     type: number
                     format: double
                 see:
-                    type: integer
-                    format: int32
-                autoCall:
-                    type: integer
-                    format: int32
-                paying:
-                    type: integer
-                    format: int32
+                    type: boolean
+                isAutoCall:
+                    type: boolean
+                isPaying:
+                    type: boolean
                 cards:
                     $ref: '#/components/schemas/helloworld.v1.CardsInfo'
                 canOp:

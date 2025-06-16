@@ -8,6 +8,10 @@ import (
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/gplayer"
 )
 
+/*
+	游戏主逻辑
+*/
+
 type Stage struct {
 	state     int32         // 当前阶段
 	prev      int32         // 上一阶段
@@ -64,6 +68,24 @@ func (t *Table) checkResetDuration(s int32) time.Duration {
 	timeout := conf.GetStageTimeout(s)
 	// 检查是否调整超时时间
 	return time.Duration(timeout) * time.Second
+}
+
+func (t *Table) checkReady() {
+	okCnt := int16(0)
+	t.RangePlayer(func(k int32, p *gplayer.Player) bool {
+		if p.IsReady() && p.GetMoney() >= t.curBet {
+			okCnt++
+		}
+		return true
+	})
+	canStart := okCnt >= 2
+	if !canStart {
+		t.stage.state = conf.StWait
+		return
+	}
+
+	// 准备状态倒计时2s
+	t.updateStage(conf.StReady)
 }
 
 func (t *Table) onGameStart() {
@@ -139,6 +161,7 @@ func (t *Table) dispatchCard(canGameSeats []*gplayer.Player) {
 		p.AddCards(t.cards.DispatchCards(3))
 	}
 
+	// 发牌广播
 	t.dispatchCardPush(canGameSeats)
 }
 

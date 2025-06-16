@@ -5,6 +5,7 @@ import (
 
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/model"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/gplayer"
 )
 
 const (
@@ -36,6 +37,19 @@ func (l *TableLog) write(msg string, args ...interface{}) {
 }
 
 // UserEnter 玩家进入游戏的日志记录
-func (l *TableLog) userEnter(uid int64, seat int32, money int64) {
-	l.write("<进入游戏> 玩家[%d %d] 金币[%d] 桌子号[%d]", uid, seat, money, l.tableID)
+func (l *TableLog) userEnter(p *gplayer.Player, sitCnt int16) {
+	l.write("[进入房间] 玩家:%+v 桌子人数(%+v) ", p.Desc(), sitCnt)
+}
+
+func (l *TableLog) userReEnter(p *gplayer.Player, sitCnt int16) {
+	l.write("[重进房间] 玩家:%+v 桌子人数(%+v) ", p.Desc(), sitCnt)
+}
+
+func (l *TableLog) userExit(p *gplayer.Player, sitCnt int16, isSwitchTable bool) {
+	l.write("[离开房间] 玩家:%+v 桌子人数(%+v) 是否换桌(%+v) ", p.Desc(), sitCnt, isSwitchTable)
+}
+
+func (l *TableLog) stage(old, new int32, active int) {
+	l.write("【状态转移】[%v->%+v, %+v->%v]. activeChair:%+v",
+		old, new, conf.StageNames[old], conf.StageNames[new], active)
 }

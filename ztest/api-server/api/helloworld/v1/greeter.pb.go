@@ -1440,9 +1440,9 @@ type PlayerScene struct {
 	LastOp        int32                  `protobuf:"varint,6,opt,name=lastOp,proto3" json:"lastOp,omitempty"`                                 //最后操作
 	CurBet        float64                `protobuf:"fixed64,7,opt,name=curBet,proto3" json:"curBet,omitempty"`                                //
 	TotalBet      float64                `protobuf:"fixed64,8,opt,name=totalBet,proto3" json:"totalBet,omitempty"`                            //
-	See           int32                  `protobuf:"varint,9,opt,name=see,proto3" json:"see,omitempty"`                                       //
-	AutoCall      int32                  `protobuf:"varint,10,opt,name=autoCall,proto3" json:"autoCall,omitempty"`                            //自动跟注 0:未开启 1:已开启
-	Paying        int32                  `protobuf:"varint,11,opt,name=paying,proto3" json:"paying,omitempty"`                                //支付状态 1:支付中
+	See           bool                   `protobuf:"varint,9,opt,name=see,proto3" json:"see,omitempty"`                                       //
+	IsAutoCall    bool                   `protobuf:"varint,10,opt,name=isAutoCall,proto3" json:"isAutoCall,omitempty"`                        //自动跟注 0:未开启 1:已开启
+	IsPaying      bool                   `protobuf:"varint,11,opt,name=isPaying,proto3" json:"isPaying,omitempty"`                            //支付状态 1:支付中
 	Cards         *CardsInfo             `protobuf:"bytes,12,opt,name=cards,proto3" json:"cards,omitempty"`                                   //手牌
 	CanOp         []Action               `protobuf:"varint,13,rep,packed,name=canOp,proto3,enum=helloworld.v1.Action" json:"canOp,omitempty"` //可操作列表
 	unknownFields protoimpl.UnknownFields
@@ -1535,25 +1535,25 @@ func (x *PlayerScene) GetTotalBet() float64 {
 	return 0
 }
 
-func (x *PlayerScene) GetSee() int32 {
+func (x *PlayerScene) GetSee() bool {
 	if x != nil {
 		return x.See
 	}
-	return 0
+	return false
 }
 
-func (x *PlayerScene) GetAutoCall() int32 {
+func (x *PlayerScene) GetIsAutoCall() bool {
 	if x != nil {
-		return x.AutoCall
+		return x.IsAutoCall
 	}
-	return 0
+	return false
 }
 
-func (x *PlayerScene) GetPaying() int32 {
+func (x *PlayerScene) GetIsPaying() bool {
 	if x != nil {
-		return x.Paying
+		return x.IsPaying
 	}
-	return 0
+	return false
 }
 
 func (x *PlayerScene) GetCards() *CardsInfo {
@@ -2128,7 +2128,7 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	"\bcurRound\x18\t \x01(\x05R\bcurRound\x12\x1a\n" +
 	"\btotalBet\x18\n" +
 	" \x01(\x01R\btotalBet\x124\n" +
-	"\aplayers\x18\v \x03(\v2\x1a.helloworld.v1.PlayerSceneR\aplayers\"\xfa\x02\n" +
+	"\aplayers\x18\v \x03(\v2\x1a.helloworld.v1.PlayerSceneR\aplayers\"\x82\x03\n" +
 	"\vPlayerScene\x12\x16\n" +
 	"\x06userID\x18\x01 \x01(\x03R\x06userID\x12\x18\n" +
 	"\achairId\x18\x02 \x01(\x05R\achairId\x12\x16\n" +
@@ -2138,10 +2138,12 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	"\x06lastOp\x18\x06 \x01(\x05R\x06lastOp\x12\x16\n" +
 	"\x06curBet\x18\a \x01(\x01R\x06curBet\x12\x1a\n" +
 	"\btotalBet\x18\b \x01(\x01R\btotalBet\x12\x10\n" +
-	"\x03see\x18\t \x01(\x05R\x03see\x12\x1a\n" +
-	"\bautoCall\x18\n" +
-	" \x01(\x05R\bautoCall\x12\x16\n" +
-	"\x06paying\x18\v \x01(\x05R\x06paying\x12.\n" +
+	"\x03see\x18\t \x01(\bR\x03see\x12\x1e\n" +
+	"\n" +
+	"isAutoCall\x18\n" +
+	" \x01(\bR\n" +
+	"isAutoCall\x12\x1a\n" +
+	"\bisPaying\x18\v \x01(\bR\bisPaying\x12.\n" +
 	"\x05cards\x18\f \x01(\v2\x18.helloworld.v1.CardsInfoR\x05cards\x12+\n" +
 	"\x05canOp\x18\r \x03(\x0e2\x15.helloworld.v1.ActionR\x05canOp\")\n" +
 	"\rSetBankerPush\x12\x18\n" +

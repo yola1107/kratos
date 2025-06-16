@@ -63,13 +63,13 @@ func (s *Service) loginRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp,
 	// 条件限制
 	if err := s.tm.CanEnterRoom(p, in); err != nil {
 		log.Warnf("loginRoom. UserID(%+v) err=%v", in.UserID, err)
-		s.pm.ExitGame(p, err.Code, err.Message) // 释放玩家
+		s.pm.LogoutGame(p, err.Code, err.Message) // 释放玩家
 		return nil, err
 	}
 	s.ws.Post(func() {
 		if !s.tm.ThrowInto(p) {
 			log.Errorf("ThrowInto failed. pid:%d", in.UserID)
-			s.pm.ExitGame(p, 0, "throw into table failed")
+			s.pm.LogoutGame(p, 0, "throw into table failed")
 			return
 		}
 	})
@@ -101,7 +101,7 @@ func (s *Service) OnSwitchTableReq(ctx context.Context, in *v1.SwitchTableReq) (
 		return nil, rs.Error
 	}
 
-	s.tm.OnSwitchTable(rs.Player)
+	s.tm.SwitchTable(rs.Player)
 	return &v1.SwitchTableRsp{}, nil
 }
 

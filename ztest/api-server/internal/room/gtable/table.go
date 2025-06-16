@@ -1,6 +1,7 @@
 package gtable
 
 import (
+	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/model"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/gplayer"
@@ -19,9 +20,9 @@ type Table struct {
 	sitCnt   int16             // 入座玩家数量
 	banker   int32             //
 	active   int32             // 当前操作玩家
-	curRound int32             // 当前轮数
-	curBet   float64           // 当前投注
-	totalBet float64           // 总投注
+	curRound int32             // 当前回合轮数
+	curBet   float64           // 当前需投注
+	totalBet float64           // 桌子总投注
 	mLog     *TableLog         // 桌子日志
 	seats    []*gplayer.Player // 玩家列表
 	cards    *model.GameCards  // card信息
@@ -29,12 +30,11 @@ type Table struct {
 
 func NewTable(id int32, typ conf.TableType, c *conf.Room, repo iface.IRoomRepo) *Table {
 	t := &Table{
-		ID:     id,
-		Type:   typ,
-		MaxCnt: int16(c.Table.ChairNum),
-		stage:  &Stage{},
-		repo:   repo,
-
+		ID:       id,
+		Type:     typ,
+		MaxCnt:   int16(c.Table.ChairNum),
+		stage:    &Stage{},
+		repo:     repo,
 		sitCnt:   0,
 		banker:   -1,
 		active:   -1,
@@ -78,16 +78,16 @@ func (t *Table) ThrowInto(p *gplayer.Player) bool {
 		t.sitCnt++
 
 		// 玩家信息
+		p.Reset()
 		p.SetTableID(t.ID)
 		p.SetChairID(int32(k))
 		p.SetStatus(gplayer.StSit)
-		p.Reset()
 
 		// 通知客户端登录成功
 		t.SendLoginRsp(p, model.SUCCESS, "")
 
 		// 广播入座信息
-		t.BroadcastUserInfo(p)
+		t.broadcastUserInfo(p)
 
 		// 发送场景信息
 		t.SendSceneInfo(p)
@@ -97,33 +97,17 @@ func (t *Table) ThrowInto(p *gplayer.Player) bool {
 			t.checkReady()
 		}
 
-		// 上报桌子位置 todo
+		// 上报桌子/玩家位置 todo
 
+		t.mLog.userEnter(p, t.sitCnt)
+		log.Infof("EnterTable. p:%+v sitCnt:%d", p.Desc(), t.sitCnt)
 		return true
 	}
 	return false
 }
 
-func (t *Table) checkReady() {
-	okCnt := int16(0)
-	t.RangePlayer(func(k int32, p *gplayer.Player) bool {
-		if p.IsReady() && p.GetMoney() >= t.curBet {
-			okCnt++
-		}
-		return true
-	})
-	canStart := okCnt >= 2
-	if !canStart {
-		t.stage.state = conf.StWait
-		return
-	}
-
-	// 准备状态倒计时2s
-	t.updateStage(conf.StReady)
-}
-
 // ThrowOff 出座
-func (t *Table) ThrowOff(p *gplayer.Player) bool {
+func (t *Table) ThrowOff(p *gplayer.Player, isSwitchTable bool) bool {
 	if p == nil {
 		return false
 	}
@@ -146,6 +130,17 @@ func (t *Table) ThrowOff(p *gplayer.Player) bool {
 	t.seats[p.GetChairID()] = nil
 	t.sitCnt--
 
+	// 广播玩家离桌
+	t.broadcastUserQuitPush(p, isSwitchTable)
+
+	// 重置玩家信息
+	p.Reset()
+	p.SetChairID(-1)
+	p.SetTableID(-1)
+
+	// 上报桌子/玩家位置 todo
+	t.mLog.userExit(p, t.sitCnt, isSwitchTable)
+	log.Infof("ExitTable. p:%+v sitCnt:%d isSwitch:%+v", p.Desc(), t.sitCnt, isSwitchTable)
 	return true
 }
 
@@ -155,7 +150,7 @@ func (t *Table) ReEnter(p *gplayer.Player) {
 	t.SendLoginRsp(p, model.SUCCESS, "ReEnter")
 
 	// 广播入座信息
-	t.BroadcastUserInfo(p)
+	t.broadcastUserInfo(p)
 
 	// 发送场景信息
 	t.SendSceneInfo(p)
@@ -163,6 +158,9 @@ func (t *Table) ReEnter(p *gplayer.Player) {
 	p.SetOffline(false)
 
 	t.broadcastUserOffline(p)
+
+	t.mLog.userEnter(p, t.sitCnt)
+	log.Infof("ReEnterTable. p:%+v sitCnt:%d", p.Desc(), t.sitCnt)
 }
 
 // LastPlayer 上一家
