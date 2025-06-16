@@ -1,8 +1,6 @@
 package model
 
 import (
-	"fmt"
-	"io"
 	"time"
 
 	"go.uber.org/zap"
@@ -19,8 +17,7 @@ const (
 
 // FileLog 单个文件的日志
 type FileLog struct {
-	closers io.Closer
-	logger  *zap.Logger // zap 日志记录器
+	logger *zap.Logger // zap 日志记录器
 }
 
 // NewFileLog 创建一个新的 TableLog
@@ -40,14 +37,13 @@ func NewFileLog(filename string) *FileLog {
 	}
 	logger := zap.New(zapcore.NewTee(zapcore.NewCore(fileEnc, zapcore.AddSync(lj), zapcore.InfoLevel)))
 	return &FileLog{
-		closers: lj,
-		logger:  logger,
+		logger: logger,
 	}
 }
 
 // customTimeEncoder 自定义时间格式
 func customTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-	enc.AppendString(fmt.Sprintf("[%s]", t.Format(timeFormat)))
+	enc.AppendString("[" + t.Format(timeFormat) + "]")
 }
 
 // Sync 确保日志被写入
@@ -55,10 +51,9 @@ func (l *FileLog) Sync() error {
 	return l.logger.Sync()
 }
 
-// Close 关闭日志资源
-func (l *FileLog) Close() error {
-	_ = l.Sync()
-	return l.closers.Close()
+// Infow 写入结构化日志
+func (l *FileLog) Infow(msg string, kvs ...interface{}) {
+	l.logger.Sugar().Infow(msg, kvs...)
 }
 
 // WriteLog 写入日志

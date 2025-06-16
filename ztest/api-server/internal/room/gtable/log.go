@@ -24,7 +24,7 @@ func (l *TableLog) init(tableID int32, c *conf.Room_LogCache) {
 }
 
 func (l *TableLog) Close() error {
-	return l.logger.Close()
+	return l.logger.Sync()
 }
 
 // WriteLog 写入日志
