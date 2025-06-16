@@ -18,6 +18,8 @@ type Status int32
 type PlayerGameData struct {
 	IsReady    bool
 	Status     Status     // 0 StFree 1 StSit 2 StReady 3 StGaming
+	isOffline  bool       // 是否离线
+	isHosting  bool       // 是否为托管状态
 	Bet        float64    // 投注
 	LastOp     int32      // 上一次操作
 	See        int32      // 是否看牌
@@ -32,6 +34,7 @@ type PlayerGameData struct {
 
 	AutoCall int32 // 是否自动跟注 0：未开启自动跟注 1：开启了自动跟注
 	Paying   int32 // 支付中
+
 }
 
 type cardsInfo struct {
@@ -73,6 +76,22 @@ func (p *Player) SetStatus(status Status) {
 
 func (p *Player) GetStatus() Status {
 	return p.gameData.Status
+}
+
+func (p *Player) SetHosting(hosting bool) {
+	return
+}
+
+func (p *Player) IsHosting() bool {
+	return false
+}
+
+func (p *Player) SetOffline(offline bool) {
+	p.gameData.isOffline = offline
+}
+
+func (p *Player) IsOffline() bool {
+	return p.gameData.isOffline
 }
 
 func (p *Player) IsSited() bool {

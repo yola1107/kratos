@@ -122,7 +122,6 @@ service Greeter {
         };
     }
 
-
     // game request
     rpc OnActionReq(ActionReq) returns (ActionRsp) {
         option (google.api.http) = {
@@ -188,9 +187,9 @@ message SwitchTableReq {
 }
 
 message SwitchTableRsp {
-   int32  code=1;
-   string msg =2;
-   int64 userID=3;
+    int32 code   = 1;
+    string msg   = 2;
+    int64 userID = 3;
 }
 
 // 聊天/表情
@@ -297,6 +296,18 @@ message SendCardPush {
 message CardsInfo {
     repeated int32 hands = 1;
     int32 Type           = 2;
+}
+
+//用户断线通知
+message UserOfflinePush {
+    int64 userID   = 1;  //用户ID
+    bool isOffline = 2;  //用户离线状态
+}
+
+//离桌通知
+message PlayerQuitPush {
+    int64 userID  = 1;  //玩家ID
+    int32 chairID = 2;  //椅子号
 }
 
 //

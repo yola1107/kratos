@@ -26,16 +26,7 @@ func (t *Table) SendPacketToClient(p *gplayer.Player, cmd v1.GameCommand, msg pr
 	}
 }
 
-func (t *Table) SendPacketToAll(cmd v1.GameCommand, msg proto.Message) {
-	for _, v := range t.seats {
-		if v == nil {
-			continue
-		}
-		t.SendPacketToClient(v, cmd, msg)
-	}
-}
-
-func (t *Table) SendPacketToAllExcept(cmd v1.GameCommand, msg proto.Message, uids ...int64) {
+func (t *Table) SendPacketToAll(cmd v1.GameCommand, msg proto.Message, uids ...int64) {
 	exceptMap := make(map[int64]struct{})
 	for _, v := range uids {
 		exceptMap[v] = struct{}{}
@@ -154,7 +145,10 @@ func (t *Table) getPlayerCanOp(p *gplayer.Player) []v1.Action {
 }
 
 func (t *Table) BroadcastUserExit(p *gplayer.Player) {
-
+	t.SendPacketToAll(v1.GameCommand_OnPlayerQuitPush, &v1.PlayerQuitPush{
+		UserID:  p.GetPlayerID(),
+		ChairID: p.GetChairID(),
+	}, p.GetPlayerID())
 }
 
 func (t *Table) broadcastForwardRsp(ty int32, msg string) {
@@ -177,6 +171,14 @@ func (t *Table) dispatchCardPush(canGameSeats []*gplayer.Player) {
 			Cards:  t.getPlayerCards(p),
 		})
 		return true
+	})
+}
+
+// 广播玩家断线信息
+func (t *Table) broadcastUserOffline(p *gplayer.Player) {
+	t.SendPacketToAll(v1.GameCommand_OnUserOfflinePush, &v1.UserOfflinePush{
+		UserID:    p.GetPlayerID(),
+		IsOffline: p.IsOffline(),
 	})
 }
 

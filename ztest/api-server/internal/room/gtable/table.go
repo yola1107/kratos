@@ -151,6 +151,18 @@ func (t *Table) ThrowOff(p *gplayer.Player) bool {
 
 // ReEnter 重进游戏
 func (t *Table) ReEnter(p *gplayer.Player) {
+	// 通知客户端登录成功
+	t.SendLoginRsp(p, model.SUCCESS, "ReEnter")
+
+	// 广播入座信息
+	t.BroadcastUserInfo(p)
+
+	// 发送场景信息
+	t.SendSceneInfo(p)
+
+	p.SetOffline(false)
+
+	t.broadcastUserOffline(p)
 }
 
 // LastPlayer 上一家
@@ -225,13 +237,7 @@ func (t *Table) CanEnter(p *gplayer.Player) bool {
 }
 
 func (t *Table) CanExit(p *gplayer.Player) bool {
-	if p == nil {
-		return false
-	}
-	if p.IsGaming() {
-		return false
-	}
-	return true
+	return !p.IsGaming()
 }
 
 func (t *Table) CanSwitchTable(p *gplayer.Player) bool {
