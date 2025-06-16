@@ -35,8 +35,8 @@ const (
 	GameCommand_OnLogoutRsp      GameCommand = 1004
 	GameCommand_OnReadyReq       GameCommand = 1005 //准备
 	GameCommand_OnReadyRsp       GameCommand = 1006
-	GameCommand_OnSwitchChairReq GameCommand = 1007 //换位
-	GameCommand_OnSwitchChairRsp GameCommand = 1008
+	GameCommand_OnSwitchTableReq GameCommand = 1007 //换桌
+	GameCommand_OnSwitchTableRsp GameCommand = 1008
 	GameCommand_OnSceneReq       GameCommand = 1009 //场景信息
 	GameCommand_OnSceneRsp       GameCommand = 1010
 	GameCommand_OnChatReq        GameCommand = 1011 //聊天
@@ -45,8 +45,6 @@ const (
 	GameCommand_OnHostingRsp     GameCommand = 1014
 	GameCommand_OnForwardReq     GameCommand = 1015 //转发
 	GameCommand_OnForwardRsp     GameCommand = 1016
-	GameCommand_OnSwitchTableReq GameCommand = 1017 //换桌
-	GameCommand_OnSwitchTableRsp GameCommand = 1018
 	// game request
 	GameCommand_OnActionReq GameCommand = 1101 //玩家动作
 	GameCommand_OnActionRsp GameCommand = 1102
@@ -76,8 +74,8 @@ var (
 		1004: "OnLogoutRsp",
 		1005: "OnReadyReq",
 		1006: "OnReadyRsp",
-		1007: "OnSwitchChairReq",
-		1008: "OnSwitchChairRsp",
+		1007: "OnSwitchTableReq",
+		1008: "OnSwitchTableRsp",
 		1009: "OnSceneReq",
 		1010: "OnSceneRsp",
 		1011: "OnChatReq",
@@ -86,8 +84,6 @@ var (
 		1014: "OnHostingRsp",
 		1015: "OnForwardReq",
 		1016: "OnForwardRsp",
-		1017: "OnSwitchTableReq",
-		1018: "OnSwitchTableRsp",
 		1101: "OnActionReq",
 		1102: "OnActionRsp",
 		2001: "OnUserInfoPush",
@@ -111,8 +107,8 @@ var (
 		"OnLogoutRsp":       1004,
 		"OnReadyReq":        1005,
 		"OnReadyRsp":        1006,
-		"OnSwitchChairReq":  1007,
-		"OnSwitchChairRsp":  1008,
+		"OnSwitchTableReq":  1007,
+		"OnSwitchTableRsp":  1008,
 		"OnSceneReq":        1009,
 		"OnSceneRsp":        1010,
 		"OnChatReq":         1011,
@@ -121,8 +117,6 @@ var (
 		"OnHostingRsp":      1014,
 		"OnForwardReq":      1015,
 		"OnForwardRsp":      1016,
-		"OnSwitchTableReq":  1017,
-		"OnSwitchTableRsp":  1018,
 		"OnActionReq":       1101,
 		"OnActionRsp":       1102,
 		"OnUserInfoPush":    2001,
@@ -688,8 +682,8 @@ func (x *ReadyRsp) GetIsReady() bool {
 	return false
 }
 
-// 换位
-type SwitchChairReq struct {
+// 换桌
+type SwitchTableReq struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserID        int64                  `protobuf:"varint,1,opt,name=userID,proto3" json:"userID,omitempty"`
 	ChairId       int32                  `protobuf:"varint,2,opt,name=chairId,proto3" json:"chairId,omitempty"`
@@ -697,20 +691,20 @@ type SwitchChairReq struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *SwitchChairReq) Reset() {
-	*x = SwitchChairReq{}
+func (x *SwitchTableReq) Reset() {
+	*x = SwitchTableReq{}
 	mi := &file_helloworld_v1_greeter_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *SwitchChairReq) String() string {
+func (x *SwitchTableReq) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SwitchChairReq) ProtoMessage() {}
+func (*SwitchTableReq) ProtoMessage() {}
 
-func (x *SwitchChairReq) ProtoReflect() protoreflect.Message {
+func (x *SwitchTableReq) ProtoReflect() protoreflect.Message {
 	mi := &file_helloworld_v1_greeter_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -722,48 +716,48 @@ func (x *SwitchChairReq) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SwitchChairReq.ProtoReflect.Descriptor instead.
-func (*SwitchChairReq) Descriptor() ([]byte, []int) {
+// Deprecated: Use SwitchTableReq.ProtoReflect.Descriptor instead.
+func (*SwitchTableReq) Descriptor() ([]byte, []int) {
 	return file_helloworld_v1_greeter_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *SwitchChairReq) GetUserID() int64 {
+func (x *SwitchTableReq) GetUserID() int64 {
 	if x != nil {
 		return x.UserID
 	}
 	return 0
 }
 
-func (x *SwitchChairReq) GetChairId() int32 {
+func (x *SwitchTableReq) GetChairId() int32 {
 	if x != nil {
 		return x.ChairId
 	}
 	return 0
 }
 
-type SwitchChairRsp struct {
+type SwitchTableRsp struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
-	UserID        int64                  `protobuf:"varint,2,opt,name=userID,proto3" json:"userID,omitempty"`
-	ChairId       int32                  `protobuf:"varint,3,opt,name=chairId,proto3" json:"chairId,omitempty"`
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	UserID        int64                  `protobuf:"varint,3,opt,name=userID,proto3" json:"userID,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *SwitchChairRsp) Reset() {
-	*x = SwitchChairRsp{}
+func (x *SwitchTableRsp) Reset() {
+	*x = SwitchTableRsp{}
 	mi := &file_helloworld_v1_greeter_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *SwitchChairRsp) String() string {
+func (x *SwitchTableRsp) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SwitchChairRsp) ProtoMessage() {}
+func (*SwitchTableRsp) ProtoMessage() {}
 
-func (x *SwitchChairRsp) ProtoReflect() protoreflect.Message {
+func (x *SwitchTableRsp) ProtoReflect() protoreflect.Message {
 	mi := &file_helloworld_v1_greeter_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -775,28 +769,28 @@ func (x *SwitchChairRsp) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SwitchChairRsp.ProtoReflect.Descriptor instead.
-func (*SwitchChairRsp) Descriptor() ([]byte, []int) {
+// Deprecated: Use SwitchTableRsp.ProtoReflect.Descriptor instead.
+func (*SwitchTableRsp) Descriptor() ([]byte, []int) {
 	return file_helloworld_v1_greeter_proto_rawDescGZIP(), []int{9}
 }
 
-func (x *SwitchChairRsp) GetCode() int32 {
+func (x *SwitchTableRsp) GetCode() int32 {
 	if x != nil {
 		return x.Code
 	}
 	return 0
 }
 
-func (x *SwitchChairRsp) GetUserID() int64 {
+func (x *SwitchTableRsp) GetMsg() string {
 	if x != nil {
-		return x.UserID
+		return x.Msg
 	}
-	return 0
+	return ""
 }
 
-func (x *SwitchChairRsp) GetChairId() int32 {
+func (x *SwitchTableRsp) GetUserID() int64 {
 	if x != nil {
-		return x.ChairId
+		return x.UserID
 	}
 	return 0
 }
@@ -1970,13 +1964,13 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	"\bReadyRsp\x12\x16\n" +
 	"\x06userID\x18\x01 \x01(\x03R\x06userID\x12\x18\n" +
 	"\aisReady\x18\x02 \x01(\bR\aisReady\"B\n" +
-	"\x0eSwitchChairReq\x12\x16\n" +
+	"\x0eSwitchTableReq\x12\x16\n" +
 	"\x06userID\x18\x01 \x01(\x03R\x06userID\x12\x18\n" +
-	"\achairId\x18\x02 \x01(\x05R\achairId\"V\n" +
-	"\x0eSwitchChairRsp\x12\x12\n" +
-	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x16\n" +
-	"\x06userID\x18\x02 \x01(\x03R\x06userID\x12\x18\n" +
-	"\achairId\x18\x03 \x01(\x05R\achairId\"c\n" +
+	"\achairId\x18\x02 \x01(\x05R\achairId\"N\n" +
+	"\x0eSwitchTableRsp\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x16\n" +
+	"\x06userID\x18\x03 \x01(\x03R\x06userID\"c\n" +
 	"\aChatReq\x12\x16\n" +
 	"\x06userID\x18\x01 \x01(\x05R\x06userID\x12\x16\n" +
 	"\x06opType\x18\x02 \x01(\x05R\x06opType\x12\x16\n" +
@@ -2068,7 +2062,7 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x16\n" +
 	"\x06userID\x18\x03 \x01(\x03R\x06userID\x12-\n" +
 	"\x06action\x18\x04 \x01(\x0e2\x15.helloworld.v1.ActionR\x06action\x12.\n" +
-	"\x05cards\x18\f \x01(\v2\x18.helloworld.v1.CardsInfoR\x05cards*\x89\x05\n" +
+	"\x05cards\x18\f \x01(\v2\x18.helloworld.v1.CardsInfoR\x05cards*\xdb\x04\n" +
 	"\vGameCommand\x12\v\n" +
 	"\aNothing\x10\x00\x12\x0f\n" +
 	"\vSayHelloReq\x10\x01\x12\x0f\n" +
@@ -2083,8 +2077,8 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	"OnReadyReq\x10\xed\a\x12\x0f\n" +
 	"\n" +
 	"OnReadyRsp\x10\xee\a\x12\x15\n" +
-	"\x10OnSwitchChairReq\x10\xef\a\x12\x15\n" +
-	"\x10OnSwitchChairRsp\x10\xf0\a\x12\x0f\n" +
+	"\x10OnSwitchTableReq\x10\xef\a\x12\x15\n" +
+	"\x10OnSwitchTableRsp\x10\xf0\a\x12\x0f\n" +
 	"\n" +
 	"OnSceneReq\x10\xf1\a\x12\x0f\n" +
 	"\n" +
@@ -2094,9 +2088,7 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	"\fOnHostingReq\x10\xf5\a\x12\x11\n" +
 	"\fOnHostingRsp\x10\xf6\a\x12\x11\n" +
 	"\fOnForwardReq\x10\xf7\a\x12\x11\n" +
-	"\fOnForwardRsp\x10\xf8\a\x12\x15\n" +
-	"\x10OnSwitchTableReq\x10\xf9\a\x12\x15\n" +
-	"\x10OnSwitchTableRsp\x10\xfa\a\x12\x10\n" +
+	"\fOnForwardRsp\x10\xf8\a\x12\x10\n" +
 	"\vOnActionReq\x10\xcd\b\x12\x10\n" +
 	"\vOnActionRsp\x10\xce\b\x12\x13\n" +
 	"\x0eOnUserInfoPush\x10\xd1\x0f\x12\x16\n" +
@@ -2127,7 +2119,7 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	"\vOnLogoutReq\x12\x18.helloworld.v1.LogoutReq\x1a\x18.helloworld.v1.LogoutRsp\"\x1f\x82\xd3\xe4\x93\x02\x19:\x01*\"\x14/greeter/OnLogoutReq\x12^\n" +
 	"\n" +
 	"OnReadyReq\x12\x17.helloworld.v1.ReadyReq\x1a\x17.helloworld.v1.ReadyRsp\"\x1e\x82\xd3\xe4\x93\x02\x18:\x01*\"\x13/greeter/OnReadyReq\x12v\n" +
-	"\x10OnSwitchChairReq\x12\x1d.helloworld.v1.SwitchChairReq\x1a\x1d.helloworld.v1.SwitchChairRsp\"$\x82\xd3\xe4\x93\x02\x1e:\x01*\"\x19/greeter/OnSwitchChairReq\x12^\n" +
+	"\x10OnSwitchTableReq\x12\x1d.helloworld.v1.SwitchTableReq\x1a\x1d.helloworld.v1.SwitchTableRsp\"$\x82\xd3\xe4\x93\x02\x1e:\x01*\"\x19/greeter/OnSwitchTableReq\x12^\n" +
 	"\n" +
 	"OnSceneReq\x12\x17.helloworld.v1.SceneReq\x1a\x17.helloworld.v1.SceneRsp\"\x1e\x82\xd3\xe4\x93\x02\x18:\x01*\"\x13/greeter/OnSceneReq\x12`\n" +
 	"\tOnChatReq\x12\x16.helloworld.v1.ChatReq\x1a\x16.helloworld.v1.ChatRsp\"#\x82\xd3\xe4\x93\x02\x1d:\x01*\"\x18/greeter/OnChatOrFaceReq\x12f\n" +
@@ -2161,8 +2153,8 @@ var file_helloworld_v1_greeter_proto_goTypes = []any{
 	(*LogoutRsp)(nil),      // 7: helloworld.v1.LogoutRsp
 	(*ReadyReq)(nil),       // 8: helloworld.v1.ReadyReq
 	(*ReadyRsp)(nil),       // 9: helloworld.v1.ReadyRsp
-	(*SwitchChairReq)(nil), // 10: helloworld.v1.SwitchChairReq
-	(*SwitchChairRsp)(nil), // 11: helloworld.v1.SwitchChairRsp
+	(*SwitchTableReq)(nil), // 10: helloworld.v1.SwitchTableReq
+	(*SwitchTableRsp)(nil), // 11: helloworld.v1.SwitchTableRsp
 	(*ChatReq)(nil),        // 12: helloworld.v1.ChatReq
 	(*ChatRsp)(nil),        // 13: helloworld.v1.ChatRsp
 	(*ForwardReq)(nil),     // 14: helloworld.v1.ForwardReq
@@ -2193,7 +2185,7 @@ var file_helloworld_v1_greeter_proto_depIdxs = []int32{
 	4,  // 9: helloworld.v1.Greeter.OnLoginReq:input_type -> helloworld.v1.LoginReq
 	6,  // 10: helloworld.v1.Greeter.OnLogoutReq:input_type -> helloworld.v1.LogoutReq
 	8,  // 11: helloworld.v1.Greeter.OnReadyReq:input_type -> helloworld.v1.ReadyReq
-	10, // 12: helloworld.v1.Greeter.OnSwitchChairReq:input_type -> helloworld.v1.SwitchChairReq
+	10, // 12: helloworld.v1.Greeter.OnSwitchTableReq:input_type -> helloworld.v1.SwitchTableReq
 	19, // 13: helloworld.v1.Greeter.OnSceneReq:input_type -> helloworld.v1.SceneReq
 	12, // 14: helloworld.v1.Greeter.OnChatReq:input_type -> helloworld.v1.ChatReq
 	16, // 15: helloworld.v1.Greeter.OnHostingReq:input_type -> helloworld.v1.HostingReq
@@ -2203,7 +2195,7 @@ var file_helloworld_v1_greeter_proto_depIdxs = []int32{
 	5,  // 19: helloworld.v1.Greeter.OnLoginReq:output_type -> helloworld.v1.LoginRsp
 	7,  // 20: helloworld.v1.Greeter.OnLogoutReq:output_type -> helloworld.v1.LogoutRsp
 	9,  // 21: helloworld.v1.Greeter.OnReadyReq:output_type -> helloworld.v1.ReadyRsp
-	11, // 22: helloworld.v1.Greeter.OnSwitchChairReq:output_type -> helloworld.v1.SwitchChairRsp
+	11, // 22: helloworld.v1.Greeter.OnSwitchTableReq:output_type -> helloworld.v1.SwitchTableRsp
 	20, // 23: helloworld.v1.Greeter.OnSceneReq:output_type -> helloworld.v1.SceneRsp
 	13, // 24: helloworld.v1.Greeter.OnChatReq:output_type -> helloworld.v1.ChatRsp
 	17, // 25: helloworld.v1.Greeter.OnHostingReq:output_type -> helloworld.v1.HostingRsp

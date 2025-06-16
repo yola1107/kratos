@@ -106,13 +106,13 @@ func (t *Table) SendSceneInfo(p *gplayer.Player) {
 
 func (t *Table) getPlayersScene() (players []*v1.PlayerScene) {
 	t.RangePlayer(func(k int32, p *gplayer.Player) bool {
-		players = append(players, t.getPlayerScene(p))
+		players = append(players, t.getScene(p))
 		return true
 	})
 	return
 }
 
-func (t *Table) getPlayerScene(p *gplayer.Player) *v1.PlayerScene {
+func (t *Table) getScene(p *gplayer.Player) *v1.PlayerScene {
 	if p == nil {
 		return nil
 	}
@@ -186,6 +186,6 @@ func (t *Table) broadcastActivePlayerPush() {
 		Timeout:  int64(t.calcRemainingTime().Seconds()),
 		Active:   t.active,
 		CurRound: t.curRound,
-		Player:   t.getPlayerScene(t.GetActivePlayer()),
+		Player:   t.getScene(t.GetActivePlayer()),
 	})
 }

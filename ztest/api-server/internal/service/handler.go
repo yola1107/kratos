@@ -95,13 +95,14 @@ func (s *Service) OnReadyReq(ctx context.Context, in *v1.ReadyReq) (*v1.ReadyRsp
 	return &v1.ReadyRsp{}, nil
 }
 
-func (s *Service) OnSwitchChairReq(ctx context.Context, in *v1.SwitchChairReq) (*v1.SwitchChairRsp, error) {
+func (s *Service) OnSwitchTableReq(ctx context.Context, in *v1.SwitchTableReq) (*v1.SwitchTableRsp, error) {
 	rs := s.swapper(ctx)
 	if rs.Error != nil {
 		return nil, rs.Error
 	}
 
-	return &v1.SwitchChairRsp{}, nil
+	s.tm.OnSwitchTable(rs.Player)
+	return &v1.SwitchTableRsp{}, nil
 }
 
 func (s *Service) OnSceneReq(ctx context.Context, in *v1.SceneReq) (*v1.SceneRsp, error) {
@@ -110,6 +111,7 @@ func (s *Service) OnSceneReq(ctx context.Context, in *v1.SceneReq) (*v1.SceneRsp
 		return nil, rs.Error
 	}
 
+	rs.Table.OnSceneReq(rs.Player, true)
 	return &v1.SceneRsp{}, nil
 }
 

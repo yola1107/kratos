@@ -152,16 +152,16 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/helloworld.v1.SceneRsp'
-    /greeter/OnSwitchChairReq:
+    /greeter/OnSwitchTableReq:
         post:
             tags:
                 - Greeter
-            operationId: Greeter_OnSwitchChairReq
+            operationId: Greeter_OnSwitchTableReq
             requestBody:
                 content:
                     application/json:
                         schema:
-                            $ref: '#/components/schemas/helloworld.v1.SwitchChairReq'
+                            $ref: '#/components/schemas/helloworld.v1.SwitchTableReq'
                 required: true
             responses:
                 "200":
@@ -169,7 +169,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/helloworld.v1.SwitchChairRsp'
+                                $ref: '#/components/schemas/helloworld.v1.SwitchTableRsp'
     /helloworld/{name}:
         get:
             tags:
@@ -448,7 +448,7 @@ components:
                     items:
                         $ref: '#/components/schemas/helloworld.v1.PlayerScene'
                     description: 玩家信息
-        helloworld.v1.SwitchChairReq:
+        helloworld.v1.SwitchTableReq:
             type: object
             properties:
                 userID:
@@ -456,17 +456,16 @@ components:
                 chairId:
                     type: integer
                     format: int32
-            description: 换位
-        helloworld.v1.SwitchChairRsp:
+            description: 换桌
+        helloworld.v1.SwitchTableRsp:
             type: object
             properties:
                 code:
                     type: integer
                     format: int32
+                msg:
+                    type: string
                 userID:
                     type: string
-                chairId:
-                    type: integer
-                    format: int32
 tags:
     - name: Greeter

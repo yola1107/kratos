@@ -26,6 +26,7 @@ func (t *Table) OnTimer() {
 		t.onSendCardTimeout()
 		// t.notifyAction(false, ACTION)
 	case conf.StAction: // 超时操作
+		t.onActionTimeout()
 		// t.OnAction(t.CurrPlayer(), network.Packet{"action": PLAYER_PACK}, true)
 	case conf.StWaitSiderShow: // 比牌操作超时
 		// t.OnAction(t.CurrPlayer(), network.Packet{"action": PLAYER_OK_SIDER_SHOW, "allow": false}, true)
@@ -144,4 +145,8 @@ func (t *Table) dispatchCard(canGameSeats []*gplayer.Player) {
 func (t *Table) onSendCardTimeout() {
 	t.updateStage(conf.StAction)
 	t.broadcastActivePlayerPush()
+}
+
+func (t *Table) onActionTimeout() {
+
 }

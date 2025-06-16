@@ -52,8 +52,46 @@ func (m *TableManager) GetTable(id int32) *Table {
 	return m.tableMap[id]
 }
 
-func (m *TableManager) SwitchTable(p *gplayer.Player) bool {
-	return false
+func (m *TableManager) OnSwitchTable(p *gplayer.Player) (rsp *v1.SwitchTableRsp) {
+	err := m.switchTable(p)
+	if err != nil {
+		return &v1.SwitchTableRsp{
+			Code:   err.Code,
+			Msg:    err.Message,
+			UserID: p.GetPlayerID(),
+		}
+	}
+	return &v1.SwitchTableRsp{}
+}
+
+func (m *TableManager) switchTable(p *gplayer.Player) (err *errors.Error) {
+	if p == nil {
+		return model.ErrPlayerNotFound
+	}
+
+	oldTable := m.tableMap[p.GetTableID()]
+	if oldTable == nil {
+		return model.ErrTableNotFound
+	}
+
+	if !oldTable.CanSwitchTable(p) {
+		return model.ErrSwitchTable
+	}
+
+	newTable := m.getTopTable(p, true)
+	if newTable == nil {
+		return model.ErrNotEnoughTable
+	}
+
+	if !oldTable.ThrowOff(p) {
+		return model.ErrExitTable
+	}
+
+	if !newTable.ThrowInto(p) {
+		return model.ErrEnterTable
+	}
+
+	return nil
 }
 
 func (m *TableManager) ThrowInto(p *gplayer.Player) bool {
@@ -67,19 +105,22 @@ func (m *TableManager) ThrowInto(p *gplayer.Player) bool {
 	return best.ThrowInto(p)
 }
 
-func (m *TableManager) getTopTable(p *gplayer.Player, canSwitch bool) *Table {
-	var best, old *Table
-	if canSwitch {
-		old = m.GetTable(p.GetTableID())
-	}
+func (m *TableManager) getTopTable(p *gplayer.Player, isSwitchTable bool) *Table {
+
+	var best *Table
+	var oldTableID = p.GetTableID()
+
 	for _, t := range m.tableList {
-		if t == nil || t == old {
+		if t == nil {
 			continue
 		}
 		if t.IsFull() {
 			continue
 		}
-		if t == old {
+		if !t.CanEnter(p) {
+			continue
+		}
+		if isSwitchTable && t.ID == oldTableID {
 			continue
 		}
 		if best != nil && t.GetSitCnt() <= best.GetSitCnt() {
@@ -87,9 +128,12 @@ func (m *TableManager) getTopTable(p *gplayer.Player, canSwitch bool) *Table {
 		}
 		best = t
 	}
+
 	if best == nil {
 		log.Warn("无可用桌子，玩家ID: %d", p.GetPlayerID())
+		return nil
 	}
+
 	return best
 }
 
@@ -105,8 +149,15 @@ func (m *TableManager) CanEnterRoom(p *gplayer.Player, in *v1.LoginReq) (err *er
 	}
 
 	// room limit
-	money := p.GetMoney()
 	c := m.repo.GetRoomConfig().Game
+	if err = checkRoomLimit(p, c); err != nil {
+		return err
+	}
+	return nil
+}
+
+func checkRoomLimit(p *gplayer.Player, c *conf.Room_Game) (err *errors.Error) {
+	money := p.GetMoney()
 	if money < c.MinMoney {
 		return model.ErrMoneyBelowMinLimit
 	}

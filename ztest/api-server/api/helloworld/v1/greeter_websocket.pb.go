@@ -28,7 +28,7 @@ type GreeterWebsocketServer interface {
 	OnLoginReq(context.Context, *LoginReq) (*LoginRsp, error)
 	OnLogoutReq(context.Context, *LogoutReq) (*LogoutRsp, error)
 	OnReadyReq(context.Context, *ReadyReq) (*ReadyRsp, error)
-	OnSwitchChairReq(context.Context, *SwitchChairReq) (*SwitchChairRsp, error)
+	OnSwitchTableReq(context.Context, *SwitchTableReq) (*SwitchTableRsp, error)
 	OnSceneReq(context.Context, *SceneReq) (*SceneRsp, error)
 	OnChatReq(context.Context, *ChatReq) (*ChatRsp, error)
 	OnHostingReq(context.Context, *HostingReq) (*HostingRsp, error)
@@ -180,14 +180,14 @@ func _Greeter_OnReadyReq_Websocket_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Greeter_OnSwitchChairReq_Websocket_Handler(srv interface{}, ctx context.Context, data []byte, interceptor websocket.UnaryServerInterceptor) ([]byte, error) {
-	in := new(SwitchChairReq)
+func _Greeter_OnSwitchTableReq_Websocket_Handler(srv interface{}, ctx context.Context, data []byte, interceptor websocket.UnaryServerInterceptor) ([]byte, error) {
+	in := new(SwitchTableReq)
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *SwitchChairReq) ([]byte, error) {
+	doFunc := func(ctx context.Context, req *SwitchTableReq) ([]byte, error) {
 		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterWebsocketServer).OnSwitchChairReq(ctx, req)
+			resp, err := srv.(GreeterWebsocketServer).OnSwitchTableReq(ctx, req)
 			if err != nil || resp == nil {
 				return nil, err
 			}
@@ -203,12 +203,12 @@ func _Greeter_OnSwitchChairReq_Websocket_Handler(srv interface{}, ctx context.Co
 	}
 	info := &websocket.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/helloworld.v1.Greeter/OnSwitchChairReq",
+		FullMethod: "/helloworld.v1.Greeter/OnSwitchTableReq",
 	}
 	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
-		r, ok := req.(*SwitchChairReq)
+		r, ok := req.(*SwitchTableReq)
 		if !ok {
-			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *SwitchChairReq, Not: %T", req)
+			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *SwitchTableReq, Not: %T", req)
 		}
 		return doFunc(ctx, r)
 	}
@@ -415,8 +415,8 @@ var Greeter_Websocket_ServiceDesc = websocket.ServiceDesc{
 			Ops:        1005,
 		},
 		{
-			MethodName: "OnSwitchChairReq",
-			Handler:    _Greeter_OnSwitchChairReq_Websocket_Handler,
+			MethodName: "OnSwitchTableReq",
+			Handler:    _Greeter_OnSwitchTableReq_Websocket_Handler,
 			Ops:        1007,
 		},
 		{

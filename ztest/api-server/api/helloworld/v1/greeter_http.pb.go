@@ -27,7 +27,7 @@ const OperationGreeterOnLoginReq = "/helloworld.v1.Greeter/OnLoginReq"
 const OperationGreeterOnLogoutReq = "/helloworld.v1.Greeter/OnLogoutReq"
 const OperationGreeterOnReadyReq = "/helloworld.v1.Greeter/OnReadyReq"
 const OperationGreeterOnSceneReq = "/helloworld.v1.Greeter/OnSceneReq"
-const OperationGreeterOnSwitchChairReq = "/helloworld.v1.Greeter/OnSwitchChairReq"
+const OperationGreeterOnSwitchTableReq = "/helloworld.v1.Greeter/OnSwitchTableReq"
 const OperationGreeterSayHelloReq = "/helloworld.v1.Greeter/SayHelloReq"
 
 type GreeterHTTPServer interface {
@@ -40,7 +40,7 @@ type GreeterHTTPServer interface {
 	OnLogoutReq(context.Context, *LogoutReq) (*LogoutRsp, error)
 	OnReadyReq(context.Context, *ReadyReq) (*ReadyRsp, error)
 	OnSceneReq(context.Context, *SceneReq) (*SceneRsp, error)
-	OnSwitchChairReq(context.Context, *SwitchChairReq) (*SwitchChairRsp, error)
+	OnSwitchTableReq(context.Context, *SwitchTableReq) (*SwitchTableRsp, error)
 	// SayHelloReq Sends a greeting
 	SayHelloReq(context.Context, *HelloRequest) (*HelloReply, error)
 }
@@ -51,7 +51,7 @@ func RegisterGreeterHTTPServer(s *http.Server, srv GreeterHTTPServer) {
 	r.POST("/greeter/OnLoginReq", _Greeter_OnLoginReq0_HTTP_Handler(srv))
 	r.POST("/greeter/OnLogoutReq", _Greeter_OnLogoutReq0_HTTP_Handler(srv))
 	r.POST("/greeter/OnReadyReq", _Greeter_OnReadyReq0_HTTP_Handler(srv))
-	r.POST("/greeter/OnSwitchChairReq", _Greeter_OnSwitchChairReq0_HTTP_Handler(srv))
+	r.POST("/greeter/OnSwitchTableReq", _Greeter_OnSwitchTableReq0_HTTP_Handler(srv))
 	r.POST("/greeter/OnSceneReq", _Greeter_OnSceneReq0_HTTP_Handler(srv))
 	r.POST("/greeter/OnChatOrFaceReq", _Greeter_OnChatReq0_HTTP_Handler(srv))
 	r.POST("/greeter/OnHostingReq", _Greeter_OnHostingReq0_HTTP_Handler(srv))
@@ -147,24 +147,24 @@ func _Greeter_OnReadyReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Cont
 	}
 }
 
-func _Greeter_OnSwitchChairReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Context) error {
+func _Greeter_OnSwitchTableReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
-		var in SwitchChairReq
+		var in SwitchTableReq
 		if err := ctx.Bind(&in); err != nil {
 			return err
 		}
 		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
-		http.SetOperation(ctx, OperationGreeterOnSwitchChairReq)
+		http.SetOperation(ctx, OperationGreeterOnSwitchTableReq)
 		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
-			return srv.OnSwitchChairReq(ctx, req.(*SwitchChairReq))
+			return srv.OnSwitchTableReq(ctx, req.(*SwitchTableReq))
 		})
 		out, err := h(ctx, &in)
 		if err != nil {
 			return err
 		}
-		reply := out.(*SwitchChairRsp)
+		reply := out.(*SwitchTableRsp)
 		return ctx.Result(200, reply)
 	}
 }
@@ -288,7 +288,7 @@ type GreeterHTTPClient interface {
 	OnLogoutReq(ctx context.Context, req *LogoutReq, opts ...http.CallOption) (rsp *LogoutRsp, err error)
 	OnReadyReq(ctx context.Context, req *ReadyReq, opts ...http.CallOption) (rsp *ReadyRsp, err error)
 	OnSceneReq(ctx context.Context, req *SceneReq, opts ...http.CallOption) (rsp *SceneRsp, err error)
-	OnSwitchChairReq(ctx context.Context, req *SwitchChairReq, opts ...http.CallOption) (rsp *SwitchChairRsp, err error)
+	OnSwitchTableReq(ctx context.Context, req *SwitchTableReq, opts ...http.CallOption) (rsp *SwitchTableRsp, err error)
 	SayHelloReq(ctx context.Context, req *HelloRequest, opts ...http.CallOption) (rsp *HelloReply, err error)
 }
 
@@ -404,11 +404,11 @@ func (c *GreeterHTTPClientImpl) OnSceneReq(ctx context.Context, in *SceneReq, op
 	return &out, nil
 }
 
-func (c *GreeterHTTPClientImpl) OnSwitchChairReq(ctx context.Context, in *SwitchChairReq, opts ...http.CallOption) (*SwitchChairRsp, error) {
-	var out SwitchChairRsp
-	pattern := "/greeter/OnSwitchChairReq"
+func (c *GreeterHTTPClientImpl) OnSwitchTableReq(ctx context.Context, in *SwitchTableReq, opts ...http.CallOption) (*SwitchTableRsp, error) {
+	var out SwitchTableRsp
+	pattern := "/greeter/OnSwitchTableReq"
 	path := binding.EncodeURL(pattern, in, false)
-	opts = append(opts, http.Operation(OperationGreeterOnSwitchChairReq))
+	opts = append(opts, http.Operation(OperationGreeterOnSwitchTableReq))
 	opts = append(opts, http.PathTemplate(pattern))
 	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
 	if err != nil {

@@ -221,9 +221,25 @@ func (t *Table) GetPlayerByChair(chair int32) *gplayer.Player {
 }
 
 func (t *Table) CanEnter(p *gplayer.Player) bool {
-	return false
+	return true
 }
 
 func (t *Table) CanExit(p *gplayer.Player) bool {
-	return false
+	if p == nil {
+		return false
+	}
+	if p.IsGaming() {
+		return false
+	}
+	return true
+}
+
+func (t *Table) CanSwitchTable(p *gplayer.Player) bool {
+	if p == nil {
+		return false
+	}
+	if p.IsGaming() {
+		return false
+	}
+	return true
 }

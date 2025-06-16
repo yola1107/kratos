@@ -21,8 +21,8 @@ enum GameCommand {
     OnLogoutRsp      = 1004;
     OnReadyReq       = 1005;  //准备
     OnReadyRsp       = 1006;
-    OnSwitchChairReq = 1007;  //换位
-    OnSwitchChairRsp = 1008;
+    OnSwitchTableReq = 1007;  //换桌
+    OnSwitchTableRsp = 1008;
     OnSceneReq       = 1009;  //场景信息
     OnSceneRsp       = 1010;
     OnChatReq        = 1011;  //聊天
@@ -31,8 +31,6 @@ enum GameCommand {
     OnHostingRsp     = 1014;
     OnForwardReq     = 1015;  //转发
     OnForwardRsp     = 1016;
-    OnSwitchTableReq = 1017;  //换桌
-    OnSwitchTableRsp = 1018;
 
     // game request
     OnActionReq = 1101;  //玩家动作
@@ -93,10 +91,9 @@ service Greeter {
             body: "*"
         };
     }
-
-    rpc OnSwitchChairReq(SwitchChairReq) returns (SwitchChairRsp) {
+    rpc OnSwitchTableReq(SwitchTableReq) returns (SwitchTableRsp) {
         option (google.api.http) = {
-            post: "/greeter/OnSwitchChairReq"
+            post: "/greeter/OnSwitchTableReq"
             body: "*"
         };
     }
@@ -124,6 +121,7 @@ service Greeter {
             body: "*"
         };
     }
+
 
     // game request
     rpc OnActionReq(ActionReq) returns (ActionRsp) {
@@ -183,16 +181,16 @@ message ReadyRsp {
     bool isReady = 2;
 }
 
-// 换位
-message SwitchChairReq {
+// 换桌
+message SwitchTableReq {
     int64 userID  = 1;
     int32 chairId = 2;
 }
 
-message SwitchChairRsp {
-    int32 code    = 1;
-    int64 userID  = 2;
-    int32 chairId = 3;
+message SwitchTableRsp {
+   int32  code=1;
+   string msg =2;
+   int64 userID=3;
 }
 
 // 聊天/表情

@@ -20,4 +20,8 @@ var (
 	ErrSessionNotFound     = errors.New(11, "", "session not found")
 	ErrPlayerNotFound      = errors.New(12, "", "player not found")
 	ErrTableNotFound       = errors.New(13, "", "table not found")
+	ErrSwitchTable         = errors.New(14, "", "switch table error")
+	ErrNotEnoughTable      = errors.New(15, "", "not enough table")
+	ErrExitTable           = errors.New(16, "", "exit table err")
+	ErrEnterTable          = errors.New(17, "", "enter table err")
 )

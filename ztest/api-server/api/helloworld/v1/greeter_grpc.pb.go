@@ -23,7 +23,7 @@ const (
 	Greeter_OnLoginReq_FullMethodName       = "/helloworld.v1.Greeter/OnLoginReq"
 	Greeter_OnLogoutReq_FullMethodName      = "/helloworld.v1.Greeter/OnLogoutReq"
 	Greeter_OnReadyReq_FullMethodName       = "/helloworld.v1.Greeter/OnReadyReq"
-	Greeter_OnSwitchChairReq_FullMethodName = "/helloworld.v1.Greeter/OnSwitchChairReq"
+	Greeter_OnSwitchTableReq_FullMethodName = "/helloworld.v1.Greeter/OnSwitchTableReq"
 	Greeter_OnSceneReq_FullMethodName       = "/helloworld.v1.Greeter/OnSceneReq"
 	Greeter_OnChatReq_FullMethodName        = "/helloworld.v1.Greeter/OnChatReq"
 	Greeter_OnHostingReq_FullMethodName     = "/helloworld.v1.Greeter/OnHostingReq"
@@ -42,7 +42,7 @@ type GreeterClient interface {
 	OnLoginReq(ctx context.Context, in *LoginReq, opts ...grpc.CallOption) (*LoginRsp, error)
 	OnLogoutReq(ctx context.Context, in *LogoutReq, opts ...grpc.CallOption) (*LogoutRsp, error)
 	OnReadyReq(ctx context.Context, in *ReadyReq, opts ...grpc.CallOption) (*ReadyRsp, error)
-	OnSwitchChairReq(ctx context.Context, in *SwitchChairReq, opts ...grpc.CallOption) (*SwitchChairRsp, error)
+	OnSwitchTableReq(ctx context.Context, in *SwitchTableReq, opts ...grpc.CallOption) (*SwitchTableRsp, error)
 	OnSceneReq(ctx context.Context, in *SceneReq, opts ...grpc.CallOption) (*SceneRsp, error)
 	OnChatReq(ctx context.Context, in *ChatReq, opts ...grpc.CallOption) (*ChatRsp, error)
 	OnHostingReq(ctx context.Context, in *HostingReq, opts ...grpc.CallOption) (*HostingRsp, error)
@@ -99,10 +99,10 @@ func (c *greeterClient) OnReadyReq(ctx context.Context, in *ReadyReq, opts ...gr
 	return out, nil
 }
 
-func (c *greeterClient) OnSwitchChairReq(ctx context.Context, in *SwitchChairReq, opts ...grpc.CallOption) (*SwitchChairRsp, error) {
+func (c *greeterClient) OnSwitchTableReq(ctx context.Context, in *SwitchTableReq, opts ...grpc.CallOption) (*SwitchTableRsp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(SwitchChairRsp)
-	err := c.cc.Invoke(ctx, Greeter_OnSwitchChairReq_FullMethodName, in, out, cOpts...)
+	out := new(SwitchTableRsp)
+	err := c.cc.Invoke(ctx, Greeter_OnSwitchTableReq_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +170,7 @@ type GreeterServer interface {
 	OnLoginReq(context.Context, *LoginReq) (*LoginRsp, error)
 	OnLogoutReq(context.Context, *LogoutReq) (*LogoutRsp, error)
 	OnReadyReq(context.Context, *ReadyReq) (*ReadyRsp, error)
-	OnSwitchChairReq(context.Context, *SwitchChairReq) (*SwitchChairRsp, error)
+	OnSwitchTableReq(context.Context, *SwitchTableReq) (*SwitchTableRsp, error)
 	OnSceneReq(context.Context, *SceneReq) (*SceneRsp, error)
 	OnChatReq(context.Context, *ChatReq) (*ChatRsp, error)
 	OnHostingReq(context.Context, *HostingReq) (*HostingRsp, error)
@@ -199,8 +199,8 @@ func (UnimplementedGreeterServer) OnLogoutReq(context.Context, *LogoutReq) (*Log
 func (UnimplementedGreeterServer) OnReadyReq(context.Context, *ReadyReq) (*ReadyRsp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method OnReadyReq not implemented")
 }
-func (UnimplementedGreeterServer) OnSwitchChairReq(context.Context, *SwitchChairReq) (*SwitchChairRsp, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method OnSwitchChairReq not implemented")
+func (UnimplementedGreeterServer) OnSwitchTableReq(context.Context, *SwitchTableReq) (*SwitchTableRsp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method OnSwitchTableReq not implemented")
 }
 func (UnimplementedGreeterServer) OnSceneReq(context.Context, *SceneReq) (*SceneRsp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method OnSceneReq not implemented")
@@ -310,20 +310,20 @@ func _Greeter_OnReadyReq_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Greeter_OnSwitchChairReq_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SwitchChairReq)
+func _Greeter_OnSwitchTableReq_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SwitchTableReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GreeterServer).OnSwitchChairReq(ctx, in)
+		return srv.(GreeterServer).OnSwitchTableReq(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Greeter_OnSwitchChairReq_FullMethodName,
+		FullMethod: Greeter_OnSwitchTableReq_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GreeterServer).OnSwitchChairReq(ctx, req.(*SwitchChairReq))
+		return srv.(GreeterServer).OnSwitchTableReq(ctx, req.(*SwitchTableReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -442,8 +442,8 @@ var Greeter_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Greeter_OnReadyReq_Handler,
 		},
 		{
-			MethodName: "OnSwitchChairReq",
-			Handler:    _Greeter_OnSwitchChairReq_Handler,
+			MethodName: "OnSwitchTableReq",
+			Handler:    _Greeter_OnSwitchTableReq_Handler,
 		},
 		{
 			MethodName: "OnSceneReq",
