@@ -52,46 +52,39 @@ func (m *TableManager) GetTable(id int32) *Table {
 	return m.tableMap[id]
 }
 
-func (m *TableManager) OnSwitchTable(p *gplayer.Player) (rsp *v1.SwitchTableRsp) {
-	err := m.switchTable(p)
-	if err != nil {
-		return &v1.SwitchTableRsp{
-			Code:   err.Code,
-			Msg:    err.Message,
-			UserID: p.GetPlayerID(),
-		}
-	}
-	return &v1.SwitchTableRsp{}
-}
-
-func (m *TableManager) switchTable(p *gplayer.Player) (err *errors.Error) {
+func (m *TableManager) OnSwitchTable(p *gplayer.Player) (ok bool) {
 	if p == nil {
-		return model.ErrPlayerNotFound
+		return false
 	}
 
 	oldTable := m.tableMap[p.GetTableID()]
 	if oldTable == nil {
-		return model.ErrTableNotFound
+		return
 	}
 
 	if !oldTable.CanSwitchTable(p) {
-		return model.ErrSwitchTable
+		oldTable.SendSwitchTableRsp(p, model.ErrSwitchTable)
+		return
 	}
 
 	newTable := m.getTopTable(p, true)
 	if newTable == nil {
-		return model.ErrNotEnoughTable
+		oldTable.SendSwitchTableRsp(p, model.ErrNotEnoughTable)
+		return
 	}
 
 	if !oldTable.ThrowOff(p) {
-		return model.ErrExitTable
+		oldTable.SendSwitchTableRsp(p, model.ErrExitTable)
+		return
 	}
 
 	if !newTable.ThrowInto(p) {
-		return model.ErrEnterTable
+		newTable.SendSwitchTableRsp(p, model.ErrEnterTable)
+		return
 	}
-
-	return nil
+	// 推送换桌成功消息
+	newTable.SendSwitchTableRsp(p, nil)
+	return true
 }
 
 func (m *TableManager) ThrowInto(p *gplayer.Player) bool {
