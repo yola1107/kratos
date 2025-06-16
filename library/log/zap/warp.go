@@ -38,13 +38,13 @@ var (
 	}
 )
 
-type zapWarp struct {
+type zapWrap struct {
 	log     *zap.Logger
 	level   zap.AtomicLevel
 	closers []io.Closer
 }
 
-func (w *zapWarp) close() error {
+func (w *zapWrap) close() error {
 	_ = w.log.Sync()
 	for _, closer := range w.closers {
 		_ = closer.Close()
@@ -52,7 +52,7 @@ func (w *zapWarp) close() error {
 	return nil
 }
 
-func newZapWarp(c *conf.Logger, alert *Alert) *zapWarp {
+func newZapWrap(c *conf.Logger, alert *Alert) *zapWrap {
 	level := zap.NewAtomicLevel()
 	if err := level.UnmarshalText([]byte(c.Level)); err != nil {
 		panic(fmt.Errorf("invalid log level: %s", c.Level))
@@ -83,7 +83,7 @@ func newZapWarp(c *conf.Logger, alert *Alert) *zapWarp {
 		}),
 	}
 
-	return &zapWarp{
+	return &zapWrap{
 		log:     zap.New(zapcore.NewTee(cores...), opts...),
 		level:   level,
 		closers: getClosers(c, alert),

@@ -20,15 +20,15 @@ func wireLogger(c *conf.Bootstrap) *Logger {
 	telegram := provideTelegramConf(c)
 	zapTelegram := NewTelegram(telegram)
 	alert := NewAlert(alerter, zapTelegram)
-	zapZapWarp := newZapWarp(logger, alert)
-	zapLogger := initLogger(logger, zapZapWarp)
+	zapZapWrap := newZapWrap(logger, alert)
+	zapLogger := initLogger(logger, zapZapWrap)
 	return zapLogger
 }
 
 // wire.go:
 
 // serviceSet provides build set for logger
-var serviceSet = wire.NewSet(NewTelegram, NewAlert, newZapWarp, initLogger, wire.Bind(new(Sender), new(*Telegram)))
+var serviceSet = wire.NewSet(NewTelegram, NewAlert, newZapWrap, initLogger, wire.Bind(new(Sender), new(*Telegram)))
 
 // providerSet provides configuration from *conf.Builder.
 var providerSet = wire.NewSet(provideLoggerConf, provideTelegramConf, provideAlerterConf)

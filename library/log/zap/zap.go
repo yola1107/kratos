@@ -20,7 +20,7 @@ const (
 )
 
 type Logger struct {
-	warp       *zapWarp
+	wrap       *zapWrap
 	sensitives map[string]struct{}
 	mu         sync.RWMutex
 }
@@ -32,9 +32,9 @@ func NewLogger(c *conf.Bootstrap) *Logger {
 	return wireLogger(c)
 }
 
-func initLogger(c *conf.Logger, warp *zapWarp) *Logger {
+func initLogger(c *conf.Logger, wrap *zapWrap) *Logger {
 	l := &Logger{
-		warp:       warp,
+		wrap:       wrap,
 		sensitives: make(map[string]struct{}),
 	}
 	l.SetSensitive(c.Sensitive)
@@ -46,7 +46,7 @@ func initLogger(c *conf.Logger, warp *zapWarp) *Logger {
 func (l *Logger) Log(level log.Level, keyvals ...any) error {
 	// If logging at this level is completely disabled, skip the overhead of
 	// string formatting.
-	if zapcore.Level(level) < zapcore.DPanicLevel && !l.warp.log.Core().Enabled(zapcore.Level(level)) {
+	if zapcore.Level(level) < zapcore.DPanicLevel && !l.wrap.log.Core().Enabled(zapcore.Level(level)) {
 		return nil
 	}
 
@@ -56,7 +56,7 @@ func (l *Logger) Log(level log.Level, keyvals ...any) error {
 	)
 
 	if keylen == 0 || keylen%2 != 0 {
-		l.warp.log.Warn(fmt.Sprint("Keyvalues must appear in pairs: ", keyvals))
+		l.wrap.log.Warn(fmt.Sprint("Keyvalues must appear in pairs: ", keyvals))
 		return nil
 	}
 
@@ -75,7 +75,7 @@ func (l *Logger) Log(level log.Level, keyvals ...any) error {
 
 	fields = l.filterSensitive(fields)
 
-	logger := l.warp.log.WithOptions(zap.AddCallerSkip(calculateSkip()))
+	logger := l.wrap.log.WithOptions(zap.AddCallerSkip(calculateSkip()))
 
 	switch level {
 	case log.LevelDebug:
@@ -93,26 +93,26 @@ func (l *Logger) Log(level log.Level, keyvals ...any) error {
 }
 
 func (l *Logger) Close() error {
-	defer l.warp.log.Info("logger closed successfully")
-	return l.warp.close()
+	defer l.wrap.log.Info("logger closed successfully")
+	return l.wrap.close()
 }
 
 func (l *Logger) GetZap() *zap.Logger {
-	return l.warp.log
+	return l.wrap.log
 }
 
 func (l *Logger) GetLevel() string {
-	return l.warp.level.String()
+	return l.wrap.level.String()
 }
 
 func (l *Logger) SetLevel(level string) {
-	if err := l.warp.level.UnmarshalText([]byte(level)); err != nil {
-		l.warp.log.Info("invalid log level",
+	if err := l.wrap.level.UnmarshalText([]byte(level)); err != nil {
+		l.wrap.log.Info("invalid log level",
 			zap.String("level", level),
 			zap.Error(err))
 		return
 	}
-	l.warp.log.Info("log level updated", zap.String("level", level))
+	l.wrap.log.Info("log level updated", zap.String("level", level))
 }
 
 func (l *Logger) GetSensitive() []string {
