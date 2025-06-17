@@ -22,17 +22,16 @@ func (uc *Usecase) reconnect(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp
 	if session == nil {
 		return nil, model.ErrSessionNotFound
 	}
+
 	uc.ws.Post(func() {
 		p := uc.pm.GetByID(in.UserID)
 		if p == nil {
 			return
 		}
-		t := uc.tm.GetTable(p.GetTableID())
-		if t == nil {
-			return
+		if t := uc.tm.GetTable(p.GetTableID()); t != nil {
+			p.UpdateSession(session)
+			t.ReEnter(p)
 		}
-		p.UpdateSession(session)
-		t.ReEnter(p)
 	})
 	return &v1.LoginRsp{}, nil
 }
@@ -42,35 +41,36 @@ func (uc *Usecase) enterRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp
 	if session == nil {
 		return nil, model.ErrSessionNotFound
 	}
+
 	p, err := uc.createPlayer(&player.Raw{
 		ID:      in.UserID,
 		IP:      session.GetRemoteIP(),
 		Session: session,
 	})
-	if p == nil {
-		log.Warnf("loginRoom. UserID(%+v) err=%v", in.UserID, err)
+	if err != nil || p == nil {
+		log.Warnf("loginRoom. UserID(%d) err=%v", in.UserID, err)
 		return nil, err
 	}
-	// 条件限制
+
 	if err := uc.tm.CanEnterRoom(p, in.Token, uc.rc.Game); err != nil {
-		log.Warnf("loginRoom. UserID(%+v) err=%v", in.UserID, err)
-		uc.LogoutGame(p, err.Code, err.Message) // 释放玩家
+		log.Warnf("CanEnterRoom failed. UserID(%d) err=%v", in.UserID, err)
+		uc.LogoutGame(p, err.Code, err.Message)
 		return nil, err
 	}
+
 	uc.ws.Post(func() {
-		if !uc.tm.ThrowInto(p) {
-			log.Errorf("ThrowInto failed. pid:%d", in.UserID)
+		if ok := uc.tm.ThrowInto(p); !ok {
+			log.Errorf("ThrowInto failed. UserID(%d)", in.UserID)
 			uc.LogoutGame(p, 0, "throw into table failed")
-			return
 		}
 	})
+
 	return &v1.LoginRsp{}, nil
 }
 
-func (uc *Usecase) OnSwitchTableReq(rs *SwapperInfo) {
-	ret := uc.tm.SwitchTable(rs.Player, uc.rc.Game)
-	// 推送换桌消息
-	rs.Player.SendSwitchTableRsp(ret)
+func (uc *Usecase) OnSwitchTableReq(info *SwapperInfo) {
+	result := uc.tm.SwitchTable(info.Player, uc.rc.Game)
+	info.Player.SendSwitchTableRsp(result)
 }
 
 func (uc *Usecase) createPlayer(raw *player.Raw) (*player.Player, error) {
@@ -79,6 +79,7 @@ func (uc *Usecase) createPlayer(raw *player.Raw) (*player.Player, error) {
 		return nil, err
 	}
 	raw.Base = base
+
 	p := player.New(raw)
 	uc.pm.Add(p)
 	return p, nil
@@ -96,7 +97,7 @@ func (uc *Usecase) LogoutGame(p *player.Player, code int32, msg string) {
 		defer ext.RecoverFromError(nil)
 
 		if err := uc.SavePlayer(context.Background(), p); err != nil {
-			log.Errorf("LogoutGame. err=%v", err)
+			log.Errorf("SavePlayer failed on logout. UserID(%d) err=%v", p.GetPlayerID(), err)
 		}
 	}()
 }

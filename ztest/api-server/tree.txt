@@ -1,0 +1,121 @@
+
+|   Makefile
+|   openapi.yaml
+|   tree.txt
+|   
++---api
+|   \---helloworld
+|       \---v1
+|               greeter.pb.go
+|               greeter.proto
+|               greeter_grpc.pb.go
+|               greeter_http.pb.go
+|               greeter_tcp.pb.go
+|               greeter_websocket.pb.go
+|               
++---cmd
+|       main.go
+|       wire.go
+|       wire_gen.go
+|       
++---configs
+|       config.yaml
+|       
++---internal
+|   +---base
+|   |       function.go
+|   |       
+|   +---biz
+|   |   |   biz.go
+|   |   |   handler.go
+|   |   |   swapper.go
+|   |   |   
+|   |   +---calc
+|   |   |       calc.go
+|   |   |       
+|   |   +---player
+|   |   |       base.go
+|   |   |       game.go
+|   |   |       manager.go
+|   |   |       player.go
+|   |   |       repository.go
+|   |   |       
+|   |   \---table
+|   |           card.go
+|   |           handler.go
+|   |           logger.go
+|   |           logic.go
+|   |           push.go
+|   |           repository.go
+|   |           table.go
+|   |           tablemgr.go
+|   |           
+|   +---conf
+|   |       conf.go
+|   |       conf.pb.go
+|   |       conf.pb.validate.go
+|   |       conf.proto
+|   |       const.go
+|   |       define.go
+|   |       
+|   +---data
+|   |       data.go
+|   |       greeter.go
+|   |       player.go
+|   |       
+|   +---model
+|   |       codes.go
+|   |       filelog.go
+|   |       model.go
+|   |       redis.go
+|   |       z_test.go
+|   |       
+|   +---server
+|   |       grpc.go
+|   |       http.go
+|   |       server.go
+|   |       websocket.go
+|   |       
+|   \---service
+|           handler.go
+|           service.go
+|           
+\---third_party
+    |   README.md
+    |   
+    +---errors
+    |       errors.proto
+    |       
+    +---google
+    |   +---api
+    |   |       annotations.proto
+    |   |       client.proto
+    |   |       field_behavior.proto
+    |   |       http.proto
+    |   |       httpbody.proto
+    |   |       
+    |   \---protobuf
+    |       |   any.proto
+    |       |   api.proto
+    |       |   descriptor.proto
+    |       |   duration.proto
+    |       |   empty.proto
+    |       |   field_mask.proto
+    |       |   source_context.proto
+    |       |   struct.proto
+    |       |   timestamp.proto
+    |       |   type.proto
+    |       |   wrappers.proto
+    |       |   
+    |       \---compiler
+    |               plugin.proto
+    |               
+    +---openapi
+    |   \---v3
+    |           annotations.proto
+    |           openapi.proto
+    |           
+    \---validate
+            README.md
+            validate.proto
+            

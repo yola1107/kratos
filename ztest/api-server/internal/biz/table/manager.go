@@ -17,7 +17,7 @@ func NewManager(c *conf.Room, event ITableRepo) *Manager {
 	tc := c.Table
 	mgr := &Manager{
 		tableList: make([]*Table, tc.TableNum),
-		tableMap:  make(map[int32]*Table),
+		tableMap:  make(map[int32]*Table, tc.TableNum),
 	}
 	for i := int32(1); i <= tc.TableNum; i++ {
 		tb := NewTable(i, conf.Normal, c, event)
@@ -27,16 +27,18 @@ func NewManager(c *conf.Room, event ITableRepo) *Manager {
 	return mgr
 }
 
+// GetTable 根据桌子ID获取桌子
 func (m *Manager) GetTable(id int32) *Table {
 	return m.tableMap[id]
 }
 
-func (m *Manager) SwitchTable(p *player.Player, c *conf.Room_Game) (err *errors.Error) {
+// SwitchTable 玩家请求换桌
+func (m *Manager) SwitchTable(p *player.Player, gameConf *conf.Room_Game) *errors.Error {
 	if p == nil {
 		return model.ErrPlayerNotFound
 	}
 
-	if err := checkRoomLimit(p, c); err != nil {
+	if err := checkRoomLimit(p, gameConf); err != nil {
 		return err
 	}
 
@@ -49,7 +51,7 @@ func (m *Manager) SwitchTable(p *player.Player, c *conf.Room_Game) (err *errors.
 		return model.ErrSwitchTable
 	}
 
-	newTable := m.getTopTable(p, true)
+	newTable := m.selectBestTable(p, true)
 	if newTable == nil {
 		return model.ErrNotEnoughTable
 	}
@@ -65,35 +67,33 @@ func (m *Manager) SwitchTable(p *player.Player, c *conf.Room_Game) (err *errors.
 	return nil
 }
 
+// ThrowInto 尝试将玩家放入合适桌子
 func (m *Manager) ThrowInto(p *player.Player) bool {
 	if p == nil {
 		return false
 	}
-	best := m.getTopTable(p, false)
-	if best == nil {
+
+	bestTable := m.selectBestTable(p, false)
+	if bestTable == nil {
 		return false
 	}
-	return best.ThrowInto(p)
+
+	return bestTable.ThrowInto(p)
 }
 
-func (m *Manager) getTopTable(p *player.Player, isSwitchTable bool) *Table {
-
+// selectBestTable 获取最合适的桌子，isSwitch表示是否为换桌请求
+func (m *Manager) selectBestTable(p *player.Player, isSwitch bool) *Table {
 	var best *Table
-	var oldTableID = p.GetTableID()
+	oldTableID := p.GetTableID()
 
 	for _, t := range m.tableList {
-		if t == nil {
+		if t == nil || t.IsFull() || !t.CanEnter(p) {
 			continue
 		}
-		if t.IsFull() {
+		if isSwitch && t.ID == oldTableID {
 			continue
 		}
-		if !t.CanEnter(p) {
-			continue
-		}
-		if isSwitchTable && t.ID == oldTableID {
-			continue
-		}
+		// 选座人数多的桌子（有玩家的桌子优先）
 		if best != nil && t.GetSitCnt() <= best.GetSitCnt() {
 			continue
 		}
@@ -101,44 +101,40 @@ func (m *Manager) getTopTable(p *player.Player, isSwitchTable bool) *Table {
 	}
 
 	if best == nil {
-		log.Warn("无可用桌子，玩家ID: %d", p.GetPlayerID())
-		return nil
+		log.Warnf("No available table found for player ID: %d", p.GetPlayerID())
 	}
 
 	return best
 }
 
-// CanEnterRoom 检查是否能进房
-func (m *Manager) CanEnterRoom(p *player.Player, token string, c *conf.Room_Game) (err *errors.Error) {
+// CanEnterRoom 判断玩家是否满足进入房间条件
+func (m *Manager) CanEnterRoom(p *player.Player, token string, gameConf *conf.Room_Game) *errors.Error {
 	if p == nil {
 		return model.ErrPlayerNotFound
 	}
 
-	// 校验token
 	if token == "" {
 		return model.ErrTokenFail
 	}
 
-	// room limit
-	if err = checkRoomLimit(p, c); err != nil {
-		return err
-	}
-	return nil
+	return checkRoomLimit(p, gameConf)
 }
 
-func checkRoomLimit(p *player.Player, c *conf.Room_Game) (err *errors.Error) {
+// checkRoomLimit 校验玩家的金币、VIP等级是否符合房间限制
+func checkRoomLimit(p *player.Player, gameConf *conf.Room_Game) *errors.Error {
 	money := p.GetMoney()
 	vip := p.GetVipGrade()
-	if money < c.MinMoney {
+
+	if money < gameConf.MinMoney {
 		return model.ErrMoneyBelowMinLimit
 	}
-	if money > c.MaxMoney && c.MaxMoney != -1 {
+	if gameConf.MaxMoney != -1 && money > gameConf.MaxMoney {
 		return model.ErrMoneyOverMaxLimit
 	}
-	if money < c.BaseMoney {
+	if money < gameConf.BaseMoney {
 		return model.ErrMoneyBelowBaseLimit
 	}
-	if vip < c.VipLimit {
+	if vip < gameConf.VipLimit {
 		return model.ErrVipLimit
 	}
 	return nil

@@ -24,7 +24,7 @@ type Table struct {
 	totalBet float64          // 桌子总投注
 	mLog     *Log             // 桌子日志
 	seats    []*player.Player // 玩家列表
-	cards    *model.GameCards // card信息
+	cards    *GameCards       // card信息
 }
 
 func NewTable(id int32, typ conf.TableType, c *conf.Room, repo ITableRepo) *Table {
@@ -42,7 +42,7 @@ func NewTable(id int32, typ conf.TableType, c *conf.Room, repo ITableRepo) *Tabl
 		totalBet: 0,
 		mLog:     &Log{},
 		seats:    make([]*player.Player, c.Table.ChairNum),
-		cards:    &model.GameCards{},
+		cards:    &GameCards{},
 	}
 	t.cards.Init()
 	t.mLog.init(id, c.LogCache)
