@@ -116,8 +116,9 @@ func (t *Table) ThrowOff(p *player.Player, isSwitchTable bool) bool {
 	}
 
 	isFind := false
-	if p.GetChairID() >= 0 {
-		if p == t.seats[p.GetChairID()] {
+	chair := p.GetChairID()
+	if chair >= 0 && chair < int32(t.MaxCnt) {
+		if p == t.seats[chair] {
 			isFind = true
 		}
 	}
@@ -154,11 +155,11 @@ func (t *Table) ReEnter(p *player.Player) {
 	// 发送场景信息
 	t.SendSceneInfo(p)
 
-	p.SetOffline(false)
+	p.SetOffline(false) // 是否需要广播状态？
 
 	t.broadcastUserOffline(p)
 
-	t.mLog.userEnter(p, t.sitCnt)
+	t.mLog.userReEnter(p, t.sitCnt)
 	log.Infof("ReEnterTable. p:%+v sitCnt:%d", p.Desc(), t.sitCnt)
 }
 

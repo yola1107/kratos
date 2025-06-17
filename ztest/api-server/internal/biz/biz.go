@@ -49,7 +49,7 @@ func NewUsecase(repo DataRepo, logger log.Logger, c *conf.Room) (*Usecase, func(
 	uc.ws = work.NewWorkStore(ctx, defaultPendingNum)
 
 	cleanup := func() {
-		log.NewHelper(logger).Info("closing the Room resources")
+		log.Info("closing the Room resources")
 		cancel()
 		// 	uc.pm.Close()
 		// 	uc.tm.Close()

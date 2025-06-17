@@ -82,7 +82,10 @@ func (p *Player) SetIP(ip string) {
 
 }
 func (p *Player) GetIP() string {
-	return ""
+	if p.session == nil {
+		return ""
+	}
+	return p.session.GetRemoteIP()
 }
 
 // func (p *Player) SaveBaseDataToDB() {

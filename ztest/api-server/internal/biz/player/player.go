@@ -9,25 +9,27 @@ import (
 )
 
 type Player struct {
+	isRobot  bool
 	session  *websocket.Session
 	gameData *GameData
 	baseData *BaseData // 私有，不暴露
 }
 
 type Raw struct {
-	ID      int64
-	IP      string
-	Session *websocket.Session
-	Base    *BaseData
+	ID       int64
+	IsRobot  bool
+	Session  *websocket.Session
+	BaseData *BaseData
 }
 
 func New(raw *Raw) *Player {
 	p := &Player{
+		isRobot:  raw.IsRobot,
 		session:  raw.Session,
 		gameData: &GameData{},
-		baseData: raw.Base,
+		baseData: raw.BaseData,
 	}
-	p.SetIP(raw.IP)
+	// p.SetIP(raw.IP)
 	p.UpdateSession(raw.Session)
 
 	return p
@@ -38,8 +40,7 @@ func (p *Player) GetBaseData() *BaseData {
 }
 
 func (p *Player) IsRobot() bool {
-	// return p.PlayerBase.IsRobot
-	return false
+	return p.isRobot
 }
 
 func (p *Player) GetSessionID() string {
@@ -64,11 +65,10 @@ func (p *Player) push(cmd v1.GameCommand, msg proto.Message) {
 	if p.IsRobot() {
 		return
 	}
-	session := p.GetSession()
-	if session == nil {
+	if p.session == nil {
 		return
 	}
-	if err := session.Push(int32(cmd), msg); err != nil {
+	if err := p.session.Push(int32(cmd), msg); err != nil {
 		log.Warnf("send packet to client error: %v", err)
 	}
 }

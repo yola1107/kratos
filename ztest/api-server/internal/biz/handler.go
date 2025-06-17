@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/yola1107/kratos/v2/library/ext"
-	"github.com/yola1107/kratos/v2/log"
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/model"
@@ -42,25 +41,25 @@ func (uc *Usecase) enterRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp
 		return nil, model.ErrSessionNotFound
 	}
 
-	p, err := uc.createPlayer(&player.Raw{
+	raw := &player.Raw{
 		ID:      in.UserID,
-		IP:      session.GetRemoteIP(),
 		Session: session,
-	})
-	if err != nil || p == nil {
-		log.Warnf("loginRoom. UserID(%d) err=%v", in.UserID, err)
+	}
+	p, err := uc.createPlayer(raw)
+	if err != nil {
+		uc.log.Warnf("createPlayer failed: %v", err)
 		return nil, err
 	}
 
 	if err := uc.tm.CanEnterRoom(p, in.Token, uc.rc.Game); err != nil {
-		log.Warnf("CanEnterRoom failed. UserID(%d) err=%v", in.UserID, err)
+		uc.log.Warnf("canEnterRoom failed for user %d: %v", in.UserID, err)
 		uc.LogoutGame(p, err.Code, err.Message)
 		return nil, err
 	}
 
 	uc.ws.Post(func() {
 		if ok := uc.tm.ThrowInto(p); !ok {
-			log.Errorf("ThrowInto failed. UserID(%d)", in.UserID)
+			uc.log.Errorf("ThrowInto failed. UserID(%d)", in.UserID)
 			uc.LogoutGame(p, 0, "throw into table failed")
 		}
 	})
@@ -78,7 +77,7 @@ func (uc *Usecase) createPlayer(raw *player.Raw) (*player.Player, error) {
 	if err != nil || base == nil {
 		return nil, err
 	}
-	raw.Base = base
+	raw.BaseData = base
 
 	p := player.New(raw)
 	uc.pm.Add(p)
@@ -97,7 +96,7 @@ func (uc *Usecase) LogoutGame(p *player.Player, code int32, msg string) {
 		defer ext.RecoverFromError(nil)
 
 		if err := uc.SavePlayer(context.Background(), p); err != nil {
-			log.Errorf("SavePlayer failed on logout. UserID(%d) err=%v", p.GetPlayerID(), err)
+			uc.log.Errorf("SavePlayer failed on logout. UserID(%d) err=%v", p.GetPlayerID(), err)
 		}
 	}()
 }

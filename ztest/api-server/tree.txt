@@ -45,10 +45,10 @@
 |   |           handler.go
 |   |           logger.go
 |   |           logic.go
+|   |           manager.go
 |   |           push.go
 |   |           repository.go
 |   |           table.go
-|   |           tablemgr.go
 |   |           
 |   +---conf
 |   |       conf.go
