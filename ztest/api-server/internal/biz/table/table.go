@@ -13,7 +13,7 @@ type Table struct {
 	MaxCnt   int16          // 最大玩家数
 	isClosed bool           // 是否停服
 	stage    *Stage         // 阶段状态
-	repo     ITableRepo
+	repo     ITableRepo     //
 
 	// 游戏逻辑变量
 	sitCnt   int16            // 入座玩家数量
@@ -111,19 +111,12 @@ func (t *Table) ThrowOff(p *player.Player, isSwitchTable bool) bool {
 		return false
 	}
 
-	if !t.CanExit(p) {
+	chair := p.GetChairID()
+	if p1 := t.GetPlayerByChair(chair); p1 != p {
 		return false
 	}
 
-	isFind := false
-	chair := p.GetChairID()
-	if chair >= 0 && chair < int32(t.MaxCnt) {
-		if p == t.seats[chair] {
-			isFind = true
-		}
-	}
-
-	if !isFind {
+	if !t.CanExit(p) {
 		return false
 	}
 
@@ -134,13 +127,11 @@ func (t *Table) ThrowOff(p *player.Player, isSwitchTable bool) bool {
 	t.broadcastUserQuitPush(p, isSwitchTable)
 
 	// 重置玩家信息
-	p.Reset()
-	p.SetChairID(-1)
-	p.SetTableID(-1)
+	p.ExitReset()
 
 	// 上报桌子/玩家位置 todo
-	t.mLog.userExit(p, t.sitCnt, isSwitchTable)
-	log.Infof("ExitTable. p:%+v sitCnt:%d isSwitch:%+v", p.Desc(), t.sitCnt, isSwitchTable)
+	t.mLog.userExit(p, t.sitCnt, chair, isSwitchTable)
+	log.Infof("ExitTable. p:%+v sitCnt:%d lastChair:%d isSwitch:%+v", p.Desc(), t.sitCnt, chair, isSwitchTable)
 	return true
 }
 
@@ -161,6 +152,24 @@ func (t *Table) ReEnter(p *player.Player) {
 
 	t.mLog.userReEnter(p, t.sitCnt)
 	log.Infof("ReEnterTable. p:%+v sitCnt:%d", p.Desc(), t.sitCnt)
+}
+
+func (t *Table) CanEnter(p *player.Player) bool {
+	return true
+}
+
+func (t *Table) CanExit(p *player.Player) bool {
+	return !p.IsGaming()
+}
+
+func (t *Table) CanSwitchTable(p *player.Player) bool {
+	if p == nil {
+		return false
+	}
+	if p.IsGaming() {
+		return false
+	}
+	return true
 }
 
 // LastPlayer 上一家
@@ -228,22 +237,4 @@ func (t *Table) GetPlayerByChair(chair int32) *player.Player {
 		return nil
 	}
 	return t.seats[chair]
-}
-
-func (t *Table) CanEnter(p *player.Player) bool {
-	return true
-}
-
-func (t *Table) CanExit(p *player.Player) bool {
-	return !p.IsGaming()
-}
-
-func (t *Table) CanSwitchTable(p *player.Player) bool {
-	if p == nil {
-		return false
-	}
-	if p.IsGaming() {
-		return false
-	}
-	return true
 }

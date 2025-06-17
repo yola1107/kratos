@@ -29,9 +29,6 @@ func New(raw *Raw) *Player {
 		gameData: &GameData{},
 		baseData: raw.BaseData,
 	}
-	// p.SetIP(raw.IP)
-	p.UpdateSession(raw.Session)
-
 	return p
 }
 
@@ -58,6 +55,22 @@ func (p *Player) UpdateSession(session *websocket.Session) {
 	p.session = session
 }
 
+func (p *Player) GetIP() string {
+	if p.session == nil {
+		return ""
+	}
+	return p.session.GetRemoteIP()
+}
+
+func (p *Player) LogoutGame(code int32, msg string) {
+	// 通知客户端退出
+	p.SendLogout(code, msg)
+	// clear
+	p.session = nil
+	p.gameData = nil
+	p.baseData = nil
+}
+
 func (p *Player) push(cmd v1.GameCommand, msg proto.Message) {
 	if p == nil {
 		return
@@ -82,6 +95,17 @@ func (p *Player) SendSwitchTableRsp(e *errors.Error) {
 		code, msg = e.Code, e.Message
 	}
 	p.push(v1.GameCommand_OnSwitchTableRsp, &v1.SwitchTableRsp{
+		Code:   code,
+		Msg:    msg,
+		UserID: p.GetPlayerID(),
+	})
+}
+
+func (p *Player) SendLogout(code int32, msg string) {
+	if p == nil {
+		return
+	}
+	p.push(v1.GameCommand_OnLogoutRsp, &v1.SwitchTableRsp{
 		Code:   code,
 		Msg:    msg,
 		UserID: p.GetPlayerID(),

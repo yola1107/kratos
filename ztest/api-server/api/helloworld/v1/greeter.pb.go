@@ -46,8 +46,10 @@ const (
 	GameCommand_OnForwardReq     GameCommand = 1015 //转发
 	GameCommand_OnForwardRsp     GameCommand = 1016
 	// game request
-	GameCommand_OnActionReq GameCommand = 1101 //玩家动作
-	GameCommand_OnActionRsp GameCommand = 1102
+	GameCommand_OnActionReq   GameCommand = 1101 //玩家动作
+	GameCommand_OnActionRsp   GameCommand = 1102
+	GameCommand_OnAutoCallReq GameCommand = 1103 //自动跟注
+	GameCommand_OnAutoCallRsp GameCommand = 1104
 	// push
 	GameCommand_OnUserInfoPush    GameCommand = 2001 //玩家信息
 	GameCommand_OnEmojiConfigPush GameCommand = 2002 //表情道具配置
@@ -86,6 +88,8 @@ var (
 		1016: "OnForwardRsp",
 		1101: "OnActionReq",
 		1102: "OnActionRsp",
+		1103: "OnAutoCallReq",
+		1104: "OnAutoCallRsp",
 		2001: "OnUserInfoPush",
 		2002: "OnEmojiConfigPush",
 		2003: "OnPlayerQuitPush",
@@ -119,6 +123,8 @@ var (
 		"OnForwardRsp":      1016,
 		"OnActionReq":       1101,
 		"OnActionRsp":       1102,
+		"OnAutoCallReq":     1103,
+		"OnAutoCallRsp":     1104,
 		"OnUserInfoPush":    2001,
 		"OnEmojiConfigPush": 2002,
 		"OnPlayerQuitPush":  2003,
@@ -2036,6 +2042,110 @@ func (x *ActionRsp) GetCards() *CardsInfo {
 	return nil
 }
 
+type AutoCallReq struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserID        int64                  `protobuf:"varint,1,opt,name=userID,proto3" json:"userID,omitempty"`     //用户ID
+	AutoCall      bool                   `protobuf:"varint,2,opt,name=autoCall,proto3" json:"autoCall,omitempty"` //是否自动跟注
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AutoCallReq) Reset() {
+	*x = AutoCallReq{}
+	mi := &file_helloworld_v1_greeter_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AutoCallReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AutoCallReq) ProtoMessage() {}
+
+func (x *AutoCallReq) ProtoReflect() protoreflect.Message {
+	mi := &file_helloworld_v1_greeter_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AutoCallReq.ProtoReflect.Descriptor instead.
+func (*AutoCallReq) Descriptor() ([]byte, []int) {
+	return file_helloworld_v1_greeter_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *AutoCallReq) GetUserID() int64 {
+	if x != nil {
+		return x.UserID
+	}
+	return 0
+}
+
+func (x *AutoCallReq) GetAutoCall() bool {
+	if x != nil {
+		return x.AutoCall
+	}
+	return false
+}
+
+type AutoCallRsp struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserID        int64                  `protobuf:"varint,1,opt,name=userID,proto3" json:"userID,omitempty"`     //用户ID
+	AutoCall      bool                   `protobuf:"varint,2,opt,name=autoCall,proto3" json:"autoCall,omitempty"` //是否自动跟注
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AutoCallRsp) Reset() {
+	*x = AutoCallRsp{}
+	mi := &file_helloworld_v1_greeter_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AutoCallRsp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AutoCallRsp) ProtoMessage() {}
+
+func (x *AutoCallRsp) ProtoReflect() protoreflect.Message {
+	mi := &file_helloworld_v1_greeter_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AutoCallRsp.ProtoReflect.Descriptor instead.
+func (*AutoCallRsp) Descriptor() ([]byte, []int) {
+	return file_helloworld_v1_greeter_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *AutoCallRsp) GetUserID() int64 {
+	if x != nil {
+		return x.UserID
+	}
+	return 0
+}
+
+func (x *AutoCallRsp) GetAutoCall() bool {
+	if x != nil {
+		return x.AutoCall
+	}
+	return false
+}
+
 var File_helloworld_v1_greeter_proto protoreflect.FileDescriptor
 
 const file_helloworld_v1_greeter_proto_rawDesc = "" +
@@ -2176,7 +2286,13 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x16\n" +
 	"\x06userID\x18\x03 \x01(\x03R\x06userID\x12-\n" +
 	"\x06action\x18\x04 \x01(\x0e2\x15.helloworld.v1.ActionR\x06action\x12.\n" +
-	"\x05cards\x18\f \x01(\v2\x18.helloworld.v1.CardsInfoR\x05cards*\xdb\x04\n" +
+	"\x05cards\x18\f \x01(\v2\x18.helloworld.v1.CardsInfoR\x05cards\"A\n" +
+	"\vAutoCallReq\x12\x16\n" +
+	"\x06userID\x18\x01 \x01(\x03R\x06userID\x12\x1a\n" +
+	"\bautoCall\x18\x02 \x01(\bR\bautoCall\"A\n" +
+	"\vAutoCallRsp\x12\x16\n" +
+	"\x06userID\x18\x01 \x01(\x03R\x06userID\x12\x1a\n" +
+	"\bautoCall\x18\x02 \x01(\bR\bautoCall*\x83\x05\n" +
 	"\vGameCommand\x12\v\n" +
 	"\aNothing\x10\x00\x12\x0f\n" +
 	"\vSayHelloReq\x10\x01\x12\x0f\n" +
@@ -2204,7 +2320,9 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	"\fOnForwardReq\x10\xf7\a\x12\x11\n" +
 	"\fOnForwardRsp\x10\xf8\a\x12\x10\n" +
 	"\vOnActionReq\x10\xcd\b\x12\x10\n" +
-	"\vOnActionRsp\x10\xce\b\x12\x13\n" +
+	"\vOnActionRsp\x10\xce\b\x12\x12\n" +
+	"\rOnAutoCallReq\x10\xcf\b\x12\x12\n" +
+	"\rOnAutoCallRsp\x10\xd0\b\x12\x13\n" +
 	"\x0eOnUserInfoPush\x10\xd1\x0f\x12\x16\n" +
 	"\x11OnEmojiConfigPush\x10\xd2\x0f\x12\x15\n" +
 	"\x10OnPlayerQuitPush\x10\xd3\x0f\x12\x16\n" +
@@ -2225,7 +2343,7 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	"\aCOMPARE\x10\x06\x12\t\n" +
 	"\x05SIDER\x10\a\x12\x0f\n" +
 	"\vSIDER_REPLY\x10\b\x12\b\n" +
-	"\x04SHOW\x10\t2\xfe\a\n" +
+	"\x04SHOW\x10\t2\xea\b\n" +
 	"\aGreeter\x12a\n" +
 	"\vSayHelloReq\x12\x1b.helloworld.v1.HelloRequest\x1a\x19.helloworld.v1.HelloReply\"\x1a\x82\xd3\xe4\x93\x02\x14\x12\x12/helloworld/{name}\x12^\n" +
 	"\n" +
@@ -2239,7 +2357,8 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	"\tOnChatReq\x12\x16.helloworld.v1.ChatReq\x1a\x16.helloworld.v1.ChatRsp\"#\x82\xd3\xe4\x93\x02\x1d:\x01*\"\x18/greeter/OnChatOrFaceReq\x12f\n" +
 	"\fOnHostingReq\x12\x19.helloworld.v1.HostingReq\x1a\x19.helloworld.v1.HostingRsp\" \x82\xd3\xe4\x93\x02\x1a:\x01*\"\x15/greeter/OnHostingReq\x12f\n" +
 	"\fOnForwardReq\x12\x19.helloworld.v1.ForwardReq\x1a\x19.helloworld.v1.ForwardRsp\" \x82\xd3\xe4\x93\x02\x1a:\x01*\"\x15/greeter/OnForwardReq\x12b\n" +
-	"\vOnActionReq\x12\x18.helloworld.v1.ActionReq\x1a\x18.helloworld.v1.ActionRsp\"\x1f\x82\xd3\xe4\x93\x02\x19:\x01*\"\x14/greeter/OnActionReqBT\n" +
+	"\vOnActionReq\x12\x18.helloworld.v1.ActionReq\x1a\x18.helloworld.v1.ActionRsp\"\x1f\x82\xd3\xe4\x93\x02\x19:\x01*\"\x14/greeter/OnActionReq\x12j\n" +
+	"\rOnAutoCallReq\x12\x1a.helloworld.v1.AutoCallReq\x1a\x1a.helloworld.v1.AutoCallRsp\"!\x82\xd3\xe4\x93\x02\x1b:\x01*\"\x16/greeter/OnAutoCallReqBT\n" +
 	"\x1cdev.kratos.api.helloworld.v1B\x11HelloworldProtoV1P\x01Z\x1fapi-server/api/helloworld/v1;v1b\x06proto3"
 
 var (
@@ -2255,7 +2374,7 @@ func file_helloworld_v1_greeter_proto_rawDescGZIP() []byte {
 }
 
 var file_helloworld_v1_greeter_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_helloworld_v1_greeter_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
+var file_helloworld_v1_greeter_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
 var file_helloworld_v1_greeter_proto_goTypes = []any{
 	(GameCommand)(0),        // 0: helloworld.v1.GameCommand
 	(Action)(0),             // 1: helloworld.v1.Action
@@ -2287,6 +2406,8 @@ var file_helloworld_v1_greeter_proto_goTypes = []any{
 	(*ActivePush)(nil),      // 27: helloworld.v1.ActivePush
 	(*ActionReq)(nil),       // 28: helloworld.v1.ActionReq
 	(*ActionRsp)(nil),       // 29: helloworld.v1.ActionRsp
+	(*AutoCallReq)(nil),     // 30: helloworld.v1.AutoCallReq
+	(*AutoCallRsp)(nil),     // 31: helloworld.v1.AutoCallRsp
 }
 var file_helloworld_v1_greeter_proto_depIdxs = []int32{
 	21, // 0: helloworld.v1.SceneRsp.players:type_name -> helloworld.v1.PlayerScene
@@ -2307,18 +2428,20 @@ var file_helloworld_v1_greeter_proto_depIdxs = []int32{
 	16, // 15: helloworld.v1.Greeter.OnHostingReq:input_type -> helloworld.v1.HostingReq
 	14, // 16: helloworld.v1.Greeter.OnForwardReq:input_type -> helloworld.v1.ForwardReq
 	28, // 17: helloworld.v1.Greeter.OnActionReq:input_type -> helloworld.v1.ActionReq
-	3,  // 18: helloworld.v1.Greeter.SayHelloReq:output_type -> helloworld.v1.HelloReply
-	5,  // 19: helloworld.v1.Greeter.OnLoginReq:output_type -> helloworld.v1.LoginRsp
-	7,  // 20: helloworld.v1.Greeter.OnLogoutReq:output_type -> helloworld.v1.LogoutRsp
-	9,  // 21: helloworld.v1.Greeter.OnReadyReq:output_type -> helloworld.v1.ReadyRsp
-	11, // 22: helloworld.v1.Greeter.OnSwitchTableReq:output_type -> helloworld.v1.SwitchTableRsp
-	20, // 23: helloworld.v1.Greeter.OnSceneReq:output_type -> helloworld.v1.SceneRsp
-	13, // 24: helloworld.v1.Greeter.OnChatReq:output_type -> helloworld.v1.ChatRsp
-	17, // 25: helloworld.v1.Greeter.OnHostingReq:output_type -> helloworld.v1.HostingRsp
-	15, // 26: helloworld.v1.Greeter.OnForwardReq:output_type -> helloworld.v1.ForwardRsp
-	29, // 27: helloworld.v1.Greeter.OnActionReq:output_type -> helloworld.v1.ActionRsp
-	18, // [18:28] is the sub-list for method output_type
-	8,  // [8:18] is the sub-list for method input_type
+	30, // 18: helloworld.v1.Greeter.OnAutoCallReq:input_type -> helloworld.v1.AutoCallReq
+	3,  // 19: helloworld.v1.Greeter.SayHelloReq:output_type -> helloworld.v1.HelloReply
+	5,  // 20: helloworld.v1.Greeter.OnLoginReq:output_type -> helloworld.v1.LoginRsp
+	7,  // 21: helloworld.v1.Greeter.OnLogoutReq:output_type -> helloworld.v1.LogoutRsp
+	9,  // 22: helloworld.v1.Greeter.OnReadyReq:output_type -> helloworld.v1.ReadyRsp
+	11, // 23: helloworld.v1.Greeter.OnSwitchTableReq:output_type -> helloworld.v1.SwitchTableRsp
+	20, // 24: helloworld.v1.Greeter.OnSceneReq:output_type -> helloworld.v1.SceneRsp
+	13, // 25: helloworld.v1.Greeter.OnChatReq:output_type -> helloworld.v1.ChatRsp
+	17, // 26: helloworld.v1.Greeter.OnHostingReq:output_type -> helloworld.v1.HostingRsp
+	15, // 27: helloworld.v1.Greeter.OnForwardReq:output_type -> helloworld.v1.ForwardRsp
+	29, // 28: helloworld.v1.Greeter.OnActionReq:output_type -> helloworld.v1.ActionRsp
+	31, // 29: helloworld.v1.Greeter.OnAutoCallReq:output_type -> helloworld.v1.AutoCallRsp
+	19, // [19:30] is the sub-list for method output_type
+	8,  // [8:19] is the sub-list for method input_type
 	8,  // [8:8] is the sub-list for extension type_name
 	8,  // [8:8] is the sub-list for extension extendee
 	0,  // [0:8] is the sub-list for field type_name
@@ -2335,7 +2458,7 @@ func file_helloworld_v1_greeter_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_helloworld_v1_greeter_proto_rawDesc), len(file_helloworld_v1_greeter_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   28,
+			NumMessages:   30,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

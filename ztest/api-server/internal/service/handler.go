@@ -55,7 +55,7 @@ func (s *Service) OnReadyReq(ctx context.Context, in *v1.ReadyReq) (*v1.ReadyRsp
 	if rs.Error != nil {
 		return nil, rs.Error
 	}
-
+	rs.Table.OnReadyReq(rs.Player, in.IsReady)
 	return &v1.ReadyRsp{}, nil
 }
 
@@ -84,7 +84,7 @@ func (s *Service) OnChatReq(ctx context.Context, in *v1.ChatReq) (*v1.ChatRsp, e
 	if rs.Error != nil {
 		return nil, rs.Error
 	}
-
+	rs.Table.OnChatReq(rs.Player, in)
 	return &v1.ChatRsp{}, nil
 }
 
@@ -93,7 +93,7 @@ func (s *Service) OnHostingReq(ctx context.Context, in *v1.HostingReq) (*v1.Host
 	if rs.Error != nil {
 		return nil, rs.Error
 	}
-
+	rs.Table.OnHosting(rs.Player, in.IsHosting)
 	return &v1.HostingRsp{}, nil
 }
 
@@ -103,6 +103,25 @@ func (s *Service) OnForwardReq(ctx context.Context, in *v1.ForwardReq) (*v1.Forw
 		return nil, rs.Error
 	}
 
-	rs.Table.OnForwardReq(in.Type, in.Msg)
+	rs.Table.BroadcastForwardRsp(in.Type, in.Msg)
 	return &v1.ForwardRsp{}, nil
+}
+
+func (s *Service) OnActionReq(ctx context.Context, in *v1.ActionReq) (*v1.ActionRsp, error) {
+	rs := s.uc.Swapper(ctx)
+	if rs.Error != nil {
+		return nil, rs.Error
+	}
+	rs.Table.OnActionReq(rs.Player, in)
+	return &v1.ActionRsp{}, nil
+}
+
+func (s *Service) OnAutoCallReq(ctx context.Context, in *v1.AutoCallReq) (*v1.AutoCallRsp, error) {
+	rs := s.uc.Swapper(ctx)
+	if rs.Error != nil {
+		return nil, rs.Error
+	}
+
+	rs.Table.OnAutoCallReq(rs.Player, in.AutoCall)
+	return &v1.AutoCallRsp{}, nil
 }

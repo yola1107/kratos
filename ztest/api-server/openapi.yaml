@@ -26,6 +26,24 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/helloworld.v1.ActionRsp'
+    /greeter/OnAutoCallReq:
+        post:
+            tags:
+                - Greeter
+            operationId: Greeter_OnAutoCallReq
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/helloworld.v1.AutoCallReq'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/helloworld.v1.AutoCallRsp'
     /greeter/OnChatOrFaceReq:
         post:
             tags:
@@ -214,6 +232,20 @@ components:
                     format: enum
                 cards:
                     $ref: '#/components/schemas/helloworld.v1.CardsInfo'
+        helloworld.v1.AutoCallReq:
+            type: object
+            properties:
+                userID:
+                    type: string
+                autoCall:
+                    type: boolean
+        helloworld.v1.AutoCallRsp:
+            type: object
+            properties:
+                userID:
+                    type: string
+                autoCall:
+                    type: boolean
         helloworld.v1.CardsInfo:
             type: object
             properties:

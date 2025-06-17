@@ -3,6 +3,7 @@ package biz
 import (
 	"context"
 
+	"github.com/yola1107/kratos/v2/errors"
 	"github.com/yola1107/kratos/v2/library/ext"
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
@@ -59,8 +60,8 @@ func (uc *Usecase) enterRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp
 
 	uc.ws.Post(func() {
 		if ok := uc.tm.ThrowInto(p); !ok {
-			uc.log.Errorf("ThrowInto failed. UserID(%d)", in.UserID)
-			uc.LogoutGame(p, 0, "throw into table failed")
+			uc.log.Errorf("ThrowInto failed. UserID(%d) %v", in.UserID, model.ErrEnterTableFail)
+			uc.LogoutGame(p, model.ErrEnterTableFail.Code, "throw into table failed")
 		}
 	})
 
@@ -72,10 +73,13 @@ func (uc *Usecase) OnSwitchTableReq(info *SwapperInfo) {
 	info.Player.SendSwitchTableRsp(result)
 }
 
-func (uc *Usecase) createPlayer(raw *player.Raw) (*player.Player, error) {
-	base, err := uc.repo.Load(context.Background(), raw.ID)
-	if err != nil || base == nil {
-		return nil, err
+func (uc *Usecase) createPlayer(raw *player.Raw) (*player.Player, *errors.Error) {
+	// 获取数据库数据
+	base, err := uc.repo.LoadPlayer(context.Background(), raw.ID)
+	if err != nil {
+		e := model.ErrCreatePlayerFail
+		e.Reason = err.Error()
+		return nil, e
 	}
 	raw.BaseData = base
 
@@ -95,8 +99,13 @@ func (uc *Usecase) LogoutGame(p *player.Player, code int32, msg string) {
 	go func() {
 		defer ext.RecoverFromError(nil)
 
-		if err := uc.SavePlayer(context.Background(), p); err != nil {
-			uc.log.Errorf("SavePlayer failed on logout. UserID(%d) err=%v", p.GetPlayerID(), err)
+		// 数据入库
+		baseData := *(p.GetBaseData()) // 复制一份
+		if err := uc.repo.SavePlayer(context.Background(), &baseData); err != nil {
+			uc.log.Warnf("save player failed: %v", err)
 		}
+
+		// 通知并清理
+		p.LogoutGame(code, msg)
 	}()
 }

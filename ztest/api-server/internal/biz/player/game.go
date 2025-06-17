@@ -16,23 +16,22 @@ var (
 type Status int32
 
 type GameData struct {
-	IsReady      bool
+	TableID      int32      // 桌子ID
+	ChairID      int32      // 椅子ID
 	Status       Status     // 0 StFree 1 StSit 2 StReady 3 StGaming
 	isOffline    bool       // 是否离线
-	isHosting    bool       // 是否为托管状态
 	Bet          float64    // 投注
 	LastOp       int32      // 上一次操作
 	isSee        bool       // 是否看牌
-	cards        *cardsInfo //
-	PlayCount    int32      // 玩的回合数
-	SeeRound     int32      // 看牌回合数
-	StartMoney   float64    // 局数开始时的金币
-	IdleCount    int32      // 超时次数
-	CompareSeats []int      // 比牌椅子号
+	cards        *cardsInfo // 手牌
+	playCount    int32      // 玩的回合数
+	seeRound     int32      // 看牌回合数
+	startMoney   float64    // 局数开始时的金币
+	idleCount    int32      // 超时/托管次数
+	compareSeats []int      // 比牌椅子号
 	isAllCompare bool       // 是否参与所有比牌
 	isAutoCall   bool       // 是否自动跟注 0：未开启自动跟注 1：开启了自动跟注
 	isPaying     bool       // 支付中
-
 }
 
 type cardsInfo struct {
@@ -50,17 +49,31 @@ func (c *cardsInfo) OutCards(cards ...int32) {
 }
 
 func (p *Player) Reset() {
-	p.gameData.Bet = 0
 	p.gameData.Status = 0
+	p.gameData.isOffline = false
+	p.gameData.Bet = 0
 	p.gameData.LastOp = 0
 	p.gameData.isSee = false
 	p.gameData.cards = &cardsInfo{}
-	p.gameData.PlayCount = 0
-	p.gameData.SeeRound = 0
-	p.gameData.StartMoney = 0
+	p.gameData.playCount = 0
+	p.gameData.seeRound = 0
+	p.gameData.startMoney = 0
+	p.gameData.idleCount = 0
+	p.gameData.compareSeats = nil
 	p.gameData.isAllCompare = false
 	p.gameData.isAutoCall = false
 	p.gameData.isPaying = false
+}
+
+func (p *Player) ExitReset() {
+	p.Reset()
+	p.SetChairID(-1)
+	p.SetTableID(-1)
+	p.SetStatus(-1)
+
+	// 计算金币
+	// p.PlayerBase.GameHallData.SaveMoney(int64(p.chouMa.GetDeltaMoney()))
+	// p.chouMa.ResetDelta()
 }
 
 func (p *Player) Desc() string {
@@ -72,6 +85,23 @@ func (p *Player) Desc() string {
 		p.GetPlayerID(), p.GetChairID(), p.GetTableID(), p.GetMoney(), p.GetBet(), see)
 }
 
+func (p *Player) SetTableID(tableID int32) {
+	p.gameData.TableID = tableID
+}
+
+func (p *Player) GetTableID() (TableID int32) {
+	return p.gameData.TableID
+}
+
+func (p *Player) SetChairID(ChairID int32) {
+	p.gameData.ChairID = ChairID
+	return
+}
+
+func (p *Player) GetChairID() (ChairID int32) {
+	return p.gameData.ChairID
+}
+
 func (p *Player) SetStatus(status Status) {
 	p.gameData.Status = status
 }
@@ -80,12 +110,16 @@ func (p *Player) GetStatus() Status {
 	return p.gameData.Status
 }
 
-func (p *Player) SetHosting(hosting bool) {
-	p.gameData.isHosting = hosting
+func (p *Player) IncrIdleCount() {
+	p.gameData.idleCount++
 }
 
-func (p *Player) IsHosting() bool {
-	return p.gameData.isHosting
+func (p *Player) ClearIdleCount() {
+	p.gameData.idleCount = 0
+}
+
+func (p *Player) GetIdleCount() int32 {
+	return p.gameData.idleCount
 }
 
 func (p *Player) SetOffline(offline bool) {
@@ -152,7 +186,7 @@ func (p *Player) IntoGaming(bet float64) bool {
 	if !p.UseMoney(bet) {
 		return false
 	}
-	p.gameData.StartMoney = p.GetMoney()
+	p.gameData.startMoney = p.GetMoney()
 	p.gameData.Bet += bet
 	p.SetStatus(StGaming)
 	return true

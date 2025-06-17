@@ -113,7 +113,7 @@ func (t *Table) getScene(p *player.Player) *v1.PlayerScene {
 		UserID:     p.GetPlayerID(),
 		ChairId:    p.GetChairID(),
 		Status:     int32(p.GetStatus()),
-		Hosting:    p.IsHosting(),
+		Hosting:    p.GetIdleCount() > 0,
 		Offline:    p.IsOffline(),
 		LastOp:     p.GetLastOp(),
 		CurBet:     t.curBet, //

@@ -24,4 +24,5 @@ var (
 	ErrNotEnoughTable      = errors.New(15, "", "not enough table")
 	ErrExitTableFail       = errors.New(16, "", "exit table fail")
 	ErrEnterTableFail      = errors.New(17, "", "enter table Fail")
+	ErrCreatePlayerFail    = errors.New(18, "", "create player Fail")
 )

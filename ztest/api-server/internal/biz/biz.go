@@ -22,8 +22,8 @@ var defaultPendingNum = 10000
 
 // DataRepo is a data repo.
 type DataRepo interface {
-	Save(ctx context.Context, p *player.BaseData) error
-	Load(ctx context.Context, playerID int64) (*player.BaseData, error)
+	SavePlayer(ctx context.Context, p *player.BaseData) error
+	LoadPlayer(ctx context.Context, playerID int64) (*player.BaseData, error)
 }
 
 // Usecase is a Data usecase.
@@ -71,12 +71,4 @@ func (uc *Usecase) GetTimer() work.ITaskScheduler {
 // GetRoomConfig 获取房间配置
 func (uc *Usecase) GetRoomConfig() *conf.Room {
 	return uc.rc
-}
-
-func (uc *Usecase) SavePlayer(ctx context.Context, p *player.Player) error {
-	return uc.repo.Save(ctx, p.GetBaseData())
-}
-
-func (uc *Usecase) LoadPlayer(ctx context.Context, id int64) (*player.BaseData, error) {
-	return uc.repo.Load(ctx, id)
 }

@@ -45,8 +45,8 @@ func (l *Log) userReEnter(p *player.Player, sitCnt int16) {
 	l.write("[重进房间] 玩家:%+v 桌子人数(%+v) ", p.Desc(), sitCnt)
 }
 
-func (l *Log) userExit(p *player.Player, sitCnt int16, isSwitchTable bool) {
-	l.write("[离开房间] 玩家:%+v 桌子人数(%+v) 是否换桌(%+v) ", p.Desc(), sitCnt, isSwitchTable)
+func (l *Log) userExit(p *player.Player, sitCnt int16, lastChair int32, isSwitchTable bool) {
+	l.write("[离开房间] 玩家:%+v 桌子人数(%+v) lastChair(%d) 是否换桌(%+v) ", p.Desc(), sitCnt, lastChair, isSwitchTable)
 }
 
 func (l *Log) stage(old, new int32, active int) {

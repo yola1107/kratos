@@ -33,8 +33,10 @@ enum GameCommand {
     OnForwardRsp     = 1016;
 
     // game request
-    OnActionReq = 1101;  //玩家动作
-    OnActionRsp = 1102;
+    OnActionReq   = 1101;  //玩家动作
+    OnActionRsp   = 1102;
+    OnAutoCallReq = 1103;  //自动跟注
+    OnAutoCallRsp = 1104;
 
     // push
     OnUserInfoPush    = 2001;  //玩家信息
@@ -129,6 +131,12 @@ service Greeter {
             body: "*"
         };
     }
+    rpc OnAutoCallReq(AutoCallReq) returns (AutoCallRsp) {
+        option (google.api.http) = {
+            post: "/greeter/OnAutoCallReq"
+            body: "*"
+        };
+    }
 }
 
 // The request message containing the user's name.
@@ -200,7 +208,6 @@ message ChatReq {
     string msg   = 4;  //聊天信息
 }
 
-//
 message ChatRsp {
     int32 userID = 1;  //玩家ID
     int32 opType = 2;  //0表情 1快捷文字 2自定义文字
@@ -332,4 +339,15 @@ message ActionRsp {
     int64 userID    = 3;   //用户ID
     Action action   = 4;   //动作
     CardsInfo cards = 12;  //手牌
+}
+
+//
+message AutoCallReq {
+    int64 userID  = 1;  //用户ID
+    bool autoCall = 2;  //是否自动跟注
+}
+
+message AutoCallRsp {
+    int64 userID  = 1;  //用户ID
+    bool autoCall = 2;  //是否自动跟注
 }

@@ -38,7 +38,7 @@ func (m *Manager) SwitchTable(p *player.Player, gameConf *conf.Room_Game) *error
 		return model.ErrPlayerNotFound
 	}
 
-	if err := checkRoomLimit(p, gameConf); err != nil {
+	if err := CheckRoomLimit(p, gameConf); err != nil {
 		return err
 	}
 
@@ -117,11 +117,11 @@ func (m *Manager) CanEnterRoom(p *player.Player, token string, gameConf *conf.Ro
 		return model.ErrTokenFail
 	}
 
-	return checkRoomLimit(p, gameConf)
+	return CheckRoomLimit(p, gameConf)
 }
 
-// checkRoomLimit 校验玩家的金币、VIP等级是否符合房间限制
-func checkRoomLimit(p *player.Player, gameConf *conf.Room_Game) *errors.Error {
+// CheckRoomLimit 校验玩家的金币、VIP等级是否符合房间限制
+func CheckRoomLimit(p *player.Player, gameConf *conf.Room_Game) *errors.Error {
 	money := p.GetMoney()
 	vip := p.GetVipGrade()
 
