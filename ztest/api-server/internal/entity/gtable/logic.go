@@ -5,7 +5,7 @@ import (
 
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/gplayer"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/entity/gplayer"
 )
 
 /*
@@ -53,7 +53,7 @@ func (t *Table) calcRemainingTime() time.Duration {
 }
 
 func (t *Table) updateStage(s int32) {
-	timer := t.repo.GetTimer()
+	timer := t.event.GetTimer()
 	timer.Cancel(t.stage.timerID) // 取消当前阶段的定时任务
 
 	t.stage.prev = t.stage.state

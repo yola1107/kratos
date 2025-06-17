@@ -25,12 +25,12 @@ func wireApp(confServer *conf.Server, confData *conf.Data, room *conf.Room, logg
 		return nil, nil, err
 	}
 	dataRepo := data.NewDataRepo(dataData, logger)
-	dataUsecase := biz.NewDataUsecase(dataRepo, logger)
-	serviceService, cleanup2, err := service.NewService(dataUsecase, logger, room)
+	usecase, cleanup2, err := biz.NewUsecase(dataRepo, logger, room)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
+	serviceService := service.NewService(usecase, logger, room)
 	grpcServer := server.NewGRPCServer(confServer, serviceService, logger)
 	httpServer := server.NewHTTPServer(confServer, serviceService, logger)
 	websocketServer := server.NewWebsocketServer(confServer, serviceService, logger)

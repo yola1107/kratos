@@ -4,9 +4,9 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/entity/gplayer"
 
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/gplayer"
 )
 
 func (t *Table) SendPacketToClient(p *gplayer.Player, cmd v1.GameCommand, msg proto.Message) {
@@ -81,7 +81,7 @@ func (t *Table) sendUserInfoToAnother(src *gplayer.Player, dst *gplayer.Player) 
 
 // SendSceneInfo 发送游戏场景信息
 func (t *Table) SendSceneInfo(p *gplayer.Player) {
-	c := t.repo.GetRoomConfig()
+	c := t.event.GetRoomConfig()
 	rsp := &v1.SceneRsp{
 		BaseScore:    c.Game.BaseMoney,
 		ChLimit:      c.Game.ChLimit,

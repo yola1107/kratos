@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/entity/gplayer"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/model"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/gplayer"
 )
 
 const (

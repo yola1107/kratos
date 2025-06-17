@@ -3,38 +3,38 @@ package gtable
 import (
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
+	gplayer2 "github.com/yola1107/kratos/v2/ztest/api-server/internal/entity/gplayer"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/model"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/gplayer"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/iface"
 )
 
 type Table struct {
-	ID       int32           // 桌子ID
-	Type     conf.TableType  // 类型
-	MaxCnt   int16           // 最大玩家数
-	isClosed bool            // 是否停服
-	stage    *Stage          // 阶段状态
-	repo     iface.IRoomRepo // 定时任务
+	ID       int32          // 桌子ID
+	Type     conf.TableType // 类型
+	MaxCnt   int16          // 最大玩家数
+	isClosed bool           // 是否停服
+	stage    *Stage         // 阶段状态
+
+	event ITableEvent
 
 	// 游戏逻辑变量
-	sitCnt   int16             // 入座玩家数量
-	banker   int32             //
-	active   int32             // 当前操作玩家
-	curRound int32             // 当前回合轮数
-	curBet   float64           // 当前需投注
-	totalBet float64           // 桌子总投注
-	mLog     *TableLog         // 桌子日志
-	seats    []*gplayer.Player // 玩家列表
-	cards    *model.GameCards  // card信息
+	sitCnt   int16              // 入座玩家数量
+	banker   int32              //
+	active   int32              // 当前操作玩家
+	curRound int32              // 当前回合轮数
+	curBet   float64            // 当前需投注
+	totalBet float64            // 桌子总投注
+	mLog     *TableLog          // 桌子日志
+	seats    []*gplayer2.Player // 玩家列表
+	cards    *model.GameCards   // card信息
 }
 
-func NewTable(id int32, typ conf.TableType, c *conf.Room, repo iface.IRoomRepo) *Table {
+func NewTable(id int32, typ conf.TableType, c *conf.Room, e ITableEvent) *Table {
 	t := &Table{
 		ID:       id,
 		Type:     typ,
 		MaxCnt:   int16(c.Table.ChairNum),
 		stage:    &Stage{},
-		repo:     repo,
+		event:    e,
 		sitCnt:   0,
 		banker:   -1,
 		active:   -1,
@@ -42,7 +42,7 @@ func NewTable(id int32, typ conf.TableType, c *conf.Room, repo iface.IRoomRepo) 
 		curBet:   c.Game.BaseMoney,
 		totalBet: 0,
 		mLog:     &TableLog{},
-		seats:    make([]*gplayer.Player, c.Table.ChairNum),
+		seats:    make([]*gplayer2.Player, c.Table.ChairNum),
 		cards:    &model.GameCards{},
 	}
 	t.cards.Init()
@@ -67,7 +67,7 @@ func (t *Table) GetSitCnt() int32 {
 }
 
 // ThrowInto 入座
-func (t *Table) ThrowInto(p *gplayer.Player) bool {
+func (t *Table) ThrowInto(p *gplayer2.Player) bool {
 	for k, v := range t.seats {
 		if v != nil {
 			continue
@@ -81,7 +81,7 @@ func (t *Table) ThrowInto(p *gplayer.Player) bool {
 		p.Reset()
 		p.SetTableID(t.ID)
 		p.SetChairID(int32(k))
-		p.SetStatus(gplayer.StSit)
+		p.SetStatus(gplayer2.StSit)
 
 		// 通知客户端登录成功
 		t.SendLoginRsp(p, model.SUCCESS, "")
@@ -107,7 +107,7 @@ func (t *Table) ThrowInto(p *gplayer.Player) bool {
 }
 
 // ThrowOff 出座
-func (t *Table) ThrowOff(p *gplayer.Player, isSwitchTable bool) bool {
+func (t *Table) ThrowOff(p *gplayer2.Player, isSwitchTable bool) bool {
 	if p == nil {
 		return false
 	}
@@ -145,7 +145,7 @@ func (t *Table) ThrowOff(p *gplayer.Player, isSwitchTable bool) bool {
 }
 
 // ReEnter 重进游戏
-func (t *Table) ReEnter(p *gplayer.Player) {
+func (t *Table) ReEnter(p *gplayer2.Player) {
 	// 通知客户端登录成功
 	t.SendLoginRsp(p, model.SUCCESS, "ReEnter")
 
@@ -164,7 +164,7 @@ func (t *Table) ReEnter(p *gplayer.Player) {
 }
 
 // LastPlayer 上一家
-func (t *Table) LastPlayer(chair int32) *gplayer.Player {
+func (t *Table) LastPlayer(chair int32) *gplayer2.Player {
 	maxCnt := int32(t.MaxCnt)
 	for i := int32(0); i < maxCnt; i++ {
 		chair--
@@ -180,7 +180,7 @@ func (t *Table) LastPlayer(chair int32) *gplayer.Player {
 }
 
 // NextPlayer 轮流寻找玩家
-func (t *Table) NextPlayer(chair int32) *gplayer.Player {
+func (t *Table) NextPlayer(chair int32) *gplayer2.Player {
 	maxCnt := int32(t.MaxCnt)
 	for i := int32(0); i < maxCnt; i++ {
 		chair = (chair + 1) % maxCnt
@@ -194,7 +194,7 @@ func (t *Table) NextPlayer(chair int32) *gplayer.Player {
 }
 
 // RangePlayer 遍历玩家
-func (t *Table) RangePlayer(cb func(k int32, p *gplayer.Player) bool) {
+func (t *Table) RangePlayer(cb func(k int32, p *gplayer2.Player) bool) {
 	if cb == nil {
 		return
 	}
@@ -208,7 +208,7 @@ func (t *Table) RangePlayer(cb func(k int32, p *gplayer.Player) bool) {
 	}
 }
 
-func (t *Table) GetActivePlayer() *gplayer.Player {
+func (t *Table) GetActivePlayer() *gplayer2.Player {
 	active := t.active
 	if active < 0 || active >= int32(t.MaxCnt) {
 		return nil
@@ -216,29 +216,29 @@ func (t *Table) GetActivePlayer() *gplayer.Player {
 	return t.seats[active]
 }
 
-func (t *Table) GetNextActivePlayer() *gplayer.Player {
+func (t *Table) GetNextActivePlayer() *gplayer2.Player {
 	if t.active < 0 || t.active >= int32(t.MaxCnt) {
 		return nil
 	}
 	return t.NextPlayer(t.active)
 }
 
-func (t *Table) GetPlayerByChair(chair int32) *gplayer.Player {
+func (t *Table) GetPlayerByChair(chair int32) *gplayer2.Player {
 	if chair < 0 || chair >= int32(t.MaxCnt) {
 		return nil
 	}
 	return t.seats[chair]
 }
 
-func (t *Table) CanEnter(p *gplayer.Player) bool {
+func (t *Table) CanEnter(p *gplayer2.Player) bool {
 	return true
 }
 
-func (t *Table) CanExit(p *gplayer.Player) bool {
+func (t *Table) CanExit(p *gplayer2.Player) bool {
 	return !p.IsGaming()
 }
 
-func (t *Table) CanSwitchTable(p *gplayer.Player) bool {
+func (t *Table) CanSwitchTable(p *gplayer2.Player) bool {
 	if p == nil {
 		return false
 	}

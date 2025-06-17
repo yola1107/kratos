@@ -3,12 +3,27 @@ package service
 import (
 	"context"
 
+	"github.com/yola1107/kratos/v2/library/work"
 	"github.com/yola1107/kratos/v2/log"
+	"github.com/yola1107/kratos/v2/transport/websocket"
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/model"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/gplayer"
 )
+
+// GetLoop 获取任务池
+func (s *Service) GetLoop() work.ITaskLoop {
+	return s.uc.GetLoop()
+}
+
+// OnSessionOpen 连接建立回调
+func (s *Service) OnSessionOpen(sess *websocket.Session) {
+	log.Infof("OnOpenFunc: %q", sess.ID())
+}
+
+// OnSessionClose 连接关闭回调
+func (s *Service) OnSessionClose(sess *websocket.Session) {
+	log.Infof("OnCloseFunc: %q", sess.ID())
+}
 
 // SayHelloReq implements helloworld.GreeterServer.
 func (s *Service) SayHelloReq(ctx context.Context, in *v1.HelloRequest) (*v1.HelloReply, error) {
@@ -20,64 +35,14 @@ func (s *Service) SayHelloReq(ctx context.Context, in *v1.HelloRequest) (*v1.Hel
 }
 
 func (s *Service) OnLoginReq(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp, error) {
-	if s.pm.ExistPlayer(in.UserID) {
-		return s.reconnect(ctx, in)
-	}
-	return s.loginRoom(ctx, in)
-}
-
-func (s *Service) reconnect(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp, error) {
-	session := s.getSession(ctx)
-	if session == nil {
-		return nil, model.ErrSessionNotFound
-	}
-	s.ws.Post(func() {
-		p := s.pm.GetPlayerByID(in.UserID)
-		if p == nil {
-			return
-		}
-		t := s.tm.GetTable(p.GetTableID())
-		if t == nil {
-			return
-		}
-		p.UpdateSession(session)
-		t.ReEnter(p)
-	})
-	return &v1.LoginRsp{}, nil
-}
-
-func (s *Service) loginRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp, error) {
-	session := s.getSession(ctx)
-	if session == nil {
-		return nil, model.ErrSessionNotFound
-	}
-	p, err := s.pm.CreatePlayer(&gplayer.PlayerRaw{
-		ID:      in.UserID,
-		IP:      session.GetRemoteIP(),
-		Session: session,
-	})
-	if p == nil {
-		log.Warnf("loginRoom. UserID(%+v) err=%v", in.UserID, err)
+	if _, err := s.uc.OnLoginReq(ctx, in); err != nil {
 		return nil, err
 	}
-	// 条件限制
-	if err := s.tm.CanEnterRoom(p, in); err != nil {
-		log.Warnf("loginRoom. UserID(%+v) err=%v", in.UserID, err)
-		s.pm.LogoutGame(p, err.Code, err.Message) // 释放玩家
-		return nil, err
-	}
-	s.ws.Post(func() {
-		if !s.tm.ThrowInto(p) {
-			log.Errorf("ThrowInto failed. pid:%d", in.UserID)
-			s.pm.LogoutGame(p, 0, "throw into table failed")
-			return
-		}
-	})
 	return &v1.LoginRsp{}, nil
 }
 
 func (s *Service) OnLogoutReq(ctx context.Context, in *v1.LogoutReq) (*v1.LogoutRsp, error) {
-	rs := s.swapper(ctx)
+	rs := s.uc.Swapper(ctx)
 	if rs.Error != nil {
 		return nil, rs.Error
 	}
@@ -87,7 +52,7 @@ func (s *Service) OnLogoutReq(ctx context.Context, in *v1.LogoutReq) (*v1.Logout
 }
 
 func (s *Service) OnReadyReq(ctx context.Context, in *v1.ReadyReq) (*v1.ReadyRsp, error) {
-	rs := s.swapper(ctx)
+	rs := s.uc.Swapper(ctx)
 	if rs.Error != nil {
 		return nil, rs.Error
 	}
@@ -96,17 +61,17 @@ func (s *Service) OnReadyReq(ctx context.Context, in *v1.ReadyReq) (*v1.ReadyRsp
 }
 
 func (s *Service) OnSwitchTableReq(ctx context.Context, in *v1.SwitchTableReq) (*v1.SwitchTableRsp, error) {
-	rs := s.swapper(ctx)
+	rs := s.uc.Swapper(ctx)
 	if rs.Error != nil {
 		return nil, rs.Error
 	}
 
-	s.tm.SwitchTable(rs.Player)
+	s.uc.OnSwitchTableReq(rs)
 	return &v1.SwitchTableRsp{}, nil
 }
 
 func (s *Service) OnSceneReq(ctx context.Context, in *v1.SceneReq) (*v1.SceneRsp, error) {
-	rs := s.swapper(ctx)
+	rs := s.uc.Swapper(ctx)
 	if rs.Error != nil {
 		return nil, rs.Error
 	}
@@ -116,7 +81,7 @@ func (s *Service) OnSceneReq(ctx context.Context, in *v1.SceneReq) (*v1.SceneRsp
 }
 
 func (s *Service) OnChatReq(ctx context.Context, in *v1.ChatReq) (*v1.ChatRsp, error) {
-	rs := s.swapper(ctx)
+	rs := s.uc.Swapper(ctx)
 	if rs.Error != nil {
 		return nil, rs.Error
 	}
@@ -125,7 +90,7 @@ func (s *Service) OnChatReq(ctx context.Context, in *v1.ChatReq) (*v1.ChatRsp, e
 }
 
 func (s *Service) OnHostingReq(ctx context.Context, in *v1.HostingReq) (*v1.HostingRsp, error) {
-	rs := s.swapper(ctx)
+	rs := s.uc.Swapper(ctx)
 	if rs.Error != nil {
 		return nil, rs.Error
 	}
@@ -134,7 +99,7 @@ func (s *Service) OnHostingReq(ctx context.Context, in *v1.HostingReq) (*v1.Host
 }
 
 func (s *Service) OnForwardReq(ctx context.Context, in *v1.ForwardReq) (*v1.ForwardRsp, error) {
-	rs := s.swapper(ctx)
+	rs := s.uc.Swapper(ctx)
 	if rs.Error != nil {
 		return nil, rs.Error
 	}

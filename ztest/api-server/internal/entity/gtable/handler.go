@@ -1,7 +1,7 @@
 package gtable
 
 import (
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/room/gplayer"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/entity/gplayer"
 )
 
 func (t *Table) OnExitGame(p *gplayer.Player, code int32, msg string) bool {
