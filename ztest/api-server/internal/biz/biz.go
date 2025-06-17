@@ -7,30 +7,23 @@ import (
 	"github.com/google/wire"
 	"github.com/yola1107/kratos/v2/library/work"
 	"github.com/yola1107/kratos/v2/log"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/table"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/entity/gtable"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/entity/playermgr"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/entity/tablemgr"
 )
 
 // ProviderSet is biz providers.
 var ProviderSet = wire.NewSet(NewUsecase)
 
 // 实现ITableEvent等接口
-var _ gtable.ITableEvent = (*Usecase)(nil)
+var _ table.ITableRepo = (*Usecase)(nil)
 
 var defaultPendingNum = 10000
 
-// Greeter is a Greeter model.
-type Greeter struct {
-	Hello string
-}
-
 // DataRepo is a data repo.
 type DataRepo interface {
-	Save(context.Context, *Greeter) (*Greeter, error)
-	Update(context.Context, *Greeter) (*Greeter, error)
-	FindByID(context.Context, int64) (*Greeter, error)
+	Save(ctx context.Context, p *player.BaseData) error
+	Load(ctx context.Context, playerID int64) (*player.BaseData, error)
 }
 
 // Usecase is a Data usecase.
@@ -41,8 +34,8 @@ type Usecase struct {
 	// room
 	rc *conf.Room
 	ws work.IWorkStore
-	pm *playermgr.PlayerManager
-	tm *tablemgr.TableManager
+	pm *player.Manager
+	tm *table.Manager
 }
 
 // NewUsecase new a data usecase.
@@ -51,8 +44,8 @@ func NewUsecase(repo DataRepo, logger log.Logger, c *conf.Room) (*Usecase, func(
 
 	ctx, cancel := context.WithCancel(context.Background())
 	uc.rc = c
-	uc.tm = tablemgr.NewTableManager(c, uc)
-	uc.pm = playermgr.NewPlayerManager()
+	uc.tm = table.NewManager(c, uc)
+	uc.pm = player.NewManager()
 	uc.ws = work.NewWorkStore(ctx, defaultPendingNum)
 
 	cleanup := func() {
@@ -65,12 +58,7 @@ func NewUsecase(repo DataRepo, logger log.Logger, c *conf.Room) (*Usecase, func(
 	return uc, cleanup, errors.Join(uc.ws.Start())
 }
 
-// CreateGreeter creates a Greeter, and returns the new Greeter.
-func (uc *Usecase) CreateGreeter(ctx context.Context, g *Greeter) (*Greeter, error) {
-	uc.log.Infof("CreateGreeter: %v", g.Hello)
-	return uc.repo.Save(ctx, g)
-}
-
+// GetLoop 获取任务队列
 func (uc *Usecase) GetLoop() work.ITaskLoop {
 	return uc.ws
 }
@@ -83,4 +71,12 @@ func (uc *Usecase) GetTimer() work.ITaskScheduler {
 // GetRoomConfig 获取房间配置
 func (uc *Usecase) GetRoomConfig() *conf.Room {
 	return uc.rc
+}
+
+func (uc *Usecase) SavePlayer(ctx context.Context, p *player.Player) error {
+	return uc.repo.Save(ctx, p.GetBaseData())
+}
+
+func (uc *Usecase) LoadPlayer(ctx context.Context, id int64) (*player.BaseData, error) {
+	return uc.repo.Load(ctx, id)
 }

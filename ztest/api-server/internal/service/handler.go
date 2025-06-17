@@ -7,7 +7,6 @@ import (
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/transport/websocket"
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz"
 )
 
 // GetLoop 获取任务池
@@ -27,11 +26,11 @@ func (s *Service) OnSessionClose(sess *websocket.Session) {
 
 // SayHelloReq implements helloworld.GreeterServer.
 func (s *Service) SayHelloReq(ctx context.Context, in *v1.HelloRequest) (*v1.HelloReply, error) {
-	g, err := s.uc.CreateGreeter(ctx, &biz.Greeter{Hello: in.Name})
-	if err != nil {
-		return nil, err
-	}
-	return &v1.HelloReply{Message: "Hello " + g.Hello}, nil
+	// g, err := s.uc.CreateGreeter(ctx, &biz.Greeter{Hello: in.Name})
+	// if err != nil {
+	// 	return nil, err
+	// }
+	return &v1.HelloReply{Message: "Hello " + in.Name}, nil
 }
 
 func (s *Service) OnLoginReq(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp, error) {

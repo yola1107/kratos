@@ -1,15 +1,14 @@
-package gtable
+package table
 
 import (
 	"github.com/golang/protobuf/proto"
 	"github.com/yola1107/kratos/v2/log"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/entity/gplayer"
-
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
 )
 
-func (t *Table) SendPacketToClient(p *gplayer.Player, cmd v1.GameCommand, msg proto.Message) {
+func (t *Table) SendPacketToClient(p *player.Player, cmd v1.GameCommand, msg proto.Message) {
 	if p == nil {
 		return
 	}
@@ -43,7 +42,7 @@ func (t *Table) SendPacketToAll(cmd v1.GameCommand, msg proto.Message, uids ...i
 }
 
 // SendLoginRsp 发送玩家登录信息
-func (t *Table) SendLoginRsp(p *gplayer.Player, code int32, msg string) {
+func (t *Table) SendLoginRsp(p *player.Player, code int32, msg string) {
 	t.SendPacketToClient(p, v1.GameCommand_OnLoginRsp, &v1.LoginRsp{
 		Code:    code,
 		Msg:     msg,
@@ -55,7 +54,7 @@ func (t *Table) SendLoginRsp(p *gplayer.Player, code int32, msg string) {
 }
 
 // 广播入座信息
-func (t *Table) broadcastUserInfo(p *gplayer.Player) {
+func (t *Table) broadcastUserInfo(p *player.Player) {
 	t.sendUserInfoToAnother(p, p)
 	for k, v := range t.seats {
 		if v != nil && k != int(p.GetChairID()) {
@@ -65,7 +64,7 @@ func (t *Table) broadcastUserInfo(p *gplayer.Player) {
 	}
 }
 
-func (t *Table) sendUserInfoToAnother(src *gplayer.Player, dst *gplayer.Player) {
+func (t *Table) sendUserInfoToAnother(src *player.Player, dst *player.Player) {
 	t.SendPacketToClient(dst, v1.GameCommand_OnUserInfoPush, &v1.UserInfoPush{
 		UserID:    src.GetPlayerID(),
 		ChairId:   src.GetChairID(),
@@ -80,8 +79,8 @@ func (t *Table) sendUserInfoToAnother(src *gplayer.Player, dst *gplayer.Player) 
 }
 
 // SendSceneInfo 发送游戏场景信息
-func (t *Table) SendSceneInfo(p *gplayer.Player) {
-	c := t.event.GetRoomConfig()
+func (t *Table) SendSceneInfo(p *player.Player) {
+	c := t.repo.GetRoomConfig()
 	rsp := &v1.SceneRsp{
 		BaseScore:    c.Game.BaseMoney,
 		ChLimit:      c.Game.ChLimit,
@@ -99,14 +98,14 @@ func (t *Table) SendSceneInfo(p *gplayer.Player) {
 }
 
 func (t *Table) getPlayersScene() (players []*v1.PlayerScene) {
-	t.RangePlayer(func(k int32, p *gplayer.Player) bool {
+	t.RangePlayer(func(k int32, p *player.Player) bool {
 		players = append(players, t.getScene(p))
 		return true
 	})
 	return
 }
 
-func (t *Table) getScene(p *gplayer.Player) *v1.PlayerScene {
+func (t *Table) getScene(p *player.Player) *v1.PlayerScene {
 	if p == nil {
 		return nil
 	}
@@ -131,7 +130,7 @@ func (t *Table) getScene(p *gplayer.Player) *v1.PlayerScene {
 	return info
 }
 
-func (t *Table) getPlayerCards(p *gplayer.Player) *v1.CardsInfo {
+func (t *Table) getPlayerCards(p *player.Player) *v1.CardsInfo {
 	c := &v1.CardsInfo{}
 	if p.IstSee() {
 		c.Hands = p.GetHands()
@@ -140,7 +139,7 @@ func (t *Table) getPlayerCards(p *gplayer.Player) *v1.CardsInfo {
 	return c
 }
 
-func (t *Table) getPlayerCanOp(p *gplayer.Player) []v1.Action {
+func (t *Table) getPlayerCanOp(p *player.Player) []v1.Action {
 	if p == nil {
 		return nil
 	}
@@ -163,8 +162,8 @@ func (t *Table) broadcastSetBankerRsp() {
 }
 
 // 发牌推送
-func (t *Table) dispatchCardPush(canGameSeats []*gplayer.Player) {
-	t.RangePlayer(func(k int32, p *gplayer.Player) bool {
+func (t *Table) dispatchCardPush(canGameSeats []*player.Player) {
+	t.RangePlayer(func(k int32, p *player.Player) bool {
 		t.SendPacketToClient(p, v1.GameCommand_OnSendCardPush, &v1.SendCardPush{
 			UserID: p.GetPlayerID(),
 			Cards:  t.getPlayerCards(p),
@@ -174,7 +173,7 @@ func (t *Table) dispatchCardPush(canGameSeats []*gplayer.Player) {
 }
 
 // 广播玩家断线信息
-func (t *Table) broadcastUserOffline(p *gplayer.Player) {
+func (t *Table) broadcastUserOffline(p *player.Player) {
 	t.SendPacketToAll(v1.GameCommand_OnUserOfflinePush, &v1.UserOfflinePush{
 		UserID:    p.GetPlayerID(),
 		IsOffline: p.IsOffline(),
@@ -193,7 +192,7 @@ func (t *Table) broadcastActivePlayerPush() {
 }
 
 // 玩家离桌推送
-func (t *Table) broadcastUserQuitPush(p *gplayer.Player, isSwitchTable bool) {
+func (t *Table) broadcastUserQuitPush(p *player.Player, isSwitchTable bool) {
 	t.SendPacketToAll(v1.GameCommand_OnPlayerQuitPush, &v1.PlayerQuitPush{
 		UserID:  p.GetPlayerID(),
 		ChairID: p.GetChairID(),

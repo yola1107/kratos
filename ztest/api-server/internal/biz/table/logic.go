@@ -1,11 +1,11 @@
-package gtable
+package table
 
 import (
 	"time"
 
 	"github.com/yola1107/kratos/v2/log"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/entity/gplayer"
 )
 
 /*
@@ -53,7 +53,7 @@ func (t *Table) calcRemainingTime() time.Duration {
 }
 
 func (t *Table) updateStage(s int32) {
-	timer := t.event.GetTimer()
+	timer := t.repo.GetTimer()
 	timer.Cancel(t.stage.timerID) // 取消当前阶段的定时任务
 
 	t.stage.prev = t.stage.state
@@ -72,7 +72,7 @@ func (t *Table) checkResetDuration(s int32) time.Duration {
 
 func (t *Table) checkReady() {
 	okCnt := int16(0)
-	t.RangePlayer(func(k int32, p *gplayer.Player) bool {
+	t.RangePlayer(func(k int32, p *player.Player) bool {
 		if p.IsReady() && p.GetMoney() >= t.curBet {
 			okCnt++
 		}
@@ -112,8 +112,8 @@ func (t *Table) onGameStart() {
 }
 
 // 检查准备用户
-func (t *Table) checkStart() (bool, []*gplayer.Player, []int32) {
-	canGameSeats, chairs := []*gplayer.Player(nil), []int32(nil)
+func (t *Table) checkStart() (bool, []*player.Player, []int32) {
+	canGameSeats, chairs := []*player.Player(nil), []int32(nil)
 	for _, v := range t.seats {
 		if v == nil {
 			continue
@@ -129,7 +129,7 @@ func (t *Table) checkStart() (bool, []*gplayer.Player, []int32) {
 }
 
 // 扣钱 （或处理可以进行游戏的玩家状态等逻辑）
-func (t *Table) intoGaming(canGameSeats []*gplayer.Player) {
+func (t *Table) intoGaming(canGameSeats []*player.Player) {
 	for _, p := range canGameSeats {
 		if !p.IntoGaming(t.curBet) {
 			log.Errorf("intoGaming error. p:%+v currBet=%.1f", p.Desc(), t.curBet)
@@ -152,7 +152,7 @@ func (t *Table) calcBanker() {
 }
 
 // 发牌
-func (t *Table) dispatchCard(canGameSeats []*gplayer.Player) {
+func (t *Table) dispatchCard(canGameSeats []*player.Player) {
 	// 洗牌
 	t.cards.Shuffle()
 

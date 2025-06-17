@@ -5,16 +5,16 @@ import (
 
 	"github.com/yola1107/kratos/v2/errors"
 	"github.com/yola1107/kratos/v2/transport/websocket"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/entity/gplayer"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/entity/gtable"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/table"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/model"
 )
 
 // SwapperInfo 玩家信息
 type SwapperInfo struct {
 	Error  *errors.Error
-	Player *gplayer.Player
-	Table  *gtable.Table
+	Player *player.Player
+	Table  *table.Table
 }
 
 func (uc *Usecase) Swapper(ctx context.Context) (r *SwapperInfo) {
@@ -23,7 +23,7 @@ func (uc *Usecase) Swapper(ctx context.Context) (r *SwapperInfo) {
 		return &SwapperInfo{Error: model.ErrSessionNotFound}
 	}
 
-	p := uc.pm.GetPlayerBySessionID(session.ID())
+	p := uc.pm.GetBySessionID(session.ID())
 	if p == nil {
 		return &SwapperInfo{Error: model.ErrPlayerNotFound}
 	}

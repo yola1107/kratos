@@ -1,4 +1,4 @@
-package gplayer
+package player
 
 import (
 	"fmt"
@@ -15,7 +15,7 @@ var (
 
 type Status int32
 
-type PlayerGameData struct {
+type GameData struct {
 	IsReady      bool
 	Status       Status     // 0 StFree 1 StSit 2 StReady 3 StGaming
 	isOffline    bool       // 是否离线

@@ -3,24 +3,18 @@ package biz
 import (
 	"context"
 
+	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/log"
-	"github.com/yola1107/kratos/v2/transport/websocket"
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/entity/gplayer"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/model"
 )
 
-type PlayerRaw struct {
-	ID      int64
-	IP      string
-	Session *websocket.Session
-}
-
 func (uc *Usecase) OnLoginReq(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp, error) {
-	if uc.pm.ExistPlayer(in.UserID) {
+	if uc.pm.Has(in.UserID) {
 		return uc.reconnect(ctx, in)
 	}
-	return uc.loginRoom(ctx, in)
+	return uc.enterRoom(ctx, in)
 }
 
 func (uc *Usecase) reconnect(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp, error) {
@@ -29,7 +23,7 @@ func (uc *Usecase) reconnect(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp
 		return nil, model.ErrSessionNotFound
 	}
 	uc.ws.Post(func() {
-		p := uc.pm.GetPlayerByID(in.UserID)
+		p := uc.pm.GetByID(in.UserID)
 		if p == nil {
 			return
 		}
@@ -43,12 +37,12 @@ func (uc *Usecase) reconnect(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp
 	return &v1.LoginRsp{}, nil
 }
 
-func (uc *Usecase) loginRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp, error) {
+func (uc *Usecase) enterRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp, error) {
 	session := uc.GetSession(ctx)
 	if session == nil {
 		return nil, model.ErrSessionNotFound
 	}
-	p, err := uc.createPlayer(&PlayerRaw{
+	p, err := uc.createPlayer(&player.Raw{
 		ID:      in.UserID,
 		IP:      session.GetRemoteIP(),
 		Session: session,
@@ -79,10 +73,30 @@ func (uc *Usecase) OnSwitchTableReq(rs *SwapperInfo) {
 	rs.Player.SendSwitchTableRsp(ret)
 }
 
-func (uc *Usecase) createPlayer(raw *PlayerRaw) (*gplayer.Player, error) {
-	return nil, nil
+func (uc *Usecase) createPlayer(raw *player.Raw) (*player.Player, error) {
+	base, err := uc.repo.Load(context.Background(), raw.ID)
+	if err != nil || base == nil {
+		return nil, err
+	}
+	raw.Base = base
+	p := player.New(raw)
+	uc.pm.Add(p)
+	return p, nil
 }
 
-func (uc *Usecase) LogoutGame(p *gplayer.Player, code int32, msg string) {
+func (uc *Usecase) LogoutGame(p *player.Player, code int32, msg string) {
+	if p == nil {
+		return
+	}
 
+	uc.pm.Remove(p.GetPlayerID())
+
+	// 异步释放玩家
+	go func() {
+		defer ext.RecoverFromError(nil)
+
+		if err := uc.SavePlayer(context.Background(), p); err != nil {
+			log.Errorf("LogoutGame. err=%v", err)
+		}
+	}()
 }

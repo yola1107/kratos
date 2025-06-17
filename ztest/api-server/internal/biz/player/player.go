@@ -1,4 +1,4 @@
-package gplayer
+package player
 
 import (
 	"github.com/golang/protobuf/proto"
@@ -10,8 +10,31 @@ import (
 
 type Player struct {
 	session  *websocket.Session
-	gameData PlayerGameData
-	baseData PlayerBaseData // 私有，不暴露
+	gameData *GameData
+	baseData *BaseData // 私有，不暴露
+}
+
+type Raw struct {
+	ID      int64
+	IP      string
+	Session *websocket.Session
+	Base    *BaseData
+}
+
+func New(raw *Raw) *Player {
+	p := &Player{
+		session:  raw.Session,
+		gameData: &GameData{},
+		baseData: raw.Base,
+	}
+	p.SetIP(raw.IP)
+	p.UpdateSession(raw.Session)
+
+	return p
+}
+
+func (p *Player) GetBaseData() *BaseData {
+	return p.baseData
 }
 
 func (p *Player) IsRobot() bool {
