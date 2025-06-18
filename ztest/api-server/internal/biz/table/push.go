@@ -215,7 +215,7 @@ func (t *Table) canCallCard(p *player.Player) (canCall bool, callMoney float64, 
 // 当只剩 2 名玩家时，任意一方可请求 Show
 // 明牌比较三张牌，胜者赢取全部筹码
 func (t *Table) canShowCard(p *player.Player) (canShow bool, showMoney float64) {
-	if p.GetChairID() != t.active || t.stage.state != conf.StAction || len(t.GetCanActionPlayers()) != 2 {
+	if p == nil || p.GetChairID() != t.active || t.stage.state != conf.StAction || len(t.GetCanActionPlayers()) != 2 {
 		return
 	}
 	needMoney := t.calcBetMoney(p)
