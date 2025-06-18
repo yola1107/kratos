@@ -25,6 +25,10 @@ func (p *Player) UseMoney(money float64) bool {
 	return true
 }
 
+func (p *Player) GetAllMoney() float64 {
+	return 0
+}
+
 func (p *Player) GetMoney() float64 {
 	return 0
 }

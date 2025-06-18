@@ -168,16 +168,15 @@ func (GameCommand) EnumDescriptor() ([]byte, []int) {
 type ACTION int32
 
 const (
-	ACTION_Invalid     ACTION = 0 //
-	ACTION_CALL        ACTION = 1 //"跟注"
-	ACTION_CALL_AUTO   ACTION = 2 //"自动跟注"
-	ACTION_RAISE       ACTION = 3 //"加注"
-	ACTION_SEE         ACTION = 4 //"看牌"
-	ACTION_PACK        ACTION = 5 //"弃牌"
-	ACTION_COMPARE     ACTION = 6 //"比牌"
-	ACTION_SIDER       ACTION = 7 //"提前比牌"
-	ACTION_SIDER_REPLY ACTION = 8 //"提前比牌回应"
-	ACTION_SHOW        ACTION = 9 //"亮牌"
+	ACTION_Invalid    ACTION = 0 //
+	ACTION_CALL       ACTION = 1 //"跟注"
+	ACTION_CALL_AUTO  ACTION = 2 //"自动跟注"
+	ACTION_RAISE      ACTION = 3 //"加注"
+	ACTION_SEE        ACTION = 4 //"看牌"
+	ACTION_PACK       ACTION = 5 //"弃牌"
+	ACTION_SHOW       ACTION = 6 //"比牌"
+	ACTION_SIDE       ACTION = 7 //"提前比牌"
+	ACTION_SIDE_REPLY ACTION = 8 //"提前比牌回应"
 )
 
 // Enum value maps for ACTION.
@@ -189,22 +188,20 @@ var (
 		3: "RAISE",
 		4: "SEE",
 		5: "PACK",
-		6: "COMPARE",
-		7: "SIDER",
-		8: "SIDER_REPLY",
-		9: "SHOW",
+		6: "SHOW",
+		7: "SIDE",
+		8: "SIDE_REPLY",
 	}
 	ACTION_value = map[string]int32{
-		"Invalid":     0,
-		"CALL":        1,
-		"CALL_AUTO":   2,
-		"RAISE":       3,
-		"SEE":         4,
-		"PACK":        5,
-		"COMPARE":     6,
-		"SIDER":       7,
-		"SIDER_REPLY": 8,
-		"SHOW":        9,
+		"Invalid":    0,
+		"CALL":       1,
+		"CALL_AUTO":  2,
+		"RAISE":      3,
+		"SEE":        4,
+		"PACK":       5,
+		"SHOW":       6,
+		"SIDE":       7,
+		"SIDE_REPLY": 8,
 	}
 )
 
@@ -1832,12 +1829,13 @@ func (x *PlayerQuitPush) GetChairID() int32 {
 
 type ActivePush struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Stage         int32                  `protobuf:"varint,1,opt,name=stage,proto3" json:"stage,omitempty"`     //游戏的状态
-	Timeout       int64                  `protobuf:"varint,2,opt,name=timeout,proto3" json:"timeout,omitempty"` //剩余时间 s
-	Active        int32                  `protobuf:"varint,3,opt,name=active,proto3" json:"active,omitempty"`   //当前操作位置
-	CurRound      int32                  `protobuf:"varint,4,opt,name=curRound,proto3" json:"curRound,omitempty"`
-	TotalBet      float64                `protobuf:"fixed64,5,opt,name=totalBet,proto3" json:"totalBet,omitempty"` //
-	Player        *PlayerScene           `protobuf:"bytes,6,opt,name=player,proto3" json:"player,omitempty"`       //
+	Stage         int32                  `protobuf:"varint,1,opt,name=stage,proto3" json:"stage,omitempty"`                                  //游戏的状态
+	Timeout       int64                  `protobuf:"varint,2,opt,name=timeout,proto3" json:"timeout,omitempty"`                              //剩余时间 s
+	Active        int32                  `protobuf:"varint,3,opt,name=active,proto3" json:"active,omitempty"`                                //当前操作位置
+	CurRound      int32                  `protobuf:"varint,4,opt,name=curRound,proto3" json:"curRound,omitempty"`                            //
+	CurBet        float64                `protobuf:"fixed64,5,opt,name=curBet,proto3" json:"curBet,omitempty"`                               // RAISE需要*2
+	TotalBet      float64                `protobuf:"fixed64,6,opt,name=totalBet,proto3" json:"totalBet,omitempty"`                           //
+	CanOp         []ACTION               `protobuf:"varint,7,rep,packed,name=canOp,proto3,enum=helloworld.v1.ACTION" json:"canOp,omitempty"` //可操作列表
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1900,6 +1898,13 @@ func (x *ActivePush) GetCurRound() int32 {
 	return 0
 }
 
+func (x *ActivePush) GetCurBet() float64 {
+	if x != nil {
+		return x.CurBet
+	}
+	return 0
+}
+
 func (x *ActivePush) GetTotalBet() float64 {
 	if x != nil {
 		return x.TotalBet
@@ -1907,19 +1912,20 @@ func (x *ActivePush) GetTotalBet() float64 {
 	return 0
 }
 
-func (x *ActivePush) GetPlayer() *PlayerScene {
+func (x *ActivePush) GetCanOp() []ACTION {
 	if x != nil {
-		return x.Player
+		return x.CanOp
 	}
 	return nil
 }
 
 type ActionReq struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserID        int64                  `protobuf:"varint,1,opt,name=userID,proto3" json:"userID,omitempty"`                           //用户ID
-	Action        ACTION                 `protobuf:"varint,2,opt,name=action,proto3,enum=helloworld.v1.ACTION" json:"action,omitempty"` //动作
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	UserID         int64                  `protobuf:"varint,1,opt,name=userID,proto3" json:"userID,omitempty"`                           //用户ID
+	Action         ACTION                 `protobuf:"varint,2,opt,name=action,proto3,enum=helloworld.v1.ACTION" json:"action,omitempty"` //动作
+	SideReplyAllow bool                   `protobuf:"varint,3,opt,name=sideReplyAllow,proto3" json:"sideReplyAllow,omitempty"`           //
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *ActionReq) Reset() {
@@ -1964,6 +1970,13 @@ func (x *ActionReq) GetAction() ACTION {
 		return x.Action
 	}
 	return ACTION_Invalid
+}
+
+func (x *ActionReq) GetSideReplyAllow() bool {
+	if x != nil {
+		return x.SideReplyAllow
+	}
+	return false
 }
 
 type ActionRsp struct {
@@ -2269,18 +2282,20 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	"\tisOffline\x18\x02 \x01(\bR\tisOffline\"B\n" +
 	"\x0ePlayerQuitPush\x12\x16\n" +
 	"\x06userID\x18\x01 \x01(\x03R\x06userID\x12\x18\n" +
-	"\achairID\x18\x02 \x01(\x05R\achairID\"\xc0\x01\n" +
+	"\achairID\x18\x02 \x01(\x05R\achairID\"\xd1\x01\n" +
 	"\n" +
 	"ActivePush\x12\x14\n" +
 	"\x05stage\x18\x01 \x01(\x05R\x05stage\x12\x18\n" +
 	"\atimeout\x18\x02 \x01(\x03R\atimeout\x12\x16\n" +
 	"\x06active\x18\x03 \x01(\x05R\x06active\x12\x1a\n" +
-	"\bcurRound\x18\x04 \x01(\x05R\bcurRound\x12\x1a\n" +
-	"\btotalBet\x18\x05 \x01(\x01R\btotalBet\x122\n" +
-	"\x06player\x18\x06 \x01(\v2\x1a.helloworld.v1.PlayerSceneR\x06player\"R\n" +
+	"\bcurRound\x18\x04 \x01(\x05R\bcurRound\x12\x16\n" +
+	"\x06curBet\x18\x05 \x01(\x01R\x06curBet\x12\x1a\n" +
+	"\btotalBet\x18\x06 \x01(\x01R\btotalBet\x12+\n" +
+	"\x05canOp\x18\a \x03(\x0e2\x15.helloworld.v1.ACTIONR\x05canOp\"z\n" +
 	"\tActionReq\x12\x16\n" +
 	"\x06userID\x18\x01 \x01(\x03R\x06userID\x12-\n" +
-	"\x06action\x18\x02 \x01(\x0e2\x15.helloworld.v1.ACTIONR\x06action\"\xa8\x01\n" +
+	"\x06action\x18\x02 \x01(\x0e2\x15.helloworld.v1.ACTIONR\x06action\x12&\n" +
+	"\x0esideReplyAllow\x18\x03 \x01(\bR\x0esideReplyAllow\"\xa8\x01\n" +
 	"\tActionRsp\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x16\n" +
@@ -2332,18 +2347,18 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	"\fOnActivePush\x10\xb6\x10\x12\x13\n" +
 	"\x0eOnRoundSeePush\x10\xb7\x10\x12\x13\n" +
 	"\x0eOnShowCardPush\x10\xb8\x10\x12\x11\n" +
-	"\fOnResultPush\x10\x98\x11*\x7f\n" +
+	"\fOnResultPush\x10\x98\x11*p\n" +
 	"\x06ACTION\x12\v\n" +
 	"\aInvalid\x10\x00\x12\b\n" +
 	"\x04CALL\x10\x01\x12\r\n" +
 	"\tCALL_AUTO\x10\x02\x12\t\n" +
 	"\x05RAISE\x10\x03\x12\a\n" +
 	"\x03SEE\x10\x04\x12\b\n" +
-	"\x04PACK\x10\x05\x12\v\n" +
-	"\aCOMPARE\x10\x06\x12\t\n" +
-	"\x05SIDER\x10\a\x12\x0f\n" +
-	"\vSIDER_REPLY\x10\b\x12\b\n" +
-	"\x04SHOW\x10\t2\xea\b\n" +
+	"\x04PACK\x10\x05\x12\b\n" +
+	"\x04SHOW\x10\x06\x12\b\n" +
+	"\x04SIDE\x10\a\x12\x0e\n" +
+	"\n" +
+	"SIDE_REPLY\x10\b2\xea\b\n" +
 	"\aGreeter\x12a\n" +
 	"\vSayHelloReq\x12\x1b.helloworld.v1.HelloRequest\x1a\x19.helloworld.v1.HelloReply\"\x1a\x82\xd3\xe4\x93\x02\x14\x12\x12/helloworld/{name}\x12^\n" +
 	"\n" +
@@ -2414,7 +2429,7 @@ var file_helloworld_v1_greeter_proto_depIdxs = []int32{
 	24, // 1: helloworld.v1.PlayerScene.cards:type_name -> helloworld.v1.CardsInfo
 	1,  // 2: helloworld.v1.PlayerScene.canOp:type_name -> helloworld.v1.ACTION
 	24, // 3: helloworld.v1.SendCardPush.cards:type_name -> helloworld.v1.CardsInfo
-	21, // 4: helloworld.v1.ActivePush.player:type_name -> helloworld.v1.PlayerScene
+	1,  // 4: helloworld.v1.ActivePush.canOp:type_name -> helloworld.v1.ACTION
 	1,  // 5: helloworld.v1.ActionReq.action:type_name -> helloworld.v1.ACTION
 	1,  // 6: helloworld.v1.ActionRsp.action:type_name -> helloworld.v1.ACTION
 	24, // 7: helloworld.v1.ActionRsp.cards:type_name -> helloworld.v1.CardsInfo

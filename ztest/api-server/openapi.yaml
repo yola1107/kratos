@@ -217,6 +217,8 @@ components:
                 action:
                     type: integer
                     format: enum
+                sideReplyAllow:
+                    type: boolean
         helloworld.v1.ActionRsp:
             type: object
             properties:

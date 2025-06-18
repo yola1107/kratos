@@ -32,9 +32,9 @@ func (t *Table) OnTimer() {
 	case conf.StAction: // 超时操作
 		t.onActionTimeout()
 		// t.OnAction(t.CurrPlayer(), network.Packet{"action": PLAYER_PACK}, true)
-	case conf.StWaitSiderShow: // 比牌操作超时
-		// t.OnAction(t.CurrPlayer(), network.Packet{"action": PLAYER_OK_SIDER_SHOW, "allow": false}, true)
-	case conf.StSiderShow: // 操作之后等待时间
+	// case conf.StWaitSiderShow: // 比牌操作超时
+	// 	// t.OnAction(t.CurrPlayer(), network.Packet{"action": PLAYER_OK_SIDER_SHOW, "allow": false}, true)
+	case conf.StSideShow: // 操作之后等待时间
 		// t.notifyAction(true, ACTION)
 	case conf.StWaitEnd:
 		// t.gameEnd()

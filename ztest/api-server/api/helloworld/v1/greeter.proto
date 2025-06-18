@@ -54,16 +54,16 @@ enum GameCommand {
 }
 
 enum ACTION {
-    Invalid     = 0;  //
-    CALL        = 1;  //"跟注"
-    CALL_AUTO   = 2;  //"自动跟注"
-    RAISE       = 3;  //"加注"
-    SEE         = 4;  //"看牌"
-    PACK        = 5;  //"弃牌"
-    COMPARE     = 6;  //"比牌"
-    SIDER       = 7;  //"提前比牌"
-    SIDER_REPLY = 8;  //"提前比牌回应"
-    SHOW        = 9;  //"亮牌"
+    Invalid    = 0;  //
+    CALL       = 1;  //"跟注"
+    CALL_AUTO  = 2;  //"自动跟注"
+    RAISE      = 3;  //"加注"
+    SEE        = 4;  //"看牌"
+    PACK       = 5;  //"弃牌"
+    SHOW       = 6;  //"比牌"
+    SIDE       = 7;  //"提前比牌"
+    SIDE_REPLY = 8;  //"提前比牌回应"
+    //    SHOW        = 9;  //"亮牌"
 }
 
 // The greeting service definition.
@@ -319,18 +319,20 @@ message PlayerQuitPush {
 
 //
 message ActivePush {
-    int32 stage        = 1;  //游戏的状态
-    int64 timeout      = 2;  //剩余时间 s
-    int32 active       = 3;  //当前操作位置
-    int32 curRound     = 4;
-    double totalBet    = 5;  //
-    PlayerScene player = 6;  //
+    int32 stage           = 1;  //游戏的状态
+    int64 timeout         = 2;  //剩余时间 s
+    int32 active          = 3;  //当前操作位置
+    int32 curRound        = 4;  //
+    double curBet         = 5;  // RAISE需要*2
+    double totalBet       = 6;  //
+    repeated ACTION canOp = 7;  //可操作列表
 }
 
 //
 message ActionReq {
-    int64 userID  = 1;  //用户ID
-    ACTION action = 2;  //动作
+    int64 userID        = 1;  //用户ID
+    ACTION action       = 2;  //动作
+    bool sideReplyAllow = 3;  //
 }
 
 message ActionRsp {

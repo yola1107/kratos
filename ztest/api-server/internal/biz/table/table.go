@@ -239,6 +239,14 @@ func (t *Table) GetNextActivePlayer() *player.Player {
 	return t.NextPlayer(t.active)
 }
 
+func (t *Table) getNextActiveChair() int32 {
+	p := t.GetNextActivePlayer()
+	if p == nil {
+		return 0
+	}
+	return p.GetChairID()
+}
+
 func (t *Table) GetPlayerByChair(chair int32) *player.Player {
 	if chair < 0 || chair >= int32(t.MaxCnt) {
 		return nil

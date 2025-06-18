@@ -5,10 +5,12 @@ import (
 )
 
 var (
-	StFree   = Status(0)
-	StSit    = Status(1)
-	StReady  = Status(2)
-	StGaming = Status(3)
+	StFree     = Status(0)
+	StSit      = Status(1)
+	StReady    = Status(2)
+	StGaming   = Status(3)
+	StGameFold = Status(4)
+	StGameLost = Status(5)
 )
 
 type Status int32
@@ -26,7 +28,7 @@ type GameData struct {
 	seeRound     int32      // 看牌回合数
 	startMoney   float64    // 局数开始时的金币
 	idleCount    int32      // 超时/托管次数
-	compareSeats []int      // 比牌椅子号
+	compareSeats []int32    // 比牌椅子号
 	isAllCompare bool       // 是否参与所有比牌
 	isAutoCall   bool       // 是否自动跟注 0：未开启自动跟注 1：开启了自动跟注
 	isPaying     bool       // 支付中
@@ -108,7 +110,10 @@ func (p *Player) GetStatus() Status {
 	return p.gameData.Status
 }
 
-func (p *Player) IncrIdleCount() {
+func (p *Player) IncrIdleCount(isTimeout bool) {
+	if !isTimeout {
+		return
+	}
 	p.gameData.idleCount++
 }
 
@@ -140,13 +145,24 @@ func (p *Player) IsGaming() bool {
 	return p.gameData.Status == StGaming
 }
 
+func (p *Player) SetLastOp(op int32) {
+	p.gameData.LastOp = op
+}
 func (p *Player) GetLastOp() int32 {
 	return p.gameData.LastOp
+}
+
+// ---------------------------------
+
+func (p *Player) AddBet(bet float64) {
+	p.gameData.Bet += bet
 }
 
 func (p *Player) GetBet() float64 {
 	return p.gameData.Bet
 }
+
+// ---------------------------------
 
 func (p *Player) SetSee() {
 	p.gameData.isSee = true
@@ -192,4 +208,16 @@ func (p *Player) IntoGaming(bet float64) bool {
 	p.gameData.Bet += bet
 	p.SetStatus(StGaming)
 	return true
+}
+
+func (p *Player) IncrPlayCount() {
+	p.gameData.playCount++
+}
+
+func (p *Player) SetCompareSeats(chairs []int32) {
+	p.gameData.compareSeats = chairs
+}
+
+func (p *Player) GetCompareSeats() []int32 {
+	return p.gameData.compareSeats
 }

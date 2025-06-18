@@ -18,15 +18,15 @@ func init() {
 }
 
 const (
-	StWait          = 0  // 等待
-	StReady         = 1  // 准备
-	StSendCard      = 2  // 发牌
-	StAction        = 3  // 操作
-	StShow          = 4  // 比牌
-	StSiderShow     = 6  // 提前比牌
-	StWaitSiderShow = 5  // 等待提前比牌
-	StWaitEnd       = 7  // 等待结束
-	StEnd           = 10 // 游戏结束
+	StWait     = 0 // 等待
+	StReady    = 1 // 准备
+	StSendCard = 2 // 发牌
+	StAction   = 3 // 操作
+	// StShow     = 4  // 比牌
+	StSideShow = 6  // 提前比牌
+	StWaitSide = 5  // 等待提前比牌
+	StWaitEnd  = 7  // 等待结束
+	StEnd      = 10 // 游戏结束
 )
 
 const (
@@ -39,15 +39,15 @@ const (
 )
 
 var StageNames = map[int32]string{
-	StWait:          "等待",
-	StReady:         "准备",
-	StSendCard:      "发牌",
-	StAction:        "操作",
-	StShow:          "比牌",
-	StSiderShow:     "提前比牌",
-	StWaitSiderShow: "等待提前比牌",
-	StWaitEnd:       "等待结束",
-	StEnd:           "游戏结束",
+	StWait:     "等待",
+	StReady:    "准备",
+	StSendCard: "发牌",
+	StAction:   "操作",
+	// StShow:     "比牌",
+	StSideShow: "提前比牌",
+	StWaitSide: "等待提前比牌",
+	StWaitEnd:  "等待结束",
+	StEnd:      "游戏结束",
 }
 
 func StageName(s int32) string {
@@ -62,11 +62,11 @@ func GetStageTimeout(s int32) int64 {
 		return StSendCardTimeout
 	case StAction:
 		return StActionTimeout
-	case StShow:
+	// case StShow:
+	// 	return StShowTimeout
+	case StSideShow:
 		return StShowTimeout
-	case StSiderShow:
-		return StShowTimeout
-	case StWaitSiderShow:
+	case StWaitSide:
 		return StWaitEndTimeout
 	case StWaitEnd:
 		return StWaitEndTimeout
