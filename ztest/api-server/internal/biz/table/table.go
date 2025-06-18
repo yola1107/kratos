@@ -12,10 +12,10 @@ type Table struct {
 	Type     conf.TableType // 类型
 	MaxCnt   int16          // 最大玩家数
 	isClosed bool           // 是否停服
-	stage    *Stage         // 阶段状态
 	repo     ITableRepo     //
 
 	// 游戏逻辑变量
+	stage    *Stage           // 阶段状态
 	sitCnt   int16            // 入座玩家数量
 	banker   int32            //
 	active   int32            // 当前操作玩家
@@ -159,17 +159,14 @@ func (t *Table) CanEnter(p *player.Player) bool {
 }
 
 func (t *Table) CanExit(p *player.Player) bool {
-	return !p.IsGaming()
+	return p != nil && !p.IsGaming()
 }
 
+func (t *Table) CanEnterRobot() bool                { return true }
+func (t *Table) CanExitRobot(r *player.Player) bool { return true }
+
 func (t *Table) CanSwitchTable(p *player.Player) bool {
-	if p == nil {
-		return false
-	}
-	if p.IsGaming() {
-		return false
-	}
-	return true
+	return p != nil && !p.IsGaming()
 }
 
 // LastPlayer 上一家
@@ -215,6 +212,16 @@ func (t *Table) RangePlayer(cb func(k int32, p *player.Player) bool) {
 			break
 		}
 	}
+}
+
+func (t *Table) GetCanActionPlayers() (seats []*player.Player) {
+	t.RangePlayer(func(k int32, p *player.Player) bool {
+		if p.IsGaming() {
+			seats = append(seats, p)
+		}
+		return true
+	})
+	return seats
 }
 
 func (t *Table) GetActivePlayer() *player.Player {

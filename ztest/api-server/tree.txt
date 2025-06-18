@@ -36,19 +36,19 @@
 |   |   +---player
 |   |   |       base.go
 |   |   |       game.go
-|   |   |       manager.go
 |   |   |       player.go
+|   |   |       player_mgr.go
 |   |   |       repository.go
 |   |   |       
 |   |   \---table
 |   |           card.go
 |   |           handler.go
-|   |           logger.go
 |   |           logic.go
-|   |           manager.go
 |   |           push.go
 |   |           repository.go
 |   |           table.go
+|   |           table_log.go
+|   |           table_mgr.go
 |   |           
 |   +---conf
 |   |       conf.go

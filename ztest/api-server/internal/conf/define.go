@@ -22,9 +22,9 @@ const (
 	StReady         = 1  // 准备
 	StSendCard      = 2  // 发牌
 	StAction        = 3  // 操作
-	StCompare       = 4  // 比牌
-	StWaitSiderShow = 5  // 等待比牌
-	StSiderShow     = 6  // 比牌中
+	StShow          = 4  // 比牌
+	StSiderShow     = 6  // 提前比牌
+	StWaitSiderShow = 5  // 等待提前比牌
 	StWaitEnd       = 7  // 等待结束
 	StEnd           = 10 // 游戏结束
 )
@@ -33,7 +33,7 @@ const (
 	StReadyTimeout    = 2  // 准备时间 (s)
 	StSendCardTimeout = 3  // 发牌时间 (s)
 	StActionTimeout   = 12 // 操作时间 (s)
-	StCompareTimeout  = 1  // 比牌动画时间 (s)
+	StShowTimeout     = 1  // 比牌动画时间 (s)
 	StWaitEndTimeout  = 1  // 等待结束时间 (s)
 	StEndTimeout      = 3  // 结束等待下一个阶段时间 (s)
 )
@@ -43,9 +43,9 @@ var StageNames = map[int32]string{
 	StReady:         "准备",
 	StSendCard:      "发牌",
 	StAction:        "操作",
-	StCompare:       "比牌",
-	StWaitSiderShow: "等待比牌",
-	StSiderShow:     "比牌中",
+	StShow:          "比牌",
+	StSiderShow:     "提前比牌",
+	StWaitSiderShow: "等待提前比牌",
 	StWaitEnd:       "等待结束",
 	StEnd:           "游戏结束",
 }
@@ -62,12 +62,12 @@ func GetStageTimeout(s int32) int64 {
 		return StSendCardTimeout
 	case StAction:
 		return StActionTimeout
-	case StCompare:
-		return StCompareTimeout
-	case StWaitSiderShow:
-		return StCompareTimeout
+	case StShow:
+		return StShowTimeout
 	case StSiderShow:
-		return StCompareTimeout
+		return StShowTimeout
+	case StWaitSiderShow:
+		return StWaitEndTimeout
 	case StWaitEnd:
 		return StWaitEndTimeout
 	case StEnd:

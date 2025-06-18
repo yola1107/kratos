@@ -12,5 +12,4 @@ type ITableRepo interface {
 	GetTimer() work.ITaskScheduler
 	GetRoomConfig() *conf.Room
 	LogoutGame(p *player.Player, code int32, msg string)
-	// OnPlayerLeave(playerID string)
 }

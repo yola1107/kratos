@@ -53,7 +53,7 @@ enum GameCommand {
     OnResultPush    = 2200;  //结算通知
 }
 
-enum Action {
+enum ACTION {
     Invalid     = 0;  //
     CALL        = 1;  //"跟注"
     CALL_AUTO   = 2;  //"自动跟注"
@@ -286,7 +286,7 @@ message PlayerScene {
     bool isAutoCall       = 10;  //自动跟注 0:未开启 1:已开启
     bool isPaying         = 11;  //支付状态 1:支付中
     CardsInfo cards       = 12;  //手牌
-    repeated Action canOp = 13;  //可操作列表
+    repeated ACTION canOp = 13;  //可操作列表
 }
 
 //
@@ -330,14 +330,14 @@ message ActivePush {
 //
 message ActionReq {
     int64 userID  = 1;  //用户ID
-    Action action = 2;  //动作
+    ACTION action = 2;  //动作
 }
 
 message ActionRsp {
     int32 code      = 1;   //错误码
     string msg      = 2;   //错误信息
     int64 userID    = 3;   //用户ID
-    Action action   = 4;   //动作
+    ACTION action   = 4;   //动作
     CardsInfo cards = 12;  //手牌
 }
 

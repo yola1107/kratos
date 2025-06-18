@@ -5,12 +5,10 @@ import (
 )
 
 var (
-	StFree     = Status(0)
-	StSit      = Status(1)
-	StReady    = Status(2)
-	StGaming   = Status(3)
-	StGameFold = Status(4)
-	StGameLost = Status(5)
+	StFree   = Status(0)
+	StSit    = Status(1)
+	StReady  = Status(2)
+	StGaming = Status(3)
 )
 
 type Status int32
@@ -67,9 +65,9 @@ func (p *Player) Reset() {
 
 func (p *Player) ExitReset() {
 	p.Reset()
-	p.SetChairID(-1)
-	p.SetTableID(-1)
-	p.SetStatus(-1)
+	p.gameData.ChairID = -1
+	p.gameData.TableID = -1
+	p.gameData.Status = -1
 
 	// 计算金币
 	// p.PlayerBase.GameHallData.SaveMoney(int64(p.chouMa.GetDeltaMoney()))
@@ -150,7 +148,11 @@ func (p *Player) GetBet() float64 {
 	return p.gameData.Bet
 }
 
-func (p *Player) IstSee() bool {
+func (p *Player) SetSee() {
+	p.gameData.isSee = true
+}
+
+func (p *Player) IsSee() bool {
 	return p.gameData.isSee
 }
 

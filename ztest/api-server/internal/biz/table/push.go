@@ -118,13 +118,13 @@ func (t *Table) getScene(p *player.Player) *v1.PlayerScene {
 		LastOp:     p.GetLastOp(),
 		CurBet:     t.curBet, //
 		TotalBet:   p.GetBet(),
-		See:        p.IstSee(),
+		See:        p.IsSee(),
 		Cards:      t.getPlayerCards(p),
 		IsAutoCall: p.IsAutoCall(),
 		IsPaying:   p.IsPaying(),
 		CanOp:      t.getPlayerCanOp(p),
 	}
-	if p.IstSee() {
+	if p.IsSee() {
 		info.CurBet = t.curBet * 2
 	}
 	return info
@@ -132,14 +132,14 @@ func (t *Table) getScene(p *player.Player) *v1.PlayerScene {
 
 func (t *Table) getPlayerCards(p *player.Player) *v1.CardsInfo {
 	c := &v1.CardsInfo{}
-	if p.IstSee() {
+	if p.IsSee() {
 		c.Hands = p.GetHands()
 		c.Type = p.GetCardsType()
 	}
 	return c
 }
 
-func (t *Table) getPlayerCanOp(p *player.Player) []v1.Action {
+func (t *Table) getPlayerCanOp(p *player.Player) []v1.ACTION {
 	if p == nil {
 		return nil
 	}
@@ -197,4 +197,20 @@ func (t *Table) broadcastUserQuitPush(p *player.Player, isSwitchTable bool) {
 		UserID:  p.GetPlayerID(),
 		ChairID: p.GetChairID(),
 	}, p.GetPlayerID())
+}
+
+func (t *Table) sendActionRsp(p *player.Player, rsp *v1.ActionRsp) {
+	t.SendPacketToClient(p, v1.GameCommand_OnActionRsp, rsp)
+}
+
+func (t *Table) broadcastActionRsp(p *player.Player, action v1.ACTION) {
+	rsp := &v1.ActionRsp{
+		Code:   0,
+		Msg:    "",
+		UserID: p.GetPlayerID(),
+		Action: action,
+		Cards:  nil,
+	}
+
+	t.SendPacketToAll(v1.GameCommand_OnActionRsp, rsp)
 }

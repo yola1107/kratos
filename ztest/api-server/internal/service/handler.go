@@ -112,7 +112,7 @@ func (s *Service) OnActionReq(ctx context.Context, in *v1.ActionReq) (*v1.Action
 	if rs.Error != nil {
 		return nil, rs.Error
 	}
-	rs.Table.OnActionReq(rs.Player, in)
+	rs.Table.OnActionReq(rs.Player, in, false)
 	return &v1.ActionRsp{}, nil
 }
 
