@@ -1,36 +1,39 @@
 package table
 
-const (
-	StWait     = 0 // 等待
-	StReady    = 1 // 准备
-	StSendCard = 2 // 发牌
-	StAction   = 3 // 操作
-	// StShow     = 4  // 比牌
-	StSideShow = 6  // 提前比牌
-	StWaitSide = 5  // 等待提前比牌
-	StWaitEnd  = 7  // 等待结束
-	StEnd      = 10 // 游戏结束
+import (
+	"github.com/yola1107/kratos/v2/log"
 )
 
 const (
-	StReadyTimeout    = 2  // 准备时间 (s)
-	StSendCardTimeout = 3  // 发牌时间 (s)
-	StActionTimeout   = 12 // 操作时间 (s)
-	StShowTimeout     = 1  // 比牌动画时间 (s)
-	StWaitEndTimeout  = 1  // 等待结束时间 (s)
-	StEndTimeout      = 3  // 结束等待下一个阶段时间 (s)
+	StWait        = iota // 等待
+	StReady              // 准备
+	StSendCard           // 发牌
+	StAction             // 操作
+	StSideShow           // 发起提前比牌 等待应答
+	StSideShowAni        // 同意提前比牌动画 (sideshow)
+	StWaitEnd            // 等待结束
+	StEnd                // 游戏结束
+)
+
+const (
+	StReadyTimeout       = 2  // 准备时间 (s)
+	StSendCardTimeout    = 3  // 发牌时间 (s)
+	StActionTimeout      = 12 // 操作时间 (s)
+	StSideShowTimeout    = 12 // 发起比牌 等待结束 (s)
+	StSideShowAniTimeout = 1  // 同意提前比牌动画时间 (s)
+	StWaitEndTimeout     = 2  // 等待结束时间 (s)
+	StEndTimeout         = 3  // 结束等待下一个阶段时间 (s)
 )
 
 var StageNames = map[int32]string{
-	StWait:     "等待",
-	StReady:    "准备",
-	StSendCard: "发牌",
-	StAction:   "操作",
-	// StShow:     "比牌",
-	StSideShow: "提前比牌",
-	StWaitSide: "等待提前比牌",
-	StWaitEnd:  "等待结束",
-	StEnd:      "游戏结束",
+	StWait:        "等待",
+	StReady:       "准备",
+	StSendCard:    "发牌",
+	StAction:      "操作",
+	StSideShow:    "提前比牌",
+	StSideShowAni: "比牌动画",
+	StWaitEnd:     "等待结束",
+	StEnd:         "游戏结束",
 }
 
 func StageName(s int32) string {
@@ -45,18 +48,18 @@ func GetStageTimeout(s int32) int64 {
 		return StSendCardTimeout
 	case StAction:
 		return StActionTimeout
-	// case StShow:
-	// 	return StShowTimeout
 	case StSideShow:
-		return StShowTimeout
-	case StWaitSide:
-		return StWaitEndTimeout
+		return StSideShowTimeout
+	case StSideShowAni:
+		return StSideShowAniTimeout
 	case StWaitEnd:
 		return StWaitEndTimeout
 	case StEnd:
 		return StEndTimeout
+	default:
+		log.Warnf("unknow stage name:%d", s)
+		return 0
 	}
-	return 0
 }
 
 const (
@@ -79,11 +82,11 @@ func (t TYPE) String() string {
 }
 
 const (
-	PLAYER_CALL       = int32(1) // "跟注"
-	PLAYER_RAISE      = int32(2) // "加注"
-	PLAYER_SEE        = int32(3) // "看牌"
-	PLAYER_PACK       = int32(4) // "弃牌"
-	PLAYER_SHOW       = int32(5) // "比牌"
-	PLAYER_SIDE       = int32(6) // "提前比牌"
-	PLAYER_SIDE_REPLY = int32(7) // "提前比牌回应"
+	AcCall      = int32(1) // "跟注"
+	AcRaise     = int32(2) // "加注"
+	AcSee       = int32(3) // "看牌"
+	AcPack      = int32(4) // "弃牌"
+	AcShow      = int32(5) // "比牌"
+	AcSide      = int32(6) // "提前比牌"
+	AcSideReply = int32(7) // "提前比牌回应"
 )

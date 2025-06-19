@@ -45,12 +45,13 @@ enum GameCommand {
     OnUserOfflinePush = 2004;  //用户断线通知
 
     // game push
-    OnSetBankerPush = 2100;  //庄家通知
-    OnSendCardPush  = 2101;  //发牌通知
-    OnActivePush    = 2102;  //活动玩家通知
-    OnRoundSeePush  = 2103;  //自动看牌通知
-    OnShowCardPush  = 2104;  //亮牌通知
-    OnResultPush    = 2200;  //结算通知
+    OnSetBankerPush      = 2100;  //庄家通知
+    OnSendCardPush       = 2101;  //发牌通知
+    OnActivePush         = 2102;  //活动玩家通知
+    OnRoundSeePush       = 2103;  //自动看牌通知
+    OnAfterSeeButtonPush = 2104;  //按钮通知(看牌后触发新增按钮)
+    OnShowCardPush       = 2105;  //亮牌通知
+    OnResultPush         = 2200;  //结算通知
 }
 
 // The greeting service definition.
@@ -324,11 +325,39 @@ message ActionReq {
 }
 
 message ActionRsp {
-    int32 code      = 1;   //错误码
-    string msg      = 2;   //错误信息
-    int64 userID    = 3;   //用户ID
-    int32 action    = 4;   //动作
-    CardsInfo cards = 12;  //手牌
+    int32 code    = 1;  //错误码
+    string msg    = 2;  //错误信息
+    int64 userID  = 3;  //用户ID
+    int32 chairID = 4;  //椅子号
+    int32 action  = 5;  //动作
+
+    //see
+    SeeReturn seeReturn = 6;
+
+    // call/raise/show
+    double curBet    = 7;  //
+    double totalBet  = 8;  //
+    double playerBet = 9;  //
+
+    //show/sideshow
+    int64 targetUid     = 10;
+    int32 targetChairID = 11;
+    int32 targetStatus  = 12;
+
+    // sideshow_reply
+    bool sideReplyAllow = 13;  //
+}
+
+message SeeReturn {
+    repeated int32 cards = 1;  //看牌玩家手牌
+    int32 cardsType      = 2;  //看牌玩家手牌
+}
+
+//
+message AfterSeeButtonPush {
+    int64 playerID   = 1;  //当前活动玩家的ID
+    bool canShow     = 2;
+    bool canSideShow = 3;
 }
 
 //

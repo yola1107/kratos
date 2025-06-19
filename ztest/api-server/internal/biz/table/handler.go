@@ -48,22 +48,22 @@ func (t *Table) OnActionReq(p *player.Player, in *v1.ActionReq, isTimeOut bool) 
 	action := in.Action
 
 	switch action {
-	case PLAYER_SEE:
+	case AcSee:
 		t.handleSee(p)
 
-	case PLAYER_PACK:
+	case AcPack:
 		t.handlePack(p, isTimeOut)
 
-	case PLAYER_CALL, PLAYER_RAISE:
+	case AcCall, AcRaise:
 		t.handleCall(p, action)
 
-	case PLAYER_SHOW:
+	case AcShow:
 		t.handleShow(p, action)
 
-	case PLAYER_SIDE:
+	case AcSide:
 		t.handleSideShow(p, action)
 
-	case PLAYER_SIDE_REPLY:
+	case AcSideReply:
 		t.handleSideShowReply(p, action, isTimeOut, false)
 	}
 
@@ -72,12 +72,12 @@ func (t *Table) OnActionReq(p *player.Player, in *v1.ActionReq, isTimeOut bool) 
 
 func (t *Table) handleSee(p *player.Player) {
 	if p.IsSee() {
-		t.sendActionRsp(p, &v1.ActionRsp{Code: 1, Action: PLAYER_SEE})
+		t.sendActionRsp(p, &v1.ActionRsp{Code: 1, Action: AcSee})
 		return
 	}
 
 	p.SetSee()
-	t.broadcastActionRsp(p, PLAYER_SEE)
+	t.broadcastActionRsp(p, AcSee, 0, nil, false)
 
 	if p.GetChairID() == t.active {
 		// 刷新定时器，通知活动玩家
@@ -86,9 +86,7 @@ func (t *Table) handleSee(p *player.Player) {
 		t.broadcastActivePlayerPush()
 	} else {
 		// 判断当前活动玩家是否可以发起比牌
-		if canShow, _ := t.canShowCard(t.GetActivePlayer()); canShow {
-			// 通知当前活动玩家添加比牌按钮
-		}
+		t.sendActiveButtonInfoNtf()
 	}
 }
 
@@ -100,9 +98,9 @@ func (t *Table) handlePack(p *player.Player, isTimeout bool) {
 	}
 
 	p.IncrIdleCount(isTimeout)
-	p.SetLastOp(PLAYER_PACK)
+	p.SetLastOp(AcPack)
 	p.SetStatus(player.StGameFold) // 弃牌标记
-	t.broadcastActionRsp(p, PLAYER_PACK)
+	t.broadcastActionRsp(p, AcPack, 0, nil, false)
 
 	if ps := t.GetCanActionPlayers(); len(ps) <= 1 {
 		t.updateStage(StWaitEnd)
@@ -122,7 +120,7 @@ func (t *Table) handleCall(p *player.Player, action int32) {
 		return
 	}
 	needMoney := t.calcBetMoney(p)
-	if action == PLAYER_RAISE {
+	if action == AcRaise {
 		needMoney *= 2
 	}
 	if !t.hasEnoughMoney(p, needMoney) {
@@ -135,7 +133,7 @@ func (t *Table) handleCall(p *player.Player, action int32) {
 	p.AddBet(needMoney)
 	p.SetLastOp(action)
 	p.IncrPlayCount()
-	t.broadcastActionRsp(p, action)
+	t.broadcastActionRsp(p, action, needMoney, nil, false)
 
 	// 判断是否需要处理所有比牌
 	if t.totalBet >= t.repo.GetRoomConfig().Game.PotLimit {
@@ -157,6 +155,10 @@ func (t *Table) handleShow(p *player.Player, action int32) {
 	if p.GetChairID() != t.active || t.stage.state != StAction || len(t.GetCanActionPlayers()) != 2 {
 		return
 	}
+	next := t.NextPlayer(p.GetChairID())
+	if next == nil {
+		return
+	}
 	needMoney := t.calcBetMoney(p)
 	if !t.hasEnoughMoney(p, needMoney) {
 		t.handlePack(p, false) // 直接弃牌处理
@@ -168,8 +170,15 @@ func (t *Table) handleShow(p *player.Player, action int32) {
 	p.AddBet(needMoney)
 	p.SetLastOp(action)
 	p.IncrPlayCount()
+	t.broadcastActionRsp(p, action, needMoney, next, false)
 
 	// 比牌+展示结果
+	winner, loss := getWinner(p, next)
+
+	// 设置输家的状态
+	loss.SetStatus(player.StGameLost) // 输家标记
+	loss.SetLastOp(action)            //
+	winner.SetLastOp(action)          //
 
 	// 等待结束
 	t.updateStage(StWaitEnd)
@@ -197,7 +206,7 @@ func (t *Table) handleSideShow(p *player.Player, action int32) {
 	p.AddBet(needMoney)
 	p.SetLastOp(action)
 	p.IncrPlayCount()
-	t.broadcastActionRsp(p, action)
+	t.broadcastActionRsp(p, action, needMoney, last, false)
 
 	// 判断是否需要处理所有比牌
 	if t.totalBet >= t.repo.GetRoomConfig().Game.PotLimit {
@@ -205,7 +214,7 @@ func (t *Table) handleSideShow(p *player.Player, action int32) {
 		return
 	}
 
-	// 向上家发起提前比牌请求
+	// 向上家发起提前比牌请求 todo
 
 	// 设置比牌的玩家椅子
 	p.SetCompareSeats([]int32{last.GetChairID()})
@@ -216,6 +225,7 @@ func (t *Table) handleSideShow(p *player.Player, action int32) {
 	t.broadcastActivePlayerPush()
 }
 
+// 回应提前比牌
 func (t *Table) handleSideShowReply(p *player.Player, action int32, isTimeout bool, allow bool) {
 	if p.GetChairID() != t.active || t.stage.state != StSideShow || len(t.GetCanActionPlayers()) <= 2 {
 		return
@@ -229,10 +239,13 @@ func (t *Table) handleSideShowReply(p *player.Player, action int32, isTimeout bo
 		return
 	}
 
+	// 广播结果
+	t.broadcastActionRsp(p, action, 0, next, allow)
+
 	// 拒绝比牌
 	if !allow {
-		// 通知发起比牌的玩家操作
-		t.active = next.GetChairID()
+		// 通知发起比牌玩家的下家操作
+		t.active = t.NextPlayer(next.GetChairID()).GetChairID()
 		t.updateStage(StAction)
 		t.broadcastActivePlayerPush()
 		return
@@ -248,7 +261,7 @@ func (t *Table) handleSideShowReply(p *player.Player, action int32, isTimeout bo
 
 	// 通知赢家操作
 	t.active = winner.GetChairID()
-	t.updateStage(StAction)
+	t.updateStage(StSideShowAni)
 	t.broadcastActivePlayerPush()
 }
 
@@ -273,6 +286,13 @@ func (t *Table) hasEnoughMoney(p *player.Player, amount float64) bool {
 	return p.GetAllMoney() >= amount
 }
 
-func (t *Table) notifyAction() {
-
+func (t *Table) checkAutoSee() {
+	if t.curRound >= t.repo.GetRoomConfig().Game.AutoSeeRound {
+		t.RangePlayer(func(k int32, p *player.Player) bool {
+			if p.IsGaming() {
+				t.OnActionReq(p, &v1.ActionReq{Action: AcSee}, false)
+			}
+			return true
+		})
+	}
 }

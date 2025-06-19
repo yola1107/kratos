@@ -26,7 +26,16 @@ func (t *Table) SendPacketToClient(p *player.Player, cmd v1.GameCommand, msg pro
 	}
 }
 
-func (t *Table) SendPacketToAll(cmd v1.GameCommand, msg proto.Message, uids ...int64) {
+func (t *Table) SendPacketToAll(cmd v1.GameCommand, msg proto.Message) {
+	for _, v := range t.seats {
+		if v == nil {
+			continue
+		}
+		t.SendPacketToClient(v, cmd, msg)
+	}
+}
+
+func (t *Table) SendPacketToAllExcept(cmd v1.GameCommand, msg proto.Message, uids ...int64) {
 	exceptMap := make(map[int64]struct{})
 	for _, v := range uids {
 		exceptMap[v] = struct{}{}
@@ -155,37 +164,37 @@ func (t *Table) getPlayerCanOp(p *player.Player) (actions []int32) {
 	}
 
 	// 能否弃牌
-	actions = append(actions, PLAYER_PACK)
+	actions = append(actions, AcPack)
 
 	// 能否看牌
 	if !t.canSeeCard(p) {
-		actions = append(actions, PLAYER_SEE)
+		actions = append(actions, AcSee)
 	}
 
 	// 能否主动跟注 call
 	canCall, _, canRaise, _ := t.canCallCard(p)
 	if canCall {
-		actions = append(actions, PLAYER_CALL)
+		actions = append(actions, AcCall)
 	}
 
 	// 能否主动加注 Raise
 	if canRaise {
-		actions = append(actions, PLAYER_RAISE)
+		actions = append(actions, AcRaise)
 	}
 
 	// 能否主动发起比牌 show
 	if canShow, _ := t.canShowCard(p); canShow {
-		actions = append(actions, PLAYER_SHOW)
+		actions = append(actions, AcShow)
 	}
 
-	// 能否主动发起提前比牌 side_show
+	// 能否主动发起提前比牌 side
 	if canSideShow, _, _ := t.canSideShowCard(p); canSideShow {
-		actions = append(actions, PLAYER_SIDE)
+		actions = append(actions, AcSide)
 	}
 
-	// 能否 同意/拒绝提前比牌 side_show_reply
+	// 能否 同意/拒绝提前比牌 side_reply
 	if t.canSideShowReply(p) {
-		actions = append(actions, PLAYER_SIDE_REPLY)
+		actions = append(actions, AcSideReply)
 	}
 	return actions
 }
@@ -321,7 +330,7 @@ func (t *Table) broadcastActivePlayerPush() {
 
 // 玩家离桌推送
 func (t *Table) broadcastUserQuitPush(p *player.Player, isSwitchTable bool) {
-	t.SendPacketToAll(v1.GameCommand_OnPlayerQuitPush, &v1.PlayerQuitPush{
+	t.SendPacketToAllExcept(v1.GameCommand_OnPlayerQuitPush, &v1.PlayerQuitPush{
 		UserID:  p.GetPlayerID(),
 		ChairID: p.GetChairID(),
 	}, p.GetPlayerID())
@@ -331,14 +340,55 @@ func (t *Table) sendActionRsp(p *player.Player, rsp *v1.ActionRsp) {
 	t.SendPacketToClient(p, v1.GameCommand_OnActionRsp, rsp)
 }
 
-func (t *Table) broadcastActionRsp(p *player.Player, action int32) {
-	rsp := &v1.ActionRsp{
-		Code:   0,
-		Msg:    "",
-		UserID: p.GetPlayerID(),
-		Action: action,
-		Cards:  nil,
+func (t *Table) sendActiveButtonInfoNtf() {
+	active := t.GetActivePlayer()
+	if active == nil {
+		return
 	}
+	canShow, _ := t.canShowCard(active)
+	canSideShow, _, _ := t.canSideShowCard(active)
+	if canShow || canSideShow {
+		t.SendPacketToClient(active, v1.GameCommand_OnAfterSeeButtonPush, &v1.AfterSeeButtonPush{
+			PlayerID:    active.GetPlayerID(),
+			CanShow:     canShow,
+			CanSideShow: canSideShow,
+		})
+	}
+}
+
+func (t *Table) broadcastActionRsp(p *player.Player, action int32, playerBet float64, target *player.Player, allow bool) {
+	rsp := &v1.ActionRsp{
+		Code:           0,
+		Msg:            "",
+		UserID:         p.GetPlayerID(),
+		ChairID:        p.GetChairID(),
+		Action:         action,
+		SeeReturn:      nil,
+		CurBet:         t.curBet,
+		TotalBet:       t.totalBet,
+		PlayerBet:      playerBet,
+		TargetUid:      0,
+		TargetChairID:  0,
+		TargetStatus:   0,
+		SideReplyAllow: allow,
+	}
+	if action == AcSee {
+		t.SendPacketToAllExcept(v1.GameCommand_OnActionRsp, rsp, p.GetPlayerID())
+		rsp.SeeReturn = &v1.SeeReturn{
+			Cards:     p.GetHands(),
+			CardsType: p.GetCardsType(),
+		}
+		t.SendPacketToClient(p, v1.GameCommand_OnActionRsp, rsp)
+		return
+	}
+	if action == AcShow || action == AcSide || action == AcSideReply {
+		if target != nil {
+			rsp.TargetUid = target.GetPlayerID()
+			rsp.TargetChairID = target.GetChairID()
+			rsp.TargetStatus = int32(target.GetStatus())
+		}
+	}
+	t.SendPacketToAll(v1.GameCommand_OnActionRsp, rsp)
 
 	// see 4011
 	// 		see cards
@@ -397,5 +447,5 @@ func (t *Table) broadcastActionRsp(p *player.Player, action int32) {
 	//			"cur_bet":       t.CurBet * 2,
 	//			"total_bet":     t.TotalBet,
 
-	t.SendPacketToAll(v1.GameCommand_OnActionRsp, rsp)
+	// t.SendPacketToAll(v1.GameCommand_OnActionRsp, rsp)
 }

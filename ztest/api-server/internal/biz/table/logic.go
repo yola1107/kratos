@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/yola1107/kratos/v2/log"
+	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 )
 
@@ -27,14 +28,12 @@ func (t *Table) OnTimer() {
 		t.onGameStart()
 	case StSendCard:
 		t.onSendCardTimeout()
-		// t.notifyAction(false, ACTION)
 	case StAction: // 超时操作
 		t.onActionTimeout()
-		// t.OnAction(t.CurrPlayer(), network.Packet{"action": PLAYER_PACK}, true)
-	// case conf.StWaitSiderShow: // 比牌操作超时
-	// 	// t.OnAction(t.CurrPlayer(), network.Packet{"action": PLAYER_OK_SIDER_SHOW, "allow": false}, true)
-	case StSideShow: // 操作之后等待时间
-		// t.notifyAction(true, ACTION)
+	case StSideShow: // 发起提前比牌 等待应答
+		t.onSideShowTimeout()
+	case StSideShowAni:
+		t.onSideShowAniTimeout()
 	case StWaitEnd:
 		// t.gameEnd()
 	case StEnd: // 游戏结束后判断
@@ -170,5 +169,14 @@ func (t *Table) onSendCardTimeout() {
 }
 
 func (t *Table) onActionTimeout() {
+	t.OnActionReq(t.GetActivePlayer(), &v1.ActionReq{Action: AcPack}, true)
+}
 
+func (t *Table) onSideShowTimeout() {
+	t.OnActionReq(t.GetActivePlayer(), &v1.ActionReq{Action: AcSideReply, SideReplyAllow: false}, true)
+}
+
+func (t *Table) onSideShowAniTimeout() {
+	t.updateStage(StAction)
+	t.broadcastActivePlayerPush()
 }

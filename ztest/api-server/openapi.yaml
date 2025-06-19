@@ -229,11 +229,38 @@ components:
                     type: string
                 userID:
                     type: string
+                chairID:
+                    type: integer
+                    format: int32
                 action:
                     type: integer
                     format: int32
-                cards:
-                    $ref: '#/components/schemas/helloworld.v1.CardsInfo'
+                seeReturn:
+                    allOf:
+                        - $ref: '#/components/schemas/helloworld.v1.SeeReturn'
+                    description: see
+                curBet:
+                    type: number
+                    description: call/raise/show
+                    format: double
+                totalBet:
+                    type: number
+                    format: double
+                playerBet:
+                    type: number
+                    format: double
+                targetUid:
+                    type: string
+                    description: show/sideshow
+                targetChairID:
+                    type: integer
+                    format: int32
+                targetStatus:
+                    type: integer
+                    format: int32
+                sideReplyAllow:
+                    type: boolean
+                    description: sideshow_reply
         helloworld.v1.AutoCallReq:
             type: object
             properties:
@@ -479,6 +506,17 @@ components:
                     items:
                         $ref: '#/components/schemas/helloworld.v1.PlayerScene'
                     description: 玩家信息
+        helloworld.v1.SeeReturn:
+            type: object
+            properties:
+                cards:
+                    type: array
+                    items:
+                        type: integer
+                        format: int32
+                cardsType:
+                    type: integer
+                    format: int32
         helloworld.v1.SwitchTableReq:
             type: object
             properties:
