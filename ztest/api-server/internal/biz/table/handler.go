@@ -100,7 +100,7 @@ func (t *Table) handlePack(p *player.Player, isTimeout bool) {
 	}
 
 	p.IncrIdleCount(isTimeout)
-	p.SetLastOp(int32(PLAYER_PACK))
+	p.SetLastOp(PLAYER_PACK)
 	p.SetStatus(player.StGameFold) // 弃牌标记
 	t.broadcastActionRsp(p, PLAYER_PACK)
 
@@ -271,4 +271,8 @@ func (t *Table) calcBetMoney(p *player.Player) float64 {
 // hasEnoughMoney 检查玩家是否有足够的钱下注
 func (t *Table) hasEnoughMoney(p *player.Player, amount float64) bool {
 	return p.GetAllMoney() >= amount
+}
+
+func (t *Table) notifyAction() {
+
 }

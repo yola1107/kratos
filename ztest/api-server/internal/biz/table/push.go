@@ -309,6 +309,7 @@ func (t *Table) broadcastActivePlayerPush() {
 			CurRound: t.curRound,
 			CurBet:   t.curBet,
 			TotalBet: t.totalBet,
+			RaiseBet: t.curBet * 2,
 		}
 		if p.GetChairID() == t.active {
 			rsp.CanOp = t.getPlayerCanOp(t.GetActivePlayer())
@@ -338,6 +339,63 @@ func (t *Table) broadcastActionRsp(p *player.Player, action int32) {
 		Action: action,
 		Cards:  nil,
 	}
+
+	// see 4011
+	// 		see cards
+	// 		canShow bool
+
+	// call/Raise 4011
+	// 		"uid":       seat.UID,
+	//		"seatid":    seat.SID,
+	//		"money":     seat.GetSelfMoney(),
+	//		"action":    PLAYER_CALL,
+	//		"bet":       seat.Bet,
+	//		"cur_bet":   bet,
+	//		"bet_ratio": 1, // 2
+	//		"total_bet": t.TotalBet,
+	//
+
+	// show 4011
+	//		"uid":           curr.UID,
+	//		"seatid":        curr.SID,
+	//		"status":        curr.Status,
+	//		"money":         curr.GetSelfMoney(),
+	//		"action":        PLAYER_SHOW,
+	//		"bet":           curr.Bet,
+	//		"target_uid":    last.UID,
+	//		"target_seatid": last.SID,
+	//		"target_status": last.Status,
+	//		"type":          0,
+	//		"cur_bet":       bet,
+	//		"total_bet":     t.TotalBet,
+
+	// side show 4011
+	//		"uid":           curr.UID,
+	//		"seatid":        curr.SID,
+	//		"status":        curr.Status,
+	//		"money":         curr.GetSelfMoney(),
+	//		"action":        PLAYER_SHOW,
+	//		"bet":           curr.Bet,
+	//		"target_uid":    last.UID,
+	//		"target_seatid": last.SID,
+	//		"target_status": last.Status,
+	//		"type":          0,
+	//		"cur_bet":       bet,
+	//		"total_bet":     t.TotalBet,
+
+	// side show reply
+	//			"uid":           last.UID,
+	//			"seatid":        last.SID,
+	//			"status":        last.Status,
+	//			"money":         last.GetSelfMoney(),
+	//			"action":        PLAYER_SHOW,
+	//			"bet":           last.Bet,
+	//			"target_uid":    curr.UID,
+	//			"target_seatid": curr.SID,
+	//			"target_status": curr.Status,
+	//			"type":          1,
+	//			"cur_bet":       t.CurBet * 2,
+	//			"total_bet":     t.TotalBet,
 
 	t.SendPacketToAll(v1.GameCommand_OnActionRsp, rsp)
 }

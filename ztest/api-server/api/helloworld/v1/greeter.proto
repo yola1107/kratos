@@ -310,9 +310,10 @@ message ActivePush {
     int64 timeout        = 2;  //剩余时间 s
     int32 active         = 3;  //当前操作位置
     int32 curRound       = 4;  //
-    double curBet        = 5;  // RAISE需要*2
+    double curBet        = 5;  //
     double totalBet      = 6;  //
-    repeated int32 canOp = 7;  //可操作列表
+    double raiseBet      = 7;  // RAISE需要的投入
+    repeated int32 canOp = 8;  //可操作列表
 }
 
 //

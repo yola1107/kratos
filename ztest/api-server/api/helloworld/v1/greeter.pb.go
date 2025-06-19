@@ -1766,9 +1766,10 @@ type ActivePush struct {
 	Timeout       int64                  `protobuf:"varint,2,opt,name=timeout,proto3" json:"timeout,omitempty"`    //剩余时间 s
 	Active        int32                  `protobuf:"varint,3,opt,name=active,proto3" json:"active,omitempty"`      //当前操作位置
 	CurRound      int32                  `protobuf:"varint,4,opt,name=curRound,proto3" json:"curRound,omitempty"`  //
-	CurBet        float64                `protobuf:"fixed64,5,opt,name=curBet,proto3" json:"curBet,omitempty"`     // RAISE需要*2
+	CurBet        float64                `protobuf:"fixed64,5,opt,name=curBet,proto3" json:"curBet,omitempty"`     //
 	TotalBet      float64                `protobuf:"fixed64,6,opt,name=totalBet,proto3" json:"totalBet,omitempty"` //
-	CanOp         []int32                `protobuf:"varint,7,rep,packed,name=canOp,proto3" json:"canOp,omitempty"` //可操作列表
+	RaiseBet      float64                `protobuf:"fixed64,7,opt,name=raiseBet,proto3" json:"raiseBet,omitempty"` // RAISE需要的投入
+	CanOp         []int32                `protobuf:"varint,8,rep,packed,name=canOp,proto3" json:"canOp,omitempty"` //可操作列表
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1841,6 +1842,13 @@ func (x *ActivePush) GetCurBet() float64 {
 func (x *ActivePush) GetTotalBet() float64 {
 	if x != nil {
 		return x.TotalBet
+	}
+	return 0
+}
+
+func (x *ActivePush) GetRaiseBet() float64 {
+	if x != nil {
+		return x.RaiseBet
 	}
 	return 0
 }
@@ -2215,7 +2223,7 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	"\tisOffline\x18\x02 \x01(\bR\tisOffline\"B\n" +
 	"\x0ePlayerQuitPush\x12\x16\n" +
 	"\x06userID\x18\x01 \x01(\x03R\x06userID\x12\x18\n" +
-	"\achairID\x18\x02 \x01(\x05R\achairID\"\xba\x01\n" +
+	"\achairID\x18\x02 \x01(\x05R\achairID\"\xd6\x01\n" +
 	"\n" +
 	"ActivePush\x12\x14\n" +
 	"\x05stage\x18\x01 \x01(\x05R\x05stage\x12\x18\n" +
@@ -2223,8 +2231,9 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	"\x06active\x18\x03 \x01(\x05R\x06active\x12\x1a\n" +
 	"\bcurRound\x18\x04 \x01(\x05R\bcurRound\x12\x16\n" +
 	"\x06curBet\x18\x05 \x01(\x01R\x06curBet\x12\x1a\n" +
-	"\btotalBet\x18\x06 \x01(\x01R\btotalBet\x12\x14\n" +
-	"\x05canOp\x18\a \x03(\x05R\x05canOp\"c\n" +
+	"\btotalBet\x18\x06 \x01(\x01R\btotalBet\x12\x1a\n" +
+	"\braiseBet\x18\a \x01(\x01R\braiseBet\x12\x14\n" +
+	"\x05canOp\x18\b \x03(\x05R\x05canOp\"c\n" +
 	"\tActionReq\x12\x16\n" +
 	"\x06userID\x18\x01 \x01(\x03R\x06userID\x12\x16\n" +
 	"\x06action\x18\x02 \x01(\x05R\x06action\x12&\n" +

@@ -79,11 +79,11 @@ func (t TYPE) String() string {
 }
 
 const (
-	PLAYER_CALL       = 1 // "跟注"
-	PLAYER_RAISE      = 2 // "加注"
-	PLAYER_SEE        = 3 // "看牌"
-	PLAYER_PACK       = 4 // "弃牌"
-	PLAYER_SHOW       = 5 // "比牌"
-	PLAYER_SIDE       = 6 // "提前比牌"
-	PLAYER_SIDE_REPLY = 7 // "提前比牌回应"
+	PLAYER_CALL       = int32(1) // "跟注"
+	PLAYER_RAISE      = int32(2) // "加注"
+	PLAYER_SEE        = int32(3) // "看牌"
+	PLAYER_PACK       = int32(4) // "弃牌"
+	PLAYER_SHOW       = int32(5) // "比牌"
+	PLAYER_SIDE       = int32(6) // "提前比牌"
+	PLAYER_SIDE_REPLY = int32(7) // "提前比牌回应"
 )
