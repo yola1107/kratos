@@ -325,32 +325,48 @@ message ActionReq {
 }
 
 message ActionRsp {
-    int32 code    = 1;  //错误码
-    string msg    = 2;  //错误信息
-    int64 userID  = 3;  //用户ID
-    int32 chairID = 4;  //椅子号
-    int32 action  = 5;  //动作
+    int32 code              = 1;  //错误码
+    string msg              = 2;  //错误信息
+    int64 userID            = 3;  //用户ID
+    int32 chairID           = 4;  //椅子号
+    int32 action            = 5;  //动作
+    SeeCards seeCards       = 6;  //看牌信息 see
+    BetInfo betInfo         = 7;  //下注信息 pack/call/raise/show/sideshow
+    CompareInfo compareInfo = 8;  //比牌信息 show/sideshow/sideshow_reply
 
-    //see
-    SeeReturn seeReturn = 6;
+    //    // pack/call/raise/show/sideshow
+    //    double curBet    = 7;  //
+    //    double totalBet  = 8;  //
+    //    double playerBet = 9;  //
 
-    // call/raise/show
-    double curBet    = 7;  //
-    double totalBet  = 8;  //
-    double playerBet = 9;  //
-
-    //show/sideshow
-    int64 targetUid     = 10;
-    int32 targetChairID = 11;
-    int32 targetStatus  = 12;
-
-    // sideshow_reply
-    bool sideReplyAllow = 13;  //
+    //    //show/sideshow
+    //    int64 targetUid     = 10;
+    //    int32 targetChairID = 11;
+    //    int32 targetStatus  = 12;
+    //
+    //    // sideshow_reply
+    //    bool sideReplyAllow = 13;  //
 }
 
-message SeeReturn {
+//看牌信息 看牌玩家自己的牌
+message SeeCards {
     repeated int32 cards = 1;  //看牌玩家手牌
     int32 cardsType      = 2;  //看牌玩家手牌
+}
+
+//下注信息 触发下注动作
+message BetInfo {
+    double curBet    = 1;  //
+    double totalBet  = 2;  //
+    double playerBet = 3;  //
+}
+
+//比牌信息 触发比牌动作
+message CompareInfo {
+    int64 targetUid     = 1;
+    int32 targetChairID = 2;
+    int32 targetStatus  = 3;
+    bool sideReplyAllow = 4;  //
 }
 
 //

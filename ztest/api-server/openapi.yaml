@@ -235,32 +235,12 @@ components:
                 action:
                     type: integer
                     format: int32
-                seeReturn:
-                    allOf:
-                        - $ref: '#/components/schemas/helloworld.v1.SeeReturn'
-                    description: see
-                curBet:
-                    type: number
-                    description: call/raise/show
-                    format: double
-                totalBet:
-                    type: number
-                    format: double
-                playerBet:
-                    type: number
-                    format: double
-                targetUid:
-                    type: string
-                    description: show/sideshow
-                targetChairID:
-                    type: integer
-                    format: int32
-                targetStatus:
-                    type: integer
-                    format: int32
-                sideReplyAllow:
-                    type: boolean
-                    description: sideshow_reply
+                seeCards:
+                    $ref: '#/components/schemas/helloworld.v1.SeeCards'
+                betInfo:
+                    $ref: '#/components/schemas/helloworld.v1.BetInfo'
+                compareInfo:
+                    $ref: '#/components/schemas/helloworld.v1.CompareInfo'
         helloworld.v1.AutoCallReq:
             type: object
             properties:
@@ -275,6 +255,19 @@ components:
                     type: string
                 autoCall:
                     type: boolean
+        helloworld.v1.BetInfo:
+            type: object
+            properties:
+                curBet:
+                    type: number
+                    format: double
+                totalBet:
+                    type: number
+                    format: double
+                playerBet:
+                    type: number
+                    format: double
+            description: 下注信息 触发下注动作
         helloworld.v1.CardsInfo:
             type: object
             properties:
@@ -315,6 +308,20 @@ components:
                     format: int32
                 msg:
                     type: string
+        helloworld.v1.CompareInfo:
+            type: object
+            properties:
+                targetUid:
+                    type: string
+                targetChairID:
+                    type: integer
+                    format: int32
+                targetStatus:
+                    type: integer
+                    format: int32
+                sideReplyAllow:
+                    type: boolean
+            description: 比牌信息 触发比牌动作
         helloworld.v1.ForwardReq:
             type: object
             properties:
@@ -506,7 +513,7 @@ components:
                     items:
                         $ref: '#/components/schemas/helloworld.v1.PlayerScene'
                     description: 玩家信息
-        helloworld.v1.SeeReturn:
+        helloworld.v1.SeeCards:
             type: object
             properties:
                 cards:
@@ -517,6 +524,7 @@ components:
                 cardsType:
                     type: integer
                     format: int32
+            description: 看牌信息 看牌玩家自己的牌
         helloworld.v1.SwitchTableReq:
             type: object
             properties:

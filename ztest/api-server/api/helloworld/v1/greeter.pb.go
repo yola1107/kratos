@@ -1924,26 +1924,17 @@ func (x *ActionReq) GetSideReplyAllow() bool {
 }
 
 type ActionRsp struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	Code    int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`       //错误码
-	Msg     string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`          //错误信息
-	UserID  int64                  `protobuf:"varint,3,opt,name=userID,proto3" json:"userID,omitempty"`   //用户ID
-	ChairID int32                  `protobuf:"varint,4,opt,name=chairID,proto3" json:"chairID,omitempty"` //椅子号
-	Action  int32                  `protobuf:"varint,5,opt,name=action,proto3" json:"action,omitempty"`   //动作
-	// see
-	SeeReturn *SeeReturn `protobuf:"bytes,6,opt,name=seeReturn,proto3" json:"seeReturn,omitempty"`
-	// call/raise/show
-	CurBet    float64 `protobuf:"fixed64,7,opt,name=curBet,proto3" json:"curBet,omitempty"`       //
-	TotalBet  float64 `protobuf:"fixed64,8,opt,name=totalBet,proto3" json:"totalBet,omitempty"`   //
-	PlayerBet float64 `protobuf:"fixed64,9,opt,name=playerBet,proto3" json:"playerBet,omitempty"` //
-	// show/sideshow
-	TargetUid     int64 `protobuf:"varint,10,opt,name=targetUid,proto3" json:"targetUid,omitempty"`
-	TargetChairID int32 `protobuf:"varint,11,opt,name=targetChairID,proto3" json:"targetChairID,omitempty"`
-	TargetStatus  int32 `protobuf:"varint,12,opt,name=targetStatus,proto3" json:"targetStatus,omitempty"`
-	// sideshow_reply
-	SideReplyAllow bool `protobuf:"varint,13,opt,name=sideReplyAllow,proto3" json:"sideReplyAllow,omitempty"` //
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`              //错误码
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`                 //错误信息
+	UserID        int64                  `protobuf:"varint,3,opt,name=userID,proto3" json:"userID,omitempty"`          //用户ID
+	ChairID       int32                  `protobuf:"varint,4,opt,name=chairID,proto3" json:"chairID,omitempty"`        //椅子号
+	Action        int32                  `protobuf:"varint,5,opt,name=action,proto3" json:"action,omitempty"`          //动作
+	SeeCards      *SeeCards              `protobuf:"bytes,6,opt,name=seeCards,proto3" json:"seeCards,omitempty"`       //看牌信息 see
+	BetInfo       *BetInfo               `protobuf:"bytes,7,opt,name=betInfo,proto3" json:"betInfo,omitempty"`         //下注信息 pack/call/raise/show/sideshow
+	CompareInfo   *CompareInfo           `protobuf:"bytes,8,opt,name=compareInfo,proto3" json:"compareInfo,omitempty"` //比牌信息 show/sideshow/sideshow_reply
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ActionRsp) Reset() {
@@ -2011,63 +2002,29 @@ func (x *ActionRsp) GetAction() int32 {
 	return 0
 }
 
-func (x *ActionRsp) GetSeeReturn() *SeeReturn {
+func (x *ActionRsp) GetSeeCards() *SeeCards {
 	if x != nil {
-		return x.SeeReturn
+		return x.SeeCards
 	}
 	return nil
 }
 
-func (x *ActionRsp) GetCurBet() float64 {
+func (x *ActionRsp) GetBetInfo() *BetInfo {
 	if x != nil {
-		return x.CurBet
+		return x.BetInfo
 	}
-	return 0
+	return nil
 }
 
-func (x *ActionRsp) GetTotalBet() float64 {
+func (x *ActionRsp) GetCompareInfo() *CompareInfo {
 	if x != nil {
-		return x.TotalBet
+		return x.CompareInfo
 	}
-	return 0
+	return nil
 }
 
-func (x *ActionRsp) GetPlayerBet() float64 {
-	if x != nil {
-		return x.PlayerBet
-	}
-	return 0
-}
-
-func (x *ActionRsp) GetTargetUid() int64 {
-	if x != nil {
-		return x.TargetUid
-	}
-	return 0
-}
-
-func (x *ActionRsp) GetTargetChairID() int32 {
-	if x != nil {
-		return x.TargetChairID
-	}
-	return 0
-}
-
-func (x *ActionRsp) GetTargetStatus() int32 {
-	if x != nil {
-		return x.TargetStatus
-	}
-	return 0
-}
-
-func (x *ActionRsp) GetSideReplyAllow() bool {
-	if x != nil {
-		return x.SideReplyAllow
-	}
-	return false
-}
-
-type SeeReturn struct {
+// 看牌信息 看牌玩家自己的牌
+type SeeCards struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Cards         []int32                `protobuf:"varint,1,rep,packed,name=cards,proto3" json:"cards,omitempty"`  //看牌玩家手牌
 	CardsType     int32                  `protobuf:"varint,2,opt,name=cardsType,proto3" json:"cardsType,omitempty"` //看牌玩家手牌
@@ -2075,20 +2032,20 @@ type SeeReturn struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *SeeReturn) Reset() {
-	*x = SeeReturn{}
+func (x *SeeCards) Reset() {
+	*x = SeeCards{}
 	mi := &file_helloworld_v1_greeter_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *SeeReturn) String() string {
+func (x *SeeCards) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SeeReturn) ProtoMessage() {}
+func (*SeeCards) ProtoMessage() {}
 
-func (x *SeeReturn) ProtoReflect() protoreflect.Message {
+func (x *SeeCards) ProtoReflect() protoreflect.Message {
 	mi := &file_helloworld_v1_greeter_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -2100,23 +2057,153 @@ func (x *SeeReturn) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SeeReturn.ProtoReflect.Descriptor instead.
-func (*SeeReturn) Descriptor() ([]byte, []int) {
+// Deprecated: Use SeeCards.ProtoReflect.Descriptor instead.
+func (*SeeCards) Descriptor() ([]byte, []int) {
 	return file_helloworld_v1_greeter_proto_rawDescGZIP(), []int{28}
 }
 
-func (x *SeeReturn) GetCards() []int32 {
+func (x *SeeCards) GetCards() []int32 {
 	if x != nil {
 		return x.Cards
 	}
 	return nil
 }
 
-func (x *SeeReturn) GetCardsType() int32 {
+func (x *SeeCards) GetCardsType() int32 {
 	if x != nil {
 		return x.CardsType
 	}
 	return 0
+}
+
+// 下注信息 触发下注动作
+type BetInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	CurBet        float64                `protobuf:"fixed64,1,opt,name=curBet,proto3" json:"curBet,omitempty"`       //
+	TotalBet      float64                `protobuf:"fixed64,2,opt,name=totalBet,proto3" json:"totalBet,omitempty"`   //
+	PlayerBet     float64                `protobuf:"fixed64,3,opt,name=playerBet,proto3" json:"playerBet,omitempty"` //
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BetInfo) Reset() {
+	*x = BetInfo{}
+	mi := &file_helloworld_v1_greeter_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BetInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BetInfo) ProtoMessage() {}
+
+func (x *BetInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_helloworld_v1_greeter_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BetInfo.ProtoReflect.Descriptor instead.
+func (*BetInfo) Descriptor() ([]byte, []int) {
+	return file_helloworld_v1_greeter_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *BetInfo) GetCurBet() float64 {
+	if x != nil {
+		return x.CurBet
+	}
+	return 0
+}
+
+func (x *BetInfo) GetTotalBet() float64 {
+	if x != nil {
+		return x.TotalBet
+	}
+	return 0
+}
+
+func (x *BetInfo) GetPlayerBet() float64 {
+	if x != nil {
+		return x.PlayerBet
+	}
+	return 0
+}
+
+// 比牌信息 触发比牌动作
+type CompareInfo struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	TargetUid      int64                  `protobuf:"varint,1,opt,name=targetUid,proto3" json:"targetUid,omitempty"`
+	TargetChairID  int32                  `protobuf:"varint,2,opt,name=targetChairID,proto3" json:"targetChairID,omitempty"`
+	TargetStatus   int32                  `protobuf:"varint,3,opt,name=targetStatus,proto3" json:"targetStatus,omitempty"`
+	SideReplyAllow bool                   `protobuf:"varint,4,opt,name=sideReplyAllow,proto3" json:"sideReplyAllow,omitempty"` //
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *CompareInfo) Reset() {
+	*x = CompareInfo{}
+	mi := &file_helloworld_v1_greeter_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompareInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompareInfo) ProtoMessage() {}
+
+func (x *CompareInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_helloworld_v1_greeter_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CompareInfo.ProtoReflect.Descriptor instead.
+func (*CompareInfo) Descriptor() ([]byte, []int) {
+	return file_helloworld_v1_greeter_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *CompareInfo) GetTargetUid() int64 {
+	if x != nil {
+		return x.TargetUid
+	}
+	return 0
+}
+
+func (x *CompareInfo) GetTargetChairID() int32 {
+	if x != nil {
+		return x.TargetChairID
+	}
+	return 0
+}
+
+func (x *CompareInfo) GetTargetStatus() int32 {
+	if x != nil {
+		return x.TargetStatus
+	}
+	return 0
+}
+
+func (x *CompareInfo) GetSideReplyAllow() bool {
+	if x != nil {
+		return x.SideReplyAllow
+	}
+	return false
 }
 
 type AfterSeeButtonPush struct {
@@ -2130,7 +2217,7 @@ type AfterSeeButtonPush struct {
 
 func (x *AfterSeeButtonPush) Reset() {
 	*x = AfterSeeButtonPush{}
-	mi := &file_helloworld_v1_greeter_proto_msgTypes[29]
+	mi := &file_helloworld_v1_greeter_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2142,7 +2229,7 @@ func (x *AfterSeeButtonPush) String() string {
 func (*AfterSeeButtonPush) ProtoMessage() {}
 
 func (x *AfterSeeButtonPush) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_v1_greeter_proto_msgTypes[29]
+	mi := &file_helloworld_v1_greeter_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2155,7 +2242,7 @@ func (x *AfterSeeButtonPush) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AfterSeeButtonPush.ProtoReflect.Descriptor instead.
 func (*AfterSeeButtonPush) Descriptor() ([]byte, []int) {
-	return file_helloworld_v1_greeter_proto_rawDescGZIP(), []int{29}
+	return file_helloworld_v1_greeter_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *AfterSeeButtonPush) GetPlayerID() int64 {
@@ -2189,7 +2276,7 @@ type AutoCallReq struct {
 
 func (x *AutoCallReq) Reset() {
 	*x = AutoCallReq{}
-	mi := &file_helloworld_v1_greeter_proto_msgTypes[30]
+	mi := &file_helloworld_v1_greeter_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2201,7 +2288,7 @@ func (x *AutoCallReq) String() string {
 func (*AutoCallReq) ProtoMessage() {}
 
 func (x *AutoCallReq) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_v1_greeter_proto_msgTypes[30]
+	mi := &file_helloworld_v1_greeter_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2214,7 +2301,7 @@ func (x *AutoCallReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AutoCallReq.ProtoReflect.Descriptor instead.
 func (*AutoCallReq) Descriptor() ([]byte, []int) {
-	return file_helloworld_v1_greeter_proto_rawDescGZIP(), []int{30}
+	return file_helloworld_v1_greeter_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *AutoCallReq) GetUserID() int64 {
@@ -2241,7 +2328,7 @@ type AutoCallRsp struct {
 
 func (x *AutoCallRsp) Reset() {
 	*x = AutoCallRsp{}
-	mi := &file_helloworld_v1_greeter_proto_msgTypes[31]
+	mi := &file_helloworld_v1_greeter_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2253,7 +2340,7 @@ func (x *AutoCallRsp) String() string {
 func (*AutoCallRsp) ProtoMessage() {}
 
 func (x *AutoCallRsp) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_v1_greeter_proto_msgTypes[31]
+	mi := &file_helloworld_v1_greeter_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2266,7 +2353,7 @@ func (x *AutoCallRsp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AutoCallRsp.ProtoReflect.Descriptor instead.
 func (*AutoCallRsp) Descriptor() ([]byte, []int) {
-	return file_helloworld_v1_greeter_proto_rawDescGZIP(), []int{31}
+	return file_helloworld_v1_greeter_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *AutoCallRsp) GetUserID() int64 {
@@ -2420,25 +2507,28 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	"\tActionReq\x12\x16\n" +
 	"\x06userID\x18\x01 \x01(\x03R\x06userID\x12\x16\n" +
 	"\x06action\x18\x02 \x01(\x05R\x06action\x12&\n" +
-	"\x0esideReplyAllow\x18\x03 \x01(\bR\x0esideReplyAllow\"\x95\x03\n" +
+	"\x0esideReplyAllow\x18\x03 \x01(\bR\x0esideReplyAllow\"\xa0\x02\n" +
 	"\tActionRsp\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x16\n" +
 	"\x06userID\x18\x03 \x01(\x03R\x06userID\x12\x18\n" +
 	"\achairID\x18\x04 \x01(\x05R\achairID\x12\x16\n" +
-	"\x06action\x18\x05 \x01(\x05R\x06action\x126\n" +
-	"\tseeReturn\x18\x06 \x01(\v2\x18.helloworld.v1.SeeReturnR\tseeReturn\x12\x16\n" +
-	"\x06curBet\x18\a \x01(\x01R\x06curBet\x12\x1a\n" +
-	"\btotalBet\x18\b \x01(\x01R\btotalBet\x12\x1c\n" +
-	"\tplayerBet\x18\t \x01(\x01R\tplayerBet\x12\x1c\n" +
-	"\ttargetUid\x18\n" +
-	" \x01(\x03R\ttargetUid\x12$\n" +
-	"\rtargetChairID\x18\v \x01(\x05R\rtargetChairID\x12\"\n" +
-	"\ftargetStatus\x18\f \x01(\x05R\ftargetStatus\x12&\n" +
-	"\x0esideReplyAllow\x18\r \x01(\bR\x0esideReplyAllow\"?\n" +
-	"\tSeeReturn\x12\x14\n" +
+	"\x06action\x18\x05 \x01(\x05R\x06action\x123\n" +
+	"\bseeCards\x18\x06 \x01(\v2\x17.helloworld.v1.SeeCardsR\bseeCards\x120\n" +
+	"\abetInfo\x18\a \x01(\v2\x16.helloworld.v1.BetInfoR\abetInfo\x12<\n" +
+	"\vcompareInfo\x18\b \x01(\v2\x1a.helloworld.v1.CompareInfoR\vcompareInfo\">\n" +
+	"\bSeeCards\x12\x14\n" +
 	"\x05cards\x18\x01 \x03(\x05R\x05cards\x12\x1c\n" +
-	"\tcardsType\x18\x02 \x01(\x05R\tcardsType\"l\n" +
+	"\tcardsType\x18\x02 \x01(\x05R\tcardsType\"[\n" +
+	"\aBetInfo\x12\x16\n" +
+	"\x06curBet\x18\x01 \x01(\x01R\x06curBet\x12\x1a\n" +
+	"\btotalBet\x18\x02 \x01(\x01R\btotalBet\x12\x1c\n" +
+	"\tplayerBet\x18\x03 \x01(\x01R\tplayerBet\"\x9d\x01\n" +
+	"\vCompareInfo\x12\x1c\n" +
+	"\ttargetUid\x18\x01 \x01(\x03R\ttargetUid\x12$\n" +
+	"\rtargetChairID\x18\x02 \x01(\x05R\rtargetChairID\x12\"\n" +
+	"\ftargetStatus\x18\x03 \x01(\x05R\ftargetStatus\x12&\n" +
+	"\x0esideReplyAllow\x18\x04 \x01(\bR\x0esideReplyAllow\"l\n" +
 	"\x12AfterSeeButtonPush\x12\x1a\n" +
 	"\bplayerID\x18\x01 \x01(\x03R\bplayerID\x12\x18\n" +
 	"\acanShow\x18\x02 \x01(\bR\acanShow\x12 \n" +
@@ -2520,7 +2610,7 @@ func file_helloworld_v1_greeter_proto_rawDescGZIP() []byte {
 }
 
 var file_helloworld_v1_greeter_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_helloworld_v1_greeter_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
+var file_helloworld_v1_greeter_proto_msgTypes = make([]protoimpl.MessageInfo, 34)
 var file_helloworld_v1_greeter_proto_goTypes = []any{
 	(GameCommand)(0),           // 0: helloworld.v1.GameCommand
 	(*HelloRequest)(nil),       // 1: helloworld.v1.HelloRequest
@@ -2551,43 +2641,47 @@ var file_helloworld_v1_greeter_proto_goTypes = []any{
 	(*ActivePush)(nil),         // 26: helloworld.v1.ActivePush
 	(*ActionReq)(nil),          // 27: helloworld.v1.ActionReq
 	(*ActionRsp)(nil),          // 28: helloworld.v1.ActionRsp
-	(*SeeReturn)(nil),          // 29: helloworld.v1.SeeReturn
-	(*AfterSeeButtonPush)(nil), // 30: helloworld.v1.AfterSeeButtonPush
-	(*AutoCallReq)(nil),        // 31: helloworld.v1.AutoCallReq
-	(*AutoCallRsp)(nil),        // 32: helloworld.v1.AutoCallRsp
+	(*SeeCards)(nil),           // 29: helloworld.v1.SeeCards
+	(*BetInfo)(nil),            // 30: helloworld.v1.BetInfo
+	(*CompareInfo)(nil),        // 31: helloworld.v1.CompareInfo
+	(*AfterSeeButtonPush)(nil), // 32: helloworld.v1.AfterSeeButtonPush
+	(*AutoCallReq)(nil),        // 33: helloworld.v1.AutoCallReq
+	(*AutoCallRsp)(nil),        // 34: helloworld.v1.AutoCallRsp
 }
 var file_helloworld_v1_greeter_proto_depIdxs = []int32{
 	20, // 0: helloworld.v1.SceneRsp.players:type_name -> helloworld.v1.PlayerScene
 	23, // 1: helloworld.v1.PlayerScene.cards:type_name -> helloworld.v1.CardsInfo
 	23, // 2: helloworld.v1.SendCardPush.cards:type_name -> helloworld.v1.CardsInfo
-	29, // 3: helloworld.v1.ActionRsp.seeReturn:type_name -> helloworld.v1.SeeReturn
-	1,  // 4: helloworld.v1.Greeter.SayHelloReq:input_type -> helloworld.v1.HelloRequest
-	3,  // 5: helloworld.v1.Greeter.OnLoginReq:input_type -> helloworld.v1.LoginReq
-	5,  // 6: helloworld.v1.Greeter.OnLogoutReq:input_type -> helloworld.v1.LogoutReq
-	7,  // 7: helloworld.v1.Greeter.OnReadyReq:input_type -> helloworld.v1.ReadyReq
-	9,  // 8: helloworld.v1.Greeter.OnSwitchTableReq:input_type -> helloworld.v1.SwitchTableReq
-	18, // 9: helloworld.v1.Greeter.OnSceneReq:input_type -> helloworld.v1.SceneReq
-	11, // 10: helloworld.v1.Greeter.OnChatReq:input_type -> helloworld.v1.ChatReq
-	15, // 11: helloworld.v1.Greeter.OnHostingReq:input_type -> helloworld.v1.HostingReq
-	13, // 12: helloworld.v1.Greeter.OnForwardReq:input_type -> helloworld.v1.ForwardReq
-	27, // 13: helloworld.v1.Greeter.OnActionReq:input_type -> helloworld.v1.ActionReq
-	31, // 14: helloworld.v1.Greeter.OnAutoCallReq:input_type -> helloworld.v1.AutoCallReq
-	2,  // 15: helloworld.v1.Greeter.SayHelloReq:output_type -> helloworld.v1.HelloReply
-	4,  // 16: helloworld.v1.Greeter.OnLoginReq:output_type -> helloworld.v1.LoginRsp
-	6,  // 17: helloworld.v1.Greeter.OnLogoutReq:output_type -> helloworld.v1.LogoutRsp
-	8,  // 18: helloworld.v1.Greeter.OnReadyReq:output_type -> helloworld.v1.ReadyRsp
-	10, // 19: helloworld.v1.Greeter.OnSwitchTableReq:output_type -> helloworld.v1.SwitchTableRsp
-	19, // 20: helloworld.v1.Greeter.OnSceneReq:output_type -> helloworld.v1.SceneRsp
-	12, // 21: helloworld.v1.Greeter.OnChatReq:output_type -> helloworld.v1.ChatRsp
-	16, // 22: helloworld.v1.Greeter.OnHostingReq:output_type -> helloworld.v1.HostingRsp
-	14, // 23: helloworld.v1.Greeter.OnForwardReq:output_type -> helloworld.v1.ForwardRsp
-	28, // 24: helloworld.v1.Greeter.OnActionReq:output_type -> helloworld.v1.ActionRsp
-	32, // 25: helloworld.v1.Greeter.OnAutoCallReq:output_type -> helloworld.v1.AutoCallRsp
-	15, // [15:26] is the sub-list for method output_type
-	4,  // [4:15] is the sub-list for method input_type
-	4,  // [4:4] is the sub-list for extension type_name
-	4,  // [4:4] is the sub-list for extension extendee
-	0,  // [0:4] is the sub-list for field type_name
+	29, // 3: helloworld.v1.ActionRsp.seeCards:type_name -> helloworld.v1.SeeCards
+	30, // 4: helloworld.v1.ActionRsp.betInfo:type_name -> helloworld.v1.BetInfo
+	31, // 5: helloworld.v1.ActionRsp.compareInfo:type_name -> helloworld.v1.CompareInfo
+	1,  // 6: helloworld.v1.Greeter.SayHelloReq:input_type -> helloworld.v1.HelloRequest
+	3,  // 7: helloworld.v1.Greeter.OnLoginReq:input_type -> helloworld.v1.LoginReq
+	5,  // 8: helloworld.v1.Greeter.OnLogoutReq:input_type -> helloworld.v1.LogoutReq
+	7,  // 9: helloworld.v1.Greeter.OnReadyReq:input_type -> helloworld.v1.ReadyReq
+	9,  // 10: helloworld.v1.Greeter.OnSwitchTableReq:input_type -> helloworld.v1.SwitchTableReq
+	18, // 11: helloworld.v1.Greeter.OnSceneReq:input_type -> helloworld.v1.SceneReq
+	11, // 12: helloworld.v1.Greeter.OnChatReq:input_type -> helloworld.v1.ChatReq
+	15, // 13: helloworld.v1.Greeter.OnHostingReq:input_type -> helloworld.v1.HostingReq
+	13, // 14: helloworld.v1.Greeter.OnForwardReq:input_type -> helloworld.v1.ForwardReq
+	27, // 15: helloworld.v1.Greeter.OnActionReq:input_type -> helloworld.v1.ActionReq
+	33, // 16: helloworld.v1.Greeter.OnAutoCallReq:input_type -> helloworld.v1.AutoCallReq
+	2,  // 17: helloworld.v1.Greeter.SayHelloReq:output_type -> helloworld.v1.HelloReply
+	4,  // 18: helloworld.v1.Greeter.OnLoginReq:output_type -> helloworld.v1.LoginRsp
+	6,  // 19: helloworld.v1.Greeter.OnLogoutReq:output_type -> helloworld.v1.LogoutRsp
+	8,  // 20: helloworld.v1.Greeter.OnReadyReq:output_type -> helloworld.v1.ReadyRsp
+	10, // 21: helloworld.v1.Greeter.OnSwitchTableReq:output_type -> helloworld.v1.SwitchTableRsp
+	19, // 22: helloworld.v1.Greeter.OnSceneReq:output_type -> helloworld.v1.SceneRsp
+	12, // 23: helloworld.v1.Greeter.OnChatReq:output_type -> helloworld.v1.ChatRsp
+	16, // 24: helloworld.v1.Greeter.OnHostingReq:output_type -> helloworld.v1.HostingRsp
+	14, // 25: helloworld.v1.Greeter.OnForwardReq:output_type -> helloworld.v1.ForwardRsp
+	28, // 26: helloworld.v1.Greeter.OnActionReq:output_type -> helloworld.v1.ActionRsp
+	34, // 27: helloworld.v1.Greeter.OnAutoCallReq:output_type -> helloworld.v1.AutoCallRsp
+	17, // [17:28] is the sub-list for method output_type
+	6,  // [6:17] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_helloworld_v1_greeter_proto_init() }
@@ -2601,7 +2695,7 @@ func file_helloworld_v1_greeter_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_helloworld_v1_greeter_proto_rawDesc), len(file_helloworld_v1_greeter_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   32,
+			NumMessages:   34,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

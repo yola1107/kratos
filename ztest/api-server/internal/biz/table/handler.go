@@ -71,7 +71,7 @@ func (t *Table) OnActionReq(p *player.Player, in *v1.ActionReq, isTimeOut bool) 
 }
 
 func (t *Table) handleSee(p *player.Player) {
-	if p.IsSee() {
+	if t.canSeeCard(p) {
 		t.sendActionRsp(p, &v1.ActionRsp{Code: 1, Action: AcSee})
 		return
 	}
@@ -213,8 +213,6 @@ func (t *Table) handleSideShow(p *player.Player, action int32) {
 		t.dealAllCompare()
 		return
 	}
-
-	// 向上家发起提前比牌请求 todo
 
 	// 设置比牌的玩家椅子
 	p.SetCompareSeats([]int32{last.GetChairID()})
