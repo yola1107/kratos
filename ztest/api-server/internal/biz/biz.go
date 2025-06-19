@@ -40,6 +40,9 @@ type Usecase struct {
 
 // NewUsecase new a data usecase.
 func NewUsecase(repo DataRepo, logger log.Logger, c *conf.Room) (*Usecase, func(), error) {
+	log.Infof("start server:\"%s\" version:%+v", conf.Name, conf.Version)
+	log.Infof("GameID=%d ArenaID=%d ServerID=%s", conf.GameID, conf.ArenaID, conf.ServerID)
+
 	uc := &Usecase{repo: repo, log: log.NewHelper(logger)}
 
 	ctx, cancel := context.WithCancel(context.Background())

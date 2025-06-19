@@ -30,7 +30,7 @@ func wireApp(confServer *conf.Server, confData *conf.Data, room *conf.Room, logg
 		cleanup()
 		return nil, nil, err
 	}
-	serviceService := service.NewService(usecase, logger, room)
+	serviceService := service.NewService(usecase, logger)
 	grpcServer := server.NewGRPCServer(confServer, serviceService, logger)
 	httpServer := server.NewHTTPServer(confServer, serviceService, logger)
 	websocketServer := server.NewWebsocketServer(confServer, serviceService, logger)
