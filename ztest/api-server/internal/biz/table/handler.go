@@ -4,7 +4,6 @@ import (
 	"github.com/yola1107/kratos/v2/library/ext"
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
 )
 
 func (t *Table) OnExitGame(p *player.Player, code int32, msg string) bool {
@@ -42,29 +41,29 @@ func (t *Table) OnActionReq(p *player.Player, in *v1.ActionReq, isTimeOut bool) 
 	}
 
 	stage := t.stage.state
-	if stage == conf.StWait || stage == conf.StReady || stage == conf.StWaitEnd || stage == conf.StEnd {
+	if stage == StWait || stage == StReady || stage == StWaitEnd || stage == StEnd {
 		return
 	}
 
 	action := in.Action
 
-	switch in.Action {
-	case v1.ACTION_SEE:
+	switch action {
+	case PLAYER_SEE:
 		t.handleSee(p)
 
-	case v1.ACTION_PACK:
+	case PLAYER_PACK:
 		t.handlePack(p, isTimeOut)
 
-	case v1.ACTION_CALL, v1.ACTION_RAISE:
+	case PLAYER_CALL, PLAYER_RAISE:
 		t.handleCall(p, action)
 
-	case v1.ACTION_SHOW:
+	case PLAYER_SHOW:
 		t.handleShow(p, action)
 
-	case v1.ACTION_SIDE:
+	case PLAYER_SIDE:
 		t.handleSideShow(p, action)
 
-	case v1.ACTION_SIDE_REPLY:
+	case PLAYER_SIDE_REPLY:
 		t.handleSideShowReply(p, action, isTimeOut, false)
 	}
 
@@ -73,17 +72,17 @@ func (t *Table) OnActionReq(p *player.Player, in *v1.ActionReq, isTimeOut bool) 
 
 func (t *Table) handleSee(p *player.Player) {
 	if p.IsSee() {
-		t.sendActionRsp(p, &v1.ActionRsp{Code: 1, Action: v1.ACTION_SEE})
+		t.sendActionRsp(p, &v1.ActionRsp{Code: 1, Action: PLAYER_SEE})
 		return
 	}
 
 	p.SetSee()
-	t.broadcastActionRsp(p, v1.ACTION_SEE)
+	t.broadcastActionRsp(p, PLAYER_SEE)
 
 	if p.GetChairID() == t.active {
 		// 刷新定时器，通知活动玩家
 		t.active = p.GetChairID()
-		t.updateStage(conf.StAction)
+		t.updateStage(StAction)
 		t.broadcastActivePlayerPush()
 	} else {
 		// 判断当前活动玩家是否可以发起比牌
@@ -96,34 +95,34 @@ func (t *Table) handleSee(p *player.Player) {
 // 弃牌 允许非当前玩家操作
 func (t *Table) handlePack(p *player.Player, isTimeout bool) {
 	// 比牌阶段不可丢牌
-	if p == nil || !p.IsGaming() || t.stage.state == conf.StSideShow {
+	if p == nil || !p.IsGaming() || t.stage.state == StSideShow {
 		return
 	}
 
 	p.IncrIdleCount(isTimeout)
-	p.SetLastOp(int32(v1.ACTION_PACK))
+	p.SetLastOp(int32(PLAYER_PACK))
 	p.SetStatus(player.StGameFold) // 弃牌标记
-	t.broadcastActionRsp(p, v1.ACTION_PACK)
+	t.broadcastActionRsp(p, PLAYER_PACK)
 
 	if ps := t.GetCanActionPlayers(); len(ps) <= 1 {
-		t.updateStage(conf.StWaitEnd)
+		t.updateStage(StWaitEnd)
 		return
 	}
 
 	if p.GetChairID() == t.active {
 		// 通知下个玩家操作
 		t.active = t.getNextActiveChair()
-		t.updateStage(conf.StAction)
+		t.updateStage(StAction)
 		t.broadcastActivePlayerPush()
 	}
 }
 
-func (t *Table) handleCall(p *player.Player, action v1.ACTION) {
-	if p.GetChairID() != t.active || t.stage.state != conf.StAction || len(t.GetCanActionPlayers()) <= 2 {
+func (t *Table) handleCall(p *player.Player, action int32) {
+	if p.GetChairID() != t.active || t.stage.state != StAction || len(t.GetCanActionPlayers()) <= 2 {
 		return
 	}
 	needMoney := t.calcBetMoney(p)
-	if action == v1.ACTION_RAISE {
+	if action == PLAYER_RAISE {
 		needMoney *= 2
 	}
 	if !t.hasEnoughMoney(p, needMoney) {
@@ -134,7 +133,7 @@ func (t *Table) handleCall(p *player.Player, action v1.ACTION) {
 	t.totalBet += needMoney
 	p.UseMoney(needMoney)
 	p.AddBet(needMoney)
-	p.SetLastOp(int32(action))
+	p.SetLastOp(action)
 	p.IncrPlayCount()
 	t.broadcastActionRsp(p, action)
 
@@ -146,16 +145,16 @@ func (t *Table) handleCall(p *player.Player, action v1.ACTION) {
 
 	// 通知下个玩家操作
 	t.active = t.getNextActiveChair()
-	t.updateStage(conf.StAction)
+	t.updateStage(StAction)
 	t.broadcastActivePlayerPush()
 }
 
 func (t *Table) dealAllCompare() {
-	t.updateStage(conf.StWaitEnd)
+	t.updateStage(StWaitEnd)
 }
 
-func (t *Table) handleShow(p *player.Player, action v1.ACTION) {
-	if p.GetChairID() != t.active || t.stage.state != conf.StAction || len(t.GetCanActionPlayers()) != 2 {
+func (t *Table) handleShow(p *player.Player, action int32) {
+	if p.GetChairID() != t.active || t.stage.state != StAction || len(t.GetCanActionPlayers()) != 2 {
 		return
 	}
 	needMoney := t.calcBetMoney(p)
@@ -167,17 +166,17 @@ func (t *Table) handleShow(p *player.Player, action v1.ACTION) {
 	t.totalBet += needMoney
 	p.UseMoney(needMoney)
 	p.AddBet(needMoney)
-	p.SetLastOp(int32(action))
+	p.SetLastOp(action)
 	p.IncrPlayCount()
 
 	// 比牌+展示结果
 
 	// 等待结束
-	t.updateStage(conf.StWaitEnd)
+	t.updateStage(StWaitEnd)
 }
 
-func (t *Table) handleSideShow(p *player.Player, action v1.ACTION) {
-	if p.GetChairID() != t.active || t.stage.state != conf.StAction || len(t.GetCanActionPlayers()) <= 2 {
+func (t *Table) handleSideShow(p *player.Player, action int32) {
+	if p.GetChairID() != t.active || t.stage.state != StAction || len(t.GetCanActionPlayers()) <= 2 {
 		return
 	}
 	last := t.LastPlayer(p.GetChairID())
@@ -196,7 +195,7 @@ func (t *Table) handleSideShow(p *player.Player, action v1.ACTION) {
 	t.totalBet += needMoney
 	p.UseMoney(needMoney)
 	p.AddBet(needMoney)
-	p.SetLastOp(int32(action))
+	p.SetLastOp(action)
 	p.IncrPlayCount()
 	t.broadcastActionRsp(p, action)
 
@@ -213,12 +212,12 @@ func (t *Table) handleSideShow(p *player.Player, action v1.ACTION) {
 
 	// 等待上家提前比牌回应
 	t.active = last.GetChairID()
-	t.updateStage(conf.StSideShow)
+	t.updateStage(StSideShow)
 	t.broadcastActivePlayerPush()
 }
 
-func (t *Table) handleSideShowReply(p *player.Player, action v1.ACTION, isTimeout bool, allow bool) {
-	if p.GetChairID() != t.active || t.stage.state != conf.StSideShow || len(t.GetCanActionPlayers()) <= 2 {
+func (t *Table) handleSideShowReply(p *player.Player, action int32, isTimeout bool, allow bool) {
+	if p.GetChairID() != t.active || t.stage.state != StSideShow || len(t.GetCanActionPlayers()) <= 2 {
 		return
 	}
 
@@ -234,7 +233,7 @@ func (t *Table) handleSideShowReply(p *player.Player, action v1.ACTION, isTimeou
 	if !allow {
 		// 通知发起比牌的玩家操作
 		t.active = next.GetChairID()
-		t.updateStage(conf.StAction)
+		t.updateStage(StAction)
 		t.broadcastActivePlayerPush()
 		return
 	}
@@ -244,12 +243,12 @@ func (t *Table) handleSideShowReply(p *player.Player, action v1.ACTION, isTimeou
 
 	// 设置输家的状态
 	loss.SetStatus(player.StGameLost) // 输家标记
-	loss.SetLastOp(int32(action))     //
-	winner.SetLastOp(int32(action))   //
+	loss.SetLastOp(action)            //
+	winner.SetLastOp(action)          //
 
 	// 通知赢家操作
 	t.active = winner.GetChairID()
-	t.updateStage(conf.StAction)
+	t.updateStage(StAction)
 	t.broadcastActivePlayerPush()
 }
 

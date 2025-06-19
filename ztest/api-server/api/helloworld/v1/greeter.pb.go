@@ -165,73 +165,6 @@ func (GameCommand) EnumDescriptor() ([]byte, []int) {
 	return file_helloworld_v1_greeter_proto_rawDescGZIP(), []int{0}
 }
 
-type ACTION int32
-
-const (
-	ACTION_Invalid    ACTION = 0 //
-	ACTION_CALL       ACTION = 1 //"跟注"
-	ACTION_CALL_AUTO  ACTION = 2 //"自动跟注"
-	ACTION_RAISE      ACTION = 3 //"加注"
-	ACTION_SEE        ACTION = 4 //"看牌"
-	ACTION_PACK       ACTION = 5 //"弃牌"
-	ACTION_SHOW       ACTION = 6 //"比牌"
-	ACTION_SIDE       ACTION = 7 //"提前比牌"
-	ACTION_SIDE_REPLY ACTION = 8 //"提前比牌回应"
-)
-
-// Enum value maps for ACTION.
-var (
-	ACTION_name = map[int32]string{
-		0: "Invalid",
-		1: "CALL",
-		2: "CALL_AUTO",
-		3: "RAISE",
-		4: "SEE",
-		5: "PACK",
-		6: "SHOW",
-		7: "SIDE",
-		8: "SIDE_REPLY",
-	}
-	ACTION_value = map[string]int32{
-		"Invalid":    0,
-		"CALL":       1,
-		"CALL_AUTO":  2,
-		"RAISE":      3,
-		"SEE":        4,
-		"PACK":       5,
-		"SHOW":       6,
-		"SIDE":       7,
-		"SIDE_REPLY": 8,
-	}
-)
-
-func (x ACTION) Enum() *ACTION {
-	p := new(ACTION)
-	*p = x
-	return p
-}
-
-func (x ACTION) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (ACTION) Descriptor() protoreflect.EnumDescriptor {
-	return file_helloworld_v1_greeter_proto_enumTypes[1].Descriptor()
-}
-
-func (ACTION) Type() protoreflect.EnumType {
-	return &file_helloworld_v1_greeter_proto_enumTypes[1]
-}
-
-func (x ACTION) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use ACTION.Descriptor instead.
-func (ACTION) EnumDescriptor() ([]byte, []int) {
-	return file_helloworld_v1_greeter_proto_rawDescGZIP(), []int{1}
-}
-
 // The request message containing the user's name.
 type HelloRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1435,19 +1368,19 @@ func (x *SceneRsp) GetPlayers() []*PlayerScene {
 
 type PlayerScene struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserID        int64                  `protobuf:"varint,1,opt,name=userID,proto3" json:"userID,omitempty"`                                 //玩家ID
-	ChairId       int32                  `protobuf:"varint,2,opt,name=chairId,proto3" json:"chairId,omitempty"`                               //玩家座位号
-	Status        int32                  `protobuf:"varint,3,opt,name=status,proto3" json:"status,omitempty"`                                 //玩家状态
-	Hosting       bool                   `protobuf:"varint,4,opt,name=hosting,proto3" json:"hosting,omitempty"`                               //是否托管
-	Offline       bool                   `protobuf:"varint,5,opt,name=offline,proto3" json:"offline,omitempty"`                               //是否断线
-	LastOp        int32                  `protobuf:"varint,6,opt,name=lastOp,proto3" json:"lastOp,omitempty"`                                 //最后操作
-	CurBet        float64                `protobuf:"fixed64,7,opt,name=curBet,proto3" json:"curBet,omitempty"`                                //
-	TotalBet      float64                `protobuf:"fixed64,8,opt,name=totalBet,proto3" json:"totalBet,omitempty"`                            //
-	See           bool                   `protobuf:"varint,9,opt,name=see,proto3" json:"see,omitempty"`                                       //
-	IsAutoCall    bool                   `protobuf:"varint,10,opt,name=isAutoCall,proto3" json:"isAutoCall,omitempty"`                        //自动跟注 0:未开启 1:已开启
-	IsPaying      bool                   `protobuf:"varint,11,opt,name=isPaying,proto3" json:"isPaying,omitempty"`                            //支付状态 1:支付中
-	Cards         *CardsInfo             `protobuf:"bytes,12,opt,name=cards,proto3" json:"cards,omitempty"`                                   //手牌
-	CanOp         []ACTION               `protobuf:"varint,13,rep,packed,name=canOp,proto3,enum=helloworld.v1.ACTION" json:"canOp,omitempty"` //可操作列表
+	UserID        int64                  `protobuf:"varint,1,opt,name=userID,proto3" json:"userID,omitempty"`          //玩家ID
+	ChairId       int32                  `protobuf:"varint,2,opt,name=chairId,proto3" json:"chairId,omitempty"`        //玩家座位号
+	Status        int32                  `protobuf:"varint,3,opt,name=status,proto3" json:"status,omitempty"`          //玩家状态
+	Hosting       bool                   `protobuf:"varint,4,opt,name=hosting,proto3" json:"hosting,omitempty"`        //是否托管
+	Offline       bool                   `protobuf:"varint,5,opt,name=offline,proto3" json:"offline,omitempty"`        //是否断线
+	LastOp        int32                  `protobuf:"varint,6,opt,name=lastOp,proto3" json:"lastOp,omitempty"`          //最后操作
+	CurBet        float64                `protobuf:"fixed64,7,opt,name=curBet,proto3" json:"curBet,omitempty"`         //
+	TotalBet      float64                `protobuf:"fixed64,8,opt,name=totalBet,proto3" json:"totalBet,omitempty"`     //
+	See           bool                   `protobuf:"varint,9,opt,name=see,proto3" json:"see,omitempty"`                //
+	IsAutoCall    bool                   `protobuf:"varint,10,opt,name=isAutoCall,proto3" json:"isAutoCall,omitempty"` //自动跟注 0:未开启 1:已开启
+	IsPaying      bool                   `protobuf:"varint,11,opt,name=isPaying,proto3" json:"isPaying,omitempty"`     //支付状态 1:支付中
+	Cards         *CardsInfo             `protobuf:"bytes,12,opt,name=cards,proto3" json:"cards,omitempty"`            //手牌
+	CanOp         []int32                `protobuf:"varint,13,rep,packed,name=canOp,proto3" json:"canOp,omitempty"`    //可操作列表
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1566,7 +1499,7 @@ func (x *PlayerScene) GetCards() *CardsInfo {
 	return nil
 }
 
-func (x *PlayerScene) GetCanOp() []ACTION {
+func (x *PlayerScene) GetCanOp() []int32 {
 	if x != nil {
 		return x.CanOp
 	}
@@ -1829,13 +1762,13 @@ func (x *PlayerQuitPush) GetChairID() int32 {
 
 type ActivePush struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Stage         int32                  `protobuf:"varint,1,opt,name=stage,proto3" json:"stage,omitempty"`                                  //游戏的状态
-	Timeout       int64                  `protobuf:"varint,2,opt,name=timeout,proto3" json:"timeout,omitempty"`                              //剩余时间 s
-	Active        int32                  `protobuf:"varint,3,opt,name=active,proto3" json:"active,omitempty"`                                //当前操作位置
-	CurRound      int32                  `protobuf:"varint,4,opt,name=curRound,proto3" json:"curRound,omitempty"`                            //
-	CurBet        float64                `protobuf:"fixed64,5,opt,name=curBet,proto3" json:"curBet,omitempty"`                               // RAISE需要*2
-	TotalBet      float64                `protobuf:"fixed64,6,opt,name=totalBet,proto3" json:"totalBet,omitempty"`                           //
-	CanOp         []ACTION               `protobuf:"varint,7,rep,packed,name=canOp,proto3,enum=helloworld.v1.ACTION" json:"canOp,omitempty"` //可操作列表
+	Stage         int32                  `protobuf:"varint,1,opt,name=stage,proto3" json:"stage,omitempty"`        //游戏的状态
+	Timeout       int64                  `protobuf:"varint,2,opt,name=timeout,proto3" json:"timeout,omitempty"`    //剩余时间 s
+	Active        int32                  `protobuf:"varint,3,opt,name=active,proto3" json:"active,omitempty"`      //当前操作位置
+	CurRound      int32                  `protobuf:"varint,4,opt,name=curRound,proto3" json:"curRound,omitempty"`  //
+	CurBet        float64                `protobuf:"fixed64,5,opt,name=curBet,proto3" json:"curBet,omitempty"`     // RAISE需要*2
+	TotalBet      float64                `protobuf:"fixed64,6,opt,name=totalBet,proto3" json:"totalBet,omitempty"` //
+	CanOp         []int32                `protobuf:"varint,7,rep,packed,name=canOp,proto3" json:"canOp,omitempty"` //可操作列表
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1912,7 +1845,7 @@ func (x *ActivePush) GetTotalBet() float64 {
 	return 0
 }
 
-func (x *ActivePush) GetCanOp() []ACTION {
+func (x *ActivePush) GetCanOp() []int32 {
 	if x != nil {
 		return x.CanOp
 	}
@@ -1921,9 +1854,9 @@ func (x *ActivePush) GetCanOp() []ACTION {
 
 type ActionReq struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	UserID         int64                  `protobuf:"varint,1,opt,name=userID,proto3" json:"userID,omitempty"`                           //用户ID
-	Action         ACTION                 `protobuf:"varint,2,opt,name=action,proto3,enum=helloworld.v1.ACTION" json:"action,omitempty"` //动作
-	SideReplyAllow bool                   `protobuf:"varint,3,opt,name=sideReplyAllow,proto3" json:"sideReplyAllow,omitempty"`           //
+	UserID         int64                  `protobuf:"varint,1,opt,name=userID,proto3" json:"userID,omitempty"`                 //用户ID
+	Action         int32                  `protobuf:"varint,2,opt,name=action,proto3" json:"action,omitempty"`                 //动作
+	SideReplyAllow bool                   `protobuf:"varint,3,opt,name=sideReplyAllow,proto3" json:"sideReplyAllow,omitempty"` //
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -1965,11 +1898,11 @@ func (x *ActionReq) GetUserID() int64 {
 	return 0
 }
 
-func (x *ActionReq) GetAction() ACTION {
+func (x *ActionReq) GetAction() int32 {
 	if x != nil {
 		return x.Action
 	}
-	return ACTION_Invalid
+	return 0
 }
 
 func (x *ActionReq) GetSideReplyAllow() bool {
@@ -1981,11 +1914,11 @@ func (x *ActionReq) GetSideReplyAllow() bool {
 
 type ActionRsp struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`                               //错误码
-	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`                                  //错误信息
-	UserID        int64                  `protobuf:"varint,3,opt,name=userID,proto3" json:"userID,omitempty"`                           //用户ID
-	Action        ACTION                 `protobuf:"varint,4,opt,name=action,proto3,enum=helloworld.v1.ACTION" json:"action,omitempty"` //动作
-	Cards         *CardsInfo             `protobuf:"bytes,12,opt,name=cards,proto3" json:"cards,omitempty"`                             //手牌
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`     //错误码
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`        //错误信息
+	UserID        int64                  `protobuf:"varint,3,opt,name=userID,proto3" json:"userID,omitempty"` //用户ID
+	Action        int32                  `protobuf:"varint,4,opt,name=action,proto3" json:"action,omitempty"` //动作
+	Cards         *CardsInfo             `protobuf:"bytes,12,opt,name=cards,proto3" json:"cards,omitempty"`   //手牌
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2041,11 +1974,11 @@ func (x *ActionRsp) GetUserID() int64 {
 	return 0
 }
 
-func (x *ActionRsp) GetAction() ACTION {
+func (x *ActionRsp) GetAction() int32 {
 	if x != nil {
 		return x.Action
 	}
-	return ACTION_Invalid
+	return 0
 }
 
 func (x *ActionRsp) GetCards() *CardsInfo {
@@ -2251,7 +2184,7 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	"\bcurRound\x18\t \x01(\x05R\bcurRound\x12\x1a\n" +
 	"\btotalBet\x18\n" +
 	" \x01(\x01R\btotalBet\x124\n" +
-	"\aplayers\x18\v \x03(\v2\x1a.helloworld.v1.PlayerSceneR\aplayers\"\x82\x03\n" +
+	"\aplayers\x18\v \x03(\v2\x1a.helloworld.v1.PlayerSceneR\aplayers\"\xeb\x02\n" +
 	"\vPlayerScene\x12\x16\n" +
 	"\x06userID\x18\x01 \x01(\x03R\x06userID\x12\x18\n" +
 	"\achairId\x18\x02 \x01(\x05R\achairId\x12\x16\n" +
@@ -2267,8 +2200,8 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	" \x01(\bR\n" +
 	"isAutoCall\x12\x1a\n" +
 	"\bisPaying\x18\v \x01(\bR\bisPaying\x12.\n" +
-	"\x05cards\x18\f \x01(\v2\x18.helloworld.v1.CardsInfoR\x05cards\x12+\n" +
-	"\x05canOp\x18\r \x03(\x0e2\x15.helloworld.v1.ACTIONR\x05canOp\")\n" +
+	"\x05cards\x18\f \x01(\v2\x18.helloworld.v1.CardsInfoR\x05cards\x12\x14\n" +
+	"\x05canOp\x18\r \x03(\x05R\x05canOp\")\n" +
 	"\rSetBankerPush\x12\x18\n" +
 	"\aChairId\x18\x01 \x01(\x05R\aChairId\"V\n" +
 	"\fSendCardPush\x12\x16\n" +
@@ -2282,7 +2215,7 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	"\tisOffline\x18\x02 \x01(\bR\tisOffline\"B\n" +
 	"\x0ePlayerQuitPush\x12\x16\n" +
 	"\x06userID\x18\x01 \x01(\x03R\x06userID\x12\x18\n" +
-	"\achairID\x18\x02 \x01(\x05R\achairID\"\xd1\x01\n" +
+	"\achairID\x18\x02 \x01(\x05R\achairID\"\xba\x01\n" +
 	"\n" +
 	"ActivePush\x12\x14\n" +
 	"\x05stage\x18\x01 \x01(\x05R\x05stage\x12\x18\n" +
@@ -2290,17 +2223,17 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	"\x06active\x18\x03 \x01(\x05R\x06active\x12\x1a\n" +
 	"\bcurRound\x18\x04 \x01(\x05R\bcurRound\x12\x16\n" +
 	"\x06curBet\x18\x05 \x01(\x01R\x06curBet\x12\x1a\n" +
-	"\btotalBet\x18\x06 \x01(\x01R\btotalBet\x12+\n" +
-	"\x05canOp\x18\a \x03(\x0e2\x15.helloworld.v1.ACTIONR\x05canOp\"z\n" +
+	"\btotalBet\x18\x06 \x01(\x01R\btotalBet\x12\x14\n" +
+	"\x05canOp\x18\a \x03(\x05R\x05canOp\"c\n" +
 	"\tActionReq\x12\x16\n" +
-	"\x06userID\x18\x01 \x01(\x03R\x06userID\x12-\n" +
-	"\x06action\x18\x02 \x01(\x0e2\x15.helloworld.v1.ACTIONR\x06action\x12&\n" +
-	"\x0esideReplyAllow\x18\x03 \x01(\bR\x0esideReplyAllow\"\xa8\x01\n" +
+	"\x06userID\x18\x01 \x01(\x03R\x06userID\x12\x16\n" +
+	"\x06action\x18\x02 \x01(\x05R\x06action\x12&\n" +
+	"\x0esideReplyAllow\x18\x03 \x01(\bR\x0esideReplyAllow\"\x91\x01\n" +
 	"\tActionRsp\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x16\n" +
-	"\x06userID\x18\x03 \x01(\x03R\x06userID\x12-\n" +
-	"\x06action\x18\x04 \x01(\x0e2\x15.helloworld.v1.ACTIONR\x06action\x12.\n" +
+	"\x06userID\x18\x03 \x01(\x03R\x06userID\x12\x16\n" +
+	"\x06action\x18\x04 \x01(\x05R\x06action\x12.\n" +
 	"\x05cards\x18\f \x01(\v2\x18.helloworld.v1.CardsInfoR\x05cards\"A\n" +
 	"\vAutoCallReq\x12\x16\n" +
 	"\x06userID\x18\x01 \x01(\x03R\x06userID\x12\x1a\n" +
@@ -2347,18 +2280,7 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	"\fOnActivePush\x10\xb6\x10\x12\x13\n" +
 	"\x0eOnRoundSeePush\x10\xb7\x10\x12\x13\n" +
 	"\x0eOnShowCardPush\x10\xb8\x10\x12\x11\n" +
-	"\fOnResultPush\x10\x98\x11*p\n" +
-	"\x06ACTION\x12\v\n" +
-	"\aInvalid\x10\x00\x12\b\n" +
-	"\x04CALL\x10\x01\x12\r\n" +
-	"\tCALL_AUTO\x10\x02\x12\t\n" +
-	"\x05RAISE\x10\x03\x12\a\n" +
-	"\x03SEE\x10\x04\x12\b\n" +
-	"\x04PACK\x10\x05\x12\b\n" +
-	"\x04SHOW\x10\x06\x12\b\n" +
-	"\x04SIDE\x10\a\x12\x0e\n" +
-	"\n" +
-	"SIDE_REPLY\x10\b2\xea\b\n" +
+	"\fOnResultPush\x10\x98\x112\xea\b\n" +
 	"\aGreeter\x12a\n" +
 	"\vSayHelloReq\x12\x1b.helloworld.v1.HelloRequest\x1a\x19.helloworld.v1.HelloReply\"\x1a\x82\xd3\xe4\x93\x02\x14\x12\x12/helloworld/{name}\x12^\n" +
 	"\n" +
@@ -2388,78 +2310,73 @@ func file_helloworld_v1_greeter_proto_rawDescGZIP() []byte {
 	return file_helloworld_v1_greeter_proto_rawDescData
 }
 
-var file_helloworld_v1_greeter_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_helloworld_v1_greeter_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_helloworld_v1_greeter_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
 var file_helloworld_v1_greeter_proto_goTypes = []any{
 	(GameCommand)(0),        // 0: helloworld.v1.GameCommand
-	(ACTION)(0),             // 1: helloworld.v1.ACTION
-	(*HelloRequest)(nil),    // 2: helloworld.v1.HelloRequest
-	(*HelloReply)(nil),      // 3: helloworld.v1.HelloReply
-	(*LoginReq)(nil),        // 4: helloworld.v1.LoginReq
-	(*LoginRsp)(nil),        // 5: helloworld.v1.LoginRsp
-	(*LogoutReq)(nil),       // 6: helloworld.v1.LogoutReq
-	(*LogoutRsp)(nil),       // 7: helloworld.v1.LogoutRsp
-	(*ReadyReq)(nil),        // 8: helloworld.v1.ReadyReq
-	(*ReadyRsp)(nil),        // 9: helloworld.v1.ReadyRsp
-	(*SwitchTableReq)(nil),  // 10: helloworld.v1.SwitchTableReq
-	(*SwitchTableRsp)(nil),  // 11: helloworld.v1.SwitchTableRsp
-	(*ChatReq)(nil),         // 12: helloworld.v1.ChatReq
-	(*ChatRsp)(nil),         // 13: helloworld.v1.ChatRsp
-	(*ForwardReq)(nil),      // 14: helloworld.v1.ForwardReq
-	(*ForwardRsp)(nil),      // 15: helloworld.v1.ForwardRsp
-	(*HostingReq)(nil),      // 16: helloworld.v1.HostingReq
-	(*HostingRsp)(nil),      // 17: helloworld.v1.HostingRsp
-	(*UserInfoPush)(nil),    // 18: helloworld.v1.UserInfoPush
-	(*SceneReq)(nil),        // 19: helloworld.v1.SceneReq
-	(*SceneRsp)(nil),        // 20: helloworld.v1.SceneRsp
-	(*PlayerScene)(nil),     // 21: helloworld.v1.PlayerScene
-	(*SetBankerPush)(nil),   // 22: helloworld.v1.SetBankerPush
-	(*SendCardPush)(nil),    // 23: helloworld.v1.SendCardPush
-	(*CardsInfo)(nil),       // 24: helloworld.v1.CardsInfo
-	(*UserOfflinePush)(nil), // 25: helloworld.v1.UserOfflinePush
-	(*PlayerQuitPush)(nil),  // 26: helloworld.v1.PlayerQuitPush
-	(*ActivePush)(nil),      // 27: helloworld.v1.ActivePush
-	(*ActionReq)(nil),       // 28: helloworld.v1.ActionReq
-	(*ActionRsp)(nil),       // 29: helloworld.v1.ActionRsp
-	(*AutoCallReq)(nil),     // 30: helloworld.v1.AutoCallReq
-	(*AutoCallRsp)(nil),     // 31: helloworld.v1.AutoCallRsp
+	(*HelloRequest)(nil),    // 1: helloworld.v1.HelloRequest
+	(*HelloReply)(nil),      // 2: helloworld.v1.HelloReply
+	(*LoginReq)(nil),        // 3: helloworld.v1.LoginReq
+	(*LoginRsp)(nil),        // 4: helloworld.v1.LoginRsp
+	(*LogoutReq)(nil),       // 5: helloworld.v1.LogoutReq
+	(*LogoutRsp)(nil),       // 6: helloworld.v1.LogoutRsp
+	(*ReadyReq)(nil),        // 7: helloworld.v1.ReadyReq
+	(*ReadyRsp)(nil),        // 8: helloworld.v1.ReadyRsp
+	(*SwitchTableReq)(nil),  // 9: helloworld.v1.SwitchTableReq
+	(*SwitchTableRsp)(nil),  // 10: helloworld.v1.SwitchTableRsp
+	(*ChatReq)(nil),         // 11: helloworld.v1.ChatReq
+	(*ChatRsp)(nil),         // 12: helloworld.v1.ChatRsp
+	(*ForwardReq)(nil),      // 13: helloworld.v1.ForwardReq
+	(*ForwardRsp)(nil),      // 14: helloworld.v1.ForwardRsp
+	(*HostingReq)(nil),      // 15: helloworld.v1.HostingReq
+	(*HostingRsp)(nil),      // 16: helloworld.v1.HostingRsp
+	(*UserInfoPush)(nil),    // 17: helloworld.v1.UserInfoPush
+	(*SceneReq)(nil),        // 18: helloworld.v1.SceneReq
+	(*SceneRsp)(nil),        // 19: helloworld.v1.SceneRsp
+	(*PlayerScene)(nil),     // 20: helloworld.v1.PlayerScene
+	(*SetBankerPush)(nil),   // 21: helloworld.v1.SetBankerPush
+	(*SendCardPush)(nil),    // 22: helloworld.v1.SendCardPush
+	(*CardsInfo)(nil),       // 23: helloworld.v1.CardsInfo
+	(*UserOfflinePush)(nil), // 24: helloworld.v1.UserOfflinePush
+	(*PlayerQuitPush)(nil),  // 25: helloworld.v1.PlayerQuitPush
+	(*ActivePush)(nil),      // 26: helloworld.v1.ActivePush
+	(*ActionReq)(nil),       // 27: helloworld.v1.ActionReq
+	(*ActionRsp)(nil),       // 28: helloworld.v1.ActionRsp
+	(*AutoCallReq)(nil),     // 29: helloworld.v1.AutoCallReq
+	(*AutoCallRsp)(nil),     // 30: helloworld.v1.AutoCallRsp
 }
 var file_helloworld_v1_greeter_proto_depIdxs = []int32{
-	21, // 0: helloworld.v1.SceneRsp.players:type_name -> helloworld.v1.PlayerScene
-	24, // 1: helloworld.v1.PlayerScene.cards:type_name -> helloworld.v1.CardsInfo
-	1,  // 2: helloworld.v1.PlayerScene.canOp:type_name -> helloworld.v1.ACTION
-	24, // 3: helloworld.v1.SendCardPush.cards:type_name -> helloworld.v1.CardsInfo
-	1,  // 4: helloworld.v1.ActivePush.canOp:type_name -> helloworld.v1.ACTION
-	1,  // 5: helloworld.v1.ActionReq.action:type_name -> helloworld.v1.ACTION
-	1,  // 6: helloworld.v1.ActionRsp.action:type_name -> helloworld.v1.ACTION
-	24, // 7: helloworld.v1.ActionRsp.cards:type_name -> helloworld.v1.CardsInfo
-	2,  // 8: helloworld.v1.Greeter.SayHelloReq:input_type -> helloworld.v1.HelloRequest
-	4,  // 9: helloworld.v1.Greeter.OnLoginReq:input_type -> helloworld.v1.LoginReq
-	6,  // 10: helloworld.v1.Greeter.OnLogoutReq:input_type -> helloworld.v1.LogoutReq
-	8,  // 11: helloworld.v1.Greeter.OnReadyReq:input_type -> helloworld.v1.ReadyReq
-	10, // 12: helloworld.v1.Greeter.OnSwitchTableReq:input_type -> helloworld.v1.SwitchTableReq
-	19, // 13: helloworld.v1.Greeter.OnSceneReq:input_type -> helloworld.v1.SceneReq
-	12, // 14: helloworld.v1.Greeter.OnChatReq:input_type -> helloworld.v1.ChatReq
-	16, // 15: helloworld.v1.Greeter.OnHostingReq:input_type -> helloworld.v1.HostingReq
-	14, // 16: helloworld.v1.Greeter.OnForwardReq:input_type -> helloworld.v1.ForwardReq
-	28, // 17: helloworld.v1.Greeter.OnActionReq:input_type -> helloworld.v1.ActionReq
-	30, // 18: helloworld.v1.Greeter.OnAutoCallReq:input_type -> helloworld.v1.AutoCallReq
-	3,  // 19: helloworld.v1.Greeter.SayHelloReq:output_type -> helloworld.v1.HelloReply
-	5,  // 20: helloworld.v1.Greeter.OnLoginReq:output_type -> helloworld.v1.LoginRsp
-	7,  // 21: helloworld.v1.Greeter.OnLogoutReq:output_type -> helloworld.v1.LogoutRsp
-	9,  // 22: helloworld.v1.Greeter.OnReadyReq:output_type -> helloworld.v1.ReadyRsp
-	11, // 23: helloworld.v1.Greeter.OnSwitchTableReq:output_type -> helloworld.v1.SwitchTableRsp
-	20, // 24: helloworld.v1.Greeter.OnSceneReq:output_type -> helloworld.v1.SceneRsp
-	13, // 25: helloworld.v1.Greeter.OnChatReq:output_type -> helloworld.v1.ChatRsp
-	17, // 26: helloworld.v1.Greeter.OnHostingReq:output_type -> helloworld.v1.HostingRsp
-	15, // 27: helloworld.v1.Greeter.OnForwardReq:output_type -> helloworld.v1.ForwardRsp
-	29, // 28: helloworld.v1.Greeter.OnActionReq:output_type -> helloworld.v1.ActionRsp
-	31, // 29: helloworld.v1.Greeter.OnAutoCallReq:output_type -> helloworld.v1.AutoCallRsp
-	19, // [19:30] is the sub-list for method output_type
-	8,  // [8:19] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	20, // 0: helloworld.v1.SceneRsp.players:type_name -> helloworld.v1.PlayerScene
+	23, // 1: helloworld.v1.PlayerScene.cards:type_name -> helloworld.v1.CardsInfo
+	23, // 2: helloworld.v1.SendCardPush.cards:type_name -> helloworld.v1.CardsInfo
+	23, // 3: helloworld.v1.ActionRsp.cards:type_name -> helloworld.v1.CardsInfo
+	1,  // 4: helloworld.v1.Greeter.SayHelloReq:input_type -> helloworld.v1.HelloRequest
+	3,  // 5: helloworld.v1.Greeter.OnLoginReq:input_type -> helloworld.v1.LoginReq
+	5,  // 6: helloworld.v1.Greeter.OnLogoutReq:input_type -> helloworld.v1.LogoutReq
+	7,  // 7: helloworld.v1.Greeter.OnReadyReq:input_type -> helloworld.v1.ReadyReq
+	9,  // 8: helloworld.v1.Greeter.OnSwitchTableReq:input_type -> helloworld.v1.SwitchTableReq
+	18, // 9: helloworld.v1.Greeter.OnSceneReq:input_type -> helloworld.v1.SceneReq
+	11, // 10: helloworld.v1.Greeter.OnChatReq:input_type -> helloworld.v1.ChatReq
+	15, // 11: helloworld.v1.Greeter.OnHostingReq:input_type -> helloworld.v1.HostingReq
+	13, // 12: helloworld.v1.Greeter.OnForwardReq:input_type -> helloworld.v1.ForwardReq
+	27, // 13: helloworld.v1.Greeter.OnActionReq:input_type -> helloworld.v1.ActionReq
+	29, // 14: helloworld.v1.Greeter.OnAutoCallReq:input_type -> helloworld.v1.AutoCallReq
+	2,  // 15: helloworld.v1.Greeter.SayHelloReq:output_type -> helloworld.v1.HelloReply
+	4,  // 16: helloworld.v1.Greeter.OnLoginReq:output_type -> helloworld.v1.LoginRsp
+	6,  // 17: helloworld.v1.Greeter.OnLogoutReq:output_type -> helloworld.v1.LogoutRsp
+	8,  // 18: helloworld.v1.Greeter.OnReadyReq:output_type -> helloworld.v1.ReadyRsp
+	10, // 19: helloworld.v1.Greeter.OnSwitchTableReq:output_type -> helloworld.v1.SwitchTableRsp
+	19, // 20: helloworld.v1.Greeter.OnSceneReq:output_type -> helloworld.v1.SceneRsp
+	12, // 21: helloworld.v1.Greeter.OnChatReq:output_type -> helloworld.v1.ChatRsp
+	16, // 22: helloworld.v1.Greeter.OnHostingReq:output_type -> helloworld.v1.HostingRsp
+	14, // 23: helloworld.v1.Greeter.OnForwardReq:output_type -> helloworld.v1.ForwardRsp
+	28, // 24: helloworld.v1.Greeter.OnActionReq:output_type -> helloworld.v1.ActionRsp
+	30, // 25: helloworld.v1.Greeter.OnAutoCallReq:output_type -> helloworld.v1.AutoCallRsp
+	15, // [15:26] is the sub-list for method output_type
+	4,  // [4:15] is the sub-list for method input_type
+	4,  // [4:4] is the sub-list for extension type_name
+	4,  // [4:4] is the sub-list for extension extendee
+	0,  // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_helloworld_v1_greeter_proto_init() }
@@ -2472,7 +2389,7 @@ func file_helloworld_v1_greeter_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_helloworld_v1_greeter_proto_rawDesc), len(file_helloworld_v1_greeter_proto_rawDesc)),
-			NumEnums:      2,
+			NumEnums:      1,
 			NumMessages:   30,
 			NumExtensions: 0,
 			NumServices:   1,

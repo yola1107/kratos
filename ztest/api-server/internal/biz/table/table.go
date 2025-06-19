@@ -8,11 +8,11 @@ import (
 )
 
 type Table struct {
-	ID       int32          // 桌子ID
-	Type     conf.TableType // 类型
-	MaxCnt   int16          // 最大玩家数
-	isClosed bool           // 是否停服
-	repo     ITableRepo     //
+	ID       int32 // 桌子ID
+	Type     TYPE  // 类型
+	MaxCnt   int16 // 最大玩家数
+	isClosed bool  // 是否停服
+	repo     Repo  //
 
 	// 游戏逻辑变量
 	stage    *Stage           // 阶段状态
@@ -27,7 +27,7 @@ type Table struct {
 	cards    *GameCards       // card信息
 }
 
-func NewTable(id int32, typ conf.TableType, c *conf.Room, repo ITableRepo) *Table {
+func NewTable(id int32, typ TYPE, c *conf.Room, repo Repo) *Table {
 	t := &Table{
 		ID:       id,
 		Type:     typ,
@@ -92,7 +92,7 @@ func (t *Table) ThrowInto(p *player.Player) bool {
 		t.SendSceneInfo(p)
 
 		// 检查游戏是否开始
-		if t.stage.state == conf.StWait {
+		if t.stage.state == StWait {
 			t.checkReady()
 		}
 

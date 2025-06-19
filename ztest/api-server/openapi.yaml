@@ -216,7 +216,7 @@ components:
                     type: string
                 action:
                     type: integer
-                    format: enum
+                    format: int32
                 sideReplyAllow:
                     type: boolean
         helloworld.v1.ActionRsp:
@@ -231,7 +231,7 @@ components:
                     type: string
                 action:
                     type: integer
-                    format: enum
+                    format: int32
                 cards:
                     $ref: '#/components/schemas/helloworld.v1.CardsInfo'
         helloworld.v1.AutoCallReq:
@@ -418,7 +418,7 @@ components:
                     type: array
                     items:
                         type: integer
-                        format: enum
+                        format: int32
         helloworld.v1.ReadyReq:
             type: object
             properties:

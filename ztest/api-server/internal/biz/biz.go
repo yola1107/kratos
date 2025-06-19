@@ -15,8 +15,8 @@ import (
 // ProviderSet is biz providers.
 var ProviderSet = wire.NewSet(NewUsecase)
 
-// 实现ITableEvent等接口
-var _ table.ITableRepo = (*Usecase)(nil)
+// 实现table.Repo接口
+var _ table.Repo = (*Usecase)(nil)
 
 var defaultPendingNum = 10000
 

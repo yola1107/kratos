@@ -1,21 +1,4 @@
-package conf
-
-import (
-	"flag"
-	"os"
-)
-
-const Name = "api-server"
-const Version = "v0.0.1"
-const GameID = 130
-
-var ArenaID = 1   // 场ID: 1 2 3 4
-var ServerID = "" // 房间ID
-
-func init() {
-	flag.IntVar(&ArenaID, "aid", 1, "specify the arena ID. base.StrToInt(os.Getenv(\"ARENAID\"))")
-	flag.StringVar(&ServerID, "sid", os.Getenv("HOSTNAME"), "specify the server ID.")
-}
+package table
 
 const (
 	StWait     = 0 // 等待
@@ -77,13 +60,14 @@ func GetStageTimeout(s int32) int64 {
 }
 
 const (
-	Normal TableType = iota
+	Normal TYPE = iota
 	Black
 )
 
-type TableType int32
+// TYPE 桌子类型
+type TYPE int32
 
-func (t TableType) String() string {
+func (t TYPE) String() string {
 	switch t {
 	case Normal:
 		return "Normal"
@@ -93,3 +77,13 @@ func (t TableType) String() string {
 		return "Unknown"
 	}
 }
+
+const (
+	PLAYER_CALL       = 1 // "跟注"
+	PLAYER_RAISE      = 2 // "加注"
+	PLAYER_SEE        = 3 // "看牌"
+	PLAYER_PACK       = 4 // "弃牌"
+	PLAYER_SHOW       = 5 // "比牌"
+	PLAYER_SIDE       = 6 // "提前比牌"
+	PLAYER_SIDE_REPLY = 7 // "提前比牌回应"
+)

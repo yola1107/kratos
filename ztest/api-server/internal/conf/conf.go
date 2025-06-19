@@ -1,7 +1,9 @@
 package conf
 
 import (
+	"flag"
 	"fmt"
+	"os"
 	"reflect"
 
 	"github.com/yola1107/kratos/v2/config"
@@ -12,6 +14,18 @@ import (
 	zconf "github.com/yola1107/kratos/v2/library/log/zap/conf"
 	"github.com/yola1107/kratos/v2/log"
 )
+
+const Name = "api-server"
+const Version = "v0.0.1"
+const GameID = 130
+
+var ArenaID = 1   // 场ID: 1 2 3 4
+var ServerID = "" // 房间ID
+
+func init() {
+	flag.IntVar(&ArenaID, "aid", 1, "specify the arena ID. base.StrToInt(os.Getenv(\"ARENAID\"))")
+	flag.StringVar(&ServerID, "sid", os.Getenv("HOSTNAME"), "specify the server ID.")
+}
 
 // LoadConfig 加载配置
 func LoadConfig(flagconf string) (config.Config, *Bootstrap, *zconf.Bootstrap) {

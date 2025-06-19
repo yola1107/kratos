@@ -51,5 +51,5 @@ func (l *Log) userExit(p *player.Player, sitCnt int16, lastChair int32, isSwitch
 
 func (l *Log) stage(old, new int32, active int) {
 	l.write("【状态转移】[%v->%+v, %+v->%v]. activeChair:%+v",
-		old, new, conf.StageNames[old], conf.StageNames[new], active)
+		old, new, StageNames[old], StageNames[new], active)
 }

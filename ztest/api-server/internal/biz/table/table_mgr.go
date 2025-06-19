@@ -13,14 +13,14 @@ type Manager struct {
 	tableMap  map[int32]*Table
 }
 
-func NewManager(c *conf.Room, event ITableRepo) *Manager {
+func NewManager(c *conf.Room, repo Repo) *Manager {
 	tc := c.Table
 	mgr := &Manager{
 		tableList: make([]*Table, tc.TableNum),
 		tableMap:  make(map[int32]*Table, tc.TableNum),
 	}
 	for i := int32(1); i <= tc.TableNum; i++ {
-		tb := NewTable(i, conf.Normal, c, event)
+		tb := NewTable(i, Normal, c, repo)
 		mgr.tableMap[i] = tb
 		mgr.tableList[i-1] = tb
 	}

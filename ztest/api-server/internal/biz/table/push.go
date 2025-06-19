@@ -140,13 +140,13 @@ func (t *Table) getPlayerCards(p *player.Player) *v1.CardsInfo {
 	return c
 }
 
-func (t *Table) getPlayerCanOp(p *player.Player) (actions []v1.ACTION) {
+func (t *Table) getPlayerCanOp(p *player.Player) (actions []int32) {
 	if p == nil {
 		return nil
 	}
 
 	stage := t.stage.state
-	if stage == conf.StWait || stage == conf.StReady || stage == conf.StWaitEnd || stage == conf.StEnd {
+	if stage == StWait || stage == StReady || stage == StWaitEnd || stage == StEnd {
 		return
 	}
 
@@ -155,43 +155,43 @@ func (t *Table) getPlayerCanOp(p *player.Player) (actions []v1.ACTION) {
 	}
 
 	// 能否弃牌
-	actions = append(actions, v1.ACTION_PACK)
+	actions = append(actions, PLAYER_PACK)
 
 	// 能否看牌
 	if !t.canSeeCard(p) {
-		actions = append(actions, v1.ACTION_SEE)
+		actions = append(actions, PLAYER_SEE)
 	}
 
 	// 能否主动跟注 call
 	canCall, _, canRaise, _ := t.canCallCard(p)
 	if canCall {
-		actions = append(actions, v1.ACTION_CALL)
+		actions = append(actions, PLAYER_CALL)
 	}
 
 	// 能否主动加注 Raise
 	if canRaise {
-		actions = append(actions, v1.ACTION_RAISE)
+		actions = append(actions, PLAYER_RAISE)
 	}
 
 	// 能否主动发起比牌 show
 	if canShow, _ := t.canShowCard(p); canShow {
-		actions = append(actions, v1.ACTION_SHOW)
+		actions = append(actions, PLAYER_SHOW)
 	}
 
 	// 能否主动发起提前比牌 side_show
 	if canSideShow, _, _ := t.canSideShowCard(p); canSideShow {
-		actions = append(actions, v1.ACTION_SIDE)
+		actions = append(actions, PLAYER_SIDE)
 	}
 
 	// 能否 同意/拒绝提前比牌 side_show_reply
 	if t.canSideShowReply(p) {
-		actions = append(actions, v1.ACTION_SIDE_REPLY)
+		actions = append(actions, PLAYER_SIDE_REPLY)
 	}
 	return actions
 }
 
 func (t *Table) canSeeCard(p *player.Player) (canSee bool) {
-	if p.IsSee() || t.stage.state != conf.StSendCard && t.stage.state != conf.StAction && t.stage.state != conf.StSideShow {
+	if p.IsSee() || t.stage.state != StSendCard && t.stage.state != StAction && t.stage.state != StSideShow {
 		return
 	}
 	return true
@@ -199,7 +199,7 @@ func (t *Table) canSeeCard(p *player.Player) (canSee bool) {
 
 // 跟注（Call） 加注（Raise）
 func (t *Table) canCallCard(p *player.Player) (canCall bool, callMoney float64, canRaise bool, raiseMoney float64) {
-	if p.GetChairID() != t.active || t.stage.state != conf.StAction || len(t.GetCanActionPlayers()) <= 2 {
+	if p.GetChairID() != t.active || t.stage.state != StAction || len(t.GetCanActionPlayers()) <= 2 {
 		return
 	}
 	needMoney := t.calcBetMoney(p)
@@ -215,7 +215,7 @@ func (t *Table) canCallCard(p *player.Player) (canCall bool, callMoney float64, 
 // 当只剩 2 名玩家时，任意一方可请求 Show
 // 明牌比较三张牌，胜者赢取全部筹码
 func (t *Table) canShowCard(p *player.Player) (canShow bool, showMoney float64) {
-	if p == nil || p.GetChairID() != t.active || t.stage.state != conf.StAction || len(t.GetCanActionPlayers()) != 2 {
+	if p == nil || p.GetChairID() != t.active || t.stage.state != StAction || len(t.GetCanActionPlayers()) != 2 {
 		return
 	}
 	needMoney := t.calcBetMoney(p)
@@ -230,7 +230,7 @@ func (t *Table) canShowCard(p *player.Player) (canShow bool, showMoney float64) 
 // 仅限明注玩家对上一位明注玩家请求比牌
 // 若对方同意，则比大小，小的一方自动弃牌
 func (t *Table) canSideShowCard(p *player.Player) (canSideShow bool, sideShowMoney float64, target *player.Player) {
-	if p.GetChairID() != t.active || t.stage.state != conf.StAction || len(t.GetCanActionPlayers()) <= 2 {
+	if p.GetChairID() != t.active || t.stage.state != StAction || len(t.GetCanActionPlayers()) <= 2 {
 		return
 	}
 	last := t.LastPlayer(p.GetChairID())
@@ -250,7 +250,7 @@ func (t *Table) canSideShowCard(p *player.Player) (canSideShow bool, sideShowMon
 // Side Show Reply
 // 能否回应提前比牌
 func (t *Table) canSideShowReply(p *player.Player) (can bool) {
-	if p.GetChairID() != t.active || t.stage.state != conf.StSideShow || len(t.GetCanActionPlayers()) <= 2 {
+	if p.GetChairID() != t.active || t.stage.state != StSideShow || len(t.GetCanActionPlayers()) <= 2 {
 		return
 	}
 	next := t.NextPlayer(p.GetChairID())
@@ -301,30 +301,19 @@ func (t *Table) broadcastUserOffline(p *player.Player) {
 
 // 当前活动玩家推送
 func (t *Table) broadcastActivePlayerPush() {
-	// t.SendPacketToAll(v1.GameCommand_OnActivePush, &v1.ActivePush{
-	// 	Stage:    t.stage.state,
-	// 	Timeout:  int64(t.calcRemainingTime().Seconds()),
-	// 	Active:   t.active,
-	// 	CurRound: t.curRound,
-	// 	Player:   t.getScene(t.GetActivePlayer()),
-	// })
-
-	rsp := &v1.ActivePush{
-		Stage:    t.stage.state,
-		Timeout:  int64(t.calcRemainingTime().Seconds()),
-		Active:   t.active,
-		CurRound: t.curRound,
-		CurBet:   t.curBet,
-		TotalBet: t.totalBet,
-		CanOp:    t.getPlayerCanOp(t.GetActivePlayer()),
-		// Player:   t.getScene(t.GetActivePlayer()),
-	}
 	t.RangePlayer(func(k int32, p *player.Player) bool {
-		if p.GetChairID() != t.active {
-			t.SendPacketToClient(p, v1.GameCommand_OnActivePush, rsp)
-		} else {
-
+		rsp := &v1.ActivePush{
+			Stage:    t.stage.state,
+			Timeout:  int64(t.calcRemainingTime().Seconds()),
+			Active:   t.active,
+			CurRound: t.curRound,
+			CurBet:   t.curBet,
+			TotalBet: t.totalBet,
 		}
+		if p.GetChairID() == t.active {
+			rsp.CanOp = t.getPlayerCanOp(t.GetActivePlayer())
+		}
+		t.SendPacketToClient(p, v1.GameCommand_OnActivePush, rsp)
 		return true
 	})
 }
@@ -341,7 +330,7 @@ func (t *Table) sendActionRsp(p *player.Player, rsp *v1.ActionRsp) {
 	t.SendPacketToClient(p, v1.GameCommand_OnActionRsp, rsp)
 }
 
-func (t *Table) broadcastActionRsp(p *player.Player, action v1.ACTION) {
+func (t *Table) broadcastActionRsp(p *player.Player, action int32) {
 	rsp := &v1.ActionRsp{
 		Code:   0,
 		Msg:    "",

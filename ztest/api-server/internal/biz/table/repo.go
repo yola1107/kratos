@@ -6,8 +6,8 @@ import (
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
 )
 
-// ITableRepo 抽象接口
-type ITableRepo interface {
+// Repo 抽象接口
+type Repo interface {
 	GetLoop() work.ITaskLoop
 	GetTimer() work.ITaskScheduler
 	GetRoomConfig() *conf.Room

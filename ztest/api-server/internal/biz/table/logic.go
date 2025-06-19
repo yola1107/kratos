@@ -5,7 +5,6 @@ import (
 
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
 )
 
 /*
@@ -24,21 +23,21 @@ func (t *Table) OnTimer() {
 	log.Infof("Stage=%d timeID=%d TimeOut... ", t.stage.state, t.stage.timerID)
 
 	switch t.stage.state {
-	case conf.StReady:
+	case StReady:
 		t.onGameStart()
-	case conf.StSendCard:
+	case StSendCard:
 		t.onSendCardTimeout()
 		// t.notifyAction(false, ACTION)
-	case conf.StAction: // 超时操作
+	case StAction: // 超时操作
 		t.onActionTimeout()
 		// t.OnAction(t.CurrPlayer(), network.Packet{"action": PLAYER_PACK}, true)
 	// case conf.StWaitSiderShow: // 比牌操作超时
 	// 	// t.OnAction(t.CurrPlayer(), network.Packet{"action": PLAYER_OK_SIDER_SHOW, "allow": false}, true)
-	case conf.StSideShow: // 操作之后等待时间
+	case StSideShow: // 操作之后等待时间
 		// t.notifyAction(true, ACTION)
-	case conf.StWaitEnd:
+	case StWaitEnd:
 		// t.gameEnd()
-	case conf.StEnd: // 游戏结束后判断
+	case StEnd: // 游戏结束后判断
 		// t.clearAnomalyPlayers()
 		// t.Reset()
 		// t.checkReady()
@@ -65,7 +64,7 @@ func (t *Table) updateStage(s int32) {
 }
 
 func (t *Table) checkResetDuration(s int32) time.Duration {
-	timeout := conf.GetStageTimeout(s)
+	timeout := GetStageTimeout(s)
 	// 检查是否调整超时时间
 	return time.Duration(timeout) * time.Second
 }
@@ -80,18 +79,18 @@ func (t *Table) checkReady() {
 	})
 	canStart := okCnt >= 2
 	if !canStart {
-		t.stage.state = conf.StWait
+		t.stage.state = StWait
 		return
 	}
 
 	// 准备状态倒计时2s
-	t.updateStage(conf.StReady)
+	t.updateStage(StReady)
 }
 
 func (t *Table) onGameStart() {
 	can, canGameSeats, chairs := t.checkStart()
 	if !can {
-		t.stage.state = conf.StWait
+		t.stage.state = StWait
 		return
 	}
 
@@ -108,7 +107,7 @@ func (t *Table) onGameStart() {
 	t.dispatchCard(canGameSeats)
 
 	// 发牌状态倒计时3s
-	t.updateStage(conf.StSendCard)
+	t.updateStage(StSendCard)
 }
 
 // 检查准备用户
@@ -166,7 +165,7 @@ func (t *Table) dispatchCard(canGameSeats []*player.Player) {
 }
 
 func (t *Table) onSendCardTimeout() {
-	t.updateStage(conf.StAction)
+	t.updateStage(StAction)
 	t.broadcastActivePlayerPush()
 }
 
