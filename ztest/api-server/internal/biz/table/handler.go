@@ -11,7 +11,7 @@ func (t *Table) OnExitGame(p *player.Player, code int32, msg string) bool {
 	if !t.ThrowOff(p, false) {
 		return false
 	}
-	t.repo.LogoutGame(p, code, "")
+	t.repo.LogoutGame(p, code, msg)
 	return false
 }
 

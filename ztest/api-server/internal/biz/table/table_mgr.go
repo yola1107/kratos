@@ -5,7 +5,7 @@ import (
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/model"
+	"github.com/yola1107/kratos/v2/ztest/api-server/pkg/codes"
 )
 
 type Manager struct {
@@ -35,7 +35,7 @@ func (m *Manager) GetTable(id int32) *Table {
 // SwitchTable 玩家请求换桌
 func (m *Manager) SwitchTable(p *player.Player, gameConf *conf.Room_Game) *errors.Error {
 	if p == nil {
-		return model.ErrPlayerNotFound
+		return codes.ErrPlayerNotFound
 	}
 
 	if err := CheckRoomLimit(p, gameConf); err != nil {
@@ -44,24 +44,24 @@ func (m *Manager) SwitchTable(p *player.Player, gameConf *conf.Room_Game) *error
 
 	oldTable := m.tableMap[p.GetTableID()]
 	if oldTable == nil {
-		return model.ErrTableNotFound
+		return codes.ErrTableNotFound
 	}
 
 	if !oldTable.CanSwitchTable(p) {
-		return model.ErrSwitchTable
+		return codes.ErrSwitchTable
 	}
 
 	newTable := m.selectBestTable(p, true)
 	if newTable == nil {
-		return model.ErrNotEnoughTable
+		return codes.ErrNotEnoughTable
 	}
 
 	if !oldTable.ThrowOff(p, true) {
-		return model.ErrExitTableFail
+		return codes.ErrExitTableFail
 	}
 
 	if !newTable.ThrowInto(p) {
-		return model.ErrEnterTableFail
+		return codes.ErrEnterTableFail
 	}
 
 	return nil
@@ -110,11 +110,11 @@ func (m *Manager) selectBestTable(p *player.Player, isSwitch bool) *Table {
 // CanEnterRoom 判断玩家是否满足进入房间条件
 func (m *Manager) CanEnterRoom(p *player.Player, token string, gameConf *conf.Room_Game) *errors.Error {
 	if p == nil {
-		return model.ErrPlayerNotFound
+		return codes.ErrPlayerNotFound
 	}
 
 	if token == "" {
-		return model.ErrTokenFail
+		return codes.ErrTokenFail
 	}
 
 	return CheckRoomLimit(p, gameConf)
@@ -126,16 +126,16 @@ func CheckRoomLimit(p *player.Player, gameConf *conf.Room_Game) *errors.Error {
 	vip := p.GetVipGrade()
 
 	if money < gameConf.MinMoney {
-		return model.ErrMoneyBelowMinLimit
+		return codes.ErrMoneyBelowMinLimit
 	}
 	if gameConf.MaxMoney != -1 && money > gameConf.MaxMoney {
-		return model.ErrMoneyOverMaxLimit
+		return codes.ErrMoneyOverMaxLimit
 	}
 	if money < gameConf.BaseMoney {
-		return model.ErrMoneyBelowBaseLimit
+		return codes.ErrMoneyBelowBaseLimit
 	}
 	if vip < gameConf.VipLimit {
-		return model.ErrVipLimit
+		return codes.ErrVipLimit
 	}
 	return nil
 }

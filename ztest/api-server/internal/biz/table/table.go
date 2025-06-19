@@ -4,7 +4,7 @@ import (
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/model"
+	"github.com/yola1107/kratos/v2/ztest/api-server/pkg/codes"
 )
 
 type Table struct {
@@ -83,7 +83,7 @@ func (t *Table) ThrowInto(p *player.Player) bool {
 		p.SetStatus(player.StSit)
 
 		// 通知客户端登录成功
-		t.SendLoginRsp(p, model.SUCCESS, "")
+		t.SendLoginRsp(p, codes.SUCCESS, "")
 
 		// 广播入座信息
 		t.broadcastUserInfo(p)
@@ -138,7 +138,7 @@ func (t *Table) ThrowOff(p *player.Player, isSwitchTable bool) bool {
 // ReEnter 重进游戏
 func (t *Table) ReEnter(p *player.Player) {
 	// 通知客户端登录成功
-	t.SendLoginRsp(p, model.SUCCESS, "ReEnter")
+	t.SendLoginRsp(p, codes.SUCCESS, "ReEnter")
 
 	// 广播入座信息
 	t.broadcastUserInfo(p)

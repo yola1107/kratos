@@ -3,9 +3,9 @@ package table
 import (
 	"fmt"
 
+	"github.com/yola1107/kratos/v2/library/log/file"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/model"
 )
 
 const (
@@ -15,13 +15,13 @@ const (
 type Log struct {
 	tableID int32
 	c       *conf.Room_LogCache
-	logger  *model.FileLog
+	logger  *file.Log
 }
 
 func (l *Log) init(tableID int32, c *conf.Room_LogCache) {
 	l.c = c
 	l.tableID = tableID
-	l.logger = model.NewFileLog(fmt.Sprintf(LogDirPath, conf.Name, tableID))
+	l.logger = file.NewFileLog(fmt.Sprintf(LogDirPath, conf.Name, tableID))
 }
 
 func (l *Log) Close() error {

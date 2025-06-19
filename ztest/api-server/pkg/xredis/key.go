@@ -1,4 +1,4 @@
-package model
+package xredis
 
 // Redis 字段常量
 const (

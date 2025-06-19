@@ -7,7 +7,7 @@ import (
 	"github.com/yola1107/kratos/v2/library/ext"
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
-	"github.com/yola1107/kratos/v2/ztest/api-server/internal/model"
+	"github.com/yola1107/kratos/v2/ztest/api-server/pkg/codes"
 )
 
 func (uc *Usecase) OnLoginReq(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp, error) {
@@ -20,7 +20,7 @@ func (uc *Usecase) OnLoginReq(ctx context.Context, in *v1.LoginReq) (*v1.LoginRs
 func (uc *Usecase) reconnect(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp, error) {
 	session := uc.GetSession(ctx)
 	if session == nil {
-		return nil, model.ErrSessionNotFound
+		return nil, codes.ErrSessionNotFound
 	}
 
 	uc.ws.Post(func() {
@@ -39,7 +39,7 @@ func (uc *Usecase) reconnect(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp
 func (uc *Usecase) enterRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp, error) {
 	session := uc.GetSession(ctx)
 	if session == nil {
-		return nil, model.ErrSessionNotFound
+		return nil, codes.ErrSessionNotFound
 	}
 
 	raw := &player.Raw{
@@ -60,8 +60,8 @@ func (uc *Usecase) enterRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp
 
 	uc.ws.Post(func() {
 		if ok := uc.tm.ThrowInto(p); !ok {
-			uc.log.Errorf("ThrowInto failed. UserID(%d) %v", in.UserID, model.ErrEnterTableFail)
-			uc.LogoutGame(p, model.ErrEnterTableFail.Code, "throw into table failed")
+			uc.log.Errorf("ThrowInto failed. UserID(%d) %v", in.UserID, codes.ErrEnterTableFail)
+			uc.LogoutGame(p, codes.ErrEnterTableFail.Code, "throw into table failed")
 		}
 	})
 
@@ -77,7 +77,7 @@ func (uc *Usecase) createPlayer(raw *player.Raw) (*player.Player, *errors.Error)
 	// 获取数据库数据
 	base, err := uc.repo.LoadPlayer(context.Background(), raw.ID)
 	if err != nil {
-		e := model.ErrCreatePlayerFail
+		e := codes.ErrCreatePlayerFail
 		e.Reason = err.Error()
 		return nil, e
 	}

@@ -1,4 +1,4 @@
-package model
+package file
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 )
 
 func TestNewFileLog(t *testing.T) {
-	tables := map[int64]*FileLog{}
+	tables := map[int64]*Log{}
 	for i := 0; i < 1000; i++ {
 		tl := NewFileLog(fmt.Sprintf("table_%d.log", i))
 		tables[int64(i)] = tl
