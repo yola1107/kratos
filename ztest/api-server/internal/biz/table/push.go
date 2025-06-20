@@ -2,7 +2,6 @@ package table
 
 import (
 	"github.com/golang/protobuf/proto"
-	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/log"
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
@@ -214,8 +213,8 @@ func (t *Table) sendActiveButtonInfoNtf() {
 	if active == nil {
 		return
 	}
-	canShow, _, _ := t.canShowCard(active)
-	canSideShow, _, _ := t.canSideShowCard(active)
+	canShow := t.canShowCard(active).Code == ErrOK
+	canSideShow := t.canSideShowCard(active).Code == ErrOK
 	if canShow || canSideShow {
 		t.SendPacketToClient(active, v1.GameCommand_OnAfterSeeButtonPush, &v1.AfterSeeButtonPush{
 			PlayerID:    active.GetPlayerID(),
@@ -273,12 +272,12 @@ func (t *Table) getPlayerCanOp(p *player.Player) (actions []int32) {
 		return nil
 	}
 
-	stage := t.stage.state
-	if stage == StWait || stage == StReady || stage == StWaitEnd || stage == StEnd {
+	if !p.IsGaming() || len(t.GetCanActionPlayers()) <= 1 {
 		return
 	}
 
-	if !p.IsGaming() || len(t.GetCanActionPlayers()) <= 1 {
+	stage := t.stage.state
+	if stage == StWait || stage == StReady || stage == StWaitEnd || stage == StEnd {
 		return
 	}
 
@@ -286,122 +285,35 @@ func (t *Table) getPlayerCanOp(p *player.Player) (actions []int32) {
 	actions = append(actions, AcPack)
 
 	// 能否看牌
-	if !t.canSeeCard(p) {
+	if t.canSeeCard(p).Code == ErrOK {
 		actions = append(actions, AcSee)
 	}
 
 	// 能否主动跟注 call
-	canCall, _, canRaise, _ := t.canCallCard(p)
-	if canCall {
+	callRes := t.canCallCard(p, false)
+	if callRes.Code == ErrOK {
 		actions = append(actions, AcCall)
 	}
 
 	// 能否主动加注 Raise
-	if canRaise {
+	raiseRes := t.canCallCard(p, true)
+	if raiseRes.Code == ErrOK {
 		actions = append(actions, AcRaise)
 	}
 
 	// 能否主动发起比牌 show
-	if canShow, _, _ := t.canShowCard(p); canShow {
+	if t.canShowCard(p).Code == ErrOK {
 		actions = append(actions, AcShow)
 	}
 
 	// 能否主动发起提前比牌 side
-	if canSideShow, _, _ := t.canSideShowCard(p); canSideShow {
+	if t.canSideShowCard(p).Code == ErrOK {
 		actions = append(actions, AcSide)
 	}
 
 	// 能否 同意/拒绝提前比牌 side_reply
-	if t.canSideShowReply(p) {
+	if t.canSideShowReply(p).Code == ErrOK {
 		actions = append(actions, AcSideReply)
 	}
 	return actions
-}
-
-func (t *Table) canSeeCard(p *player.Player) (canSee bool) {
-	if p == nil || p.IsSee() {
-		return
-	}
-	if t.stage.state != StSendCard && t.stage.state != StAction && t.stage.state != StSideShow {
-		return
-	}
-	return true
-}
-
-func (t *Table) canPack(p *player.Player) (canPack bool) {
-	// 比牌阶段不可丢牌
-	if p == nil || !p.IsGaming() || t.stage.state == StSideShow {
-		return
-	}
-	return true
-}
-
-// 跟注（Call） 加注（Raise）
-func (t *Table) canCallCard(p *player.Player) (canCall bool, callMoney float64, canRaise bool, raiseMoney float64) {
-	if p == nil || p.GetChairID() != t.active || t.stage.state != StAction || len(t.GetCanActionPlayers()) <= 2 {
-		return
-	}
-	needMoney := t.calcBetMoney(p)
-	if !t.hasEnoughMoney(p, needMoney) {
-		return
-	}
-	raiseMoney = callMoney * 2
-	canRaise = t.hasEnoughMoney(p, raiseMoney)
-	return true, callMoney, canRaise, raiseMoney
-}
-
-// Show
-// 当只剩 2 名玩家时，任意一方可请求 Show
-// 明牌比较三张牌，胜者赢取全部筹码
-func (t *Table) canShowCard(p *player.Player) (canShow bool, showMoney float64, target *player.Player) {
-	if p == nil || p.GetChairID() != t.active || t.stage.state != StAction || len(t.GetCanActionPlayers()) != 2 {
-		return
-	}
-	next := t.NextPlayer(p.GetChairID())
-	if next == nil {
-		return
-	}
-	needMoney := t.calcBetMoney(p)
-	if !t.hasEnoughMoney(p, needMoney) {
-		return
-	}
-	return true, needMoney, next
-}
-
-// Side Show
-// 剩余玩家数量 > 2
-// 仅限明注玩家对上一位明注玩家请求比牌
-// 若对方同意，则比大小，小的一方自动弃牌
-func (t *Table) canSideShowCard(p *player.Player) (canSideShow bool, sideShowMoney float64, target *player.Player) {
-	if p == nil || p.GetChairID() != t.active || t.stage.state != StAction || len(t.GetCanActionPlayers()) <= 2 {
-		return
-	}
-	last := t.LastPlayer(p.GetChairID())
-	if last == nil || last == p {
-		return
-	}
-	if !last.IsSee() || !p.IsSee() {
-		return
-	}
-	needMoney := t.calcBetMoney(p)
-	if !t.hasEnoughMoney(p, needMoney) {
-		return
-	}
-	return true, needMoney, last
-}
-
-// Side Show Reply
-// 能否回应提前比牌
-func (t *Table) canSideShowReply(p *player.Player) (can bool) {
-	if p == nil || p.GetChairID() != t.active || t.stage.state != StSideShow || len(t.GetCanActionPlayers()) <= 2 {
-		return
-	}
-	next := t.NextPlayer(p.GetChairID())
-	if next == nil || !next.IsGaming() || !next.IsSee() {
-		return
-	}
-	if !ext.SliceContains(next.GetCompareSeats(), p.GetChairID()) {
-		return
-	}
-	return true
 }
