@@ -268,17 +268,6 @@ components:
                     type: number
                     format: double
             description: 下注信息 触发下注动作
-        helloworld.v1.CardsInfo:
-            type: object
-            properties:
-                hands:
-                    type: array
-                    items:
-                        type: integer
-                        format: int32
-                Type:
-                    type: integer
-                    format: int32
         helloworld.v1.ChatReq:
             type: object
             properties:
@@ -447,7 +436,13 @@ components:
                 isPaying:
                     type: boolean
                 cards:
-                    $ref: '#/components/schemas/helloworld.v1.CardsInfo'
+                    type: array
+                    items:
+                        type: integer
+                        format: int32
+                cardsType:
+                    type: integer
+                    format: int32
                 canOp:
                     type: array
                     items:

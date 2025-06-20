@@ -226,6 +226,18 @@ message HostingRsp {
     int32 playTimes = 4;  //操作时间
 }
 
+//离桌通知
+message PlayerQuitPush {
+    int64 userID  = 1;  //玩家ID
+    int32 chairID = 2;  //椅子号
+}
+
+//用户断线通知
+message UserOfflinePush {
+    int64 userID   = 1;  //用户ID
+    bool isOffline = 2;  //用户离线状态
+}
+
 //
 message UserInfoPush {
     int64 userID     = 1;  //用户ID
@@ -237,6 +249,24 @@ message UserInfoPush {
     int32 vip        = 7;  //用户vip
     int32 status     = 8;  //用户状态，符合原Frame的用户状态 0:free 1:sit(noReady) 2:ready 3:gaming
     string ip        = 9;  //ip地址
+}
+
+// ---------------------------------------------
+/*
+
+	  游戏协议
+*/
+
+//
+message SetBankerPush {
+    int32 ChairId = 1;  //庄家chairId
+}
+
+//
+message SendCardPush {
+    int64 UserID         = 1;
+    repeated int32 cards = 2;
+    int32 cardsType      = 3;
 }
 
 // 场景信息
@@ -273,36 +303,9 @@ message PlayerScene {
     bool see             = 9;   //
     bool isAutoCall      = 10;  //自动跟注 0:未开启 1:已开启
     bool isPaying        = 11;  //支付状态 1:支付中
-    CardsInfo cards      = 12;  //手牌
-    repeated int32 canOp = 13;  //可操作列表
-}
-
-//
-message SetBankerPush {
-    int32 ChairId = 1;  //庄家chairId
-}
-
-//
-message SendCardPush {
-    int64 UserID    = 1;
-    CardsInfo cards = 2;  //手牌
-}
-
-message CardsInfo {
-    repeated int32 hands = 1;
-    int32 Type           = 2;
-}
-
-//用户断线通知
-message UserOfflinePush {
-    int64 userID   = 1;  //用户ID
-    bool isOffline = 2;  //用户离线状态
-}
-
-//离桌通知
-message PlayerQuitPush {
-    int64 userID  = 1;  //玩家ID
-    int32 chairID = 2;  //椅子号
+    repeated int32 cards = 12;  //
+    int32 cardsType      = 13;  //
+    repeated int32 canOp = 14;  //可操作列表
 }
 
 //

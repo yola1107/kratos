@@ -180,8 +180,12 @@ func (p *Player) IsPaying() bool {
 	return p.gameData.isPaying
 }
 
-func (p *Player) GetHands() []int32 {
+func (p *Player) GetCards() []int32 {
 	return p.gameData.cards.hand
+}
+
+func (p *Player) GetCardsType() int32 {
+	return p.gameData.cards.ty
 }
 
 func (p *Player) GetOuts() []int32 {
@@ -194,10 +198,6 @@ func (p *Player) AddCards(cs []int32) {
 
 func (p *Player) OutCards(cs []int32) {
 	p.gameData.cards.OutCards(cs...)
-}
-
-func (p *Player) GetCardsType() int32 {
-	return p.gameData.cards.ty
 }
 
 func (p *Player) IntoGaming(bet float64) bool {

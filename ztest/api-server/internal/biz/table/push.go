@@ -88,6 +88,54 @@ func (t *Table) sendUserInfoToAnother(src *player.Player, dst *player.Player) {
 	})
 }
 
+// BroadcastForwardRsp 消息转发
+func (t *Table) BroadcastForwardRsp(ty int32, msg string) {
+	t.SendPacketToAll(v1.GameCommand_OnForwardRsp, &v1.ForwardRsp{
+		Type: ty,
+		Msg:  msg,
+	})
+}
+
+// 广播玩家断线信息
+func (t *Table) broadcastUserOffline(p *player.Player) {
+	t.SendPacketToAll(v1.GameCommand_OnUserOfflinePush, &v1.UserOfflinePush{
+		UserID:    p.GetPlayerID(),
+		IsOffline: p.IsOffline(),
+	})
+}
+
+// 玩家离桌推送
+func (t *Table) broadcastUserQuitPush(p *player.Player, isSwitchTable bool) {
+	t.SendPacketToAllExcept(v1.GameCommand_OnPlayerQuitPush, &v1.PlayerQuitPush{
+		UserID:  p.GetPlayerID(),
+		ChairID: p.GetChairID(),
+	}, p.GetPlayerID())
+}
+
+// ---------------------------------------------
+/*
+	游戏协议
+*/
+
+// 设置庄家推送
+func (t *Table) broadcastSetBankerRsp() {
+	t.SendPacketToAll(v1.GameCommand_OnSetBankerPush, &v1.SetBankerPush{
+		ChairId: t.banker,
+	})
+}
+
+// 发牌推送
+func (t *Table) dispatchCardPush(canGameSeats []*player.Player) {
+	t.RangePlayer(func(k int32, p *player.Player) bool {
+		t.SendPacketToClient(p, v1.GameCommand_OnSendCardPush, &v1.SendCardPush{
+			UserID:    p.GetPlayerID(),
+			Cards:     p.GetCards(),
+			CardsType: p.GetCardsType(),
+		})
+		return true
+	})
+}
+
 // SendSceneInfo 发送游戏场景信息
 func (t *Table) SendSceneInfo(p *player.Player) {
 	c := t.repo.GetRoomConfig()
@@ -129,7 +177,8 @@ func (t *Table) getScene(p *player.Player) *v1.PlayerScene {
 		CurBet:     t.curBet, //
 		TotalBet:   p.GetBet(),
 		See:        p.IsSee(),
-		Cards:      t.getPlayerCards(p),
+		Cards:      p.GetCards(),
+		CardsType:  p.GetCardsType(),
 		IsAutoCall: p.IsAutoCall(),
 		IsPaying:   p.IsPaying(),
 		CanOp:      t.getPlayerCanOp(p),
@@ -140,13 +189,83 @@ func (t *Table) getScene(p *player.Player) *v1.PlayerScene {
 	return info
 }
 
-func (t *Table) getPlayerCards(p *player.Player) *v1.CardsInfo {
-	c := &v1.CardsInfo{}
-	if p.IsSee() {
-		c.Hands = p.GetHands()
-		c.Type = p.GetCardsType()
+// 当前活动玩家推送
+func (t *Table) broadcastActivePlayerPush() {
+	t.RangePlayer(func(k int32, p *player.Player) bool {
+		rsp := &v1.ActivePush{
+			Stage:    t.stage.state,
+			Timeout:  int64(t.calcRemainingTime().Seconds()),
+			Active:   t.active,
+			CurRound: t.curRound,
+			CurBet:   t.curBet,
+			TotalBet: t.totalBet,
+			RaiseBet: t.curBet * 2,
+		}
+		if p.GetChairID() == t.active {
+			rsp.CanOp = t.getPlayerCanOp(t.GetActivePlayer())
+		}
+		t.SendPacketToClient(p, v1.GameCommand_OnActivePush, rsp)
+		return true
+	})
+}
+
+func (t *Table) sendActiveButtonInfoNtf() {
+	active := t.GetActivePlayer()
+	if active == nil {
+		return
 	}
-	return c
+	canShow, _, _ := t.canShowCard(active)
+	canSideShow, _, _ := t.canSideShowCard(active)
+	if canShow || canSideShow {
+		t.SendPacketToClient(active, v1.GameCommand_OnAfterSeeButtonPush, &v1.AfterSeeButtonPush{
+			PlayerID:    active.GetPlayerID(),
+			CanShow:     canShow,
+			CanSideShow: canSideShow,
+		})
+	}
+}
+
+func (t *Table) sendActionRsp(p *player.Player, rsp *v1.ActionRsp) {
+	t.SendPacketToClient(p, v1.GameCommand_OnActionRsp, rsp)
+}
+
+func (t *Table) broadcastActionRsp(p *player.Player, action int32, playerBet float64, target *player.Player, allow bool) {
+	rsp := &v1.ActionRsp{
+		Code:        0,
+		Msg:         "",
+		UserID:      p.GetPlayerID(),
+		ChairID:     p.GetChairID(),
+		Action:      action,
+		SeeCards:    nil,
+		BetInfo:     nil,
+		CompareInfo: nil,
+	}
+	// 看牌
+	if action == AcSee {
+		t.SendPacketToAllExcept(v1.GameCommand_OnActionRsp, rsp, p.GetPlayerID())
+		rsp.SeeCards = &v1.SeeCards{
+			Cards:     p.GetCards(),
+			CardsType: p.GetCardsType(),
+		}
+		t.SendPacketToClient(p, v1.GameCommand_OnActionRsp, rsp)
+		return
+	}
+	// 下注
+	rsp.BetInfo = &v1.BetInfo{
+		CurBet:    t.curBet,
+		TotalBet:  t.totalBet,
+		PlayerBet: playerBet,
+	}
+	// 比牌
+	if target != nil && (action == AcShow || action == AcSide || action == AcSideReply) {
+		rsp.CompareInfo = &v1.CompareInfo{
+			TargetUid:      target.GetPlayerID(),
+			TargetChairID:  target.GetChairID(),
+			TargetStatus:   int32(target.GetStatus()),
+			SideReplyAllow: allow,
+		}
+	}
+	t.SendPacketToAll(v1.GameCommand_OnActionRsp, rsp)
 }
 
 func (t *Table) getPlayerCanOp(p *player.Player) (actions []int32) {
@@ -285,186 +404,4 @@ func (t *Table) canSideShowReply(p *player.Player) (can bool) {
 		return
 	}
 	return true
-}
-
-// ---------------------------------------------
-
-// BroadcastForwardRsp 消息转发
-func (t *Table) BroadcastForwardRsp(ty int32, msg string) {
-	t.SendPacketToAll(v1.GameCommand_OnForwardRsp, &v1.ForwardRsp{
-		Type: ty,
-		Msg:  msg,
-	})
-}
-
-// 设置庄家推送
-func (t *Table) broadcastSetBankerRsp() {
-	t.SendPacketToAll(v1.GameCommand_OnSetBankerPush, &v1.SetBankerPush{
-		ChairId: t.banker,
-	})
-}
-
-// 发牌推送
-func (t *Table) dispatchCardPush(canGameSeats []*player.Player) {
-	t.RangePlayer(func(k int32, p *player.Player) bool {
-		t.SendPacketToClient(p, v1.GameCommand_OnSendCardPush, &v1.SendCardPush{
-			UserID: p.GetPlayerID(),
-			Cards:  t.getPlayerCards(p),
-		})
-		return true
-	})
-}
-
-// 广播玩家断线信息
-func (t *Table) broadcastUserOffline(p *player.Player) {
-	t.SendPacketToAll(v1.GameCommand_OnUserOfflinePush, &v1.UserOfflinePush{
-		UserID:    p.GetPlayerID(),
-		IsOffline: p.IsOffline(),
-	})
-}
-
-// 当前活动玩家推送
-func (t *Table) broadcastActivePlayerPush() {
-	t.RangePlayer(func(k int32, p *player.Player) bool {
-		rsp := &v1.ActivePush{
-			Stage:    t.stage.state,
-			Timeout:  int64(t.calcRemainingTime().Seconds()),
-			Active:   t.active,
-			CurRound: t.curRound,
-			CurBet:   t.curBet,
-			TotalBet: t.totalBet,
-			RaiseBet: t.curBet * 2,
-		}
-		if p.GetChairID() == t.active {
-			rsp.CanOp = t.getPlayerCanOp(t.GetActivePlayer())
-		}
-		t.SendPacketToClient(p, v1.GameCommand_OnActivePush, rsp)
-		return true
-	})
-}
-
-// 玩家离桌推送
-func (t *Table) broadcastUserQuitPush(p *player.Player, isSwitchTable bool) {
-	t.SendPacketToAllExcept(v1.GameCommand_OnPlayerQuitPush, &v1.PlayerQuitPush{
-		UserID:  p.GetPlayerID(),
-		ChairID: p.GetChairID(),
-	}, p.GetPlayerID())
-}
-
-func (t *Table) sendActionRsp(p *player.Player, rsp *v1.ActionRsp) {
-	t.SendPacketToClient(p, v1.GameCommand_OnActionRsp, rsp)
-}
-
-func (t *Table) sendActiveButtonInfoNtf() {
-	active := t.GetActivePlayer()
-	if active == nil {
-		return
-	}
-	canShow, _, _ := t.canShowCard(active)
-	canSideShow, _, _ := t.canSideShowCard(active)
-	if canShow || canSideShow {
-		t.SendPacketToClient(active, v1.GameCommand_OnAfterSeeButtonPush, &v1.AfterSeeButtonPush{
-			PlayerID:    active.GetPlayerID(),
-			CanShow:     canShow,
-			CanSideShow: canSideShow,
-		})
-	}
-}
-
-func (t *Table) broadcastActionRsp(p *player.Player, action int32, playerBet float64, target *player.Player, allow bool) {
-	rsp := &v1.ActionRsp{
-		Code:        0,
-		Msg:         "",
-		UserID:      p.GetPlayerID(),
-		ChairID:     p.GetChairID(),
-		Action:      action,
-		SeeCards:    nil,
-		BetInfo:     nil,
-		CompareInfo: nil,
-	}
-	// 看牌
-	if action == AcSee {
-		t.SendPacketToAllExcept(v1.GameCommand_OnActionRsp, rsp, p.GetPlayerID())
-		rsp.SeeCards = &v1.SeeCards{
-			Cards:     p.GetHands(),
-			CardsType: p.GetCardsType(),
-		}
-		t.SendPacketToClient(p, v1.GameCommand_OnActionRsp, rsp)
-		return
-	}
-	// 下注
-	rsp.BetInfo = &v1.BetInfo{
-		CurBet:    t.curBet,
-		TotalBet:  t.totalBet,
-		PlayerBet: playerBet,
-	}
-	// 比牌
-	if target != nil && (action == AcShow || action == AcSide || action == AcSideReply) {
-		rsp.CompareInfo = &v1.CompareInfo{
-			TargetUid:      target.GetPlayerID(),
-			TargetChairID:  target.GetChairID(),
-			TargetStatus:   int32(target.GetStatus()),
-			SideReplyAllow: allow,
-		}
-	}
-	t.SendPacketToAll(v1.GameCommand_OnActionRsp, rsp)
-
-	// see 4011
-	// 		see cards
-	// 		canShow bool
-
-	// call/Raise 4011
-	// 		"uid":       seat.UID,
-	//		"seatid":    seat.SID,
-	//		"money":     seat.GetSelfMoney(),
-	//		"action":    PLAYER_CALL,
-	//		"bet":       seat.Bet,
-	//		"cur_bet":   bet,
-	//		"bet_ratio": 1, // 2
-	//		"total_bet": t.TotalBet,
-	//
-
-	// show 4011
-	//		"uid":           curr.UID,
-	//		"seatid":        curr.SID,
-	//		"status":        curr.Status,
-	//		"money":         curr.GetSelfMoney(),
-	//		"action":        PLAYER_SHOW,
-	//		"bet":           curr.Bet,
-	//		"target_uid":    last.UID,
-	//		"target_seatid": last.SID,
-	//		"target_status": last.Status,
-	//		"type":          0,
-	//		"cur_bet":       bet,
-	//		"total_bet":     t.TotalBet,
-
-	// side show 4011
-	//		"uid":           curr.UID,
-	//		"seatid":        curr.SID,
-	//		"status":        curr.Status,
-	//		"money":         curr.GetSelfMoney(),
-	//		"action":        PLAYER_SHOW,
-	//		"bet":           curr.Bet,
-	//		"target_uid":    last.UID,
-	//		"target_seatid": last.SID,
-	//		"target_status": last.Status,
-	//		"type":          0,
-	//		"cur_bet":       bet,
-	//		"total_bet":     t.TotalBet,
-
-	// side show reply
-	//			"uid":           last.UID,
-	//			"seatid":        last.SID,
-	//			"status":        last.Status,
-	//			"money":         last.GetSelfMoney(),
-	//			"action":        PLAYER_SHOW,
-	//			"bet":           last.Bet,
-	//			"target_uid":    curr.UID,
-	//			"target_seatid": curr.SID,
-	//			"target_status": curr.Status,
-	//			"type":          1,
-	//			"cur_bet":       t.CurBet * 2,
-	//			"total_bet":     t.TotalBet,
-
-	// t.SendPacketToAll(v1.GameCommand_OnActionRsp, rsp)
 }
