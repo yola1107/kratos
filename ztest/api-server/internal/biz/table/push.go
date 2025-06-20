@@ -213,8 +213,8 @@ func (t *Table) sendActiveButtonInfoNtf() {
 	if active == nil {
 		return
 	}
-	canShow := checkShow(t, active).Code == ErrOK
-	canSideShow := checkSide(t, active).Code == ErrOK
+	canShow := t.canShowCard(active).Code == ErrOK
+	canSideShow := t.canSideShowCard(active).Code == ErrOK
 	if canShow || canSideShow {
 		t.SendPacketToClient(active, v1.GameCommand_OnAfterSeeButtonPush, &v1.AfterSeeButtonPush{
 			PlayerID:    active.GetPlayerID(),
@@ -267,7 +267,7 @@ func (t *Table) broadcastActionRsp(p *player.Player, action int32, playerBet flo
 	t.SendPacketToAll(v1.GameCommand_OnActionRsp, rsp)
 }
 
-func (t *Table) getPlayerCanOp(p *player.Player) (ops []int32) {
+func (t *Table) getPlayerCanOp(p *player.Player) (actions []int32) {
 	if p == nil {
 		return nil
 	}
@@ -281,10 +281,39 @@ func (t *Table) getPlayerCanOp(p *player.Player) (ops []int32) {
 		return
 	}
 
-	for ac, def := range checkActionMap {
-		if def.Check(t, p).Code == ErrOK {
-			ops = append(ops, ac)
-		}
+	// 能否弃牌
+	actions = append(actions, AcPack)
+
+	// 能否看牌
+	if t.canSeeCard(p).Code == ErrOK {
+		actions = append(actions, AcSee)
 	}
-	return ops
+
+	// 能否主动跟注 call
+	callRes := t.canCallCard(p, false)
+	if callRes.Code == ErrOK {
+		actions = append(actions, AcCall)
+	}
+
+	// 能否主动加注 Raise
+	raiseRes := t.canCallCard(p, true)
+	if raiseRes.Code == ErrOK {
+		actions = append(actions, AcRaise)
+	}
+
+	// 能否主动发起比牌 show
+	if t.canShowCard(p).Code == ErrOK {
+		actions = append(actions, AcShow)
+	}
+
+	// 能否主动发起提前比牌 side
+	if t.canSideShowCard(p).Code == ErrOK {
+		actions = append(actions, AcSide)
+	}
+
+	// 能否 同意/拒绝提前比牌 side_reply
+	if t.canSideShowReply(p).Code == ErrOK {
+		actions = append(actions, AcSideReply)
+	}
+	return actions
 }
