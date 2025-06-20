@@ -44,7 +44,7 @@ const (
 	ErrOK int32 = iota
 	ErrInvalidStage
 	ErrNotEnoughMoney
-	ErrorBeSeen
+	ErrorAlreadySeen
 	ErrNotSeen
 	ErrTargetInvalid
 )
@@ -55,6 +55,290 @@ type ActionRet struct { // 检查结果
 	Target  *player.Player
 	Message string // 可选，用于调试或客户端提示
 }
+
+type CheckFunc func(t *Table, p *player.Player) ActionRet
+
+type HandleFunc func(t *Table, p *player.Player, in *v1.ActionReq, isTimeout bool)
+
+type ActionDef struct {
+	Check  CheckFunc
+	Handle HandleFunc
+}
+
+var checkActionMap = map[int32]ActionDef{
+	AcSee:       {Check: checkSee, Handle: handleSee},
+	AcPack:      {Check: checkPack, Handle: handlePack},
+	AcCall:      {Check: checkCall, Handle: handleCall},
+	AcRaise:     {Check: checkRaise, Handle: handleCall},
+	AcShow:      {Check: checkShow, Handle: handleShow},
+	AcSide:      {Check: checkSide, Handle: handleSide},
+	AcSideReply: {Check: checkSideReply, Handle: handleSideReply},
+}
+
+func (t *Table) OnActionReq(p *player.Player, in *v1.ActionReq, isTimeout bool) (ok bool) {
+	if p == nil {
+		return
+	}
+
+	if !p.IsGaming() || len(t.GetCanActionPlayers()) <= 1 {
+		return
+	}
+
+	stage := t.stage.state
+	if stage == StWait || stage == StReady || stage == StWaitEnd || stage == StEnd {
+		return
+	}
+
+	def, exists := checkActionMap[in.Action]
+	if !exists {
+		return
+	}
+
+	ret := def.Check(t, p)
+	if ret.Code != ErrOK {
+		if ret.Code == ErrNotEnoughMoney && (in.Action == AcCall || in.Action == AcRaise || in.Action == AcShow || in.Action == AcSide) {
+			handlePack(t, p, &v1.ActionReq{Action: AcPack}, isTimeout)
+		} else {
+			t.sendActionRsp(p, &v1.ActionRsp{
+				Action: in.Action,
+				Code:   ret.Code,
+				Msg:    ret.Message,
+			})
+		}
+		return
+	}
+	def.Handle(t, p, in, isTimeout)
+	return true
+}
+
+func checkSee(t *Table, p *player.Player) ActionRet {
+	if p == nil || p.IsSee() {
+		return ActionRet{Code: ErrorAlreadySeen}
+	}
+	if t.stage.state != StSendCard && t.stage.state != StAction && t.stage.state != StSideShow {
+		return ActionRet{Code: ErrInvalidStage}
+	}
+	return ActionRet{Code: ErrOK}
+}
+
+func handleSee(t *Table, p *player.Player, _ *v1.ActionReq, _ bool) {
+	p.SetSee()
+	t.broadcastActionRsp(p, AcSee, 0, nil, false)
+	if p.GetChairID() == t.active {
+		t.active = p.GetChairID()
+		t.updateStage(StAction)
+		t.broadcastActivePlayerPush()
+	} else {
+		t.sendActiveButtonInfoNtf()
+	}
+}
+
+func checkPack(t *Table, p *player.Player) ActionRet {
+	if p == nil || !p.IsGaming() || t.stage.state == StSideShow {
+		return ActionRet{Code: ErrInvalidStage}
+	}
+	return ActionRet{Code: ErrOK}
+}
+
+func handlePack(t *Table, p *player.Player, _ *v1.ActionReq, isTimeout bool) {
+	p.IncrIdleCount(isTimeout)
+	p.SetLastOp(AcPack)
+	p.SetStatus(player.StGameFold)
+	t.broadcastActionRsp(p, AcPack, 0, nil, false)
+	if ps := t.GetCanActionPlayers(); len(ps) <= 1 {
+		t.updateStage(StWaitEnd)
+		return
+	}
+	if p.GetChairID() == t.active {
+		t.active = t.getNextActiveChair()
+		t.updateStage(StAction)
+		t.broadcastActivePlayerPush()
+	}
+}
+
+func checkCall(t *Table, p *player.Player) ActionRet {
+	if p == nil || p.GetChairID() != t.active || t.stage.state != StAction || len(t.GetCanActionPlayers()) <= 2 {
+		return ActionRet{Code: ErrInvalidStage}
+	}
+	callMoney := t.calcBetMoney(p)
+	if !t.hasEnoughMoney(p, callMoney) {
+		return ActionRet{Code: ErrNotEnoughMoney}
+	}
+	return ActionRet{Code: ErrOK, Money: callMoney}
+}
+
+func checkRaise(t *Table, p *player.Player) ActionRet {
+	ret := checkCall(t, p)
+	if ret.Code != ErrOK {
+		return ret
+	}
+	raiseMoney := ret.Money * 2
+	if !t.hasEnoughMoney(p, raiseMoney) {
+		return ActionRet{Code: ErrNotEnoughMoney}
+	}
+	return ActionRet{Code: ErrOK, Money: raiseMoney}
+}
+
+func handleCall(t *Table, p *player.Player, in *v1.ActionReq, _ bool) {
+	ret := checkCall(t, p)
+	if in.Action == AcRaise {
+		ret = checkRaise(t, p)
+	}
+	money := ret.Money
+	t.totalBet += money
+	p.UseMoney(money)
+	p.AddBet(money)
+	p.SetLastOp(in.Action)
+	p.IncrPlayCount()
+	t.broadcastActionRsp(p, in.Action, money, nil, false)
+	if t.totalBet >= t.repo.GetRoomConfig().Game.PotLimit {
+		t.dealAllCompare()
+		return
+	}
+	t.active = t.getNextActiveChair()
+	t.updateStage(StAction)
+	t.broadcastActivePlayerPush()
+}
+
+func checkShow(t *Table, p *player.Player) ActionRet {
+	if p == nil || p.GetChairID() != t.active || t.stage.state != StAction || len(t.GetCanActionPlayers()) != 2 {
+		return ActionRet{Code: ErrInvalidStage}
+	}
+	next := t.NextPlayer(p.GetChairID())
+	if next == nil {
+		return ActionRet{Code: ErrTargetInvalid}
+	}
+	money := t.calcBetMoney(p)
+	if !t.hasEnoughMoney(p, money) {
+		return ActionRet{Code: ErrNotEnoughMoney}
+	}
+	return ActionRet{Code: ErrOK, Money: money, Target: next}
+}
+
+func handleShow(t *Table, p *player.Player, _ *v1.ActionReq, _ bool) {
+	ret := checkShow(t, p)
+	money := ret.Money
+	next := ret.Target
+	t.totalBet += money
+	p.UseMoney(money)
+	p.AddBet(money)
+	p.SetLastOp(AcShow)
+	p.IncrPlayCount()
+	t.broadcastActionRsp(p, AcShow, money, next, false)
+	winner, loss := getWinner(p, next)
+	loss.SetStatus(player.StGameLost)
+	loss.SetLastOp(AcShow)
+	winner.SetLastOp(AcShow)
+	t.updateStage(StWaitEnd)
+}
+
+func checkSide(t *Table, p *player.Player) ActionRet {
+	if p == nil || p.GetChairID() != t.active || t.stage.state != StAction || len(t.GetCanActionPlayers()) <= 2 {
+		return ActionRet{Code: ErrInvalidStage}
+	}
+	last := t.LastPlayer(p.GetChairID())
+	if last == nil || last == p || !last.IsSee() || !p.IsSee() {
+		return ActionRet{Code: ErrTargetInvalid}
+	}
+	money := t.calcBetMoney(p)
+	if !t.hasEnoughMoney(p, money) {
+		return ActionRet{Code: ErrNotEnoughMoney}
+	}
+	return ActionRet{Code: ErrOK, Money: money, Target: last}
+}
+
+func handleSide(t *Table, p *player.Player, _ *v1.ActionReq, _ bool) {
+	ret := checkSide(t, p)
+	money := ret.Money
+	last := ret.Target
+	t.totalBet += money
+	p.UseMoney(money)
+	p.AddBet(money)
+	p.SetLastOp(AcSide)
+	p.IncrPlayCount()
+	t.broadcastActionRsp(p, AcSide, money, last, false)
+	if t.totalBet >= t.repo.GetRoomConfig().Game.PotLimit {
+		t.dealAllCompare()
+		return
+	}
+	p.SetCompareSeats([]int32{last.GetChairID()})
+	t.active = last.GetChairID()
+	t.updateStage(StSideShow)
+	t.broadcastActivePlayerPush()
+}
+
+func checkSideReply(t *Table, p *player.Player) ActionRet {
+	if p == nil || p.GetChairID() != t.active || t.stage.state != StSideShow || len(t.GetCanActionPlayers()) <= 2 {
+		return ActionRet{Code: ErrInvalidStage}
+	}
+	next := t.NextPlayer(p.GetChairID())
+	if next == nil || !next.IsGaming() || !next.IsSee() {
+		return ActionRet{Code: ErrTargetInvalid}
+	}
+	if !ext.SliceContains(next.GetCompareSeats(), p.GetChairID()) {
+		return ActionRet{Code: ErrTargetInvalid}
+	}
+	return ActionRet{Code: ErrOK, Target: next}
+}
+
+func handleSideReply(t *Table, p *player.Player, in *v1.ActionReq, _ bool) {
+	ret := checkSideReply(t, p)
+	next := ret.Target
+	allow := in.SideReplyAllow
+	t.broadcastActionRsp(p, AcSideReply, 0, next, allow)
+	if !allow {
+		t.active = t.NextPlayer(next.GetChairID()).GetChairID()
+		t.updateStage(StAction)
+		t.broadcastActivePlayerPush()
+		return
+	}
+	winner, loss := getWinner(p, next)
+	loss.SetStatus(player.StGameLost)
+	loss.SetLastOp(AcSideReply)
+	winner.SetLastOp(AcSideReply)
+	t.active = winner.GetChairID()
+	t.updateStage(StSideShowAni)
+	t.broadcastActivePlayerPush()
+}
+
+func getWinner(p1, p2 *player.Player) (winner, loss *player.Player) {
+	if p1.GetCardsType() > p2.GetCardsType() {
+		return p1, p2
+	}
+	return p2, p1
+}
+
+func (t *Table) calcBetMoney(p *player.Player) float64 {
+	if p.IsSee() {
+		return t.curBet * 2
+	}
+	return t.curBet
+}
+
+func (t *Table) hasEnoughMoney(p *player.Player, amount float64) bool {
+	return p.GetAllMoney() >= amount
+}
+
+func (t *Table) dealAllCompare() {
+	t.updateStage(StWaitEnd)
+}
+
+func (t *Table) checkAutoSee() {
+	if t.curRound >= t.repo.GetRoomConfig().Game.AutoSeeRound {
+		t.RangePlayer(func(k int32, p *player.Player) bool {
+			if p.IsGaming() {
+				t.OnActionReq(p, &v1.ActionReq{Action: AcSee}, false)
+			}
+			return true
+		})
+	}
+}
+
+/*
+
+
+
+
 
 func (t *Table) OnActionReq(p *player.Player, in *v1.ActionReq, isTimeOut bool) (ok bool) {
 	if p == nil || !p.IsGaming() || len(t.GetCanActionPlayers()) <= 1 {
@@ -378,3 +662,57 @@ func (t *Table) checkAutoSee() {
 		})
 	}
 }
+
+
+
+func (t *Table) getPlayerCanOp(p *player.Player) (actions []int32) {
+	if p == nil {
+		return nil
+	}
+
+	if !p.IsGaming() || len(t.GetCanActionPlayers()) <= 1 {
+		return
+	}
+
+	stage := t.stage.state
+	if stage == StWait || stage == StReady || stage == StWaitEnd || stage == StEnd {
+		return
+	}
+
+	// 能否弃牌
+	actions = append(actions, AcPack)
+
+	// 能否看牌
+	if t.canSeeCard(p).Code == ErrOK {
+		actions = append(actions, AcSee)
+	}
+
+	// 能否主动跟注 call
+	callRes := t.canCallCard(p, false)
+	if callRes.Code == ErrOK {
+		actions = append(actions, AcCall)
+	}
+
+	// 能否主动加注 Raise
+	raiseRes := t.canCallCard(p, true)
+	if raiseRes.Code == ErrOK {
+		actions = append(actions, AcRaise)
+	}
+
+	// 能否主动发起比牌 show
+	if t.canShowCard(p).Code == ErrOK {
+		actions = append(actions, AcShow)
+	}
+
+	// 能否主动发起提前比牌 side
+	if t.canSideShowCard(p).Code == ErrOK {
+		actions = append(actions, AcSide)
+	}
+
+	// 能否 同意/拒绝提前比牌 side_reply
+	if t.canSideShowReply(p).Code == ErrOK {
+		actions = append(actions, AcSideReply)
+	}
+	return actions
+}
+*/
