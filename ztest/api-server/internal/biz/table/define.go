@@ -2,6 +2,7 @@ package table
 
 import (
 	"github.com/yola1107/kratos/v2/log"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 )
 
 const (
@@ -21,7 +22,7 @@ const (
 	StActionTimeout      = 12 // 操作时间 (s)
 	StSideShowTimeout    = 12 // 发起比牌 等待结束 (s)
 	StSideShowAniTimeout = 1  // 同意提前比牌动画时间 (s)
-	StWaitEndTimeout     = 2  // 等待结束时间 (s)
+	StWaitEndTimeout     = 1  // 等待结束时间 (s)
 	StEndTimeout         = 3  // 结束等待下一个阶段时间 (s)
 )
 
@@ -34,10 +35,6 @@ var StageNames = map[int32]string{
 	StSideShowAni: "比牌动画",
 	StWaitEnd:     "等待结束",
 	StEnd:         "游戏结束",
-}
-
-func StageName(s int32) string {
-	return StageNames[s]
 }
 
 func GetStageTimeout(s int32) int64 {
@@ -62,12 +59,10 @@ func GetStageTimeout(s int32) int64 {
 	}
 }
 
-const (
-	Normal TYPE = iota
-	Black
-)
+/*
+	TYPE 桌子类型
+*/
 
-// TYPE 桌子类型
 type TYPE int32
 
 func (t TYPE) String() string {
@@ -82,6 +77,15 @@ func (t TYPE) String() string {
 }
 
 const (
+	Normal TYPE = iota
+	Black
+)
+
+/*
+	动作类型
+*/
+
+const (
 	AcCall      = int32(1) // "跟注"
 	AcRaise     = int32(2) // "加注"
 	AcSee       = int32(3) // "看牌"
@@ -90,3 +94,48 @@ const (
 	AcSide      = int32(6) // "提前比牌"
 	AcSideReply = int32(7) // "提前比牌回应"
 )
+
+/*
+	CompareType 比牌类型
+*/
+
+type CompareType int32
+
+const (
+	CompareShow CompareType = iota + 1
+	CompareAllShow
+	CompareSideShow
+)
+
+func (t CompareType) String() string {
+	switch t {
+	case CompareShow:
+		return "CompareShow"
+	case CompareAllShow:
+		return "CompareAllShow"
+	case CompareSideShow:
+		return "CompareSideShow"
+	default:
+		return "Unknown"
+	}
+}
+
+/*
+	ActionRet 检查动作结果及动作错误码
+*/
+
+const (
+	ErrOK int32 = iota
+	ErrInvalidStage
+	ErrNotEnoughMoney
+	ErrorAlreadySeen
+	ErrSideNotSeen
+	ErrTargetInvalid
+)
+
+type ActionRet struct { // 检查结果
+	Code    int32
+	Money   float64
+	Target  *player.Player
+	Message string // 可选，用于调试或客户端提示
+}

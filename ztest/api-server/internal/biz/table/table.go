@@ -14,17 +14,21 @@ type Table struct {
 	isClosed bool  // 是否停服
 	repo     Repo  //
 
+	// 游戏变量
+	stage *Stage           // 阶段状态
+	mLog  *Log             // 桌子日志
+	cards *GameCards       // card信息
+	seats []*player.Player // 玩家列表
+
 	// 游戏逻辑变量
-	stage    *Stage           // 阶段状态
-	sitCnt   int16            // 入座玩家数量
-	banker   int32            //
-	active   int32            // 当前操作玩家
-	curRound int32            // 当前回合轮数
-	curBet   float64          // 当前需投注
-	totalBet float64          // 桌子总投注
-	mLog     *Log             // 桌子日志
-	seats    []*player.Player // 玩家列表
-	cards    *GameCards       // card信息
+	sitCnt   int16      // 入座玩家数量
+	banker   int32      // 庄家位置
+	active   int32      // 当前操作玩家
+	first    int32      // 第一个操作玩家
+	curRound int32      // 当前回合数
+	curBet   float64    // 当前需投注
+	totalBet float64    // 桌子总投注
+	aiLogic  RobotLogic // 机器人逻辑
 }
 
 func NewTable(id int32, typ TYPE, c *conf.Room, repo Repo) *Table {
@@ -37,6 +41,7 @@ func NewTable(id int32, typ TYPE, c *conf.Room, repo Repo) *Table {
 		sitCnt:   0,
 		banker:   -1,
 		active:   -1,
+		first:    -1,
 		curRound: 0,
 		curBet:   c.Game.BaseMoney,
 		totalBet: 0,
@@ -46,11 +51,23 @@ func NewTable(id int32, typ TYPE, c *conf.Room, repo Repo) *Table {
 	}
 	t.cards.Init()
 	t.mLog.init(id, c.LogCache)
+	t.aiLogic.init(t)
 	return t
 }
 
 func (t *Table) Reset() {
-
+	t.active = -1
+	t.first = -1
+	t.curRound = 1
+	t.curBet = t.repo.GetRoomConfig().Game.BaseMoney
+	t.totalBet = 0
+	t.cards.Init()
+	for _, seat := range t.seats {
+		if seat == nil {
+			continue
+		}
+		seat.Reset()
+	}
 }
 
 func (t *Table) Empty() bool {
@@ -158,16 +175,10 @@ func (t *Table) CanEnter(p *player.Player) bool {
 	return true
 }
 
-func (t *Table) CanExit(p *player.Player) bool {
-	return p != nil && !p.IsGaming()
-}
-
-func (t *Table) CanEnterRobot() bool                { return true }
-func (t *Table) CanExitRobot(r *player.Player) bool { return true }
-
-func (t *Table) CanSwitchTable(p *player.Player) bool {
-	return p != nil && !p.IsGaming()
-}
+func (t *Table) CanExit(p *player.Player) bool        { return p != nil && !p.IsGaming() }
+func (t *Table) CanEnterRobot(p *player.Player) bool  { return t.aiLogic.canEnterRobot(p) }
+func (t *Table) CanExitRobot(p *player.Player) bool   { return t.aiLogic.canExitRobot(p) }
+func (t *Table) CanSwitchTable(p *player.Player) bool { return p != nil && !p.IsGaming() }
 
 // LastPlayer 上一家
 func (t *Table) LastPlayer(chair int32) *player.Player {
@@ -239,9 +250,11 @@ func (t *Table) GetNextActivePlayer() *player.Player {
 	return t.NextPlayer(t.active)
 }
 
-func (t *Table) getNextActiveChair() int32 {
+func (t *Table) getNextActivePlayerChair() int32 {
 	p := t.GetNextActivePlayer()
 	if p == nil {
+		log.Errorf("getNextActivePlayerChair: nil p.  active=%+v canActionCnt=%d",
+			t.active, len(t.GetCanActionPlayers())) // todo 调试log 可去掉
 		return 0
 	}
 	return p.GetChairID()
@@ -252,4 +265,21 @@ func (t *Table) GetPlayerByChair(chair int32) *player.Player {
 		return nil
 	}
 	return t.seats[chair]
+}
+
+func (t *Table) checkKick() {
+	for _, p := range t.seats {
+		if p == nil {
+			continue
+		}
+		if p.IsRobot() {
+			continue
+		}
+		if p.IsOffline() {
+			t.OnExitGame(p, codes.ErrKickByBroke.Code, "kick by offline")
+
+		} else if err := CheckRoomLimit(p, t.repo.GetRoomConfig().Game); err != nil {
+			t.OnExitGame(p, err.Code, err.Message)
+		}
+	}
 }

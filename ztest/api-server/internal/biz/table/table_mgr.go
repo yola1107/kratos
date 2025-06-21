@@ -27,6 +27,10 @@ func NewManager(c *conf.Room, repo Repo) *Manager {
 	return mgr
 }
 
+func (m *Manager) GetTableList() []*Table {
+	return m.tableList
+}
+
 // GetTable 根据桌子ID获取桌子
 func (m *Manager) GetTable(id int32) *Table {
 	return m.tableMap[id]

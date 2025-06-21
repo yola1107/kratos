@@ -22,11 +22,11 @@ func DiffLog(a, b any) (diff.Changelog, string, error) {
 	}
 
 	// 提取字段名最大宽度
-	maxKeyLen := 0
+	maxPathLen := 0
 	maxFromLen := 0
 	for _, change := range changelog {
-		if field := fmt.Sprintf("%s", change.Path); len(field) > maxKeyLen {
-			maxKeyLen = len(field)
+		if field := fmt.Sprintf("%s", change.Path); len(field) > maxPathLen {
+			maxPathLen = len(field)
 		}
 		if from := fmt.Sprintf("%v", change.From); len(from) > maxFromLen {
 			maxFromLen = len(from)
@@ -41,7 +41,7 @@ func DiffLog(a, b any) (diff.Changelog, string, error) {
 		field := fmt.Sprintf("%s", change.Path)
 		sb.WriteString(fmt.Sprintf(
 			"%-*s │ from: %-*v -> to: %v\n",
-			maxKeyLen, field, maxFromLen, change.From, change.To,
+			maxPathLen, field, maxFromLen, change.From, change.To,
 		))
 	}
 

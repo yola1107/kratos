@@ -300,7 +300,7 @@ message PlayerScene {
     int32 lastOp         = 6;   //最后操作
     double curBet        = 7;   //
     double totalBet      = 8;   //
-    bool see             = 9;   //
+    bool seen            = 9;   //
     bool isAutoCall      = 10;  //自动跟注 0:未开启 1:已开启
     bool isPaying        = 11;  //支付状态 1:支付中
     repeated int32 cards = 12;  //
@@ -351,7 +351,7 @@ message ActionRsp {
     //    bool sideReplyAllow = 13;  //
 }
 
-//看牌信息 看牌玩家自己的牌
+//看牌信息  触发看牌动作
 message SeeCards {
     repeated int32 cards = 1;  //看牌玩家手牌
     int32 cardsType      = 2;  //看牌玩家手牌
@@ -374,7 +374,7 @@ message CompareInfo {
 
 //
 message AfterSeeButtonPush {
-    int64 playerID   = 1;  //当前活动玩家的ID
+    int64 userID     = 1;  //当前活动玩家的ID
     bool canShow     = 2;
     bool canSideShow = 3;
 }
@@ -388,4 +388,10 @@ message AutoCallReq {
 message AutoCallRsp {
     int64 userID  = 1;  //用户ID
     bool autoCall = 2;  //是否自动跟注
+}
+
+//
+message ResultPush {
+    int64 userID  = 3;  //用户ID
+    int32 chairID = 4;  //椅子号
 }

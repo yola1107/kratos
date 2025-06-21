@@ -14,6 +14,7 @@ func (t *Table) SendPacketToClient(p *player.Player, cmd v1.GameCommand, msg pro
 	}
 	if p.IsRobot() {
 		// tb.GetRbLogic().RecvMsg(p, cmd, msg)
+		t.aiLogic.OnMessage(p, cmd, msg)
 		return
 	}
 	session := p.GetSession()
@@ -170,19 +171,19 @@ func (t *Table) getScene(p *player.Player) *v1.PlayerScene {
 		UserID:     p.GetPlayerID(),
 		ChairId:    p.GetChairID(),
 		Status:     int32(p.GetStatus()),
-		Hosting:    p.GetIdleCount() > 0,
+		Hosting:    p.GetTimeoutCnt() > 0,
 		Offline:    p.IsOffline(),
 		LastOp:     p.GetLastOp(),
 		CurBet:     t.curBet, //
 		TotalBet:   p.GetBet(),
-		See:        p.IsSee(),
+		Seen:       p.Seen(),
 		Cards:      p.GetCards(),
 		CardsType:  p.GetCardsType(),
 		IsAutoCall: p.IsAutoCall(),
 		IsPaying:   p.IsPaying(),
 		CanOp:      t.getPlayerCanOp(p),
 	}
-	if p.IsSee() {
+	if p.Seen() {
 		info.CurBet = t.curBet * 2
 	}
 	return info
@@ -206,6 +207,7 @@ func (t *Table) broadcastActivePlayerPush() {
 		t.SendPacketToClient(p, v1.GameCommand_OnActivePush, rsp)
 		return true
 	})
+	t.mLog.activePush(t.GetActivePlayer(), t.first, t.curRound)
 }
 
 func (t *Table) sendActiveButtonInfoNtf() {
@@ -217,7 +219,7 @@ func (t *Table) sendActiveButtonInfoNtf() {
 	canSideShow := t.canSideShowCard(active).Code == ErrOK
 	if canShow || canSideShow {
 		t.SendPacketToClient(active, v1.GameCommand_OnAfterSeeButtonPush, &v1.AfterSeeButtonPush{
-			PlayerID:    active.GetPlayerID(),
+			UserID:      active.GetPlayerID(),
 			CanShow:     canShow,
 			CanSideShow: canSideShow,
 		})
@@ -282,7 +284,9 @@ func (t *Table) getPlayerCanOp(p *player.Player) (actions []int32) {
 	}
 
 	// 能否弃牌
-	actions = append(actions, AcPack)
+	if t.canPack(p).Code == ErrOK {
+		actions = append(actions, AcPack)
+	}
 
 	// 能否看牌
 	if t.canSeeCard(p).Code == ErrOK {
@@ -290,14 +294,12 @@ func (t *Table) getPlayerCanOp(p *player.Player) (actions []int32) {
 	}
 
 	// 能否主动跟注 call
-	callRes := t.canCallCard(p, false)
-	if callRes.Code == ErrOK {
+	if t.canCallCard(p, false).Code == ErrOK {
 		actions = append(actions, AcCall)
 	}
 
 	// 能否主动加注 Raise
-	raiseRes := t.canCallCard(p, true)
-	if raiseRes.Code == ErrOK {
+	if t.canCallCard(p, true).Code == ErrOK {
 		actions = append(actions, AcRaise)
 	}
 
@@ -316,4 +318,11 @@ func (t *Table) getPlayerCanOp(p *player.Player) (actions []int32) {
 		actions = append(actions, AcSideReply)
 	}
 	return actions
+}
+
+func (t *Table) broadcastResult() {
+	t.SendPacketToAll(v1.GameCommand_OnResultPush, &v1.ResultPush{
+		UserID:  0,
+		ChairID: 0,
+	})
 }

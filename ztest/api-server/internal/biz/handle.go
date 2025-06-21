@@ -2,6 +2,7 @@ package biz
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/yola1107/kratos/v2/errors"
 	"github.com/yola1107/kratos/v2/library/ext"
@@ -73,6 +74,25 @@ func (uc *Usecase) OnSwitchTableReq(info *SwapperInfo) {
 	info.Player.SendSwitchTableRsp(result)
 }
 
+func (uc *Usecase) CreateRobot(raw *player.Raw) (*player.Player, *errors.Error) {
+	// todo test
+	{
+		base := &player.BaseData{
+			UID:       raw.ID,
+			VIP:       1,
+			NickName:  fmt.Sprintf("robot_%d", raw.ID),
+			Avatar:    fmt.Sprintf("robot_avatar_%d", raw.ID),
+			AvatarUrl: fmt.Sprintf("robot_avatar_%d", raw.ID),
+			Money:     ext.RandFloat(uc.rc.Robot.MinMoney, uc.rc.Robot.MaxMoney),
+		}
+		raw.BaseData = base
+		p := player.New(raw)
+		return p, nil
+	}
+
+	return uc.createPlayer(raw)
+}
+
 func (uc *Usecase) createPlayer(raw *player.Raw) (*player.Player, *errors.Error) {
 	// 获取数据库数据
 	base, err := uc.repo.LoadPlayer(context.Background(), raw.ID)
@@ -84,7 +104,9 @@ func (uc *Usecase) createPlayer(raw *player.Raw) (*player.Player, *errors.Error)
 	raw.BaseData = base
 
 	p := player.New(raw)
-	uc.pm.Add(p)
+	if !raw.IsRobot {
+		uc.pm.Add(p)
+	}
 	return p, nil
 }
 
@@ -93,7 +115,11 @@ func (uc *Usecase) LogoutGame(p *player.Player, code int32, msg string) {
 		return
 	}
 
-	uc.pm.Remove(p.GetPlayerID())
+	if p.IsRobot() {
+		uc.rm.Leave(p.GetPlayerID())
+	} else {
+		uc.pm.Remove(p.GetPlayerID())
+	}
 
 	// 异步释放玩家
 	go func() {

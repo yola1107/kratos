@@ -8,6 +8,7 @@ import (
 	"github.com/yola1107/kratos/v2/library/work"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/robot"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/table"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
 )
@@ -36,6 +37,7 @@ type Usecase struct {
 	ws work.IWorkStore
 	pm *player.Manager
 	tm *table.Manager
+	rm *robot.Manager
 }
 
 // NewUsecase new a data usecase.
@@ -47,9 +49,10 @@ func NewUsecase(repo DataRepo, logger log.Logger, c *conf.Room) (*Usecase, func(
 
 	ctx, cancel := context.WithCancel(context.Background())
 	uc.rc = c
+	uc.ws = work.NewWorkStore(ctx, defaultPendingNum)
 	uc.tm = table.NewManager(c, uc)
 	uc.pm = player.NewManager()
-	uc.ws = work.NewWorkStore(ctx, defaultPendingNum)
+	uc.rm = robot.NewManager(c, uc)
 
 	cleanup := func() {
 		log.Info("closing the Room resources")
@@ -57,8 +60,9 @@ func NewUsecase(repo DataRepo, logger log.Logger, c *conf.Room) (*Usecase, func(
 		// 	uc.pm.Close()
 		// 	uc.tm.Close()
 		uc.ws.Stop()
+		uc.rm.Stop()
 	}
-	return uc, cleanup, errors.Join(uc.ws.Start())
+	return uc, cleanup, errors.Join(uc.ws.Start(), uc.rm.Start())
 }
 
 // GetLoop 获取任务队列
@@ -74,4 +78,9 @@ func (uc *Usecase) GetTimer() work.ITaskScheduler {
 // GetRoomConfig 获取房间配置
 func (uc *Usecase) GetRoomConfig() *conf.Room {
 	return uc.rc
+}
+
+// GetTableList 获取桌子列表
+func (uc *Usecase) GetTableList() []*table.Table {
+	return uc.tm.GetTableList()
 }

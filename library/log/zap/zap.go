@@ -138,6 +138,10 @@ func (l *Logger) SetSensitive(keys []string) {
 }
 
 func (l *Logger) filterSensitive(fields []zap.Field) []zap.Field {
+	if len(l.sensitives) == 0 {
+		return fields
+	}
+
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 

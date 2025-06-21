@@ -57,11 +57,11 @@ func (s *server) SayHelloReq(ctx context.Context, in *v1.HelloRequest) (*v1.Hell
 
 func (s *server) SayHello2Req(ctx context.Context, in *v1.Hello2Request) (*v1.Hello2Reply, error) {
 	s.TestPushDataByID(ctx.Value("sessionID").(string)) // 测试push功能
-	// panic("websocket server panic test")
-	// time.Sleep(6 * time.Second)
-	// return nil, nil
-	// return nil, fmt.Errorf("ws test handler return an error")
-	// return nil, kerrors.New(201, "test", "test")
+	// panic("websocket server panic test")                      // 测试loop捕获panic
+	// time.Sleep(6 * time.Second)                               // 测试context.DeadLine
+	// return nil, nil                                           // 测试返回值为nil是否发送消息
+	// return nil, fmt.Errorf("ws test handler return an error") // 测试返回值为err能否捕获到 error.code和error.msg
+	// return nil, kerrors.New(201, "test", "test")// 测试返回值为err能否捕获到 error.code和error.msg
 	return &v1.Hello2Reply{Message: fmt.Sprintf("ws server say hello. %s", in.Name)}, nil
 }
 

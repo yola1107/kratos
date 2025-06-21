@@ -429,7 +429,7 @@ components:
                 totalBet:
                     type: number
                     format: double
-                see:
+                seen:
                     type: boolean
                 isAutoCall:
                     type: boolean
@@ -519,7 +519,7 @@ components:
                 cardsType:
                     type: integer
                     format: int32
-            description: 看牌信息 看牌玩家自己的牌
+            description: 看牌信息  触发看牌动作
         helloworld.v1.SwitchTableReq:
             type: object
             properties:

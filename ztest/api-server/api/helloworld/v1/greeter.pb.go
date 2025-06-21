@@ -1589,7 +1589,7 @@ type PlayerScene struct {
 	LastOp        int32                  `protobuf:"varint,6,opt,name=lastOp,proto3" json:"lastOp,omitempty"`          //最后操作
 	CurBet        float64                `protobuf:"fixed64,7,opt,name=curBet,proto3" json:"curBet,omitempty"`         //
 	TotalBet      float64                `protobuf:"fixed64,8,opt,name=totalBet,proto3" json:"totalBet,omitempty"`     //
-	See           bool                   `protobuf:"varint,9,opt,name=see,proto3" json:"see,omitempty"`                //
+	Seen          bool                   `protobuf:"varint,9,opt,name=seen,proto3" json:"seen,omitempty"`              //
 	IsAutoCall    bool                   `protobuf:"varint,10,opt,name=isAutoCall,proto3" json:"isAutoCall,omitempty"` //自动跟注 0:未开启 1:已开启
 	IsPaying      bool                   `protobuf:"varint,11,opt,name=isPaying,proto3" json:"isPaying,omitempty"`     //支付状态 1:支付中
 	Cards         []int32                `protobuf:"varint,12,rep,packed,name=cards,proto3" json:"cards,omitempty"`    //
@@ -1685,9 +1685,9 @@ func (x *PlayerScene) GetTotalBet() float64 {
 	return 0
 }
 
-func (x *PlayerScene) GetSee() bool {
+func (x *PlayerScene) GetSeen() bool {
 	if x != nil {
-		return x.See
+		return x.Seen
 	}
 	return false
 }
@@ -1987,7 +1987,7 @@ func (x *ActionRsp) GetCompareInfo() *CompareInfo {
 	return nil
 }
 
-// 看牌信息 看牌玩家自己的牌
+// 看牌信息  触发看牌动作
 type SeeCards struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Cards         []int32                `protobuf:"varint,1,rep,packed,name=cards,proto3" json:"cards,omitempty"`  //看牌玩家手牌
@@ -2172,7 +2172,7 @@ func (x *CompareInfo) GetSideReplyAllow() bool {
 
 type AfterSeeButtonPush struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	PlayerID      int64                  `protobuf:"varint,1,opt,name=playerID,proto3" json:"playerID,omitempty"` //当前活动玩家的ID
+	UserID        int64                  `protobuf:"varint,1,opt,name=userID,proto3" json:"userID,omitempty"` //当前活动玩家的ID
 	CanShow       bool                   `protobuf:"varint,2,opt,name=canShow,proto3" json:"canShow,omitempty"`
 	CanSideShow   bool                   `protobuf:"varint,3,opt,name=canSideShow,proto3" json:"canSideShow,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -2209,9 +2209,9 @@ func (*AfterSeeButtonPush) Descriptor() ([]byte, []int) {
 	return file_helloworld_v1_greeter_proto_rawDescGZIP(), []int{30}
 }
 
-func (x *AfterSeeButtonPush) GetPlayerID() int64 {
+func (x *AfterSeeButtonPush) GetUserID() int64 {
 	if x != nil {
-		return x.PlayerID
+		return x.UserID
 	}
 	return 0
 }
@@ -2334,6 +2334,58 @@ func (x *AutoCallRsp) GetAutoCall() bool {
 	return false
 }
 
+type ResultPush struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserID        int64                  `protobuf:"varint,3,opt,name=userID,proto3" json:"userID,omitempty"`   //用户ID
+	ChairID       int32                  `protobuf:"varint,4,opt,name=chairID,proto3" json:"chairID,omitempty"` //椅子号
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResultPush) Reset() {
+	*x = ResultPush{}
+	mi := &file_helloworld_v1_greeter_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResultPush) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResultPush) ProtoMessage() {}
+
+func (x *ResultPush) ProtoReflect() protoreflect.Message {
+	mi := &file_helloworld_v1_greeter_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResultPush.ProtoReflect.Descriptor instead.
+func (*ResultPush) Descriptor() ([]byte, []int) {
+	return file_helloworld_v1_greeter_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *ResultPush) GetUserID() int64 {
+	if x != nil {
+		return x.UserID
+	}
+	return 0
+}
+
+func (x *ResultPush) GetChairID() int32 {
+	if x != nil {
+		return x.ChairID
+	}
+	return 0
+}
+
 var File_helloworld_v1_greeter_proto protoreflect.FileDescriptor
 
 const file_helloworld_v1_greeter_proto_rawDesc = "" +
@@ -2438,7 +2490,7 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	"\bcurRound\x18\t \x01(\x05R\bcurRound\x12\x1a\n" +
 	"\btotalBet\x18\n" +
 	" \x01(\x01R\btotalBet\x124\n" +
-	"\aplayers\x18\v \x03(\v2\x1a.helloworld.v1.PlayerSceneR\aplayers\"\xef\x02\n" +
+	"\aplayers\x18\v \x03(\v2\x1a.helloworld.v1.PlayerSceneR\aplayers\"\xf1\x02\n" +
 	"\vPlayerScene\x12\x16\n" +
 	"\x06userID\x18\x01 \x01(\x03R\x06userID\x12\x18\n" +
 	"\achairId\x18\x02 \x01(\x05R\achairId\x12\x16\n" +
@@ -2447,8 +2499,8 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	"\aoffline\x18\x05 \x01(\bR\aoffline\x12\x16\n" +
 	"\x06lastOp\x18\x06 \x01(\x05R\x06lastOp\x12\x16\n" +
 	"\x06curBet\x18\a \x01(\x01R\x06curBet\x12\x1a\n" +
-	"\btotalBet\x18\b \x01(\x01R\btotalBet\x12\x10\n" +
-	"\x03see\x18\t \x01(\bR\x03see\x12\x1e\n" +
+	"\btotalBet\x18\b \x01(\x01R\btotalBet\x12\x12\n" +
+	"\x04seen\x18\t \x01(\bR\x04seen\x12\x1e\n" +
 	"\n" +
 	"isAutoCall\x18\n" +
 	" \x01(\bR\n" +
@@ -2491,9 +2543,9 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	"\ttargetUid\x18\x01 \x01(\x03R\ttargetUid\x12$\n" +
 	"\rtargetChairID\x18\x02 \x01(\x05R\rtargetChairID\x12\"\n" +
 	"\ftargetStatus\x18\x03 \x01(\x05R\ftargetStatus\x12&\n" +
-	"\x0esideReplyAllow\x18\x04 \x01(\bR\x0esideReplyAllow\"l\n" +
-	"\x12AfterSeeButtonPush\x12\x1a\n" +
-	"\bplayerID\x18\x01 \x01(\x03R\bplayerID\x12\x18\n" +
+	"\x0esideReplyAllow\x18\x04 \x01(\bR\x0esideReplyAllow\"h\n" +
+	"\x12AfterSeeButtonPush\x12\x16\n" +
+	"\x06userID\x18\x01 \x01(\x03R\x06userID\x12\x18\n" +
 	"\acanShow\x18\x02 \x01(\bR\acanShow\x12 \n" +
 	"\vcanSideShow\x18\x03 \x01(\bR\vcanSideShow\"A\n" +
 	"\vAutoCallReq\x12\x16\n" +
@@ -2501,7 +2553,11 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	"\bautoCall\x18\x02 \x01(\bR\bautoCall\"A\n" +
 	"\vAutoCallRsp\x12\x16\n" +
 	"\x06userID\x18\x01 \x01(\x03R\x06userID\x12\x1a\n" +
-	"\bautoCall\x18\x02 \x01(\bR\bautoCall*\x9e\x05\n" +
+	"\bautoCall\x18\x02 \x01(\bR\bautoCall\">\n" +
+	"\n" +
+	"ResultPush\x12\x16\n" +
+	"\x06userID\x18\x03 \x01(\x03R\x06userID\x12\x18\n" +
+	"\achairID\x18\x04 \x01(\x05R\achairID*\x9e\x05\n" +
 	"\vGameCommand\x12\v\n" +
 	"\aNothing\x10\x00\x12\x0f\n" +
 	"\vSayHelloReq\x10\x01\x12\x0f\n" +
@@ -2573,7 +2629,7 @@ func file_helloworld_v1_greeter_proto_rawDescGZIP() []byte {
 }
 
 var file_helloworld_v1_greeter_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_helloworld_v1_greeter_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
+var file_helloworld_v1_greeter_proto_msgTypes = make([]protoimpl.MessageInfo, 34)
 var file_helloworld_v1_greeter_proto_goTypes = []any{
 	(GameCommand)(0),           // 0: helloworld.v1.GameCommand
 	(*HelloRequest)(nil),       // 1: helloworld.v1.HelloRequest
@@ -2609,6 +2665,7 @@ var file_helloworld_v1_greeter_proto_goTypes = []any{
 	(*AfterSeeButtonPush)(nil), // 31: helloworld.v1.AfterSeeButtonPush
 	(*AutoCallReq)(nil),        // 32: helloworld.v1.AutoCallReq
 	(*AutoCallRsp)(nil),        // 33: helloworld.v1.AutoCallRsp
+	(*ResultPush)(nil),         // 34: helloworld.v1.ResultPush
 }
 var file_helloworld_v1_greeter_proto_depIdxs = []int32{
 	24, // 0: helloworld.v1.SceneRsp.players:type_name -> helloworld.v1.PlayerScene
@@ -2655,7 +2712,7 @@ func file_helloworld_v1_greeter_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_helloworld_v1_greeter_proto_rawDesc), len(file_helloworld_v1_greeter_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   33,
+			NumMessages:   34,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -22,11 +22,18 @@ type BaseData struct {
 }
 
 func (p *Player) UseMoney(money float64) bool {
+	p.baseData.Money -= money
+	return true
+}
+
+func (p *Player) AddMoney(money float64) bool {
+	p.baseData.Money += money
 	return true
 }
 
 func (p *Player) GetAllMoney() float64 {
-	return 0
+	all := p.baseData.Money
+	return all
 }
 
 func (p *Player) GetMoney() float64 {

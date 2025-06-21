@@ -1,6 +1,7 @@
 package table
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/yola1107/kratos/v2/log"
@@ -21,7 +22,7 @@ type Stage struct {
 }
 
 func (t *Table) OnTimer() {
-	log.Infof("Stage=%d timeID=%d TimeOut... ", t.stage.state, t.stage.timerID)
+	log.Debugf("Stage=%d timeID=%d TimeOut... ", t.stage.state, t.stage.timerID)
 
 	switch t.stage.state {
 	case StReady:
@@ -35,12 +36,11 @@ func (t *Table) OnTimer() {
 	case StSideShowAni:
 		t.onSideShowAniTimeout()
 	case StWaitEnd:
-		// t.gameEnd()
-	case StEnd: // 游戏结束后判断
-		// t.clearAnomalyPlayers()
-		// t.Reset()
-		// t.checkReady()
-		// t.mLog.End(fmt.Sprintf("结束清理完成。"))
+		t.gameEnd()
+	case StEnd:
+		t.onEndTimeout()
+	default:
+		log.Debugf("unhandled default case")
 	}
 }
 
@@ -59,7 +59,8 @@ func (t *Table) updateStage(s int32) {
 	t.stage.startTime = time.Now()
 	t.stage.duration = t.checkResetDuration(s)
 	t.stage.timerID = timer.Once(t.stage.duration, t.OnTimer)
-	log.Infof("stage changed. timerID(%d) stage:(%d -> %d) ", t.stage.timerID, t.stage.prev, t.stage.state)
+	t.mLog.stage(t.stage.prev, s, t.active)
+	log.Debugf("stage changed. timerID(%d) stage:(%d -> %d) ", t.stage.timerID, t.stage.prev, t.stage.state)
 }
 
 func (t *Table) checkResetDuration(s int32) time.Duration {
@@ -70,7 +71,11 @@ func (t *Table) checkResetDuration(s int32) time.Duration {
 
 func (t *Table) checkReady() {
 	okCnt := int16(0)
+	autoReady := t.repo.GetRoomConfig().Game.AutoReady
 	t.RangePlayer(func(k int32, p *player.Player) bool {
+		if autoReady {
+			p.SetStatus(player.StReady)
+		}
 		if p.IsReady() && p.GetMoney() >= t.curBet {
 			okCnt++
 		}
@@ -93,9 +98,6 @@ func (t *Table) onGameStart() {
 		return
 	}
 
-	log.Debugf("******** <游戏开始> 当前局:%d sitCnt=%d canGameSeats:%+v",
-		t.curRound, t.sitCnt, chairs)
-
 	// 扣钱
 	t.intoGaming(canGameSeats)
 
@@ -107,6 +109,11 @@ func (t *Table) onGameStart() {
 
 	// 发牌状态倒计时3s
 	t.updateStage(StSendCard)
+
+	log.Debugf("******** <游戏开始> sitCnt:%d banker:%d first:%d currBet:%.1f canGameSeats:%+v",
+		t.sitCnt, t.banker, t.first, t.curBet, chairs)
+	t.mLog.begin(t.sitCnt, t.banker, t.first, t.curBet, chairs, canGameSeats)
+
 }
 
 // 检查准备用户
@@ -131,6 +138,7 @@ func (t *Table) intoGaming(canGameSeats []*player.Player) {
 	for _, p := range canGameSeats {
 		if !p.IntoGaming(t.curBet) {
 			log.Errorf("intoGaming error. p:%+v currBet=%.1f", p.Desc(), t.curBet)
+			continue
 		}
 		t.totalBet += t.curBet
 	}
@@ -143,9 +151,10 @@ func (t *Table) calcBanker() {
 		log.Errorf("calcBanker err. banker=%v", t.banker)
 		return
 	}
+	t.curRound = 1
 	t.banker = next.GetChairID()
 	t.active = t.banker
-	t.curRound = 1
+	t.first = t.active
 	t.broadcastSetBankerRsp()
 }
 
@@ -176,7 +185,46 @@ func (t *Table) onSideShowTimeout() {
 	t.OnActionReq(t.GetActivePlayer(), &v1.ActionReq{Action: AcSideReply, SideReplyAllow: false}, true)
 }
 
+// 比牌赢家操作
 func (t *Table) onSideShowAniTimeout() {
+	if len(t.GetCanActionPlayers()) <= 1 {
+		return
+	}
 	t.updateStage(StAction)
 	t.broadcastActivePlayerPush()
+	t.checkRound(t.active)
+}
+
+/* 游戏结束 */
+func (t *Table) gameEnd() {
+	// 胜利的玩家
+	var winner *player.Player
+	for _, seat := range t.seats {
+		if seat != nil && seat.IsGaming() {
+			winner = seat
+			break
+		}
+	}
+
+	if winner == nil {
+		t.updateStage(StEnd)
+		log.Errorf("gameEnd err. winner=%+v", winner)
+		return
+	}
+
+	// 结算
+	profit := winner.Settle(t.totalBet)
+	// t.Broadcast(-1, packet)
+	// t.SendShowCard()
+	t.broadcastResult()
+	t.mLog.settle(profit)
+	t.updateStage(StEnd)
+}
+
+func (t *Table) onEndTimeout() {
+	// 游戏结束后判断
+	t.checkKick()
+	t.Reset()
+	t.checkReady()
+	t.mLog.end(fmt.Sprintf("结束清理完成。"))
 }

@@ -87,6 +87,7 @@ message Room {
         double max_money       = 7;
         double stand_min_money = 8;
         double stand_max_money = 9;
+        int32 reserveN         = 10;
     }
     message LogCache {
         bool open = 1;
