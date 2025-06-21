@@ -8,47 +8,40 @@ import (
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 )
 
-const (
-	StWait        int32 = iota // 等待
-	StReady                    // 准备
-	StSendCard                 // 发牌
-	StAction                   // 操作
-	StSideShow                 // 发起提前比牌 等待应答
-	StSideShowAni              // 同意提前比牌动画
-	StWaitEnd                  // 等待结束
-	StEnd                      // 游戏结束
-)
-
-const (
-	StReadyTimeout       = 2  // 准备时间 (s)
-	StSendCardTimeout    = 3  // 发牌时间 (s)
-	StActionTimeout      = 12 // 操作时间 (s)
-	StSideShowTimeout    = 12 // 发起比牌 等待结束 (s)
-	StSideShowAniTimeout = 1  // 同意提前比牌动画时间 (s)
-	StWaitEndTimeout     = 1  // 等待结束时间 (s)
-	StEndTimeout         = 3  // 结束等待下一个阶段时间 (s)
-)
+// StageType 阶段ID枚举，模拟命名空间
+var StageType = struct {
+	Wait, Ready, SendCard, Action, SideShow, SideShowAni, WaitEnd, End int32
+}{
+	Wait:        0,
+	Ready:       1,
+	SendCard:    2,
+	Action:      3,
+	SideShow:    4,
+	SideShowAni: 5,
+	WaitEnd:     6,
+	End:         7,
+}
 
 var StageNames = map[int32]string{
-	StWait:        "等待",
-	StReady:       "准备",
-	StSendCard:    "发牌",
-	StAction:      "操作",
-	StSideShow:    "提前比牌",
-	StSideShowAni: "比牌动画",
-	StWaitEnd:     "等待结束",
-	StEnd:         "游戏结束",
+	StageType.Wait:        "等待",
+	StageType.Ready:       "准备",
+	StageType.SendCard:    "发牌",
+	StageType.Action:      "操作",
+	StageType.SideShow:    "提前比牌",
+	StageType.SideShowAni: "比牌动画",
+	StageType.WaitEnd:     "等待结束",
+	StageType.End:         "游戏结束",
 }
 
 // StageTimeouts 每个阶段对应的超时时间（单位：秒）
 var StageTimeouts = map[int32]int64{
-	StReady:       StReadyTimeout,       // 玩家准备时间 (s)
-	StSendCard:    StSendCardTimeout,    // 发牌动画时间 (s)
-	StAction:      StActionTimeout,      // 玩家操作时间（跟注、加注、弃牌等）(s)
-	StSideShow:    StSideShowTimeout,    // 提前比牌等待回应时间 (s)
-	StSideShowAni: StSideShowAniTimeout, // 提前比牌同意后动画时间 (s)
-	StWaitEnd:     StWaitEndTimeout,     // 等待结束时间 (s)
-	StEnd:         StEndTimeout,         // 游戏结束等待进入下一局的时间 (s)
+	StageType.Ready:       2,  // 准备时间 (s)
+	StageType.SendCard:    3,  // 发牌时间 (s)
+	StageType.Action:      12, // 操作时间 (s)
+	StageType.SideShow:    12, // 发起比牌 等待结束 (s)
+	StageType.SideShowAni: 1,  // 同意提前比牌动画时间 (s)
+	StageType.WaitEnd:     1,  // 等待结束时间 (s)
+	StageType.End:         3,  // 结束等待下一个阶段时间 (s)
 }
 
 // descState 返回阶段描述
