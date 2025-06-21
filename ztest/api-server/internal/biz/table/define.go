@@ -9,14 +9,14 @@ import (
 )
 
 const (
-	StWait        = iota // 等待
-	StReady              // 准备
-	StSendCard           // 发牌
-	StAction             // 操作
-	StSideShow           // 发起提前比牌 等待应答
-	StSideShowAni        // 同意提前比牌动画 (sideshow)
-	StWaitEnd            // 等待结束
-	StEnd                // 游戏结束
+	StWait        int32 = iota // 等待
+	StReady                    // 准备
+	StSendCard                 // 发牌
+	StAction                   // 操作
+	StSideShow                 // 发起提前比牌 等待应答
+	StSideShowAni              // 同意提前比牌动画
+	StWaitEnd                  // 等待结束
+	StEnd                      // 游戏结束
 )
 
 const (
@@ -40,30 +40,32 @@ var StageNames = map[int32]string{
 	StEnd:         "游戏结束",
 }
 
-func descState(s int32) string {
-	return fmt.Sprintf("%s(%d)", StageNames[s], s)
+// StageTimeouts 每个阶段对应的超时时间（单位：秒）
+var StageTimeouts = map[int32]int64{
+	StReady:       StReadyTimeout,       // 玩家准备时间 (s)
+	StSendCard:    StSendCardTimeout,    // 发牌动画时间 (s)
+	StAction:      StActionTimeout,      // 玩家操作时间（跟注、加注、弃牌等）(s)
+	StSideShow:    StSideShowTimeout,    // 提前比牌等待回应时间 (s)
+	StSideShowAni: StSideShowAniTimeout, // 提前比牌同意后动画时间 (s)
+	StWaitEnd:     StWaitEndTimeout,     // 等待结束时间 (s)
+	StEnd:         StEndTimeout,         // 游戏结束等待进入下一局的时间 (s)
 }
 
-func GetStageTimeout(s int32) int64 {
-	switch s {
-	case StReady:
-		return StReadyTimeout
-	case StSendCard:
-		return StSendCardTimeout
-	case StAction:
-		return StActionTimeout
-	case StSideShow:
-		return StSideShowTimeout
-	case StSideShowAni:
-		return StSideShowAniTimeout
-	case StWaitEnd:
-		return StWaitEndTimeout
-	case StEnd:
-		return StEndTimeout
-	default:
-		log.Warnf("unknow stage name:%d", s)
-		return 0
+// descState 返回阶段描述
+func descState(s int32) string {
+	if name, ok := StageNames[s]; ok {
+		return fmt.Sprintf("%s(%d)", name, s)
 	}
+	return fmt.Sprintf("未知(%d)", s)
+}
+
+// GetStageTimeout 返回阶段的超时时间
+func GetStageTimeout(s int32) int64 {
+	if timeout, ok := StageTimeouts[s]; ok {
+		return timeout
+	}
+	log.Warnf("unknown stage: %d", s)
+	return 0
 }
 
 /*
@@ -91,6 +93,46 @@ const (
 /*
 	动作类型
 */
+//
+// // ActionType 动作类型
+// type ActionType int32
+//
+// const (
+// 	AcCall      ActionType = 1 // 跟注
+// 	AcRaise     ActionType = 2 // 加注
+// 	AcSee       ActionType = 3 // 看牌
+// 	AcPack      ActionType = 4 // 弃牌
+// 	AcShow      ActionType = 5 // 比牌
+// 	AcSide      ActionType = 6 // 提前比牌
+// 	AcSideReply ActionType = 7 // 提前比牌回应
+// )
+//
+// // actionNames 动作名称映射
+// var actionNames = map[ActionType]string{
+// 	AcCall:      "Call",
+// 	AcRaise:     "Raise",
+// 	AcSee:       "See",
+// 	AcPack:      "Pack",
+// 	AcShow:      "Show",
+// 	AcSide:      "Side",
+// 	AcSideReply: "SideReply",
+// }
+//
+// // String 返回动作的字符串表示
+// func (a ActionType) String() string {
+// 	if s, ok := actionNames[a]; ok {
+// 		return s
+// 	}
+// 	return "Unknown"
+// }
+//
+// func descActions(actions ...ActionType) string {
+// 	var names []string
+// 	for _, a := range actions {
+// 		names = append(names, a.String())
+// 	}
+// 	return strings.Join(names, " ")
+// }
 
 const (
 	AcCall      = int32(1) // "跟注"
@@ -113,11 +155,11 @@ var actionNames = map[int32]string{
 }
 
 func descActions(actions ...int32) string {
-	sb := strings.Builder{}
+	var names []string
 	for _, a := range actions {
-		sb.WriteString(actionNames[a] + " ")
+		names = append(names, actionNames[a])
 	}
-	return sb.String()
+	return strings.Join(names, " ")
 }
 
 /*

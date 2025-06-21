@@ -130,7 +130,7 @@ func (r *RobotLogic) onActivePush(p *player.Player, msg proto.Message) {
 			Action:         op,
 			SideReplyAllow: false,
 		}
-		log.Debugf("ops=[%+v] op:%s dur=%v", descActions(ops...), descActions(op), dur)
+		log.Debugf("ops=[%+v] op=%s dur=%v", descActions(ops...), descActions(op), dur)
 		r.mTable.repo.GetTimer().Once(dur, func() {
 			r.mTable.OnActionReq(p, req, false)
 		})
