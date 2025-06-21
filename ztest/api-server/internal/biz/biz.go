@@ -25,7 +25,7 @@ var _ robot.Repo = (*Usecase)(nil)
 
 var defaultPendingNum = 10000
 
-var defaultStatusInterval = 30 * time.Second
+var defaultStatusInterval = 5 * time.Minute
 
 // DataRepo is a data repo.
 type DataRepo interface {

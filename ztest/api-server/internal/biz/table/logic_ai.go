@@ -117,7 +117,7 @@ func (r *RobotLogic) onActivePush(p *player.Player, msg proto.Message) {
 
 	op := ops[ext.RandIntInclusive(0, len(ops)-1)]
 	dur := time.Duration(ext.RandIntInclusive(1, StAction.Timeout())) * time.Second
-	log.Debugf("操作列表 ops=%+v, 选中 op=%s, 延迟 dur=%v", ops, op, dur)
+	log.Debugf("操作列表=%+v, 选中=%s, dur=%v", ops, op, dur)
 
 	req := &v1.ActionReq{
 		UserID:         p.GetPlayerID(),
