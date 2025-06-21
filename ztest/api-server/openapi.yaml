@@ -216,7 +216,7 @@ components:
                     type: string
                 action:
                     type: integer
-                    format: int32
+                    format: enum
                 sideReplyAllow:
                     type: boolean
         helloworld.v1.ActionRsp:
@@ -234,7 +234,7 @@ components:
                     format: int32
                 action:
                     type: integer
-                    format: int32
+                    format: enum
                 seeCards:
                     $ref: '#/components/schemas/helloworld.v1.SeeCards'
                 betInfo:
@@ -422,7 +422,7 @@ components:
                     type: boolean
                 lastOp:
                     type: integer
-                    format: int32
+                    format: enum
                 curBet:
                     type: number
                     format: double
@@ -447,7 +447,7 @@ components:
                     type: array
                     items:
                         type: integer
-                        format: int32
+                        format: enum
         helloworld.v1.ReadyReq:
             type: object
             properties:

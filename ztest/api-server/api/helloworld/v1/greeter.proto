@@ -54,6 +54,18 @@ enum GameCommand {
     OnResultPush         = 2200;  //结算通知
 }
 
+// 玩家动作类型
+enum ACTION {
+    UNKNOWN    = 0;
+    CALL       = 1;  // 跟注
+    RAISE      = 2;  // 加注
+    SEE        = 3;  // 看牌
+    PACK       = 4;  // 弃牌
+    SHOW       = 5;  // 比牌
+    SIDE       = 6;  // 提前比牌
+    SIDE_REPLY = 7;  // 提前比牌回应
+}
+
 // The greeting service definition.
 service Greeter {
     // Sends a greeting
@@ -292,38 +304,38 @@ message SceneRsp {
 }
 
 message PlayerScene {
-    int64 userID         = 1;   //玩家ID
-    int32 chairId        = 2;   //玩家座位号
-    int32 status         = 3;   //玩家状态
-    bool hosting         = 4;   //是否托管
-    bool offline         = 5;   //是否断线
-    int32 lastOp         = 6;   //最后操作
-    double curBet        = 7;   //
-    double totalBet      = 8;   //
-    bool seen            = 9;   //
-    bool isAutoCall      = 10;  //自动跟注 0:未开启 1:已开启
-    bool isPaying        = 11;  //支付状态 1:支付中
-    repeated int32 cards = 12;  //
-    int32 cardsType      = 13;  //
-    repeated int32 canOp = 14;  //可操作列表
+    int64 userID          = 1;   //玩家ID
+    int32 chairId         = 2;   //玩家座位号
+    int32 status          = 3;   //玩家状态
+    bool hosting          = 4;   //是否托管
+    bool offline          = 5;   //是否断线
+    ACTION lastOp         = 6;   //最后操作
+    double curBet         = 7;   //
+    double totalBet       = 8;   //
+    bool seen             = 9;   //
+    bool isAutoCall       = 10;  //自动跟注 0:未开启 1:已开启
+    bool isPaying         = 11;  //支付状态 1:支付中
+    repeated int32 cards  = 12;  //
+    int32 cardsType       = 13;  //
+    repeated ACTION canOp = 14;  //可操作列表
 }
 
 //
 message ActivePush {
-    int32 stage          = 1;  //游戏的状态
-    int64 timeout        = 2;  //剩余时间 s
-    int32 active         = 3;  //当前操作位置
-    int32 curRound       = 4;  //
-    double curBet        = 5;  //
-    double totalBet      = 6;  //
-    double raiseBet      = 7;  // RAISE需要的投入
-    repeated int32 canOp = 8;  //可操作列表
+    int32 stage           = 1;  //游戏的状态
+    int64 timeout         = 2;  //剩余时间 s
+    int32 active          = 3;  //当前操作位置
+    int32 curRound        = 4;  //
+    double curBet         = 5;  //
+    double totalBet       = 6;  //
+    double raiseBet       = 7;  // RAISE需要的投入
+    repeated ACTION canOp = 8;  //可操作列表
 }
 
 //
 message ActionReq {
     int64 userID        = 1;  //用户ID
-    int32 action        = 2;  //动作
+    ACTION action       = 2;  //动作
     bool sideReplyAllow = 3;  //
 }
 
@@ -332,7 +344,7 @@ message ActionRsp {
     string msg              = 2;  //错误信息
     int64 userID            = 3;  //用户ID
     int32 chairID           = 4;  //椅子号
-    int32 action            = 5;  //动作
+    ACTION action           = 5;  //动作
     SeeCards seeCards       = 6;  //看牌信息 see
     BetInfo betInfo         = 7;  //下注信息 pack/call/raise/show/sideshow
     CompareInfo compareInfo = 8;  //比牌信息 show/sideshow/sideshow_reply

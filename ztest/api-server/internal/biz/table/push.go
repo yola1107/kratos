@@ -236,7 +236,7 @@ func (t *Table) sendActionRsp(p *player.Player, rsp *v1.ActionRsp) {
 	t.SendPacketToClient(p, v1.GameCommand_OnActionRsp, rsp)
 }
 
-func (t *Table) broadcastActionRsp(p *player.Player, action int32, playerBet float64, target *player.Player, allow bool) {
+func (t *Table) broadcastActionRsp(p *player.Player, action v1.ACTION, playerBet float64, target *player.Player, allow bool) {
 	rsp := &v1.ActionRsp{
 		Code:        0,
 		Msg:         "",
@@ -248,7 +248,7 @@ func (t *Table) broadcastActionRsp(p *player.Player, action int32, playerBet flo
 		CompareInfo: nil,
 	}
 	// 看牌
-	if action == AcSee {
+	if action == v1.ACTION_SEE {
 		t.SendPacketToAllExcept(v1.GameCommand_OnActionRsp, rsp, p.GetPlayerID())
 		rsp.SeeCards = &v1.SeeCards{
 			Cards:     p.GetCards(),
@@ -264,7 +264,7 @@ func (t *Table) broadcastActionRsp(p *player.Player, action int32, playerBet flo
 		PlayerBet: playerBet,
 	}
 	// 比牌
-	if target != nil && (action == AcShow || action == AcSide || action == AcSideReply) {
+	if target != nil && (action == v1.ACTION_SHOW || action == v1.ACTION_SIDE || action == v1.ACTION_SIDE_REPLY) {
 		rsp.CompareInfo = &v1.CompareInfo{
 			TargetUid:      target.GetPlayerID(),
 			TargetChairID:  target.GetChairID(),
@@ -275,7 +275,7 @@ func (t *Table) broadcastActionRsp(p *player.Player, action int32, playerBet flo
 	t.SendPacketToAll(v1.GameCommand_OnActionRsp, rsp)
 }
 
-func (t *Table) getPlayerCanOp(p *player.Player) (actions []int32) {
+func (t *Table) getPlayerCanOp(p *player.Player) (actions []v1.ACTION) {
 	if p == nil {
 		return nil
 	}
@@ -291,37 +291,37 @@ func (t *Table) getPlayerCanOp(p *player.Player) (actions []int32) {
 
 	// 能否弃牌
 	if t.canPack(p).Code == ErrOK {
-		actions = append(actions, AcPack)
+		actions = append(actions, v1.ACTION_PACK)
 	}
 
 	// 能否看牌
 	if t.canSeeCard(p).Code == ErrOK {
-		actions = append(actions, AcSee)
+		actions = append(actions, v1.ACTION_SEE)
 	}
 
 	// 能否主动跟注 call
 	if t.canCallCard(p, false).Code == ErrOK {
-		actions = append(actions, AcCall)
+		actions = append(actions, v1.ACTION_CALL)
 	}
 
 	// 能否主动加注 Raise
 	if t.canCallCard(p, true).Code == ErrOK {
-		actions = append(actions, AcRaise)
+		actions = append(actions, v1.ACTION_RAISE)
 	}
 
 	// 能否主动发起比牌 show
 	if t.canShowCard(p).Code == ErrOK {
-		actions = append(actions, AcShow)
+		actions = append(actions, v1.ACTION_SHOW)
 	}
 
 	// 能否主动发起提前比牌 side
 	if t.canSideShowCard(p).Code == ErrOK {
-		actions = append(actions, AcSide)
+		actions = append(actions, v1.ACTION_SIDE)
 	}
 
 	// 能否 同意/拒绝提前比牌 side_reply
 	if t.canSideShowReply(p).Code == ErrOK {
-		actions = append(actions, AcSideReply)
+		actions = append(actions, v1.ACTION_SIDE_REPLY)
 	}
 	return actions
 }

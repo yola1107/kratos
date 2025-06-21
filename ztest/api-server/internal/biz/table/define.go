@@ -2,7 +2,6 @@ package table
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
@@ -87,78 +86,6 @@ func (t TYPE) String() string {
 	default:
 		return "Unknown"
 	}
-}
-
-/*
-	动作类型
-*/
-//
-// // ActionType 动作类型
-// type ActionType int32
-//
-// const (
-// 	AcCall      ActionType = 1 // 跟注
-// 	AcRaise     ActionType = 2 // 加注
-// 	AcSee       ActionType = 3 // 看牌
-// 	AcPack      ActionType = 4 // 弃牌
-// 	AcShow      ActionType = 5 // 比牌
-// 	AcSide      ActionType = 6 // 提前比牌
-// 	AcSideReply ActionType = 7 // 提前比牌回应
-// )
-//
-// // actionNames 动作名称映射
-// var actionNames = map[ActionType]string{
-// 	AcCall:      "Call",
-// 	AcRaise:     "Raise",
-// 	AcSee:       "See",
-// 	AcPack:      "Pack",
-// 	AcShow:      "Show",
-// 	AcSide:      "Side",
-// 	AcSideReply: "SideReply",
-// }
-//
-// // String 返回动作的字符串表示
-// func (a ActionType) String() string {
-// 	if s, ok := actionNames[a]; ok {
-// 		return s
-// 	}
-// 	return "Unknown"
-// }
-//
-// func descActions(actions ...ActionType) string {
-// 	var names []string
-// 	for _, a := range actions {
-// 		names = append(names, a.String())
-// 	}
-// 	return strings.Join(names, " ")
-// }
-
-const (
-	AcCall      = int32(1) // "跟注"
-	AcRaise     = int32(2) // "加注"
-	AcSee       = int32(3) // "看牌"
-	AcPack      = int32(4) // "弃牌"
-	AcShow      = int32(5) // "比牌"
-	AcSide      = int32(6) // "提前比牌"
-	AcSideReply = int32(7) // "提前比牌回应"
-)
-
-var actionNames = map[int32]string{
-	AcCall:      "Call",
-	AcRaise:     "Raise",
-	AcSee:       "See",
-	AcPack:      "Pack",
-	AcShow:      "Show",
-	AcSide:      "Side",
-	AcSideReply: "SideReply",
-}
-
-func descActions(actions ...int32) string {
-	var names []string
-	for _, a := range actions {
-		names = append(names, actionNames[a])
-	}
-	return strings.Join(names, " ")
 }
 
 /*

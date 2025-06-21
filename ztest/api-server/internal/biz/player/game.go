@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/yola1107/kratos/v2/log"
+	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
 )
 
 var (
@@ -23,7 +24,7 @@ type GameData struct {
 	status       Status     // 0 StFree 1 StSit 2 StReady 3 StGaming
 	isOffline    bool       // 是否离线
 	bet          float64    // 投注
-	lastOp       int32      // 上一次操作
+	lastOp       v1.ACTION  // 上一次操作
 	seen         bool       // 是否看牌
 	cards        *cardsInfo // 手牌
 	playCount    int32      // 玩的回合数
@@ -151,10 +152,10 @@ func (p *Player) IsGaming() bool {
 	return p.gameData.status == StGaming
 }
 
-func (p *Player) SetLastOp(op int32) {
+func (p *Player) SetLastOp(op v1.ACTION) {
 	p.gameData.lastOp = op
 }
-func (p *Player) GetLastOp() int32 {
+func (p *Player) GetLastOp() v1.ACTION {
 	return p.gameData.lastOp
 }
 

@@ -124,14 +124,14 @@ func (r *RobotLogic) onActivePush(p *player.Player, msg proto.Message) {
 
 	if ops := rsp.GetCanOp(); len(ops) > 0 {
 		op := ops[ext.RandInt(0, len(ops)-1)]
-		actionTime := StageTimeouts[StAction] - 1
+		actionTime := StAction.Timeout() - 1
 		dur := time.Duration(ext.RandInt(1, int(actionTime))) * time.Second
 		req := &v1.ActionReq{
 			UserID:         p.GetPlayerID(),
 			Action:         op,
 			SideReplyAllow: false,
 		}
-		log.Debugf("ops=[%+v] op=%s dur=%v", descActions(ops...), descActions(op), dur)
+		log.Debugf("ops=%+v op=%s dur=%v", ops, op, dur)
 		r.mTable.repo.GetTimer().Once(dur, func() {
 			r.mTable.OnActionReq(p, req, false)
 		})

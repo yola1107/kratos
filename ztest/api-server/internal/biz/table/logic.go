@@ -177,11 +177,11 @@ func (t *Table) onSendCardTimeout() {
 }
 
 func (t *Table) onActionTimeout() {
-	t.OnActionReq(t.GetActivePlayer(), &v1.ActionReq{Action: AcPack}, true)
+	t.OnActionReq(t.GetActivePlayer(), &v1.ActionReq{Action: v1.ACTION_PACK}, true)
 }
 
 func (t *Table) onSideShowTimeout() {
-	t.OnActionReq(t.GetActivePlayer(), &v1.ActionReq{Action: AcSideReply, SideReplyAllow: false}, true)
+	t.OnActionReq(t.GetActivePlayer(), &v1.ActionReq{Action: v1.ACTION_SIDE_REPLY, SideReplyAllow: false}, true)
 }
 
 // 比牌赢家操作
