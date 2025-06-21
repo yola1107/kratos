@@ -1,6 +1,8 @@
 package table
 
 import (
+	"fmt"
+
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 )
@@ -35,6 +37,10 @@ var StageNames = map[int32]string{
 	StSideShowAni: "比牌动画",
 	StWaitEnd:     "等待结束",
 	StEnd:         "游戏结束",
+}
+
+func descState(s int32) string {
+	return fmt.Sprintf("%s(%d)", StageNames[s], s)
 }
 
 func GetStageTimeout(s int32) int64 {

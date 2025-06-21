@@ -59,8 +59,8 @@ func NewUsecase(repo DataRepo, logger log.Logger, c *conf.Room) (*Usecase, func(
 		cancel()
 		// 	uc.pm.Close()
 		// 	uc.tm.Close()
-		uc.ws.Stop()
 		uc.rm.Stop()
+		uc.ws.Stop() // 最后释放
 	}
 	return uc, cleanup, errors.Join(uc.ws.Start(), uc.rm.Start())
 }

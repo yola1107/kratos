@@ -63,6 +63,7 @@ func (p *Player) GetIP() string {
 }
 
 func (p *Player) LogoutGame(code int32, msg string) {
+	log.Debugf("LogoutGame code:%v, msg:%v p:%v", code, msg, p.Desc())
 	// 通知客户端退出
 	p.SendLogout(code, msg)
 	// clear

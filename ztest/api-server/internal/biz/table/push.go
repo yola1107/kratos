@@ -61,6 +61,9 @@ func (t *Table) SendLoginRsp(p *player.Player, code int32, msg string) {
 		ChairID: p.GetChairID(),
 		ArenaID: int32(conf.ArenaID),
 	})
+
+	// 记录时间
+	t.aiLogic.updateEnterTicker()
 }
 
 // 广播入座信息
@@ -79,7 +82,7 @@ func (t *Table) sendUserInfoToAnother(src *player.Player, dst *player.Player) {
 		UserID:    src.GetPlayerID(),
 		ChairId:   src.GetChairID(),
 		UserName:  src.GetNickName(),
-		Money:     src.GetMoney(),
+		Money:     src.GetAllMoney(),
 		Avatar:    src.GetAvatar(),
 		AvatarUrl: src.GetAvatarUrl(),
 		Vip:       src.GetVipGrade(),
@@ -110,6 +113,9 @@ func (t *Table) broadcastUserQuitPush(p *player.Player, isSwitchTable bool) {
 		UserID:  p.GetPlayerID(),
 		ChairID: p.GetChairID(),
 	}, p.GetPlayerID())
+
+	// 记录时间
+	t.aiLogic.updateExitTicker()
 }
 
 // ---------------------------------------------

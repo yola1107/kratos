@@ -51,7 +51,7 @@ func (l *Log) userExit(p *player.Player, sitCnt int16, lastChair int32, isSwitch
 }
 
 func (l *Log) begin(sitCnt int16, banker, first int32, bet float64, chairs []int32, seats []*player.Player) {
-	logs := []string{fmt.Sprintf("【游戏开始】 sitCnt:%d/%d banker:%d first:%d bet:%.1f 玩家椅子顺序:%d",
+	logs := []string{fmt.Sprintf("【游戏开始】 sitCnt:%d GamingCnt:%d banker:%d first:%d bet:%.1f 玩家椅子顺序:%d",
 		sitCnt, len(chairs), banker, first, bet, chairs)}
 	for _, p := range seats {
 		logs = append(logs, fmt.Sprintf("玩家:%+v 投注[%+v]", p.Desc(), bet))
@@ -60,7 +60,7 @@ func (l *Log) begin(sitCnt int16, banker, first int32, bet float64, chairs []int
 }
 
 func (l *Log) activePush(p *player.Player, first int32, curRound int32) {
-	l.write("【活动玩家通知】 玩家:%+v first:%+v curRound:%d", p.Desc(), first, curRound)
+	l.write("【操作通知】 玩家:%+v first:%+v curRound:%d", p.Desc(), first, curRound)
 }
 
 func (l *Log) stage(old, new int32, active int32) {
@@ -72,8 +72,8 @@ func (l *Log) SeeCard(p *player.Player) {
 	l.write("【看牌】 玩家:%+v autoSee(%+v) ", p.Desc(), p.IsAutoCall())
 }
 
-func (l *Log) PackCard(p *player.Player, timeOut bool) {
-	l.write("【丢牌】 玩家:%+v timeOut(%+v) ", p.Desc(), timeOut)
+func (l *Log) PackCard(p *player.Player, timeout bool) {
+	l.write("【丢牌】 玩家:%+v timeout=%+v ", p.Desc(), timeout)
 }
 
 func (l *Log) CallCard(p *player.Player, bet float64, double bool) {

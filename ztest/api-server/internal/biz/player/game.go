@@ -83,8 +83,12 @@ func (p *Player) Desc() string {
 	if p.gameData.seen {
 		see = 1
 	}
-	return fmt.Sprintf("(%d %d T:%d M:%.1f B:%.1f S:%d)",
-		p.GetPlayerID(), p.GetChairID(), p.GetTableID(), p.GetMoney(), p.GetBet(), see)
+	ai := 0
+	if p.isRobot {
+		ai = 1
+	}
+	return fmt.Sprintf("(%d %d T:%d M:%.1f B:%.1f S:%d ai:%d)",
+		p.GetPlayerID(), p.GetChairID(), p.GetTableID(), p.GetAllMoney(), p.GetBet(), see, ai)
 }
 
 func (p *Player) DescHand() string {
@@ -228,7 +232,7 @@ func (p *Player) Settle(totalBet float64) float64 {
 	totalWin := totalBet
 	profit := totalWin - p.gameData.bet
 
-	log.Info("Settle. p:%+v totalWin:%.1f profit:%.1f", p, totalWin, profit)
+	log.Infof("Settle. p:%+v totalWin:%.1f profit:%.1f", p.Desc(), totalWin, profit)
 
 	return profit
 }

@@ -108,15 +108,16 @@ func (t *Table) ThrowInto(p *player.Player) bool {
 		// 发送场景信息
 		t.SendSceneInfo(p)
 
+		// 日志记录
+		t.mLog.userEnter(p, t.sitCnt)
+		log.Infof("EnterTable. p:%+v sitCnt:%d", p.Desc(), t.sitCnt)
+
 		// 检查游戏是否开始
 		if t.stage.state == StWait {
 			t.checkReady()
 		}
 
 		// 上报桌子/玩家位置 todo
-
-		t.mLog.userEnter(p, t.sitCnt)
-		log.Infof("EnterTable. p:%+v sitCnt:%d", p.Desc(), t.sitCnt)
 		return true
 	}
 	return false
@@ -175,10 +176,21 @@ func (t *Table) CanEnter(p *player.Player) bool {
 	return true
 }
 
-func (t *Table) CanExit(p *player.Player) bool        { return p != nil && !p.IsGaming() }
-func (t *Table) CanEnterRobot(p *player.Player) bool  { return t.aiLogic.canEnterRobot(p) }
-func (t *Table) CanExitRobot(p *player.Player) bool   { return t.aiLogic.canExitRobot(p) }
-func (t *Table) CanSwitchTable(p *player.Player) bool { return p != nil && !p.IsGaming() }
+func (t *Table) CanExit(p *player.Player) bool {
+	return p != nil && !p.IsGaming()
+}
+
+func (t *Table) CanSwitchTable(p *player.Player) bool {
+	return p != nil && !p.IsGaming()
+}
+
+func (t *Table) CanEnterRobot(p *player.Player) bool {
+	return t.aiLogic.canEnterRobot(p)
+}
+
+func (t *Table) CanExitRobot(p *player.Player) bool {
+	return t.aiLogic.canExitRobot(p)
+}
 
 // LastPlayer 上一家
 func (t *Table) LastPlayer(chair int32) *player.Player {
@@ -225,16 +237,6 @@ func (t *Table) RangePlayer(cb func(k int32, p *player.Player) bool) {
 	}
 }
 
-func (t *Table) GetCanActionPlayers() (seats []*player.Player) {
-	t.RangePlayer(func(k int32, p *player.Player) bool {
-		if p.IsGaming() {
-			seats = append(seats, p)
-		}
-		return true
-	})
-	return seats
-}
-
 func (t *Table) GetActivePlayer() *player.Player {
 	active := t.active
 	if active < 0 || active >= int32(t.MaxCnt) {
@@ -250,11 +252,11 @@ func (t *Table) GetNextActivePlayer() *player.Player {
 	return t.NextPlayer(t.active)
 }
 
-func (t *Table) getNextActivePlayerChair() int32 {
+func (t *Table) getNextActiveChair() int32 {
 	p := t.GetNextActivePlayer()
 	if p == nil {
 		log.Errorf("getNextActivePlayerChair: nil p.  active=%+v canActionCnt=%d",
-			t.active, len(t.GetCanActionPlayers())) // todo 调试log 可去掉
+			t.active, len(t.GetGamingPlayers())) // todo 调试log 可去掉
 		return 0
 	}
 	return p.GetChairID()
@@ -265,6 +267,34 @@ func (t *Table) GetPlayerByChair(chair int32) *player.Player {
 		return nil
 	}
 	return t.seats[chair]
+}
+
+func (t *Table) GetGamingPlayers() (seats []*player.Player) {
+	t.RangePlayer(func(k int32, p *player.Player) bool {
+		if p.IsGaming() {
+			seats = append(seats, p)
+		}
+		return true
+	})
+	return seats
+}
+
+func (t *Table) Counter() (userCnt, aiCnt, allCnt, gamingCnt int32) {
+	for _, seat := range t.seats {
+		if seat == nil {
+			continue
+		}
+		if seat.IsRobot() {
+			aiCnt++
+		} else {
+			userCnt++
+		}
+		if seat.IsGaming() {
+			gamingCnt++
+		}
+		allCnt++
+	}
+	return
 }
 
 func (t *Table) checkKick() {

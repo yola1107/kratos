@@ -83,7 +83,7 @@ func (uc *Usecase) CreateRobot(raw *player.Raw) (*player.Player, *errors.Error) 
 			NickName:  fmt.Sprintf("robot_%d", raw.ID),
 			Avatar:    fmt.Sprintf("robot_avatar_%d", raw.ID),
 			AvatarUrl: fmt.Sprintf("robot_avatar_%d", raw.ID),
-			Money:     ext.RandFloat(uc.rc.Robot.MinMoney, uc.rc.Robot.MaxMoney),
+			Money:     ext.RandFloat(uc.rc.Game.MinMoney, uc.rc.Game.MaxMoney),
 		}
 		raw.BaseData = base
 		p := player.New(raw)
@@ -117,6 +117,7 @@ func (uc *Usecase) LogoutGame(p *player.Player, code int32, msg string) {
 
 	if p.IsRobot() {
 		uc.rm.Leave(p.GetPlayerID())
+		return
 	} else {
 		uc.pm.Remove(p.GetPlayerID())
 	}

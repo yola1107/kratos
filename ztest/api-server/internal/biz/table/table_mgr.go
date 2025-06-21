@@ -126,7 +126,7 @@ func (m *Manager) CanEnterRoom(p *player.Player, token string, gameConf *conf.Ro
 
 // CheckRoomLimit 校验玩家的金币、VIP等级是否符合房间限制
 func CheckRoomLimit(p *player.Player, gameConf *conf.Room_Game) *errors.Error {
-	money := p.GetMoney()
+	money := p.GetAllMoney()
 	vip := p.GetVipGrade()
 
 	if money < gameConf.MinMoney {

@@ -46,7 +46,7 @@ log:
 room:
   table:
     tableNum: 1000
-    chairNum: 6
+    chairNum: 5
   game:
     vid: 1002
     min_money: 100.0
@@ -56,20 +56,21 @@ room:
     ch_limit: 300.0
     pot_limit: 500.0
     see_round: 3
-    auto_see_round: 2
+    auto_see_round: 6
     fee: 0.05
     speaker_minmoney: 200.0
     speaker_card_type: 2
     high_strength_rate: 30
   robot:
     open: true
-    num: 10
-    table_max_count: 5
+    num: 3
+    table_max_count: 4
     min_play_count: 3
-    id_begin: 100000
+    id_begin: 100001
     min_money: 100.0
     max_money: 1000.0
     stand_min_money: 200.0
     stand_max_money: 8000.0
+    reserveN: 1                # 预留N桌AI自己玩游戏
   logCache:
-    open: false
+    open: true

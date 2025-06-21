@@ -36,9 +36,9 @@ func (p *Player) GetAllMoney() float64 {
 	return all
 }
 
-func (p *Player) GetMoney() float64 {
-	return 0
-}
+// func (p *Player) GetMoney() float64 {
+// 	return 0
+// }
 
 func (p *Player) GetVipGrade() int32 {
 	return p.baseData.VIP

@@ -39,7 +39,7 @@ func (t *Table) OnAutoCallReq(p *player.Player, autoCall bool) bool {
 /**/
 
 func (t *Table) OnActionReq(p *player.Player, in *v1.ActionReq, timeout bool) (ok bool) {
-	if p == nil || !p.IsGaming() || len(t.GetCanActionPlayers()) <= 1 {
+	if p == nil || !p.IsGaming() || len(t.GetGamingPlayers()) <= 1 {
 		return
 	}
 
@@ -119,12 +119,12 @@ func (t *Table) handlePack(p *player.Player, in *v1.ActionReq, timeout bool) {
 	t.broadcastActionRsp(p, in.Action, 0, nil, false)
 	t.mLog.PackCard(p, timeout)
 
-	if ps := t.GetCanActionPlayers(); len(ps) <= 1 {
+	if ps := t.GetGamingPlayers(); len(ps) <= 1 {
 		t.updateStage(StWaitEnd)
 		return
 	}
 
-	next := t.getNextActivePlayerChair()
+	next := t.getNextActiveChair()
 	if p.GetChairID() == t.first {
 		t.first = next
 	}
@@ -169,12 +169,12 @@ func (t *Table) handleCall(p *player.Player, in *v1.ActionReq, timeout bool) {
 
 	// 判断是否需要处理所有比牌
 	if t.totalBet >= t.repo.GetRoomConfig().Game.PotLimit {
-		t.dealCompare(t.GetCanActionPlayers(), CompareAllShow) // 处理所有比牌
+		t.dealCompare(t.GetGamingPlayers(), CompareAllShow) // 处理所有比牌
 		return
 	}
 
 	// 通知下个玩家操作
-	t.active = t.getNextActivePlayerChair()
+	t.active = t.getNextActiveChair()
 	t.checkRound(t.active)
 	t.updateStage(StAction)
 	t.broadcastActivePlayerPush()
@@ -184,7 +184,7 @@ func (t *Table) handleCall(p *player.Player, in *v1.ActionReq, timeout bool) {
 // 当只剩 2 名玩家时，任意一方可请求 Show
 // 明牌比较三张牌，胜者赢取全部筹码
 func (t *Table) canShowCard(p *player.Player) ActionRet {
-	if p == nil || p.GetChairID() != t.active || t.stage.state != StAction || len(t.GetCanActionPlayers()) != 2 {
+	if p == nil || p.GetChairID() != t.active || t.stage.state != StAction || len(t.GetGamingPlayers()) != 2 {
 		return ActionRet{Code: ErrInvalidStage}
 	}
 	next := t.NextPlayer(p.GetChairID())
@@ -211,7 +211,7 @@ func (t *Table) handleShow(p *player.Player, in *v1.ActionReq, timeout bool) {
 	t.addBetInfo(p, in.Action, timeout, needMoney)
 	t.broadcastActionRsp(p, in.Action, needMoney, ret.Target, false)
 	t.mLog.ShowCard(p, ret.Target, needMoney)
-	t.dealCompare(t.GetCanActionPlayers(), CompareShow) // 处理所有比牌 2个玩家
+	t.dealCompare(t.GetGamingPlayers(), CompareShow) // 处理所有比牌 2个玩家
 }
 
 // Side Show
@@ -219,7 +219,7 @@ func (t *Table) handleShow(p *player.Player, in *v1.ActionReq, timeout bool) {
 // 仅限明注玩家对上一位明注玩家请求比牌
 // 若对方同意，则比大小，小的一方自动弃牌
 func (t *Table) canSideShowCard(p *player.Player) ActionRet {
-	if p == nil || p.GetChairID() != t.active || t.stage.state != StAction || len(t.GetCanActionPlayers()) <= 2 {
+	if p == nil || p.GetChairID() != t.active || t.stage.state != StAction || len(t.GetGamingPlayers()) <= 2 {
 		return ActionRet{Code: ErrInvalidStage}
 	}
 	last := t.LastPlayer(p.GetChairID())
@@ -253,7 +253,7 @@ func (t *Table) handleSideShow(p *player.Player, in *v1.ActionReq, timeout bool)
 
 	// 判断是否需要处理所有比牌
 	if t.totalBet >= t.repo.GetRoomConfig().Game.PotLimit {
-		t.dealCompare(t.GetCanActionPlayers(), CompareAllShow) // 处理所有比牌
+		t.dealCompare(t.GetGamingPlayers(), CompareAllShow) // 处理所有比牌
 		return
 	}
 
@@ -269,7 +269,7 @@ func (t *Table) handleSideShow(p *player.Player, in *v1.ActionReq, timeout bool)
 // Side Show Reply
 // 能否回应提前比牌
 func (t *Table) canSideShowReply(p *player.Player) ActionRet {
-	if p == nil || p.GetChairID() != t.active || t.stage.state != StSideShow || len(t.GetCanActionPlayers()) <= 2 {
+	if p == nil || p.GetChairID() != t.active || t.stage.state != StSideShow || len(t.GetGamingPlayers()) <= 2 {
 		return ActionRet{Code: ErrInvalidStage}
 	}
 	next := t.NextPlayer(p.GetChairID())
@@ -374,7 +374,7 @@ func (t *Table) dealCompare(compares []*player.Player, kind CompareType) (winner
 
 	t.mLog.compareCard(kind, winner, loss)
 	log.Debugf("【玩家比牌】 kind:%v 赢家：%+v 输家:%v", kind, winner.Desc(), lossChair)
-	if len(t.GetCanActionPlayers()) <= 1 {
+	if len(t.GetGamingPlayers()) <= 1 {
 		t.updateStage(StWaitEnd) // 等待结束
 	}
 	return

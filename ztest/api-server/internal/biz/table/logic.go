@@ -22,7 +22,7 @@ type Stage struct {
 }
 
 func (t *Table) OnTimer() {
-	log.Debugf("Stage=%d timeID=%d TimeOut... ", t.stage.state, t.stage.timerID)
+	// log.Debugf("TimeOut Stage ... %s ", descState(t.stage.state))
 
 	switch t.stage.state {
 	case StReady:
@@ -40,7 +40,7 @@ func (t *Table) OnTimer() {
 	case StEnd:
 		t.onEndTimeout()
 	default:
-		log.Debugf("unhandled default case")
+		log.Warnf("unhandled default case")
 	}
 }
 
@@ -60,7 +60,7 @@ func (t *Table) updateStage(s int32) {
 	t.stage.duration = t.checkResetDuration(s)
 	t.stage.timerID = timer.Once(t.stage.duration, t.OnTimer)
 	t.mLog.stage(t.stage.prev, s, t.active)
-	log.Debugf("stage changed. timerID(%d) stage:(%d -> %d) ", t.stage.timerID, t.stage.prev, t.stage.state)
+	log.Debugf("Stage Changed.  %s -> %s ", descState(t.stage.prev), descState(t.stage.state))
 }
 
 func (t *Table) checkResetDuration(s int32) time.Duration {
@@ -76,7 +76,7 @@ func (t *Table) checkReady() {
 		if autoReady {
 			p.SetStatus(player.StReady)
 		}
-		if p.IsReady() && p.GetMoney() >= t.curBet {
+		if p.IsReady() && p.GetAllMoney() >= t.curBet {
 			okCnt++
 		}
 		return true
@@ -110,8 +110,8 @@ func (t *Table) onGameStart() {
 	// 发牌状态倒计时3s
 	t.updateStage(StSendCard)
 
-	log.Debugf("******** <游戏开始> sitCnt:%d banker:%d first:%d currBet:%.1f canGameSeats:%+v",
-		t.sitCnt, t.banker, t.first, t.curBet, chairs)
+	log.Debugf("******** <游戏开始> banker:%d first:%d currBet:%.1f sitCnt:%d GamingCnt:%d canGameSeats:%+v",
+		t.banker, t.first, t.curBet, t.sitCnt, len(canGameSeats), chairs)
 	t.mLog.begin(t.sitCnt, t.banker, t.first, t.curBet, chairs, canGameSeats)
 
 }
@@ -123,7 +123,7 @@ func (t *Table) checkStart() (bool, []*player.Player, []int32) {
 		if v == nil {
 			continue
 		}
-		if v.GetMoney() < t.curBet {
+		if v.GetAllMoney() < t.curBet {
 			// 开局身上金币不够下注？
 			continue
 		}
@@ -187,7 +187,7 @@ func (t *Table) onSideShowTimeout() {
 
 // 比牌赢家操作
 func (t *Table) onSideShowAniTimeout() {
-	if len(t.GetCanActionPlayers()) <= 1 {
+	if len(t.GetGamingPlayers()) <= 1 {
 		return
 	}
 	t.updateStage(StAction)
@@ -226,5 +226,6 @@ func (t *Table) onEndTimeout() {
 	t.checkKick()
 	t.Reset()
 	t.checkReady()
+	log.Debugf("结束清理完成。\n")
 	t.mLog.end(fmt.Sprintf("结束清理完成。"))
 }
