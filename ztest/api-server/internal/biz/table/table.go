@@ -46,12 +46,10 @@ func NewTable(id int32, typ TYPE, c *conf.Room, repo Repo) *Table {
 		curRound: 0,
 		curBet:   c.Game.BaseMoney,
 		totalBet: 0,
-		mLog:     &Log{},
+		mLog:     NewTableLog(id, c.LogCache),
 		seats:    make([]*player.Player, c.Table.ChairNum),
-		cards:    &GameCards{},
+		cards:    NewGameCards(),
 	}
-	t.cards.Init()
-	t.mLog.init(id, c.LogCache)
 	t.aiLogic.init(t)
 	return t
 }
@@ -114,7 +112,7 @@ func (t *Table) ThrowInto(p *player.Player) bool {
 		log.Infof("EnterTable. p:%+v sitCnt:%d", p.Desc(), t.sitCnt)
 
 		// 检查游戏是否开始
-		if t.stage.state == StWait {
+		if t.stage.State == StWait {
 			t.checkReady()
 		}
 

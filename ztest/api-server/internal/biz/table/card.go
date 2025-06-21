@@ -11,6 +11,12 @@ type GameCards struct {
 	index    int     // 牌型使用位置
 }
 
+func NewGameCards() *GameCards {
+	g := &GameCards{}
+	g.Init()
+	return g
+}
+
 func (g *GameCards) Init() {
 	g.cardHeap = make([]int32, 0, 13*4)
 	for i := 0; i < 4; i++ {

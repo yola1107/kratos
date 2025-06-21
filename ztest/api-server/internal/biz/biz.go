@@ -75,9 +75,12 @@ func (uc *Usecase) start() error {
 		uc.ws.Start(),
 		uc.rm.Start(),
 	)
-	uc.ws.ForeverNow(defaultStatusInterval, func() {
-		uc.pm.Counter()
-		uc.rm.Counter()
+	uc.ws.Forever(defaultStatusInterval, func() {
+		all, offline := uc.pm.Counter()
+		aiAll, aiFree, aiGaming := uc.rm.Counter()
+		log.Infof("[Counter]<Player> Total:%d Offline:%d", all, offline)
+		log.Infof("[Counter]<AI> MaxNum:%d Total:%d Free:%d Gaming:%d", uc.rc.Robot.Num, aiAll, aiFree, aiGaming)
+
 	})
 	return err
 }

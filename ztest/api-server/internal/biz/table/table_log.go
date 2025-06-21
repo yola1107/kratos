@@ -14,15 +14,17 @@ const (
 )
 
 type Log struct {
-	tableID int32
 	c       *conf.Room_LogCache
+	tableID int32
 	logger  *file.Log
 }
 
-func (l *Log) init(tableID int32, c *conf.Room_LogCache) {
-	l.c = c
-	l.tableID = tableID
-	l.logger = file.NewFileLog(fmt.Sprintf(LogDirPath, conf.Name, tableID))
+func NewTableLog(tableID int32, c *conf.Room_LogCache) *Log {
+	return &Log{
+		c:       c,
+		tableID: tableID,
+		logger:  file.NewFileLog(fmt.Sprintf(LogDirPath, conf.Name, tableID)),
+	}
 }
 
 func (l *Log) Close() error {

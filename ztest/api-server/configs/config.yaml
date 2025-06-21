@@ -63,7 +63,7 @@ room:
     high_strength_rate: 30
   robot:
     open: true
-    num: 3
+    num: 100
     table_max_count: 4
     min_play_count: 3
     id_begin: 100001
@@ -71,6 +71,6 @@ room:
     max_money: 1000.0
     stand_min_money: 200.0
     stand_max_money: 8000.0
-    reserveN: 1                # 预留N桌AI自己玩游戏
+    reserveN: 10                # 预留N桌AI自己玩游戏
   logCache:
     open: true

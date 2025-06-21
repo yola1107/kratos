@@ -43,7 +43,7 @@ func (t *Table) OnActionReq(p *player.Player, in *v1.ActionReq, timeout bool) (o
 		return
 	}
 
-	stage := t.stage.state
+	stage := t.stage.State
 	if stage == StWait || stage == StReady || stage == StWaitEnd || stage == StEnd {
 		return
 	}
@@ -70,7 +70,7 @@ func (t *Table) canSeeCard(p *player.Player) ActionRet {
 	if p == nil || p.Seen() {
 		return ActionRet{Code: ErrorAlreadySeen}
 	}
-	if t.stage.state != StSendCard && t.stage.state != StAction && t.stage.state != StSideShow {
+	if t.stage.State != StSendCard && t.stage.State != StAction && t.stage.State != StSideShow {
 		return ActionRet{Code: ErrInvalidStage}
 	}
 	return ActionRet{}
@@ -102,7 +102,7 @@ func (t *Table) handleSee(p *player.Player, timeout bool) {
 // 弃牌 允许非当前玩家操作
 func (t *Table) canPack(p *player.Player) ActionRet {
 	// 比牌阶段不可丢牌
-	if p == nil || !p.IsGaming() || t.stage.state == StSideShow {
+	if p == nil || !p.IsGaming() || t.stage.State == StSideShow {
 		return ActionRet{Code: ErrInvalidStage}
 	}
 	return ActionRet{}
@@ -139,7 +139,7 @@ func (t *Table) handlePack(p *player.Player, in *v1.ActionReq, timeout bool) {
 
 // 跟注（Call） 加注（Raise）
 func (t *Table) canCallCard(p *player.Player, isRaise bool) (callRes ActionRet) {
-	if p == nil || p.GetChairID() != t.active || t.stage.state != StAction {
+	if p == nil || p.GetChairID() != t.active || t.stage.State != StAction {
 		return ActionRet{Code: ErrInvalidStage}
 	}
 	callMoney := t.calcBetMoney(p)
@@ -184,7 +184,7 @@ func (t *Table) handleCall(p *player.Player, in *v1.ActionReq, timeout bool) {
 // 当只剩 2 名玩家时，任意一方可请求 Show
 // 明牌比较三张牌，胜者赢取全部筹码
 func (t *Table) canShowCard(p *player.Player) ActionRet {
-	if p == nil || p.GetChairID() != t.active || t.stage.state != StAction || len(t.GetGamingPlayers()) != 2 {
+	if p == nil || p.GetChairID() != t.active || t.stage.State != StAction || len(t.GetGamingPlayers()) != 2 {
 		return ActionRet{Code: ErrInvalidStage}
 	}
 	next := t.NextPlayer(p.GetChairID())
@@ -219,7 +219,7 @@ func (t *Table) handleShow(p *player.Player, in *v1.ActionReq, timeout bool) {
 // 仅限明注玩家对上一位明注玩家请求比牌
 // 若对方同意，则比大小，小的一方自动弃牌
 func (t *Table) canSideShowCard(p *player.Player) ActionRet {
-	if p == nil || p.GetChairID() != t.active || t.stage.state != StAction || len(t.GetGamingPlayers()) <= 2 {
+	if p == nil || p.GetChairID() != t.active || t.stage.State != StAction || len(t.GetGamingPlayers()) <= 2 {
 		return ActionRet{Code: ErrInvalidStage}
 	}
 	last := t.LastPlayer(p.GetChairID())
@@ -269,7 +269,7 @@ func (t *Table) handleSideShow(p *player.Player, in *v1.ActionReq, timeout bool)
 // Side Show Reply
 // 能否回应提前比牌
 func (t *Table) canSideShowReply(p *player.Player) ActionRet {
-	if p == nil || p.GetChairID() != t.active || t.stage.state != StSideShow || len(t.GetGamingPlayers()) <= 2 {
+	if p == nil || p.GetChairID() != t.active || t.stage.State != StSideShow || len(t.GetGamingPlayers()) <= 2 {
 		return ActionRet{Code: ErrInvalidStage}
 	}
 	next := t.NextPlayer(p.GetChairID())

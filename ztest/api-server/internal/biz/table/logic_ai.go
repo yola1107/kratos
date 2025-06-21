@@ -101,6 +101,8 @@ func (r *RobotLogic) OnMessage(p *player.Player, cmd v1.GameCommand, msg proto.M
 		r.onActivePush(p, msg)
 	case v1.GameCommand_OnResultPush:
 		r.onExit(p, msg)
+	default:
+		r.onExit(p, msg)
 	}
 }
 
@@ -117,7 +119,7 @@ func (r *RobotLogic) onActivePush(p *player.Player, msg proto.Message) {
 
 	op := ops[ext.RandIntInclusive(0, len(ops)-1)]
 	dur := time.Duration(ext.RandIntInclusive(1, StAction.Timeout())) * time.Second
-	log.Debugf("操作列表=%+v, 选中=%s, dur=%v", ops, op, dur)
+	log.Debugf("p:%v CanOp=%+v, OP=%s, dur=%v", p.Desc(), ops, op, dur)
 
 	req := &v1.ActionReq{
 		UserID:         p.GetPlayerID(),

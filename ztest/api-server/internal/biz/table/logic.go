@@ -13,32 +13,34 @@ import (
 	游戏主逻辑
 */
 
+// MinStartPlayerCnt 最小开局人数
+const MinStartPlayerCnt = 2
+
 type stageHandlerFunc func()
 
 type Stage struct {
-	state     StageID       // 当前阶段
-	prev      StageID       // 上一阶段
-	timerID   int64         // 阶段定时器ID
-	startTime time.Time     // 阶段开始时间
-	duration  time.Duration // 阶段持续时间
+	State    StageID
+	Prev     StageID
+	TimerID  int64
+	StartAt  time.Time
+	Duration time.Duration
 }
 
-// Remaining 计算当前阶段剩余时间
 func (s *Stage) Remaining() time.Duration {
-	return max(s.duration-time.Since(s.startTime), time.Millisecond)
+	return max(s.Duration-time.Since(s.StartAt), time.Millisecond)
+}
+
+func (s *Stage) Set(state StageID, duration time.Duration, timerID int64) {
+	s.Prev = s.State
+	s.State = state
+	s.StartAt = time.Now()
+	s.Duration = duration
+	s.TimerID = timerID
 }
 
 func (t *Table) OnTimer() {
-	// log.Debugf("TimeOut Stage ... %v ", t.stage.state)
-	if handler, ok := t.stageHandlers()[t.stage.state]; ok {
-		handler()
-	} else {
-		log.Warnf("unhandled stage timeout: %v", t.stage.state)
-	}
-}
-
-func (t *Table) stageHandlers() map[StageID]stageHandlerFunc {
-	return map[StageID]stageHandlerFunc{
+	// log.Debugf("TimeOut Stage ... %v ", t.stage.State)
+	handlers := map[StageID]stageHandlerFunc{
 		StReady:       t.onGameStart,
 		StSendCard:    t.onSendCardTimeout,
 		StAction:      t.onActionTimeout,
@@ -47,19 +49,26 @@ func (t *Table) stageHandlers() map[StageID]stageHandlerFunc {
 		StWaitEnd:     t.gameEnd,
 		StEnd:         t.onEndTimeout,
 	}
+	if handler, ok := handlers[t.stage.State]; ok {
+		handler()
+	} else {
+		log.Errorf("unhandled stage timeout: %v", t.stage.State)
+	}
 }
 
-func (t *Table) updateStage(s StageID) {
-	timer := t.repo.GetTimer()
-	timer.Cancel(t.stage.timerID) // 取消当前阶段的定时任务
+func (t *Table) updateStage(state StageID) {
+	timeout := time.Duration(state.Timeout()) * time.Second
+	t.updateStageWith(state, timeout)
+}
 
-	t.stage.prev = t.stage.state
-	t.stage.state = s
-	t.stage.startTime = time.Now()
-	t.stage.duration = t.checkResetDuration(s)
-	t.stage.timerID = timer.Once(t.stage.duration, t.OnTimer)
-	t.mLog.stage(t.stage.prev, s, t.active)
-	// log.Debugf("Stage Changed.  %s -> %s ", t.stage.prev, t.stage.state)
+func (t *Table) updateStageWith(state StageID, duration time.Duration) {
+	t.repo.GetTimer().Cancel(t.stage.TimerID)              // 取消当前定时器
+	timerID := t.repo.GetTimer().Once(duration, t.OnTimer) // 启动新定时器
+	t.stage.Set(state, duration, timerID)                  // 设置阶段
+
+	// 日志
+	t.mLog.stage(t.stage.Prev, t.stage.State, t.active)
+	// log.Debugf("Stage changed: %s -> %s  dur=%v", t.stage.Prev.String(), t.stage.State.String(), duration)
 }
 
 func (t *Table) checkResetDuration(s StageID) time.Duration {
@@ -80,9 +89,9 @@ func (t *Table) checkReady() {
 		}
 		return true
 	})
-	canStart := okCnt >= 2
+	canStart := okCnt >= MinStartPlayerCnt
 	if !canStart {
-		t.stage.state = StWait
+		t.stage.State = StWait
 		return
 	}
 
@@ -93,7 +102,7 @@ func (t *Table) checkReady() {
 func (t *Table) onGameStart() {
 	can, canGameSeats, chairs := t.checkStart()
 	if !can {
-		t.stage.state = StWait
+		t.stage.State = StWait
 		return
 	}
 
@@ -119,17 +128,13 @@ func (t *Table) onGameStart() {
 func (t *Table) checkStart() (bool, []*player.Player, []int32) {
 	canGameSeats, chairs := []*player.Player(nil), []int32(nil)
 	for _, v := range t.seats {
-		if v == nil {
-			continue
-		}
-		if v.GetAllMoney() < t.curBet {
-			// 开局身上金币不够下注？
+		if v == nil || v.GetAllMoney() < t.curBet {
 			continue
 		}
 		canGameSeats = append(canGameSeats, v)
 		chairs = append(chairs, v.GetChairID())
 	}
-	return len(canGameSeats) >= 2, canGameSeats, chairs
+	return len(canGameSeats) >= MinStartPlayerCnt, canGameSeats, chairs
 }
 
 // 扣钱 （或处理可以进行游戏的玩家状态等逻辑）

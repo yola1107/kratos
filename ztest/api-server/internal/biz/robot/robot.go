@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/yola1107/kratos/v2/library/ext"
-	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/table"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
@@ -156,14 +155,14 @@ func (m *Manager) updateMoney(p *player.Player) {
 	}
 }
 
-func (m *Manager) Counter() {
+func (m *Manager) Counter() (all, free, gaming int) {
 	if !m.c.Robot.Open || m.c.Robot.Num <= 0 {
 		return
 	}
 
-	all := m.countAll()
-	free := m.countFree()
-	log.Infof("<AI> MaxNum:%d Total:%d Free:%d Gaming:%d", m.c.Robot.Num, all, free, all-free)
+	all = m.countAll()
+	free = m.countFree()
+	return all, free, all - free
 }
 
 func (m *Manager) countAll() int {
