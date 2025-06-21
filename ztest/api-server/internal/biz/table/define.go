@@ -8,52 +8,57 @@ import (
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 )
 
-// StageType 阶段ID枚举，模拟命名空间
-var StageType = struct {
-	Wait, Ready, SendCard, Action, SideShow, SideShowAni, WaitEnd, End int32
-}{
-	Wait:        0,
-	Ready:       1,
-	SendCard:    2,
-	Action:      3,
-	SideShow:    4,
-	SideShowAni: 5,
-	WaitEnd:     6,
-	End:         7,
+/*
+	StageID 游戏阶段ID
+
+*/
+
+type StageID int32
+
+const (
+	StWait        StageID = iota // 等待
+	StReady                      // 准备
+	StSendCard                   // 发牌
+	StAction                     // 操作
+	StSideShow                   // 发起提前比牌，等待应答
+	StSideShowAni                // 同意提前比牌动画
+	StWaitEnd                    // 等待结束
+	StEnd                        // 游戏结束
+)
+
+// StageTimeouts maps each stage to its timeout duration (in seconds).
+var StageTimeouts = map[StageID]int64{
+	StReady:       2,
+	StSendCard:    3,
+	StAction:      12,
+	StSideShow:    12,
+	StSideShowAni: 1,
+	StWaitEnd:     1,
+	StEnd:         3,
 }
 
-var StageNames = map[int32]string{
-	StageType.Wait:        "等待",
-	StageType.Ready:       "准备",
-	StageType.SendCard:    "发牌",
-	StageType.Action:      "操作",
-	StageType.SideShow:    "提前比牌",
-	StageType.SideShowAni: "比牌动画",
-	StageType.WaitEnd:     "等待结束",
-	StageType.End:         "游戏结束",
+// StageNames maps each stage to its string name.
+var StageNames = map[StageID]string{
+	StWait:        "StWait",
+	StReady:       "StReady",
+	StSendCard:    "StSendCard",
+	StAction:      "StAction",
+	StSideShow:    "StSideShow",
+	StSideShowAni: "StSideShowAni",
+	StWaitEnd:     "StWaitEnd",
+	StEnd:         "StEnd",
 }
 
-// StageTimeouts 每个阶段对应的超时时间（单位：秒）
-var StageTimeouts = map[int32]int64{
-	StageType.Ready:       2,  // 准备时间 (s)
-	StageType.SendCard:    3,  // 发牌时间 (s)
-	StageType.Action:      12, // 操作时间 (s)
-	StageType.SideShow:    12, // 发起比牌 等待结束 (s)
-	StageType.SideShowAni: 1,  // 同意提前比牌动画时间 (s)
-	StageType.WaitEnd:     1,  // 等待结束时间 (s)
-	StageType.End:         3,  // 结束等待下一个阶段时间 (s)
-}
-
-// descState 返回阶段描述
-func descState(s int32) string {
+// String returns the string representation of the StageID.
+func (s StageID) String() string {
 	if name, ok := StageNames[s]; ok {
-		return fmt.Sprintf("%s(%d)", name, s)
+		return name
 	}
-	return fmt.Sprintf("未知(%d)", s)
+	return fmt.Sprintf("StageID(%d)", s)
 }
 
-// GetStageTimeout 返回阶段的超时时间
-func GetStageTimeout(s int32) int64 {
+// Timeout returns the timeout duration of the stage.
+func (s StageID) Timeout() int64 {
 	if timeout, ok := StageTimeouts[s]; ok {
 		return timeout
 	}
@@ -65,7 +70,13 @@ func GetStageTimeout(s int32) int64 {
 	TYPE 桌子类型
 */
 
+// TYPE represents the table type.
 type TYPE int32
+
+const (
+	Normal TYPE = iota
+	Black
+)
 
 func (t TYPE) String() string {
 	switch t {
@@ -77,11 +88,6 @@ func (t TYPE) String() string {
 		return "Unknown"
 	}
 }
-
-const (
-	Normal TYPE = iota
-	Black
-)
 
 /*
 	动作类型
@@ -159,25 +165,26 @@ func descActions(actions ...int32) string {
 	CompareType 比牌类型
 */
 
+// CompareType defines the type of comparison during the game.
 type CompareType int32
 
 const (
-	CompareShow CompareType = iota + 1
-	CompareAllShow
-	CompareSideShow
+	CompareShow     CompareType = iota + 1 // 普通比牌
+	CompareAllShow                         // 全部比牌
+	CompareSideShow                        // 提前比牌
 )
 
+var compareNames = map[CompareType]string{
+	CompareShow:     "Show",
+	CompareAllShow:  "AllShow",
+	CompareSideShow: "SideShow",
+}
+
 func (t CompareType) String() string {
-	switch t {
-	case CompareShow:
-		return "CompareShow"
-	case CompareAllShow:
-		return "CompareAllShow"
-	case CompareSideShow:
-		return "CompareSideShow"
-	default:
-		return "Unknown"
+	if s, ok := compareNames[t]; ok {
+		return s
 	}
+	return fmt.Sprintf("CompareType(%d)", t)
 }
 
 /*

@@ -63,9 +63,11 @@ func (l *Log) activePush(p *player.Player, first int32, curRound int32) {
 	l.write("【操作通知】 玩家:%+v first:%+v curRound:%d", p.Desc(), first, curRound)
 }
 
-func (l *Log) stage(old, new int32, active int32) {
-	l.write("【状态转移】[%v->%+v, %+v->%v]. activeChair:%+v",
-		old, new, StageNames[old], StageNames[new], active)
+func (l *Log) stage(old, new StageID, active int32) {
+	// l.write("【状态转移】[%v->%+v, %+v->%v]. activeChair:%+v",
+	// 	old, new, StageNames[old], StageNames[new], active)
+
+	l.write("【状态转移】[%v->%+v, %+v -> %v]. activeChair:%+v", int32(old), int32(new), old, new, active)
 }
 
 func (l *Log) SeeCard(p *player.Player) {

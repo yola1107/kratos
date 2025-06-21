@@ -44,7 +44,7 @@ func (t *Table) OnActionReq(p *player.Player, in *v1.ActionReq, timeout bool) (o
 	}
 
 	stage := t.stage.state
-	if stage == StageType.Wait || stage == StReady || stage == StWaitEnd || stage == StEnd {
+	if stage == StWait || stage == StReady || stage == StWaitEnd || stage == StEnd {
 		return
 	}
 

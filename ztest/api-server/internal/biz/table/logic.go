@@ -13,44 +13,43 @@ import (
 	游戏主逻辑
 */
 
+type stageHandlerFunc func()
+
 type Stage struct {
-	state     int32         // 当前阶段
-	prev      int32         // 上一阶段
+	state     StageID       // 当前阶段
+	prev      StageID       // 上一阶段
 	timerID   int64         // 阶段定时器ID
 	startTime time.Time     // 阶段开始时间
 	duration  time.Duration // 阶段持续时间
 }
 
-func (t *Table) OnTimer() {
-	// log.Debugf("TimeOut Stage ... %s ", descState(t.stage.state))
+// Remaining 计算当前阶段剩余时间
+func (s *Stage) Remaining() time.Duration {
+	return max(s.duration-time.Since(s.startTime), time.Millisecond)
+}
 
-	switch t.stage.state {
-	case StReady:
-		t.onGameStart()
-	case StSendCard:
-		t.onSendCardTimeout()
-	case StAction: // 超时操作
-		t.onActionTimeout()
-	case StSideShow: // 发起提前比牌 等待应答
-		t.onSideShowTimeout()
-	case StSideShowAni:
-		t.onSideShowAniTimeout()
-	case StWaitEnd:
-		t.gameEnd()
-	case StEnd:
-		t.onEndTimeout()
-	default:
-		log.Warnf("unhandled default case")
+func (t *Table) OnTimer() {
+	// log.Debugf("TimeOut Stage ... %v ", t.stage.state)
+	if handler, ok := t.stageHandlers()[t.stage.state]; ok {
+		handler()
+	} else {
+		log.Warnf("unhandled stage timeout: %v", t.stage.state)
 	}
 }
 
-// 计算当前阶段剩余时间
-func (t *Table) calcRemainingTime() time.Duration {
-	remain := t.stage.duration - time.Since(t.stage.startTime)
-	return max(remain, time.Millisecond)
+func (t *Table) stageHandlers() map[StageID]stageHandlerFunc {
+	return map[StageID]stageHandlerFunc{
+		StReady:       t.onGameStart,
+		StSendCard:    t.onSendCardTimeout,
+		StAction:      t.onActionTimeout,
+		StSideShow:    t.onSideShowTimeout,
+		StSideShowAni: t.onSideShowAniTimeout,
+		StWaitEnd:     t.gameEnd,
+		StEnd:         t.onEndTimeout,
+	}
 }
 
-func (t *Table) updateStage(s int32) {
+func (t *Table) updateStage(s StageID) {
 	timer := t.repo.GetTimer()
 	timer.Cancel(t.stage.timerID) // 取消当前阶段的定时任务
 
@@ -60,11 +59,11 @@ func (t *Table) updateStage(s int32) {
 	t.stage.duration = t.checkResetDuration(s)
 	t.stage.timerID = timer.Once(t.stage.duration, t.OnTimer)
 	t.mLog.stage(t.stage.prev, s, t.active)
-	log.Debugf("Stage Changed.  %s -> %s ", descState(t.stage.prev), descState(t.stage.state))
+	log.Debugf("Stage Changed.  %s -> %s ", t.stage.prev, t.stage.state)
 }
 
-func (t *Table) checkResetDuration(s int32) time.Duration {
-	timeout := GetStageTimeout(s)
+func (t *Table) checkResetDuration(s StageID) time.Duration {
+	timeout := s.Timeout()
 	// 检查是否调整超时时间
 	return time.Duration(timeout) * time.Second
 }

@@ -124,7 +124,8 @@ func (r *RobotLogic) onActivePush(p *player.Player, msg proto.Message) {
 
 	if ops := rsp.GetCanOp(); len(ops) > 0 {
 		op := ops[ext.RandInt(0, len(ops)-1)]
-		dur := time.Duration(ext.RandInt(1, StActionTimeout-1)) * time.Second
+		actionTime := StageTimeouts[StAction] - 1
+		dur := time.Duration(ext.RandInt(1, int(actionTime))) * time.Second
 		req := &v1.ActionReq{
 			UserID:         p.GetPlayerID(),
 			Action:         op,
