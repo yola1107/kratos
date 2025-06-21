@@ -2,6 +2,7 @@ package table
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
@@ -100,6 +101,24 @@ const (
 	AcSide      = int32(6) // "提前比牌"
 	AcSideReply = int32(7) // "提前比牌回应"
 )
+
+var actionNames = map[int32]string{
+	AcCall:      "Call",
+	AcRaise:     "Raise",
+	AcSee:       "See",
+	AcPack:      "Pack",
+	AcShow:      "Show",
+	AcSide:      "Side",
+	AcSideReply: "SideReply",
+}
+
+func descActions(actions ...int32) string {
+	sb := strings.Builder{}
+	for _, a := range actions {
+		sb.WriteString(actionNames[a] + " ")
+	}
+	return sb.String()
+}
 
 /*
 	CompareType 比牌类型

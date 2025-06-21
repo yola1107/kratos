@@ -51,7 +51,7 @@ room:
     vid: 1002
     min_money: 100.0
     max_money: 10000.0
-    base_money: 50.0
+    base_money: 1.0
     auto_ready: true
     ch_limit: 300.0
     pot_limit: 500.0

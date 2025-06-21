@@ -60,7 +60,7 @@ func (t *Table) updateStage(s int32) {
 	t.stage.duration = t.checkResetDuration(s)
 	t.stage.timerID = timer.Once(t.stage.duration, t.OnTimer)
 	t.mLog.stage(t.stage.prev, s, t.active)
-	log.Debugf("Stage Changed.  %s -> %s ", descState(t.stage.prev), descState(t.stage.state))
+	// log.Debugf("Stage Changed.  %s -> %s ", descState(t.stage.prev), descState(t.stage.state))
 }
 
 func (t *Table) checkResetDuration(s int32) time.Duration {

@@ -3,6 +3,7 @@ package biz
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/wire"
 	"github.com/yola1107/kratos/v2/library/work"
@@ -19,7 +20,12 @@ var ProviderSet = wire.NewSet(NewUsecase)
 // 实现table.Repo接口
 var _ table.Repo = (*Usecase)(nil)
 
+// 实现robot.Repo接口
+var _ robot.Repo = (*Usecase)(nil)
+
 var defaultPendingNum = 10000
+
+var defaultStatusInterval = 30 * time.Second
 
 // DataRepo is a data repo.
 type DataRepo interface {
@@ -29,26 +35,22 @@ type DataRepo interface {
 
 // Usecase is a Data usecase.
 type Usecase struct {
-	repo DataRepo
-	log  *log.Helper
+	repo DataRepo    // 数据访问层接口，持久化玩家信息
+	log  *log.Helper // 日志记录器
 
-	// room
-	rc *conf.Room
-	ws work.IWorkStore
-	pm *player.Manager
-	tm *table.Manager
-	rm *robot.Manager
+	rc *conf.Room      // 房间配置（从配置文件读取）
+	ws work.IWorkStore // 通用工作存储，用于任务调度（定时器、循环）
+	pm *player.Manager // 玩家管理器
+	tm *table.Manager  // 桌子管理器
+	rm *robot.Manager  // 机器人管理器
 }
 
 // NewUsecase new a data usecase.
 func NewUsecase(repo DataRepo, logger log.Logger, c *conf.Room) (*Usecase, func(), error) {
-	log.Infof("start server:\"%s\" version:%+v", conf.Name, conf.Version)
-	log.Infof("GameID=%d ArenaID=%d ServerID=%s", conf.GameID, conf.ArenaID, conf.ServerID)
-
-	uc := &Usecase{repo: repo, log: log.NewHelper(logger)}
-
 	ctx, cancel := context.WithCancel(context.Background())
-	uc.rc = c
+	uc := &Usecase{repo: repo, log: log.NewHelper(logger), rc: c}
+
+	// 初始化顺序：WorkStore -> Table -> Player -> Robot
 	uc.ws = work.NewWorkStore(ctx, defaultPendingNum)
 	uc.tm = table.NewManager(c, uc)
 	uc.pm = player.NewManager()
@@ -62,7 +64,22 @@ func NewUsecase(repo DataRepo, logger log.Logger, c *conf.Room) (*Usecase, func(
 		uc.rm.Stop()
 		uc.ws.Stop() // 最后释放
 	}
-	return uc, cleanup, errors.Join(uc.ws.Start(), uc.rm.Start())
+	return uc, cleanup, uc.start()
+}
+
+func (uc *Usecase) start() error {
+	log.Infof("start server:%q version:%q", conf.Name, conf.Version)
+	log.Infof("GameID=%d ArenaID=%d ServerID=%s", conf.GameID, conf.ArenaID, conf.ServerID)
+
+	err := errors.Join(
+		uc.ws.Start(),
+		uc.rm.Start(),
+	)
+	uc.ws.ForeverNow(defaultStatusInterval, func() {
+		uc.pm.Counter()
+		uc.rm.Counter()
+	})
+	return err
 }
 
 // GetLoop 获取任务队列

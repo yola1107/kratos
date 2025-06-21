@@ -2,6 +2,8 @@ package player
 
 import (
 	"sync"
+
+	"github.com/yola1107/kratos/v2/log"
 )
 
 type Manager struct {
@@ -64,4 +66,21 @@ func (m *Manager) Count() int {
 		return true
 	})
 	return count
+}
+
+func (m *Manager) Counter() {
+	all := 0
+	offline := 0
+
+	m.players.Range(func(_, value interface{}) bool {
+		all++
+		p := value.(*Player)
+		if p != nil && p.gameData != nil && p.gameData.isOffline {
+			offline++
+		}
+
+		return true
+	})
+
+	log.Infof("<Player> Total:%d Offline:%d", all, offline)
 }

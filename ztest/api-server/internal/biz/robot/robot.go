@@ -12,10 +12,10 @@ import (
 )
 
 const (
-	defaultMaxBatchCnt    = 10
-	defaultInterval       = 5 * time.Second
-	defaultLoginInterval  = 2 * time.Second
-	defaultStatusInterval = 30 * time.Second
+	defaultMaxBatchCnt   = 10
+	defaultInterval      = 5 * time.Second
+	defaultLoginInterval = 2 * time.Second
+	// defaultStatusInterval = 30 * time.Second
 )
 
 type Manager struct {
@@ -37,9 +37,8 @@ func NewManager(c *conf.Room, repo Repo) *Manager {
 
 func (m *Manager) Start() error {
 	timer := m.repo.GetTimer()
-	m.timerID = timer.ForeverNow(defaultInterval, m.Load)
-	timer.ForeverNow(defaultLoginInterval, m.Login)
-	timer.ForeverNow(defaultStatusInterval, m.countStatus)
+	m.timerID = timer.Forever(defaultInterval, m.Load)
+	timer.Forever(defaultLoginInterval, m.Login)
 	return nil
 }
 
@@ -157,14 +156,14 @@ func (m *Manager) updateMoney(p *player.Player) {
 	}
 }
 
-func (m *Manager) countStatus() {
+func (m *Manager) Counter() {
 	if !m.c.Robot.Open || m.c.Robot.Num <= 0 {
 		return
 	}
 
 	all := m.countAll()
 	free := m.countFree()
-	log.Infof("<AI> Total:%d Free:%d Gaming:%d", all, free, all-free)
+	log.Infof("<AI> MaxNum:%d Total:%d Free:%d Gaming:%d", m.c.Robot.Num, all, free, all-free)
 }
 
 func (m *Manager) countAll() int {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/yola1107/kratos/v2/errors"
 	"github.com/yola1107/kratos/v2/library/ext"
+	"github.com/yola1107/kratos/v2/log"
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 	"github.com/yola1107/kratos/v2/ztest/api-server/pkg/codes"
@@ -114,6 +115,8 @@ func (uc *Usecase) LogoutGame(p *player.Player, code int32, msg string) {
 	if p == nil {
 		return
 	}
+
+	log.Debugf("logoutGame. p:%+v code:%d msg:%s", p.Desc(), code, msg)
 
 	if p.IsRobot() {
 		uc.rm.Leave(p.GetPlayerID())

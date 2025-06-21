@@ -63,7 +63,7 @@ func (t *Table) SendLoginRsp(p *player.Player, code int32, msg string) {
 	})
 
 	// 记录时间
-	t.aiLogic.updateEnterTicker()
+	t.aiLogic.markEnterTime()
 }
 
 // 广播入座信息
@@ -115,7 +115,7 @@ func (t *Table) broadcastUserQuitPush(p *player.Player, isSwitchTable bool) {
 	}, p.GetPlayerID())
 
 	// 记录时间
-	t.aiLogic.updateExitTicker()
+	t.aiLogic.markExitTime()
 }
 
 // ---------------------------------------------
@@ -280,7 +280,7 @@ func (t *Table) getPlayerCanOp(p *player.Player) (actions []int32) {
 		return nil
 	}
 
-	if !p.IsGaming() || len(t.GetCanActionPlayers()) <= 1 {
+	if !p.IsGaming() || len(t.GetGamingPlayers()) <= 1 {
 		return
 	}
 

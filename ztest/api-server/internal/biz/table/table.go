@@ -1,6 +1,7 @@
 package table
 
 import (
+	"github.com/yola1107/kratos/v2/errors"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
@@ -185,11 +186,11 @@ func (t *Table) CanSwitchTable(p *player.Player) bool {
 }
 
 func (t *Table) CanEnterRobot(p *player.Player) bool {
-	return t.aiLogic.canEnterRobot(p)
+	return t.CanEnter(p) && t.aiLogic.CanEnter(p)
 }
 
 func (t *Table) CanExitRobot(p *player.Player) bool {
-	return t.aiLogic.canExitRobot(p)
+	return t.CanExit(p) && t.aiLogic.CanExit(p)
 }
 
 // LastPlayer 上一家
@@ -255,9 +256,8 @@ func (t *Table) GetNextActivePlayer() *player.Player {
 func (t *Table) getNextActiveChair() int32 {
 	p := t.GetNextActivePlayer()
 	if p == nil {
-		log.Errorf("getNextActivePlayerChair: nil p.  active=%+v canActionCnt=%d",
-			t.active, len(t.GetGamingPlayers())) // todo 调试log 可去掉
-		return 0
+		log.Errorf("getNextActivePlayerChair: nil p. active=%+v", t.active)
+		return -1
 	}
 	return p.GetChairID()
 }
@@ -302,14 +302,21 @@ func (t *Table) checkKick() {
 		if p == nil {
 			continue
 		}
-		if p.IsRobot() {
-			continue
-		}
-		if p.IsOffline() {
-			t.OnExitGame(p, codes.ErrKickByBroke.Code, "kick by offline")
-
-		} else if err := CheckRoomLimit(p, t.repo.GetRoomConfig().Game); err != nil {
+		if err, shouldKick := shouldKickPlayer(p, t.repo.GetRoomConfig().Game); shouldKick {
 			t.OnExitGame(p, err.Code, err.Message)
 		}
 	}
+}
+
+func shouldKickPlayer(p *player.Player, conf *conf.Room_Game) (*errors.Error, bool) {
+	if p.IsRobot() {
+		return nil, false
+	}
+	if p.IsOffline() {
+		return codes.ErrKickByBroke, true
+	}
+	if err := CheckRoomLimit(p, conf); err != nil {
+		return err, true
+	}
+	return nil, false
 }
