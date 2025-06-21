@@ -3,6 +3,8 @@ package ext
 import (
 	"math/rand"
 	"time"
+
+	"golang.org/x/exp/constraints"
 )
 
 var (
@@ -39,10 +41,20 @@ func RandFloat(min, max float64) float64 {
 	return secureRand.Float64()*(max-min) + min
 }
 
-// RandInt 生成 [min, max] 范围的随机整数
-func RandInt(min, max int) int {
+// RandInt 生成 [min, max) 范围的随机整数
+func RandInt[T constraints.Integer](min T, max T) T {
 	if max <= min {
 		return min
 	}
-	return min + secureRand.Intn(max-min+1)
+	num := secureRand.Int63n(int64(max - min))
+	return min + T(num)
+}
+
+// RandIntInclusive 生成 [min, max] 范围的随机整数
+func RandIntInclusive[T constraints.Integer](min T, max T) T {
+	if max <= min {
+		return min
+	}
+	num := secureRand.Int63n(int64(max - min + 1))
+	return min + T(num)
 }

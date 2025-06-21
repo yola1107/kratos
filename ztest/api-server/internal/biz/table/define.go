@@ -66,10 +66,8 @@ func (s StageID) Timeout() int64 {
 }
 
 /*
-	TYPE 桌子类型
+TYPE 桌子类型
 */
-
-// TYPE represents the table type.
 type TYPE int32
 
 const (
@@ -90,9 +88,9 @@ func (t TYPE) String() string {
 
 /*
 	CompareType 比牌类型
+		CompareType defines the type of comparison during the game.
 */
 
-// CompareType defines the type of comparison during the game.
 type CompareType int32
 
 const (
