@@ -107,12 +107,7 @@ func (r *RobotLogic) OnMessage(p *player.Player, cmd v1.GameCommand, msg proto.M
 	case v1.GameCommand_OnResultPush:
 		r.onExit(p, msg)
 	default:
-		// 测试频繁进退桌 todo del
-		r.onExit(p, msg)
-		// 测试自动看牌功能
-		if ext.IsHitFloat(0.02) {
-			r.onRandSee(p, msg)
-		}
+		r.onExit(p, msg) // 测试频繁进退桌 todo delete
 	}
 }
 
@@ -124,20 +119,17 @@ func (r *RobotLogic) onActivePush(p *player.Player, msg proto.Message) {
 
 	ops := rsp.GetCanOp()
 	ops2 := r.mTable.getCanOp(r.mTable.GetActivePlayer())
-	if !(ext.SliceContains(ops, ops2...) && ext.SliceContains(ops2, ops...) && len(ops2)*len(ops) != 0) {
+	if !ext.SliceContains(ops, ops2...) || !ext.SliceContains(ops2, ops...) || len(ops) == 0 || len(ops2) == 0 {
 		log.Errorf("ops:%v ops2:%v ", ops, ops2)
 	}
-
 	if len(ops) == 0 {
-		log.Errorf("RobotLogic.onActivePush: no action found in active push. ops:%v ops2:%v ", ops, ops2)
+		log.Errorf("empty. ops:%v ops2:%v ", ops, ops2)
 		ops = ops2
 	}
 
 	op := RandOpWithWeight(ops)                            // 按权重随机选操作
 	remaining := r.mTable.stage.Remaining().Milliseconds() // 获取剩余操作时间
-	dur := time.Duration(ext.RandInt(1000, remaining-1000)) * time.Millisecond
-	// log.Debugf("p:%v CanOp=%+v, OP=%s, dur=%v", p.Desc(), ops, op, dur)
-
+	dur := time.Duration(ext.RandInt(10, remaining*3/4)) * time.Millisecond
 	req := &v1.ActionReq{
 		UserID:         p.GetPlayerID(),
 		Action:         op,
@@ -159,25 +151,6 @@ func (r *RobotLogic) onExit(p *player.Player, _ proto.Message) {
 	r.mTable.repo.GetTimer().Once(dur, func() {
 		r.mTable.OnExitGame(p, 0, "ai exit")
 	})
-}
-
-func (r *RobotLogic) onRandSee(_ *player.Player, _ proto.Message) {
-	canSeenSeats := []*player.Player(nil)
-	for _, v := range r.mTable.seats {
-		if v == nil || !v.IsGaming() || v.Seen() {
-			continue
-		}
-		canSeenSeats = append(canSeenSeats, v)
-	}
-	if len(canSeenSeats) == 0 {
-		return
-	}
-	see := canSeenSeats[ext.RandInt(0, len(canSeenSeats))]
-	dur := time.Duration(ext.RandInt(3, 7)) * time.Second
-	r.mTable.repo.GetTimer().Once(dur, func() {
-		r.mTable.OnActionReq(see, &v1.ActionReq{Action: v1.ACTION_SEE}, false)
-	})
-	// log.Debugf("seen by self. p:%v  dur=%v", see.Desc(), dur)
 }
 
 // RandOpWithWeight 按权重从ops中随机选择一个动作
