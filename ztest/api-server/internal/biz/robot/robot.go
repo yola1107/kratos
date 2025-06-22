@@ -11,10 +11,9 @@ import (
 )
 
 const (
-	defaultMaxBatchCnt   = 10
+	defaultMaxBatchCnt   = 100
 	defaultInterval      = 5 * time.Second
 	defaultLoginInterval = 2 * time.Second
-	// defaultStatusInterval = 30 * time.Second
 )
 
 type Manager struct {

@@ -47,10 +47,12 @@ func (t *Table) OnActionReq(p *player.Player, in *v1.ActionReq, timeout bool) (o
 		return
 	}
 
-	if timeout && p.IsRobot() {
-		log.Errorf("AI超时动作 p:%v ac=%v allow=%v GamingCnt:%+v", p.Desc(), in.Action, in.SideReplyAllow, len(t.GetGamers()))
+	if timeout && p.IsRobot() || in.Action == -1 {
+		log.Errorf("OnActionReq.Timeout p:%v ac=%v allow=%v GamingCnt:%+v CanOp:%v",
+			p.Desc(), in.Action, in.SideReplyAllow, len(t.GetGamers()), t.getCanOp(p))
 	}
-	log.Debugf("=> p:%v ac=%v GamingCnt:%+v timeout:%v", p.Desc(), in.Action, len(t.GetGamers()), timeout)
+	log.Debugf("=> p:%v ac=%v GamingCnt:%+v timeout:%v CanOp:%v",
+		p.Desc(), in.Action, len(t.GetGamers()), timeout, t.getCanOp(p))
 
 	switch in.Action {
 	case v1.ACTION_SEE:

@@ -187,7 +187,7 @@ func (t *Table) getScene(p *player.Player) *v1.PlayerScene {
 		CardsType:  p.GetCardsType(),
 		IsAutoCall: p.IsAutoCall(),
 		IsPaying:   p.IsPaying(),
-		CanOp:      t.getPlayerCanOp(p),
+		CanOp:      t.getCanOp(p),
 	}
 	if p.Seen() {
 		info.CurBet = t.curBet * 2
@@ -208,7 +208,7 @@ func (t *Table) broadcastActivePlayerPush() {
 			RaiseBet: t.curBet * 2,
 		}
 		if p.GetChairID() == t.active {
-			rsp.CanOp = t.getPlayerCanOp(t.GetActivePlayer())
+			rsp.CanOp = t.getCanOp(t.GetActivePlayer())
 			t.mLog.activePush(t.GetActivePlayer(), t.first, t.curRound, rsp.CanOp, len(t.GetGamers()))
 			if len(rsp.CanOp) == 0 {
 				log.Errorf("ActivePush empty actions. p:%v t.SitCnt:%d gaming=%d. active:%v",
@@ -279,7 +279,7 @@ func (t *Table) broadcastActionRsp(p *player.Player, action v1.ACTION, playerBet
 	t.SendPacketToAll(v1.GameCommand_OnActionRsp, rsp)
 }
 
-func (t *Table) getPlayerCanOp(p *player.Player) (actions []v1.ACTION) {
+func (t *Table) getCanOp(p *player.Player) (actions []v1.ACTION) {
 	if p == nil {
 		return nil
 	}

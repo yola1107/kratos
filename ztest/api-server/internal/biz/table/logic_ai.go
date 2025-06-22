@@ -123,9 +123,19 @@ func (r *RobotLogic) onActivePush(p *player.Player, msg proto.Message) {
 	}
 
 	ops := rsp.GetCanOp()
+	ops2 := r.mTable.getCanOp(r.mTable.GetActivePlayer())
+	if !(ext.SliceContains(ops, ops2...) && ext.SliceContains(ops2, ops...) && len(ops2)*len(ops) != 0) {
+		log.Errorf("ops:%v ops2:%v ", ops, ops2)
+	}
+
+	if len(ops) == 0 {
+		log.Errorf("RobotLogic.onActivePush: no action found in active push. ops:%v ops2:%v ", ops, ops2)
+		ops = ops2
+	}
+
 	op := RandOpWithWeight(ops)                            // 按权重随机选操作
 	remaining := r.mTable.stage.Remaining().Milliseconds() // 获取剩余操作时间
-	dur := time.Duration(ext.RandInt(10, remaining)) * time.Millisecond
+	dur := time.Duration(ext.RandInt(1000, remaining-1000)) * time.Millisecond
 	// log.Debugf("p:%v CanOp=%+v, OP=%s, dur=%v", p.Desc(), ops, op, dur)
 
 	req := &v1.ActionReq{
@@ -172,6 +182,9 @@ func (r *RobotLogic) onRandSee(_ *player.Player, _ proto.Message) {
 
 // RandOpWithWeight 按权重从ops中随机选择一个动作
 func RandOpWithWeight(ops []v1.ACTION) v1.ACTION {
+	if len(ops) == 0 {
+		return -1
+	}
 	weights := map[v1.ACTION]int{
 		v1.ACTION_SEE:        5,
 		v1.ACTION_CALL:       4,
