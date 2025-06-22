@@ -33,12 +33,12 @@ func SliceCopy[T any](src []T) []T {
 
 // SliceShuffle 打乱数据（原地修改）
 func SliceShuffle[T any](array []T) {
-	n := len(array)
-	for i := 0; i < 3; i++ {
-		secureRand.Shuffle(n, func(i, j int) {
-			array[i], array[j] = array[j], array[i]
-		})
+	if len(array) == 0 {
+		return
 	}
+	secureRand.Shuffle(len(array), func(i, j int) {
+		array[i], array[j] = array[j], array[i]
+	})
 }
 
 // SliceSort 升序排序（原地修改）

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/yola1107/kratos/v2/library/log/file"
+	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
 )
@@ -53,7 +54,7 @@ func (l *Log) userExit(p *player.Player, sitCnt int16, lastChair int32, isSwitch
 }
 
 func (l *Log) begin(sitCnt int16, banker, first int32, bet float64, chairs []int32, seats []*player.Player) {
-	logs := []string{fmt.Sprintf("【游戏开始】 sitCnt:%d GamingCnt:%d banker:%d first:%d bet:%.1f 玩家椅子顺序:%d",
+	logs := []string{fmt.Sprintf("[游戏开始] sitCnt:%d GamingCnt:%d banker:%d first:%d bet:%.1f 玩家椅子顺序:%d",
 		sitCnt, len(chairs), banker, first, bet, chairs)}
 	for _, p := range seats {
 		logs = append(logs, fmt.Sprintf("玩家:%+v 投注[%+v]", p.Desc(), bet))
@@ -61,58 +62,59 @@ func (l *Log) begin(sitCnt int16, banker, first int32, bet float64, chairs []int
 	l.write(strings.Join(logs, "\r\n"))
 }
 
-func (l *Log) activePush(p *player.Player, first int32, curRound int32) {
-	l.write("【操作通知】 玩家:%+v first:%+v curRound:%d", p.Desc(), first, curRound)
+func (l *Log) activePush(p *player.Player, first int32, curRound int32, canOp []v1.ACTION, gamingCnt int) {
+	l.write("[操作通知] 玩家:%+v first:%+v curRound:%d canOp:%v gaming:%d", p.Desc(), first, curRound, canOp, gamingCnt)
 }
 
 func (l *Log) stage(old, new StageID, active int32) {
-	// l.write("【状态转移】[%v->%+v, %+v->%v]. activeChair:%+v",
-	// 	old, new, StageNames[old], StageNames[new], active)
-
-	l.write("【状态转移】[%v->%+v, %+v -> %v]. activeChair:%+v", int32(old), int32(new), old, new, active)
+	l.write("[状态转移] [%v->%+v, %+v -> %v]. active=%+v", int32(old), int32(new), old, new, active)
 }
 
 func (l *Log) SeeCard(p *player.Player) {
-	l.write("【看牌】 玩家:%+v autoSee(%+v) ", p.Desc(), p.IsAutoCall())
+	l.write("[看牌] 玩家:%+v autoSee(%+v) ", p.Desc(), p.IsAutoCall())
 }
 
 func (l *Log) PackCard(p *player.Player, timeout bool) {
-	l.write("【丢牌】 玩家:%+v timeout=%+v ", p.Desc(), timeout)
+	l.write("[丢牌] 玩家:%+v timeout=%+v ", p.Desc(), timeout)
 }
 
-func (l *Log) CallCard(p *player.Player, bet float64, double bool) {
-	l.write("【跟注】 玩家:%+v 加倍(%+v) bet:%.3f ", p.Desc(), double, bet)
+func (l *Log) CallCard(p *player.Player, bet float64, double bool, timeout bool) {
+	l.write("[跟注] 玩家:%+v 加倍(%+v) bet:%.3f timeout=%+v", p.Desc(), double, bet, timeout)
 }
 
-func (l *Log) ShowCard(p, target *player.Player, bet float64) {
-	l.write(fmt.Sprintf("【比牌】比牌金额:%.3f 发起玩家:%+v -> 目标玩家:%+v ", bet, p.Desc(), target.Desc()))
+func (l *Log) ShowCard(p, target *player.Player, bet float64, timeout bool) {
+	l.write(fmt.Sprintf("[比牌] 比牌金额:%.3f 发起玩家:%+v -> 目标玩家:%+v timeout=%+v", bet, p.Desc(), target.Desc(), timeout))
 }
 
-func (l *Log) SidedShow(p, target *player.Player, bet float64) {
-	l.write(fmt.Sprintf("【提前比牌(发起)】比牌金额:%.3f 发起玩家:%+v -> 目标玩家:%+v ", bet, p.Desc(), target.Desc()))
+func (l *Log) SidedShow(p, target *player.Player, bet float64, timeout bool) {
+	l.write(fmt.Sprintf("[提前比牌(发起)] 比牌金额:%.3f 发起玩家:%+v -> 目标玩家:%+v timeout=%+v", bet, p.Desc(), target.Desc(), timeout))
 }
 
-func (l *Log) SideShowReply(p, target *player.Player, allow bool) {
-	l.write(fmt.Sprintf("【提前比牌应答】allow:%+v 应答玩家:%+v -> 发起玩家:%+v ", allow, p.Desc(), target.Desc()))
+func (l *Log) SideShowReply(p, target *player.Player, allow bool, timeout bool) {
+	l.write(fmt.Sprintf("[提前比牌应答] allow:%+v 应答玩家:%+v -> 发起玩家:%+v timeout=%+v", allow, p.Desc(), target.Desc(), timeout))
 }
 
 func (l *Log) compareCard(kind CompareType, winner *player.Player, loss []*player.Player) {
+	l.write(logCompare(kind, winner, loss))
+}
+
+func logCompare(kind CompareType, winner *player.Player, loss []*player.Player) string {
 	logs := []string{fmt.Sprintf("<比牌信息> kind=%v ", kind)}
-	logs = append(logs, fmt.Sprintf("<赢家>:%+v Hands:%v", winner.Desc(), winner.DescHand()))
+	logs = append(logs, fmt.Sprintf("<赢家>:%+v Hands:%v", winner.Desc(), winner.GetHand()))
 	for _, p := range loss {
-		logs = append(logs, fmt.Sprintf("<输家>:%+v Hands:%v", p.Desc(), p.DescHand()))
+		logs = append(logs, fmt.Sprintf("<输家>:%+v Hands:%v", p.Desc(), p.GetHand()))
 	}
-	l.write(strings.Join(logs, "\r\n\t\t"))
+	return strings.Join(logs, "\r\n\t\t")
 }
 
 func (l *Log) settle(msg ...any) {
-	logs := []string{"【结算】"}
+	logs := []string{"[结算]"}
 	l.write(strings.Join(logs, "\r\n"))
 }
 func (l *Log) endClear(msg ...any) {
-	l.write("【结束后清理数据】 %s", msg)
+	l.write("[结束后清理数据] %s", msg)
 }
 func (l *Log) end(msg ...any) {
-	l.write("【GameEnd】 %s", msg)
+	l.write("[GameEnd] %s", msg)
 	l.write("\r\n\r\n\r\n")
 }

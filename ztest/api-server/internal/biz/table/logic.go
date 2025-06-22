@@ -71,12 +71,6 @@ func (t *Table) updateStageWith(state StageID, duration time.Duration) {
 	// log.Debugf("Stage changed: %s -> %s  dur=%v", t.stage.Prev.String(), t.stage.State.String(), duration)
 }
 
-func (t *Table) checkResetDuration(s StageID) time.Duration {
-	timeout := s.Timeout()
-	// 检查是否调整超时时间
-	return time.Duration(timeout) * time.Second
-}
-
 func (t *Table) checkReady() {
 	okCnt := int16(0)
 	autoReady := t.repo.GetRoomConfig().Game.AutoReady
@@ -118,8 +112,8 @@ func (t *Table) onGameStart() {
 	// 发牌状态倒计时3s
 	t.updateStage(StSendCard)
 
-	log.Debugf("******** <游戏开始> banker:%d first:%d currBet:%.1f sitCnt:%d GamingCnt:%d canGameSeats:%+v",
-		t.banker, t.first, t.curBet, t.sitCnt, len(canGameSeats), chairs)
+	// log.Debugf("******** <游戏开始> banker:%d first:%d currBet:%.1f sitCnt:%d GamingCnt:%d canGameSeats:%+v",
+	// 	t.banker, t.first, t.curBet, t.sitCnt, len(canGameSeats), chairs)
 	t.mLog.begin(t.sitCnt, t.banker, t.first, t.curBet, chairs, canGameSeats)
 
 }
@@ -191,9 +185,6 @@ func (t *Table) onSideShowTimeout() {
 
 // 比牌赢家操作
 func (t *Table) onSideShowAniTimeout() {
-	if len(t.GetGamingPlayers()) <= 1 {
-		return
-	}
 	t.updateStage(StAction)
 	t.broadcastActivePlayerPush()
 	t.checkRound(t.active)

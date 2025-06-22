@@ -22,14 +22,15 @@ type Table struct {
 	seats []*player.Player // 玩家列表
 
 	// 游戏逻辑变量
-	sitCnt   int16      // 入座玩家数量
-	banker   int32      // 庄家位置
-	active   int32      // 当前操作玩家
-	first    int32      // 第一个操作玩家
-	curRound int32      // 当前回合数
-	curBet   float64    // 当前需投注
-	totalBet float64    // 桌子总投注
-	aiLogic  RobotLogic // 机器人逻辑
+	sitCnt   int16        // 入座玩家数量
+	banker   int32        // 庄家位置
+	active   int32        // 当前操作玩家
+	first    int32        // 第一个操作玩家
+	curRound int32        // 当前回合数
+	curBet   float64      // 当前需投注
+	totalBet float64      // 桌子总投注
+	aiLogic  RobotLogic   // 机器人逻辑
+	logout   []LogoutInfo // 离桌信息
 }
 
 func NewTable(id int32, typ TYPE, c *conf.Room, repo Repo) *Table {
@@ -60,7 +61,7 @@ func (t *Table) Reset() {
 	t.curRound = 1
 	t.curBet = t.repo.GetRoomConfig().Game.BaseMoney
 	t.totalBet = 0
-	t.cards.Init()
+	t.logout = nil
 	for _, seat := range t.seats {
 		if seat == nil {
 			continue
@@ -143,6 +144,9 @@ func (t *Table) ThrowOff(p *player.Player, isSwitchTable bool) bool {
 	// 广播玩家离桌
 	t.broadcastUserQuitPush(p, isSwitchTable)
 
+	// 添加离桌数据
+	t.addLogout(p)
+
 	// 重置玩家信息
 	p.ExitReset()
 
@@ -169,6 +173,12 @@ func (t *Table) ReEnter(p *player.Player) {
 
 	t.mLog.userReEnter(p, t.sitCnt)
 	log.Infof("ReEnterTable. p:%+v sitCnt:%d", p.Desc(), t.sitCnt)
+}
+
+func (t *Table) addLogout(p *player.Player) {
+	if p.GetBet() > 0 && p.IsGaming() {
+		t.logout = append(t.logout, newLogoutInfo(p))
+	}
 }
 
 func (t *Table) CanEnter(p *player.Player) bool {
@@ -255,7 +265,7 @@ func (t *Table) getNextActiveChair() int32 {
 	p := t.GetNextActivePlayer()
 	if p == nil {
 		log.Errorf("getNextActivePlayerChair: nil p. active=%+v", t.active)
-		return -1
+		return 0 // 容错
 	}
 	return p.GetChairID()
 }
@@ -267,7 +277,11 @@ func (t *Table) GetPlayerByChair(chair int32) *player.Player {
 	return t.seats[chair]
 }
 
-func (t *Table) GetGamingPlayers() (seats []*player.Player) {
+// GetGamers 返回“仍可继续操作”的玩家：
+//  1. 仍在本局游戏中 (IsGaming)
+//  2. 没有弃牌 (未 Fold)
+//  3. 没有在比牌中落败
+func (t *Table) GetGamers() (seats []*player.Player) {
 	t.RangePlayer(func(k int32, p *player.Player) bool {
 		if p.IsGaming() {
 			seats = append(seats, p)

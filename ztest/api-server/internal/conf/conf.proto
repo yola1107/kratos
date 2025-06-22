@@ -81,13 +81,13 @@ message Room {
         bool open              = 1;
         int32 num              = 2;
         int32 table_max_count  = 3;
-        int32 min_play_count   = 4;
+        int32 min_play_count   = 4;  // 预留N个AI自己玩游戏 (废弃)
         int64 id_begin         = 5;
         double min_money       = 6;
         double max_money       = 7;
         double stand_min_money = 8;
         double stand_max_money = 9;
-        int32 reserveN         = 10;
+        int32 reserveN         = 10;  // 预留N桌AI自己玩游戏
     }
     message LogCache {
         bool open = 1;

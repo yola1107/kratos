@@ -62,7 +62,7 @@ func (t *Table) SendLoginRsp(p *player.Player, code int32, msg string) {
 		ArenaID: int32(conf.ArenaID),
 	})
 
-	// 记录时间
+	// 记录进桌时间
 	t.aiLogic.markEnterTime()
 }
 
@@ -209,11 +209,15 @@ func (t *Table) broadcastActivePlayerPush() {
 		}
 		if p.GetChairID() == t.active {
 			rsp.CanOp = t.getPlayerCanOp(t.GetActivePlayer())
+			t.mLog.activePush(t.GetActivePlayer(), t.first, t.curRound, rsp.CanOp, len(t.GetGamers()))
+			if len(rsp.CanOp) == 0 {
+				log.Errorf("ActivePush empty actions. p:%v t.SitCnt:%d gaming=%d. active:%v",
+					p.Desc(), t.sitCnt, len(t.GetGamers()), t.active)
+			}
 		}
 		t.SendPacketToClient(p, v1.GameCommand_OnActivePush, rsp)
 		return true
 	})
-	t.mLog.activePush(t.GetActivePlayer(), t.first, t.curRound)
 }
 
 func (t *Table) sendActiveButtonInfoNtf() {
@@ -280,7 +284,7 @@ func (t *Table) getPlayerCanOp(p *player.Player) (actions []v1.ACTION) {
 		return nil
 	}
 
-	if !p.IsGaming() || len(t.GetGamingPlayers()) <= 1 {
+	if !p.IsGaming() || len(t.GetGamers()) <= 1 {
 		return
 	}
 
@@ -323,6 +327,7 @@ func (t *Table) getPlayerCanOp(p *player.Player) (actions []v1.ACTION) {
 	if t.canSideShowReply(p).Code == ErrOK {
 		actions = append(actions, v1.ACTION_SIDE_REPLY)
 	}
+
 	return actions
 }
 

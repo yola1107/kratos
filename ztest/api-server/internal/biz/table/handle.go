@@ -4,6 +4,7 @@ import (
 	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/log"
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/calc"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 )
 
@@ -36,10 +37,8 @@ func (t *Table) OnAutoCallReq(p *player.Player, autoCall bool) bool {
 	return true
 }
 
-/**/
-
 func (t *Table) OnActionReq(p *player.Player, in *v1.ActionReq, timeout bool) (ok bool) {
-	if p == nil || !p.IsGaming() || len(t.GetGamingPlayers()) <= 1 {
+	if p == nil || !p.IsGaming() || len(t.GetGamers()) <= 1 {
 		return
 	}
 
@@ -47,6 +46,11 @@ func (t *Table) OnActionReq(p *player.Player, in *v1.ActionReq, timeout bool) (o
 	if stage == StWait || stage == StReady || stage == StWaitEnd || stage == StEnd {
 		return
 	}
+
+	if timeout && p.IsRobot() {
+		log.Errorf("AI超时动作 p:%v ac=%v allow=%v GamingCnt:%+v", p.Desc(), in.Action, in.SideReplyAllow, len(t.GetGamers()))
+	}
+	log.Debugf("=> p:%v ac=%v GamingCnt:%+v timeout:%v", p.Desc(), in.Action, len(t.GetGamers()), timeout)
 
 	switch in.Action {
 	case v1.ACTION_SEE:
@@ -119,7 +123,7 @@ func (t *Table) handlePack(p *player.Player, in *v1.ActionReq, timeout bool) {
 	t.broadcastActionRsp(p, in.Action, 0, nil, false)
 	t.mLog.PackCard(p, timeout)
 
-	if ps := t.GetGamingPlayers(); len(ps) <= 1 {
+	if ps := t.GetGamers(); len(ps) <= 1 {
 		t.updateStage(StWaitEnd)
 		return
 	}
@@ -165,11 +169,11 @@ func (t *Table) handleCall(p *player.Player, in *v1.ActionReq, timeout bool) {
 
 	t.addBetInfo(p, in.Action, timeout, needMoney)
 	t.broadcastActionRsp(p, in.Action, needMoney, nil, false)
-	t.mLog.CallCard(p, needMoney, callRaise)
+	t.mLog.CallCard(p, needMoney, callRaise, timeout)
 
 	// 判断是否需要处理所有比牌
 	if t.totalBet >= t.repo.GetRoomConfig().Game.PotLimit {
-		t.dealCompare(t.GetGamingPlayers(), CompareAllShow) // 处理所有比牌
+		t.dealCompare(t.GetGamers(), CompareAllShow) // 处理所有比牌
 		return
 	}
 
@@ -184,7 +188,7 @@ func (t *Table) handleCall(p *player.Player, in *v1.ActionReq, timeout bool) {
 // 当只剩 2 名玩家时，任意一方可请求 Show
 // 明牌比较三张牌，胜者赢取全部筹码
 func (t *Table) canShowCard(p *player.Player) ActionRet {
-	if p == nil || p.GetChairID() != t.active || t.stage.State != StAction || len(t.GetGamingPlayers()) != 2 {
+	if p == nil || p.GetChairID() != t.active || t.stage.State != StAction || len(t.GetGamers()) != 2 {
 		return ActionRet{Code: ErrInvalidStage}
 	}
 	next := t.NextPlayer(p.GetChairID())
@@ -210,8 +214,8 @@ func (t *Table) handleShow(p *player.Player, in *v1.ActionReq, timeout bool) {
 
 	t.addBetInfo(p, in.Action, timeout, needMoney)
 	t.broadcastActionRsp(p, in.Action, needMoney, ret.Target, false)
-	t.mLog.ShowCard(p, ret.Target, needMoney)
-	t.dealCompare(t.GetGamingPlayers(), CompareShow) // 处理所有比牌 2个玩家
+	t.mLog.ShowCard(p, ret.Target, needMoney, timeout)
+	t.dealCompare(t.GetGamers(), CompareShow) // 处理比牌 2个玩家
 }
 
 // Side Show
@@ -219,7 +223,7 @@ func (t *Table) handleShow(p *player.Player, in *v1.ActionReq, timeout bool) {
 // 仅限明注玩家对上一位明注玩家请求比牌
 // 若对方同意，则比大小，小的一方自动弃牌
 func (t *Table) canSideShowCard(p *player.Player) ActionRet {
-	if p == nil || p.GetChairID() != t.active || t.stage.State != StAction || len(t.GetGamingPlayers()) <= 2 {
+	if p == nil || p.GetChairID() != t.active || t.stage.State != StAction || len(t.GetGamers()) <= 2 {
 		return ActionRet{Code: ErrInvalidStage}
 	}
 	last := t.LastPlayer(p.GetChairID())
@@ -249,11 +253,12 @@ func (t *Table) handleSideShow(p *player.Player, in *v1.ActionReq, timeout bool)
 
 	t.addBetInfo(p, in.Action, timeout, needMoney)
 	t.broadcastActionRsp(p, in.Action, needMoney, last, false)
-	t.mLog.SidedShow(p, ret.Target, needMoney)
+	t.mLog.SidedShow(p, ret.Target, needMoney, timeout)
+	// log.Debugf("sideshow lunch. from:%v to:%v timeout:%v", p.Desc(), last.Desc(), timeout)
 
 	// 判断是否需要处理所有比牌
 	if t.totalBet >= t.repo.GetRoomConfig().Game.PotLimit {
-		t.dealCompare(t.GetGamingPlayers(), CompareAllShow) // 处理所有比牌
+		t.dealCompare(t.GetGamers(), CompareAllShow) // 处理所有比牌
 		return
 	}
 
@@ -269,7 +274,7 @@ func (t *Table) handleSideShow(p *player.Player, in *v1.ActionReq, timeout bool)
 // Side Show Reply
 // 能否回应提前比牌
 func (t *Table) canSideShowReply(p *player.Player) ActionRet {
-	if p == nil || p.GetChairID() != t.active || t.stage.State != StSideShow || len(t.GetGamingPlayers()) <= 2 {
+	if p == nil || p.GetChairID() != t.active || t.stage.State != StSideShow || len(t.GetGamers()) <= 2 {
 		return ActionRet{Code: ErrInvalidStage}
 	}
 	next := t.NextPlayer(p.GetChairID())
@@ -293,7 +298,8 @@ func (t *Table) handleSideShowReply(p *player.Player, in *v1.ActionReq, timeout 
 	p.SetLastOp(in.Action)
 	p.IncrTimeoutCnt(timeout)
 	t.broadcastActionRsp(p, in.Action, 0, next, in.SideReplyAllow)
-	t.mLog.SideShowReply(p, ret.Target, in.SideReplyAllow)
+	t.mLog.SideShowReply(p, ret.Target, in.SideReplyAllow, timeout)
+	// log.Debugf("sideshow Reply. from:%v tar:%v timeout:%v", p.Desc(), next.Desc(), timeout)
 
 	// 拒绝比牌
 	if !in.SideReplyAllow {
@@ -359,7 +365,6 @@ func (t *Table) dealCompare(compares []*player.Player, kind CompareType) (winner
 	}
 
 	winner = compares[0]
-	lossChair := []int32(nil)
 	for i, v := range compares {
 		if i == 0 {
 			winner = v
@@ -368,26 +373,19 @@ func (t *Table) dealCompare(compares []*player.Player, kind CompareType) (winner
 		w, l := compareCard(winner, v)
 		winner = w
 		loss = append(loss, l)
-		lossChair = append(lossChair, l.GetChairID())
 		l.SetStatus(player.StGameLost) // 比牌输家标记
 	}
 
 	t.mLog.compareCard(kind, winner, loss)
-	log.Debugf("【玩家比牌】 kind:%v 赢家:%+v 输家:%v", kind, winner.Desc(), lossChair)
-	if len(t.GetGamingPlayers()) <= 1 {
+	log.Debugf("[玩家比牌] %s", logCompare(kind, winner, loss))
+	if len(t.GetGamers()) <= 1 {
 		t.updateStage(StWaitEnd) // 等待结束
 	}
 	return
 }
 
 func compareCard(p1, p2 *player.Player) (winner, loss *player.Player) {
-	// compare
-	// if p1.GetCardsType() > p2.GetCardsType() {
-	// 	return p1, p2
-	// }
-	// return p2, p1
-
-	if ext.IsHitFloat(0.3) {
+	if calc.Compare(p1.GetHand(), p2.GetHand()) {
 		return p1, p2
 	}
 	return p2, p1

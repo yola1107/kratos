@@ -845,13 +845,13 @@ type Room_Robot struct {
 	Open          bool                   `protobuf:"varint,1,opt,name=open,proto3" json:"open,omitempty"`
 	Num           int32                  `protobuf:"varint,2,opt,name=num,proto3" json:"num,omitempty"`
 	TableMaxCount int32                  `protobuf:"varint,3,opt,name=table_max_count,json=tableMaxCount,proto3" json:"table_max_count,omitempty"`
-	MinPlayCount  int32                  `protobuf:"varint,4,opt,name=min_play_count,json=minPlayCount,proto3" json:"min_play_count,omitempty"`
+	MinPlayCount  int32                  `protobuf:"varint,4,opt,name=min_play_count,json=minPlayCount,proto3" json:"min_play_count,omitempty"` // 预留N个AI自己玩游戏 (废弃)
 	IdBegin       int64                  `protobuf:"varint,5,opt,name=id_begin,json=idBegin,proto3" json:"id_begin,omitempty"`
 	MinMoney      float64                `protobuf:"fixed64,6,opt,name=min_money,json=minMoney,proto3" json:"min_money,omitempty"`
 	MaxMoney      float64                `protobuf:"fixed64,7,opt,name=max_money,json=maxMoney,proto3" json:"max_money,omitempty"`
 	StandMinMoney float64                `protobuf:"fixed64,8,opt,name=stand_min_money,json=standMinMoney,proto3" json:"stand_min_money,omitempty"`
 	StandMaxMoney float64                `protobuf:"fixed64,9,opt,name=stand_max_money,json=standMaxMoney,proto3" json:"stand_max_money,omitempty"`
-	ReserveN      int32                  `protobuf:"varint,10,opt,name=reserveN,proto3" json:"reserveN,omitempty"`
+	ReserveN      int32                  `protobuf:"varint,10,opt,name=reserveN,proto3" json:"reserveN,omitempty"` // 预留N桌AI自己玩游戏
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

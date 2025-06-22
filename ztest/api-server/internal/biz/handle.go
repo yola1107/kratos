@@ -108,6 +108,7 @@ func (uc *Usecase) createPlayer(raw *player.Raw) (*player.Player, *errors.Error)
 	if !raw.IsRobot {
 		uc.pm.Add(p)
 	}
+	log.Debugf("createPlayer. p:%+v ", p.Desc())
 	return p, nil
 }
 
@@ -116,7 +117,7 @@ func (uc *Usecase) LogoutGame(p *player.Player, code int32, msg string) {
 		return
 	}
 
-	log.Debugf("logoutGame. p:%+v code:%d msg:%s", p.Desc(), code, msg)
+	log.Debugf("logoutGame. p:%+v code=%d msg=%q", p.Desc(), code, msg)
 
 	if p.IsRobot() {
 		uc.rm.Leave(p.GetPlayerID())

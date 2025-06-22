@@ -4,12 +4,13 @@ import (
 	"fmt"
 
 	"github.com/yola1107/kratos/v2/log"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/calc"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 )
 
 /*
-	StageID 游戏阶段ID
 
+	StageID 游戏阶段ID
 */
 
 type StageID int32
@@ -66,8 +67,10 @@ func (s StageID) Timeout() int64 {
 }
 
 /*
-TYPE 桌子类型
+
+	TYPE 桌子类型
 */
+
 type TYPE int32
 
 const (
@@ -87,8 +90,8 @@ func (t TYPE) String() string {
 }
 
 /*
+
 	CompareType 比牌类型
-		CompareType defines the type of comparison during the game.
 */
 
 type CompareType int32
@@ -113,6 +116,7 @@ func (t CompareType) String() string {
 }
 
 /*
+
 	ActionRet 检查动作结果及动作错误码
 */
 
@@ -130,4 +134,33 @@ type ActionRet struct { // 检查结果
 	Money   float64
 	Target  *player.Player
 	Message string // 可选，用于调试或客户端提示
+}
+
+/*
+
+	LogoutInfo 离开玩家的牌局数据
+*/
+
+type LogoutInfo struct {
+	SID        int32
+	UID        int64
+	Money      float64
+	StartMoney float64 // 局数开始时的金币
+	Bet        float64
+	Card       calc.HandCard
+	PlayCount  int32 // 玩的回合数
+	SeeRound   int32 // 看牌回合数
+}
+
+func newLogoutInfo(p *player.Player) LogoutInfo {
+	return LogoutInfo{
+		SID:        p.GetChairID(),
+		UID:        p.GetPlayerID(),
+		Money:      p.GetAllMoney(),
+		StartMoney: 0,
+		Bet:        p.GetBet(),
+		Card:       p.GetHand(),
+		PlayCount:  p.GetPlayCnt(),
+		SeeRound:   0,
+	}
 }
