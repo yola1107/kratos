@@ -23,9 +23,10 @@ var _ table.Repo = (*Usecase)(nil)
 // 实现robot.Repo接口
 var _ robot.Repo = (*Usecase)(nil)
 
+// 任务线程池容量
 var defaultPendingNum = 10000
 
-var defaultStatusInterval = 5 * time.Minute
+var defaultStatusInterval = 1 * time.Minute
 
 // DataRepo is a data repo.
 type DataRepo interface {
