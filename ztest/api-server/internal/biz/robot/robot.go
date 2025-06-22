@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/yola1107/kratos/v2/library/ext"
+	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/table"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
@@ -66,11 +67,17 @@ func (m *Manager) Load() {
 			ID:      id,
 			IsRobot: true,
 		})
-		if err == nil && rob != nil {
-			m.Reset(rob)
-			m.all.Store(id, rob)
-			m.free.Store(id, rob)
+		if err != nil {
+			log.Errorf("%v", err)
+			continue
 		}
+		if rob == nil {
+			log.Debugf("robot %d is nil", id)
+			continue
+		}
+		m.Reset(rob)
+		m.all.Store(id, rob)
+		m.free.Store(id, rob)
 	}
 }
 

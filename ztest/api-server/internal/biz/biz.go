@@ -32,6 +32,7 @@ var defaultStatusInterval = 1 * time.Minute
 type DataRepo interface {
 	SavePlayer(ctx context.Context, p *player.BaseData) error
 	LoadPlayer(ctx context.Context, playerID int64) (*player.BaseData, error)
+	ExistPlayer(ctx context.Context, playerID int64) bool
 }
 
 // Usecase is a Data usecase.
@@ -84,24 +85,4 @@ func (uc *Usecase) start() error {
 
 	})
 	return err
-}
-
-// GetLoop 获取任务队列
-func (uc *Usecase) GetLoop() work.ITaskLoop {
-	return uc.ws
-}
-
-// GetTimer 获取定时器
-func (uc *Usecase) GetTimer() work.ITaskScheduler {
-	return uc.ws
-}
-
-// GetRoomConfig 获取房间配置
-func (uc *Usecase) GetRoomConfig() *conf.Room {
-	return uc.rc
-}
-
-// GetTableList 获取桌子列表
-func (uc *Usecase) GetTableList() []*table.Table {
-	return uc.tm.GetTableList()
 }

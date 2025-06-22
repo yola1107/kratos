@@ -4,6 +4,7 @@ go 1.24.2
 
 require (
 	dario.cat/mergo v1.0.0
+	github.com/envoyproxy/protoc-gen-validate v1.2.1
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/go-kratos/aegis v0.2.0
 	github.com/go-playground/form/v4 v4.2.0
@@ -18,6 +19,7 @@ require (
 	github.com/matoous/go-nanoid/v2 v2.1.0
 	github.com/panjf2000/ants/v2 v2.11.3
 	github.com/r3labs/diff/v3 v3.0.1
+	github.com/redis/go-redis/v9 v9.10.0
 	github.com/samber/lo v1.50.0
 	github.com/stretchr/testify v1.10.0
 	github.com/zhenjl/cityhash v0.0.0-20131128155616-cdd6a94144ab
@@ -41,8 +43,9 @@ require (
 )
 
 require (
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/envoyproxy/protoc-gen-validate v1.2.1 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect

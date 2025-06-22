@@ -2,19 +2,11 @@ package xredis
 
 // Redis 字段常量
 const (
-	PlayerTableIDField         = "table_id"
 	PlayerUIDField             = "uid"
 	PlayerMoneyField           = "money"
-	PlayerBMoneyField          = "bmoney"
-	PlayerGMoneyField          = "gmoney"
-	PlayerReserveMoneyField    = "reserve_money"
 	PlayerChannelIDField       = "channel_id"
 	PlayerPayTotalField        = "pay_total"
 	PlayerWithdrawTotalField   = "withdraw_total"
-	PlayerScbonusField         = "scbonus"
-	PlayerBonusField           = "bonus"
-	PlayerReduceBMoneyField    = "reduce_bmoney"
-	PlayerReduceMoneyField     = "reduce_money"
 	PlayerVIPField             = "vip"
 	PlayerNickNameField        = "nick_name"
 	PlayerAvatarField          = "avatar"

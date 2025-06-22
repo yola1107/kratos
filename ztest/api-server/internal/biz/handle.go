@@ -4,14 +4,37 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/yola1107/kratos/v2/errors"
 	"github.com/yola1107/kratos/v2/library/ext"
+	"github.com/yola1107/kratos/v2/library/work"
 	"github.com/yola1107/kratos/v2/log"
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/table"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
 	"github.com/yola1107/kratos/v2/ztest/api-server/pkg/codes"
 )
 
+// GetLoop 获取任务队列
+func (uc *Usecase) GetLoop() work.ITaskLoop {
+	return uc.ws
+}
+
+// GetTimer 获取定时器
+func (uc *Usecase) GetTimer() work.ITaskScheduler {
+	return uc.ws
+}
+
+// GetRoomConfig 获取房间配置
+func (uc *Usecase) GetRoomConfig() *conf.Room {
+	return uc.rc
+}
+
+// GetTableList 获取桌子列表
+func (uc *Usecase) GetTableList() []*table.Table {
+	return uc.tm.GetTableList()
+}
+
+// OnLoginReq .
 func (uc *Usecase) OnLoginReq(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp, error) {
 	if uc.pm.Has(in.UserID) {
 		return uc.reconnect(ctx, in)
@@ -70,40 +93,45 @@ func (uc *Usecase) enterRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp
 	return &v1.LoginRsp{}, nil
 }
 
+// OnSwitchTableReq .
 func (uc *Usecase) OnSwitchTableReq(info *SwapperInfo) {
 	result := uc.tm.SwitchTable(info.Player, uc.rc.Game)
 	info.Player.SendSwitchTableRsp(result)
 }
 
-func (uc *Usecase) CreateRobot(raw *player.Raw) (*player.Player, *errors.Error) {
-	// todo test
-	{
+// CreateRobot .
+func (uc *Usecase) CreateRobot(raw *player.Raw) (*player.Player, error) {
+	ctx := context.Background()
+	if !uc.repo.ExistPlayer(ctx, raw.ID) {
 		base := &player.BaseData{
 			UID:       raw.ID,
-			VIP:       1,
+			VIP:       0,
 			NickName:  fmt.Sprintf("robot_%d", raw.ID),
 			Avatar:    fmt.Sprintf("robot_avatar_%d", raw.ID),
 			AvatarUrl: fmt.Sprintf("robot_avatar_%d", raw.ID),
 			Money:     ext.RandFloat(uc.rc.Game.MinMoney, uc.rc.Game.MaxMoney),
 		}
+		if err := uc.repo.SavePlayer(context.Background(), base); err != nil {
+			return nil, err
+		}
 		raw.BaseData = base
 		p := player.New(raw)
 		return p, nil
 	}
-
 	return uc.createPlayer(raw)
 }
 
-func (uc *Usecase) createPlayer(raw *player.Raw) (*player.Player, *errors.Error) {
+func (uc *Usecase) createPlayer(raw *player.Raw) (*player.Player, error) {
 	// 获取数据库数据
 	base, err := uc.repo.LoadPlayer(context.Background(), raw.ID)
 	if err != nil {
-		e := codes.ErrCreatePlayerFail
-		e.Reason = err.Error()
-		return nil, e
+		return nil, err
 	}
-	raw.BaseData = base
+	if base == nil {
+		return nil, codes.ErrCreatePlayerFail
+	}
 
+	raw.BaseData = base
 	p := player.New(raw)
 	if !raw.IsRobot {
 		uc.pm.Add(p)
@@ -112,6 +140,7 @@ func (uc *Usecase) createPlayer(raw *player.Raw) (*player.Player, *errors.Error)
 	return p, nil
 }
 
+// LogoutGame .
 func (uc *Usecase) LogoutGame(p *player.Player, code int32, msg string) {
 	if p == nil {
 		return
