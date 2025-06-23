@@ -77,14 +77,16 @@ func (uc *Usecase) start() error {
 		uc.ws.Start(),
 		uc.rm.Start(),
 	)
-	uc.ws.Forever(defaultStatusInterval, func() {
-		all, offline := uc.pm.Counter()
-		aiAll, aiFree, aiGaming := uc.rm.Counter()
-		status := uc.ws.Status()
-		log.Infof("[Counter]<Player> Total:%d Offline:%d", all, offline)
-		log.Infof("[Counter]<AI> MaxNum:%d Total:%d Free:%d Gaming:%d", uc.rc.Robot.Num, aiAll, aiFree, aiGaming)
-		log.Infof("[Counter]<Loop> Capacity=%d, Running=%d, Free=%d", status.Capacity, status.Running, status.Free)
-
-	})
+	uc.ws.Forever(defaultStatusInterval, uc.post)
 	return err
+}
+
+func (uc *Usecase) post() {
+	all, offline := uc.pm.Counter()
+	aiAll, aiFree, aiGaming := uc.rm.Counter()
+	status := uc.ws.Status()
+	log.Infof("[Counter]<Player> Total:%d Offline:%d", all, offline)
+	log.Infof("[Counter]<AI> MaxNum:%d Total:%d Free:%d Gaming:%d", uc.rc.Robot.Num, aiAll, aiFree, aiGaming)
+	log.Infof("[Counter]<Loop> Capacity=%d, Running=%d, Free=%d", status.Capacity, status.Running, status.Free)
+
 }

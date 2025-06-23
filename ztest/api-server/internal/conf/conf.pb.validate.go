@@ -1508,63 +1508,9 @@ func (m *Data_Redis) validate(all bool) error {
 
 	// no validation rules for Addr
 
-	if all {
-		switch v := interface{}(m.GetReadTimeout()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, Data_RedisValidationError{
-					field:  "ReadTimeout",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, Data_RedisValidationError{
-					field:  "ReadTimeout",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetReadTimeout()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return Data_RedisValidationError{
-				field:  "ReadTimeout",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
+	// no validation rules for Password
 
-	if all {
-		switch v := interface{}(m.GetWriteTimeout()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, Data_RedisValidationError{
-					field:  "WriteTimeout",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, Data_RedisValidationError{
-					field:  "WriteTimeout",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetWriteTimeout()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return Data_RedisValidationError{
-				field:  "WriteTimeout",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
+	// no validation rules for Db
 
 	if len(errors) > 0 {
 		return Data_RedisMultiError(errors)
