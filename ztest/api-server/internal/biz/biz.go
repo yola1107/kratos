@@ -60,11 +60,11 @@ func NewUsecase(repo DataRepo, logger log.Logger, c *conf.Room) (*Usecase, func(
 
 	cleanup := func() {
 		log.Info("closing the Room resources")
-		cancel()
-		// 	uc.pm.Close()
 		// 	uc.tm.Close()
+		// 	uc.pm.Close()
 		uc.rm.Stop()
-		uc.ws.Stop() // 最后释放
+		uc.ws.Stop()
+		cancel() // 最后释放
 	}
 	return uc, cleanup, uc.start()
 }
@@ -82,11 +82,12 @@ func (uc *Usecase) start() error {
 }
 
 func (uc *Usecase) post() {
+	timers, loops := uc.ws.Len(), uc.ws.Status()
 	all, offline := uc.pm.Counter()
 	aiAll, aiFree, aiGaming := uc.rm.Counter()
-	status := uc.ws.Status()
-	log.Infof("[Counter]<Player> Total:%d Offline:%d", all, offline)
-	log.Infof("[Counter]<AI> MaxNum:%d Total:%d Free:%d Gaming:%d", uc.rc.Robot.Num, aiAll, aiFree, aiGaming)
-	log.Infof("[Counter]<Loop> Capacity=%d, Running=%d, Free=%d", status.Capacity, status.Running, status.Free)
 
+	log.Infof("[Counter]<Loop> Capacity=%d, Running=%d, Free=%d | <Timer> Count=%d",
+		loops.Capacity, loops.Running, loops.Free, timers)
+	log.Infof("[Counter]<Player> Total=%d Offline=%d | <AI> MaxNum:%d Total=%d Free=%d Gaming=%d",
+		all, offline, uc.rc.Robot.Num, aiAll, aiFree, aiGaming)
 }

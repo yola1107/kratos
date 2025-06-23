@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"runtime/debug"
 	"sync"
+	"time"
 
 	"github.com/panjf2000/ants/v2"
 
@@ -75,7 +76,8 @@ func (l *antsLoop) Start() error {
 	}
 
 	pool, err := ants.NewPool(l.size,
-		ants.WithPreAlloc(true), // 预分配容量，避免 runtime 扩容内存
+		ants.WithExpiryDuration(60*time.Second), // 每60s清理一次闲置 worker
+		// ants.WithPreAlloc(true),                 // 预分配容量，避免 runtime 扩容内存
 		// ants.WithNonblocking(false),  // 非阻塞提交，任务满时立即报错（否则阻塞） 默认阻塞模式:true
 		// ants.WithMaxBlockingTasks(0), // 最大阻塞任务数（非阻塞模式下可设为0）
 	)

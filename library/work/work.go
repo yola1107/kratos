@@ -73,6 +73,11 @@ func (w *workStore) PostAndWaitCtx(ctx context.Context, job func() ([]byte, erro
 	定时器相关
 */
 
+// Len .
+func (w *workStore) Len() int {
+	return w.timer.Len()
+}
+
 // Once .
 func (w *workStore) Once(duration time.Duration, f func()) int64 {
 	return w.timer.Once(duration, f)

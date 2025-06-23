@@ -13,6 +13,7 @@ import (
 
 // ITaskScheduler 核心调度接口
 type ITaskScheduler interface {
+	Len() int // 当前活跃定时任务数量
 	Once(duration time.Duration, f func()) int64
 	Forever(interval time.Duration, f func()) int64
 	ForeverNow(interval time.Duration, f func()) int64
@@ -25,8 +26,9 @@ type ITaskExecutor interface {
 	Post(job func())
 }
 
-// TaskScheduler  定时器任务
+// taskScheduler  定时器任务
 type taskScheduler struct {
+	count atomic.Int64    // 当前活跃任务数量
 	seq   atomic.Int64    // 原子递增的任务ID计数器
 	tasks sync.Map        // 存储任务ID对应的停止通道 [int64]context.CancelFunc
 	loop  ITaskExecutor   // 任务池执行器
@@ -39,6 +41,11 @@ func NewTaskScheduler(loop ITaskExecutor, ctx context.Context) ITaskScheduler {
 		loop: loop,
 		ctx:  ctx,
 	}
+}
+
+// Len 返回当前活跃任务数量
+func (t *taskScheduler) Len() int {
+	return int(t.count.Load())
 }
 
 // Once 执行一次定时任务
@@ -73,11 +80,10 @@ func (t *taskScheduler) Cancel(taskID int64) {
 
 // CancelAll 停止所有定时任务
 func (t *taskScheduler) CancelAll() {
-	t.tasks.Range(func(key, value any) bool {
+	t.tasks.Range(func(_, value any) bool {
 		if cancelFn, ok := value.(context.CancelFunc); ok {
 			cancelFn()
 		}
-		t.tasks.Delete(key)
 		return true
 	})
 }
@@ -88,10 +94,15 @@ func (t *taskScheduler) run(durFirst, durRepeat time.Duration, repeated bool, f 
 	ctx, cancel := context.WithCancel(t.ctx) // 派生Context
 	t.tasks.Store(taskID, cancel)
 
+	t.count.Add(1) // 统计 +1
+
 	// 启动定时任务协程
 	go func() {
-		defer t.tasks.Delete(taskID)
-		defer cancel()
+		defer func() {
+			t.tasks.Delete(taskID)
+			cancel()
+			t.count.Add(-1) // 统计 -1
+		}()
 
 		timer := time.NewTimer(durFirst)
 		defer timer.Stop()
@@ -113,6 +124,7 @@ func (t *taskScheduler) run(durFirst, durRepeat time.Duration, repeated bool, f 
 	return taskID
 }
 
+// safeCall 把 f 投递到任务池或直接 goroutine，并带 recover
 func safeCall(loop ITaskExecutor, f func()) {
 	if loop != nil {
 		loop.Post(func() {
