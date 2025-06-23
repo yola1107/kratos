@@ -63,7 +63,7 @@ build:
 	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-X main.Version=$(VERSION)" -o ./bin/ ./...
 
 
-.PHONY: build-race-win
+.PHONY: build-race
 build-race:
 	@echo "→ building race for Windows..."
 	mkdir -p bin
