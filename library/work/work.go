@@ -49,6 +49,10 @@ func (w *workStore) Stop() {
 	w.timer.CancelAll()
 }
 
+func (w *workStore) Status() LoopStatus {
+	return w.loop.Status()
+}
+
 func (w *workStore) Post(job func()) {
 	w.loop.Post(job)
 }

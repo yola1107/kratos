@@ -17,10 +17,18 @@ type asyncResult struct {
 	err  error
 }
 
+// LoopStatus 定义当前池状态结构体
+type LoopStatus struct {
+	Capacity int // 池最大容量
+	Running  int // 当前运行中协程数
+	Free     int // 空闲协程数（Capacity - Running）
+}
+
 // ITaskLoop 协程池管理接口
 type ITaskLoop interface {
 	Start() error
 	Stop()
+	Status() LoopStatus
 	Post(job func())
 	PostCtx(ctx context.Context, job func())
 	PostAndWait(job func() ([]byte, error)) ([]byte, error)
@@ -66,7 +74,11 @@ func (l *antsLoop) Start() error {
 		return nil
 	}
 
-	pool, err := ants.NewPool(l.size)
+	pool, err := ants.NewPool(l.size,
+		ants.WithPreAlloc(true), // 预分配容量，避免 runtime 扩容内存
+		// ants.WithNonblocking(false),  // 非阻塞提交，任务满时立即报错（否则阻塞） 默认阻塞模式:true
+		// ants.WithMaxBlockingTasks(0), // 最大阻塞任务数（非阻塞模式下可设为0）
+	)
 	if err != nil {
 		return fmt.Errorf("pool init failed: %w", err)
 	}
@@ -86,6 +98,25 @@ func (l *antsLoop) Stop() {
 		p.Release()
 		log.Infof("antsLoop stopping [running:%d]", p.Running())
 	}
+}
+
+// Status 获取当前池状态
+func (l *antsLoop) Status() LoopStatus {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+
+	if l.pool == nil {
+		return LoopStatus{}
+	}
+
+	capacity := l.pool.Cap()
+	running := l.pool.Running()
+	free := capacity - running
+	if free < 0 {
+		free = 0
+	}
+
+	return LoopStatus{capacity, running, free}
 }
 
 func (l *antsLoop) Post(job func()) {
@@ -168,3 +199,66 @@ func RecoverFromError(cb func(e any)) {
 		}
 	}
 }
+
+//
+// var resultChanPool = sync.Pool{
+// 	New: func() any {
+// 		return make(chan *asyncResult, 1)
+// 	},
+// }
+//
+// var asyncResultPool = sync.Pool{
+// 	New: func() any {
+// 		return new(asyncResult)
+// 	},
+// }
+
+// func (l *antsLoop) PostAndWaitCtx(ctx context.Context, job func() ([]byte, error)) ([]byte, error) {
+// 	ch := resultChanPool.Get().(chan *asyncResult)
+//
+// 	// 清理通道并归还池中
+// 	defer func() {
+// 		select {
+// 		case <-ch: // drain
+// 		default:
+// 		}
+// 		resultChanPool.Put(ch)
+// 	}()
+//
+// 	l.submit(ctx, func() {
+// 		defer RecoverFromError(func(e any) {
+// 			res := asyncResultPool.Get().(*asyncResult)
+// 			res.data = nil
+// 			res.err = fmt.Errorf("panic: %v", e)
+//
+// 			select {
+// 			case ch <- res:
+// 			default:
+// 			}
+// 		})
+//
+// 		data, err := job()
+// 		res := asyncResultPool.Get().(*asyncResult)
+// 		res.data = data
+// 		res.err = err
+//
+// 		select {
+// 		case ch <- res:
+// 		case <-ctx.Done():
+// 		}
+// 	})
+//
+// 	select {
+// 	case res := <-ch:
+// 		defer asyncResultPool.Put(res)
+// 		return res.data, res.err
+// 	case <-ctx.Done():
+// 		select {
+// 		case res := <-ch:
+// 			defer asyncResultPool.Put(res)
+// 			return res.data, res.err
+// 		default:
+// 			return nil, fmt.Errorf("canceled: %w", ctx.Err())
+// 		}
+// 	}
+// }
