@@ -32,12 +32,14 @@ func SliceCopy[T any](src []T) []T {
 }
 
 // SliceShuffle 打乱数据（原地修改）
-func SliceShuffle[T any](array []T) {
-	if len(array) == 0 {
+func SliceShuffle[T any](slice []T) {
+	if len(slice) <= 1 {
 		return
 	}
-	secureRand.Shuffle(len(array), func(i, j int) {
-		array[i], array[j] = array[j], array[i]
+	r := getRand()
+	defer putRand(r)
+	r.Shuffle(len(slice), func(i, j int) {
+		slice[i], slice[j] = slice[j], slice[i]
 	})
 }
 
@@ -126,7 +128,7 @@ func SliceUniq[T comparable](data []T) []T {
 
 // SliceContains 检查是否包含所有值
 func SliceContains[T comparable](data []T, values ...T) bool {
-	if len(values) == 0 {
+	if len(values) <= 1 {
 		return true
 	}
 	valueCount := make(map[T]int)

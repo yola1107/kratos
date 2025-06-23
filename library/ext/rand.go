@@ -1,6 +1,9 @@
 package ext
 
 import (
+	crand "crypto/rand"
+	"encoding/binary"
+	"math"
 	"math/rand"
 	"sync"
 	"time"
@@ -8,15 +11,24 @@ import (
 	"golang.org/x/exp/constraints"
 )
 
-var (
-	randPool = sync.Pool{
-		New: func() any {
-			// 用纳秒时间戳 + goroutine id/hash作为种子更均匀
-			seed := time.Now().UnixNano() ^ int64(rand.Intn(1<<20))
-			return rand.New(rand.NewSource(seed))
-		},
+/*
+
+	线程安全的真实随机
+*/
+
+var randPool = sync.Pool{
+	New: func() any {
+		return rand.New(rand.NewSource(betterSeed()))
+	},
+}
+
+func betterSeed() int64 {
+	var b [8]byte
+	if _, err := crand.Read(b[:]); err != nil {
+		return time.Now().UnixNano()
 	}
-)
+	return int64(binary.LittleEndian.Uint64(b[:])) ^ time.Now().UnixNano()
+}
 
 func getRand() *rand.Rand {
 	return randPool.Get().(*rand.Rand)
@@ -26,7 +38,6 @@ func putRand(r *rand.Rand) {
 	randPool.Put(r)
 }
 
-// IsHit 判断概率为 v% 的事件是否命中 (v 范围 [0,100])
 func IsHit(v int) bool {
 	if v <= 0 {
 		return false
@@ -39,7 +50,6 @@ func IsHit(v int) bool {
 	return r.Intn(100) < v
 }
 
-// IsHitFloat 判断概率为 v 的事件是否命中 (v 范围 [0,1])
 func IsHitFloat(v float64) bool {
 	if v <= 0 {
 		return false
@@ -52,7 +62,6 @@ func IsHitFloat(v float64) bool {
 	return r.Float64() < v
 }
 
-// RandFloat 生成 [min, max) 范围的随机浮点数
 func RandFloat(min, max float64) float64 {
 	if max <= min {
 		return min
@@ -62,24 +71,28 @@ func RandFloat(min, max float64) float64 {
 	return r.Float64()*(max-min) + min
 }
 
-// RandInt 生成 [min, max) 范围的随机整数
-func RandInt[T constraints.Integer](min T, max T) T {
+func RandInt[T constraints.Integer](min, max T) T {
 	if max <= min {
+		return min
+	}
+	diff := uint64(max - min)
+	if diff > math.MaxInt64 {
 		return min
 	}
 	r := getRand()
 	defer putRand(r)
-	num := r.Int63n(int64(max - min))
-	return min + T(num)
+	return min + T(r.Int63n(int64(diff)))
 }
 
-// RandIntInclusive 生成 [min, max] 范围的随机整数
-func RandIntInclusive[T constraints.Integer](min T, max T) T {
-	if max <= min {
+func RandIntInclusive[T constraints.Integer](min, max T) T {
+	if max < min {
+		return min
+	}
+	diff := uint64(max - min + 1)
+	if diff > math.MaxInt64 {
 		return min
 	}
 	r := getRand()
 	defer putRand(r)
-	num := r.Int63n(int64(max - min + 1))
-	return min + T(num)
+	return min + T(r.Int63n(int64(diff)))
 }
