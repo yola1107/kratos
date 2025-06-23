@@ -38,6 +38,7 @@ func putRand(r *rand.Rand) {
 	randPool.Put(r)
 }
 
+// IsHit 判断概率为 v% 的事件是否命中 (v 范围 [0,100])
 func IsHit(v int) bool {
 	if v <= 0 {
 		return false
@@ -50,6 +51,7 @@ func IsHit(v int) bool {
 	return r.Intn(100) < v
 }
 
+// IsHitFloat 判断概率为 v 的事件是否命中 (v 范围 [0,1])
 func IsHitFloat(v float64) bool {
 	if v <= 0 {
 		return false
@@ -62,6 +64,7 @@ func IsHitFloat(v float64) bool {
 	return r.Float64() < v
 }
 
+// RandFloat 生成 [min, max) 范围的随机浮点数
 func RandFloat(min, max float64) float64 {
 	if max <= min {
 		return min
@@ -71,6 +74,7 @@ func RandFloat(min, max float64) float64 {
 	return r.Float64()*(max-min) + min
 }
 
+// RandInt 生成 [min, max) 范围的随机整数
 func RandInt[T constraints.Integer](min, max T) T {
 	if max <= min {
 		return min
@@ -84,6 +88,7 @@ func RandInt[T constraints.Integer](min, max T) T {
 	return min + T(r.Int63n(int64(diff)))
 }
 
+// RandIntInclusive 生成 [min, max] 范围的随机整数
 func RandIntInclusive[T constraints.Integer](min, max T) T {
 	if max < min {
 		return min

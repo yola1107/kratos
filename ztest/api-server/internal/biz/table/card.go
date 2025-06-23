@@ -41,7 +41,7 @@ func (g *GameCards) Shuffle() {
 func (g *GameCards) DispatchCards(n int) []int32 {
 	if g.index+n > len(g.cardHeap) {
 		log.Errorf("GameCards error.(overflow) cidx:%d n:%d total=%d", g.index, n, len(g.cardHeap))
-		return make([]int32, n)
+		return nil // make([]int32, n)
 	}
 
 	start := g.index

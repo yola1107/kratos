@@ -101,24 +101,24 @@ func (uc *Usecase) OnSwitchTableReq(info *SwapperInfo) {
 
 // CreateRobot .
 func (uc *Usecase) CreateRobot(raw *player.Raw) (*player.Player, error) {
-	ctx := context.Background()
-	if !uc.repo.ExistPlayer(ctx, raw.ID) {
-		base := &player.BaseData{
-			UID:       raw.ID,
-			VIP:       0,
-			NickName:  fmt.Sprintf("robot_%d", raw.ID),
-			Avatar:    fmt.Sprintf("robot_avatar_%d", raw.ID),
-			AvatarUrl: fmt.Sprintf("robot_avatar_%d", raw.ID),
-			Money:     ext.RandFloat(uc.rc.Game.MinMoney, uc.rc.Game.MaxMoney),
-		}
-		if err := uc.repo.SavePlayer(context.Background(), base); err != nil {
-			return nil, err
-		}
-		raw.BaseData = base
-		p := player.New(raw)
-		return p, nil
+	// ctx := context.Background()
+	// if !uc.repo.ExistPlayer(ctx, raw.ID) {
+	base := &player.BaseData{
+		UID:       raw.ID,
+		VIP:       0,
+		NickName:  fmt.Sprintf("robot_%d", raw.ID),
+		Avatar:    fmt.Sprintf("robot_avatar_%d", raw.ID),
+		AvatarUrl: fmt.Sprintf("robot_avatar_%d", raw.ID),
+		Money:     ext.RandFloat(uc.rc.Game.MinMoney, uc.rc.Game.MaxMoney),
 	}
-	return uc.createPlayer(raw)
+	// if err := uc.repo.SavePlayer(context.Background(), base); err != nil {
+	// 	return nil, err
+	// }
+	raw.BaseData = base
+	p := player.New(raw)
+	return p, nil
+	// }
+	// return uc.createPlayer(raw)
 }
 
 func (uc *Usecase) createPlayer(raw *player.Raw) (*player.Player, error) {
@@ -148,24 +148,38 @@ func (uc *Usecase) LogoutGame(p *player.Player, code int32, msg string) {
 
 	log.Debugf("logoutGame. p:%+v code=%d msg=%q", p.Desc(), code, msg)
 
+	uid := p.GetPlayerID()
 	if p.IsRobot() {
-		uc.rm.Leave(p.GetPlayerID())
+		uc.rm.Leave(uid)
 		return
 	} else {
-		uc.pm.Remove(p.GetPlayerID())
+		uc.pm.Remove(uid)
 	}
 
 	// 异步释放玩家
-	go func() {
-		defer ext.RecoverFromError(nil)
-
+	uc.ws.Post(func() {
 		// 数据入库
 		baseData := *(p.GetBaseData()) // 复制一份
+
 		if err := uc.repo.SavePlayer(context.Background(), &baseData); err != nil {
-			uc.log.Warnf("save player failed: %v", err)
+			uc.log.Warnf("save player failed: uid=%d %v", uid, err)
 		}
 
 		// 通知并清理
 		p.LogoutGame(code, msg)
-	}()
+	})
+
+	// // 异步释放玩家
+	// go func() {
+	// 	defer ext.RecoverFromError(nil)
+	//
+	// 	// 数据入库
+	// 	baseData := *(p.GetBaseData()) // 复制一份
+	// 	if err := uc.repo.SavePlayer(context.Background(), &baseData); err != nil {
+	// 		uc.log.Warnf("save player failed: %v", err)
+	// 	}
+	//
+	// 	// 通知并清理
+	// 	p.LogoutGame(code, msg)
+	// }()
 }

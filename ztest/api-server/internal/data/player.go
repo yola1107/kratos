@@ -35,7 +35,7 @@ var allBaseDataFields = []string{
 }
 
 func GetPlayerKey(uid int64) string {
-	return fmt.Sprintf("user:%v", uid)
+	return fmt.Sprintf("account:user:%v", uid)
 }
 
 func (r *dataRepo) SavePlayer(ctx context.Context, base *player.BaseData) error {

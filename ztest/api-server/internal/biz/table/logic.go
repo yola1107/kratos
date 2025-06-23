@@ -163,7 +163,12 @@ func (t *Table) dispatchCard(canGameSeats []*player.Player) {
 
 	// 发牌
 	for _, p := range canGameSeats {
-		p.AddCards(t.cards.DispatchCards(3))
+		cards := t.cards.DispatchCards(3)
+		if len(cards) != 3 {
+			log.Errorf("dispatchCard error: player %d got invalid cards: %v", p.GetPlayerID(), cards)
+			cards = make([]int32, 3)
+		}
+		p.AddCards(cards)
 	}
 
 	// 发牌广播
