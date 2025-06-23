@@ -1861,8 +1861,6 @@ func (m *Room_Robot) validate(all bool) error {
 
 	// no validation rules for StandMaxMoney
 
-	// no validation rules for ReserveN
-
 	if len(errors) > 0 {
 		return Room_RobotMultiError(errors)
 	}

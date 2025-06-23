@@ -42,23 +42,19 @@ type HandCard struct {
 
 func (h *HandCard) Set(cards []int32) {
 	if len(cards) != 3 {
-		log.Errorf("HandCard len error. %v", cards)
-		h.Cards = nil
-		h.Type = CtInvalid
+		log.Errorf("Set cards error, cards length is not 3: %d", len(cards))
 		return
 	}
-
-	// 拷贝并排序：从大到小
 	h.Cards = make([]int32, 3)
 	copy(h.Cards, cards)
-	sort.Slice(h.Cards, func(i, j int) bool {
-		return GetCardScore(h.Cards[i]) > GetCardScore(h.Cards[j])
-	})
-
 	h.CalcType()
 }
 
 func (h *HandCard) CalcType() {
+	// 拷贝并排序：从大到小
+	sort.Slice(h.Cards, func(i, j int) bool {
+		return GetCardScore(h.Cards[i]) > GetCardScore(h.Cards[j])
+	})
 	card0, card1, card2 := h.Cards[0], h.Cards[1], h.Cards[2]
 	num0, num1, num2 := GetCardNum(card0), GetCardNum(card1), GetCardNum(card2)
 	score0, score1, score2 := GetCardScore(card0), GetCardScore(card1), GetCardScore(card2)

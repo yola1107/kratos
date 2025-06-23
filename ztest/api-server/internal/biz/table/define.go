@@ -13,6 +13,10 @@ import (
 	StageID 游戏阶段ID
 */
 
+const (
+	DefaultLongTimeout = 600 // 超时时间600s
+)
+
 type StageID int32
 
 const (
@@ -28,6 +32,7 @@ const (
 
 // StageTimeouts maps each stage to its timeout duration (in seconds).
 var StageTimeouts = map[StageID]int64{
+	StWait:        DefaultLongTimeout,
 	StReady:       2,
 	StSendCard:    3,
 	StAction:      12,
@@ -62,8 +67,9 @@ func (s StageID) Timeout() int64 {
 	if timeout, ok := StageTimeouts[s]; ok {
 		return timeout
 	}
-	log.Warnf("unknown stage: %d", s)
-	return 0
+	// 未知阶段注意不要返回0 避免无限循环
+	log.Warnf("unknown stage: %d. use default timeout=360s", s)
+	return DefaultLongTimeout
 }
 
 /*

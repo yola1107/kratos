@@ -845,13 +845,12 @@ type Room_Robot struct {
 	Open          bool                   `protobuf:"varint,1,opt,name=open,proto3" json:"open,omitempty"`
 	Num           int32                  `protobuf:"varint,2,opt,name=num,proto3" json:"num,omitempty"`
 	TableMaxCount int32                  `protobuf:"varint,3,opt,name=table_max_count,json=tableMaxCount,proto3" json:"table_max_count,omitempty"`
-	MinPlayCount  int32                  `protobuf:"varint,4,opt,name=min_play_count,json=minPlayCount,proto3" json:"min_play_count,omitempty"` // 预留N个AI自己玩游戏 (废弃)
+	MinPlayCount  int32                  `protobuf:"varint,4,opt,name=min_play_count,json=minPlayCount,proto3" json:"min_play_count,omitempty"` // 预留N个AI自己玩游戏
 	IdBegin       int64                  `protobuf:"varint,5,opt,name=id_begin,json=idBegin,proto3" json:"id_begin,omitempty"`
 	MinMoney      float64                `protobuf:"fixed64,6,opt,name=min_money,json=minMoney,proto3" json:"min_money,omitempty"`
 	MaxMoney      float64                `protobuf:"fixed64,7,opt,name=max_money,json=maxMoney,proto3" json:"max_money,omitempty"`
 	StandMinMoney float64                `protobuf:"fixed64,8,opt,name=stand_min_money,json=standMinMoney,proto3" json:"stand_min_money,omitempty"`
-	StandMaxMoney float64                `protobuf:"fixed64,9,opt,name=stand_max_money,json=standMaxMoney,proto3" json:"stand_max_money,omitempty"`
-	ReserveN      int32                  `protobuf:"varint,10,opt,name=reserveN,proto3" json:"reserveN,omitempty"` // 预留N桌AI自己玩游戏
+	StandMaxMoney float64                `protobuf:"fixed64,9,opt,name=stand_max_money,json=standMaxMoney,proto3" json:"stand_max_money,omitempty"` //        int32 reserveN         = 10;  // 预留N桌AI自己玩游戏 (废弃)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -949,13 +948,6 @@ func (x *Room_Robot) GetStandMaxMoney() float64 {
 	return 0
 }
 
-func (x *Room_Robot) GetReserveN() int32 {
-	if x != nil {
-		return x.ReserveN
-	}
-	return 0
-}
-
 type Room_LogCache struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Open          bool                   `protobuf:"varint,1,opt,name=open,proto3" json:"open,omitempty"`
@@ -1041,7 +1033,7 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\anetwork\x18\x01 \x01(\tR\anetwork\x12\x12\n" +
 	"\x04addr\x18\x02 \x01(\tR\x04addr\x12\x1a\n" +
 	"\bpassword\x18\x03 \x01(\tR\bpassword\x12\x0e\n" +
-	"\x02db\x18\x04 \x01(\x05R\x02db\"\xeb\b\n" +
+	"\x02db\x18\x04 \x01(\x05R\x02db\"\xcf\b\n" +
 	"\x04Room\x126\n" +
 	"\x05table\x18\x01 \x01(\v2\x16.kratos.api.Room.TableB\b\xfaB\x05\x8a\x01\x02\x10\x01R\x05table\x123\n" +
 	"\x04game\x18\x02 \x01(\v2\x15.kratos.api.Room.GameB\b\xfaB\x05\x8a\x01\x02\x10\x01R\x04game\x126\n" +
@@ -1068,7 +1060,7 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\tpot_limit\x18\f \x01(\x01R\bpotLimit\x12\x10\n" +
 	"\x03fee\x18\r \x01(\x01R\x03fee\x12)\n" +
 	"\x10speaker_minmoney\x18\x0e \x01(\x01R\x0fspeakerMinmoney\x12\x1b\n" +
-	"\tvip_limit\x18\x0f \x01(\x05R\bvipLimit\x1a\xbc\x02\n" +
+	"\tvip_limit\x18\x0f \x01(\x05R\bvipLimit\x1a\xa0\x02\n" +
 	"\x05Robot\x12\x12\n" +
 	"\x04open\x18\x01 \x01(\bR\x04open\x12\x10\n" +
 	"\x03num\x18\x02 \x01(\x05R\x03num\x12&\n" +
@@ -1078,9 +1070,7 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\tmin_money\x18\x06 \x01(\x01R\bminMoney\x12\x1b\n" +
 	"\tmax_money\x18\a \x01(\x01R\bmaxMoney\x12&\n" +
 	"\x0fstand_min_money\x18\b \x01(\x01R\rstandMinMoney\x12&\n" +
-	"\x0fstand_max_money\x18\t \x01(\x01R\rstandMaxMoney\x12\x1a\n" +
-	"\breserveN\x18\n" +
-	" \x01(\x05R\breserveN\x1a\x1e\n" +
+	"\x0fstand_max_money\x18\t \x01(\x01R\rstandMaxMoney\x1a\x1e\n" +
 	"\bLogCache\x12\x12\n" +
 	"\x04open\x18\x01 \x01(\bR\x04openB\x1fZ\x1dapi-server/internal/conf;confb\x06proto3"
 

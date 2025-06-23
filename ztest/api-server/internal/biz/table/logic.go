@@ -40,18 +40,25 @@ func (s *Stage) Set(state StageID, duration time.Duration, timerID int64) {
 
 func (t *Table) OnTimer() {
 	// log.Debugf("TimeOut Stage ... %v ", t.stage.State)
-	handlers := map[StageID]stageHandlerFunc{
-		StReady:       t.onGameStart,
-		StSendCard:    t.onSendCardTimeout,
-		StAction:      t.onActionTimeout,
-		StSideShow:    t.onSideShowTimeout,
-		StSideShowAni: t.onSideShowAniTimeout,
-		StWaitEnd:     t.gameEnd,
-		StEnd:         t.onEndTimeout,
-	}
-	if handler, ok := handlers[t.stage.State]; ok {
-		handler()
-	} else {
+
+	switch t.stage.State {
+	case StWait:
+		log.Infof("StWait timmeout.")
+	case StReady:
+		t.onGameStart()
+	case StSendCard:
+		t.onSendCardTimeout()
+	case StAction:
+		t.onActionTimeout()
+	case StSideShow:
+		t.onSideShowTimeout()
+	case StSideShowAni:
+		t.onSideShowAniTimeout()
+	case StWaitEnd:
+		t.gameEnd()
+	case StEnd:
+		t.onEndTimeout()
+	default:
 		log.Errorf("unhandled stage timeout: %v", t.stage.State)
 	}
 }
@@ -85,7 +92,8 @@ func (t *Table) checkReady() {
 	})
 	canStart := okCnt >= MinStartPlayerCnt
 	if !canStart {
-		t.stage.State = StWait
+		// t.stage.State = StWait
+		t.updateStage(StWait)
 		return
 	}
 
@@ -96,7 +104,8 @@ func (t *Table) checkReady() {
 func (t *Table) onGameStart() {
 	can, canGameSeats, chairs := t.checkStart()
 	if !can {
-		t.stage.State = StWait
+		// t.stage.State = StWait
+		t.updateStage(StWait)
 		return
 	}
 
@@ -163,12 +172,7 @@ func (t *Table) dispatchCard(canGameSeats []*player.Player) {
 
 	// 发牌
 	for _, p := range canGameSeats {
-		cards := t.cards.DispatchCards(3)
-		if len(cards) != 3 {
-			log.Errorf("dispatchCard error: player %d got invalid cards: %v", p.GetPlayerID(), cards)
-			cards = make([]int32, 3)
-		}
-		p.AddCards(cards)
+		p.AddCards(t.cards.DispatchCards(3))
 	}
 
 	// 发牌广播

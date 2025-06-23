@@ -27,11 +27,6 @@ func (g *GameCards) Init() {
 }
 
 func (g *GameCards) Shuffle() {
-	if len(g.cardHeap) != 13*4 {
-		g.Init() // 容错处理
-		log.Errorf("WARNING: Shuffle called with unexpected length:%d cidx:%d", len(g.cardHeap), g.index)
-	}
-
 	g.index = 0
 	for i := 0; i < 3; i++ {
 		ext.SliceShuffle(g.cardHeap)
@@ -41,7 +36,7 @@ func (g *GameCards) Shuffle() {
 func (g *GameCards) DispatchCards(n int) []int32 {
 	if g.index+n > len(g.cardHeap) {
 		log.Errorf("GameCards error.(overflow) cidx:%d n:%d total=%d", g.index, n, len(g.cardHeap))
-		return nil // make([]int32, n)
+		return make([]int32, n)
 	}
 
 	start := g.index
