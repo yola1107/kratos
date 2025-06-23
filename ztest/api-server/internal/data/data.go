@@ -46,6 +46,7 @@ func NewData(c *conf.Data, logger log.Logger, redis *redis.Client) (*Data, func(
 }
 
 func NewRedis(c *conf.Data) *redis.Client {
+	return nil
 	rdb := kredis.NewClient(
 		kredis.WithAddress(c.Redis.Addr),
 		kredis.WithPassword(c.Redis.Password),
