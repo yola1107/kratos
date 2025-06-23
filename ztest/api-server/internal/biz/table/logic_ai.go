@@ -119,11 +119,9 @@ func (r *RobotLogic) onActivePush(p *player.Player, msg proto.Message) {
 
 	ops := rsp.GetCanOp()
 	ops2 := r.mTable.getCanOp(r.mTable.GetActivePlayer())
-	if !ext.SliceContains(ops, ops2...) || !ext.SliceContains(ops2, ops...) || len(ops) == 0 || len(ops2) == 0 {
-		log.Errorf("ops:%v ops2:%v ", ops, ops2)
-	}
-	if len(ops) == 0 {
-		log.Errorf("empty. ops:%v ops2:%v ", ops, ops2)
+	if len(ops) == 0 || len(ops2) == 0 || !ext.SliceContains(ops, ops2...) || !ext.SliceContains(ops2, ops...) {
+		log.Errorf("empty. p:%+v stage:%v active:%v ops:%v ops2:%v ",
+			p.Desc(), r.mTable.stage.State, r.mTable.active, ops, ops2)
 		ops = ops2
 	}
 
