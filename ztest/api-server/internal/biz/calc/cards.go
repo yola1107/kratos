@@ -3,6 +3,8 @@ package calc
 import (
 	"fmt"
 	"sort"
+
+	"github.com/yola1107/kratos/v2/log"
 )
 
 // CardType 牌型
@@ -18,22 +20,12 @@ const (
 	CtDanPai                  // 单牌
 )
 
-// GetCardColor 获取牌花色
-func GetCardColor(card int32) int32 {
-	return card / 0x10
-}
-
-// GetCardNum 获取牌值
-func GetCardNum(card int32) int32 {
-	return card % 0x10
-}
-
-// GetCardScore 获取牌的大小值
+func GetCardColor(card int32) int32 { return card / 0x10 }
+func GetCardNum(card int32) int32   { return card % 0x10 }
 func GetCardScore(card int32) int32 {
 	num := GetCardNum(card)
-	// A>K
 	if num == 1 {
-		num = 14
+		return 14 // A > K
 	}
 	return num
 }
@@ -44,67 +36,68 @@ func GetCardScore(card int32) int32 {
 */
 
 type HandCard struct {
-	Cards []int32  // 手牌
-	Type  CardType // 牌型
+	Cards []int32
+	Type  CardType
 }
 
-// Set 设置手牌
 func (h *HandCard) Set(cards []int32) {
-	h.Cards = make([]int32, len(cards))
-	copy(h.Cards, cards)
-	h.CalcType()
-}
-
-// CalcType 计算牌型
-func (h *HandCard) CalcType() {
-	if len(h.Cards) != 3 {
+	if len(cards) != 3 {
+		log.Errorf("HandCard len error. %v", cards)
+		h.Cards = nil
+		h.Type = CtInvalid
 		return
 	}
 
+	// 拷贝并排序：从大到小
+	h.Cards = make([]int32, 3)
+	copy(h.Cards, cards)
 	sort.Slice(h.Cards, func(i, j int) bool {
 		return GetCardScore(h.Cards[i]) > GetCardScore(h.Cards[j])
 	})
 
-	// 炸弹
-	if GetCardNum(h.Cards[0]) == GetCardNum(h.Cards[1]) &&
-		GetCardNum(h.Cards[1]) == GetCardNum(h.Cards[2]) {
+	h.CalcType()
+}
+
+func (h *HandCard) CalcType() {
+	card0, card1, card2 := h.Cards[0], h.Cards[1], h.Cards[2]
+	num0, num1, num2 := GetCardNum(card0), GetCardNum(card1), GetCardNum(card2)
+	score0, score1, score2 := GetCardScore(card0), GetCardScore(card1), GetCardScore(card2)
+	color0, color1, color2 := GetCardColor(card0), GetCardColor(card1), GetCardColor(card2)
+
+	// 豹子
+	if num0 == num1 && num1 == num2 {
 		h.Type = CtBaoZi
 		return
 	}
 
-	isSequence := GetCardScore(h.Cards[0]) == GetCardScore(h.Cards[1])+1 &&
-		GetCardScore(h.Cards[1]) == GetCardScore(h.Cards[2])+1
-
-	if !isSequence && GetCardScore(h.Cards[0]) == 14 {
-		isSequence = GetCardNum(h.Cards[1]) == GetCardNum(h.Cards[2])+1 &&
-			GetCardNum(h.Cards[0])+1 == GetCardNum(h.Cards[2])
+	// 顺子
+	isSequence := score0 == score1+1 && score1 == score2+1
+	if !isSequence && score0 == 14 {
+		// A23 特殊顺子
+		isSequence = num1 == 3 && num2 == 2
 	}
-	isColour := GetCardColor(h.Cards[0]) == GetCardColor(h.Cards[1]) &&
-		GetCardColor(h.Cards[1]) == GetCardColor(h.Cards[2])
+
+	// 同花
+	isSameColor := color0 == color1 && color1 == color2
 
 	switch {
-	case isSequence && isColour:
+	case isSequence && isSameColor:
 		h.Type = CtShunJin
 	case isSequence:
 		h.Type = CtShunZi
-	case isColour:
+	case isSameColor:
 		h.Type = CtJinHua
-	default:
-		if GetCardNum(h.Cards[0]) == GetCardNum(h.Cards[1]) ||
-			GetCardNum(h.Cards[1]) == GetCardNum(h.Cards[2]) {
-			h.Type = CtDuiZi
-			// 对子放前面
-			if GetCardNum(h.Cards[0]) != GetCardNum(h.Cards[1]) {
-				h.Cards[0], h.Cards[2] = h.Cards[2], h.Cards[0]
-			}
-		} else {
-			h.Type = CtDanPai
+	case num0 == num1 || num1 == num2:
+		h.Type = CtDuiZi
+		// 把对子牌移到前面
+		if num0 != num1 {
+			h.Cards[0], h.Cards[2] = h.Cards[2], h.Cards[0]
 		}
+	default:
+		h.Type = CtDanPai
 	}
-
 }
 
-// ToString 用于记录
 func (h *HandCard) String() string {
 	return fmt.Sprintf("(%v %v)", h.Cards, h.Type)
 }

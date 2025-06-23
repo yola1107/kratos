@@ -62,6 +62,14 @@ build:
 	mkdir -p bin/ && go build -ldflags "-X main.Version=$(VERSION)" -o ./bin/ ./...
 	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-X main.Version=$(VERSION)" -o ./bin/ ./...
 
+
+.PHONY: build-race-win
+build-race:
+	@echo "→ building race for Windows..."
+	mkdir -p bin
+	CGO_ENABLED=1 GOOS=windows GOARCH=amd64 \
+		go build -race -ldflags "-X main.Version=$(VERSION)" -o bin/cmd-race.exe ./cmd
+
 .PHONY: generate
 # generate
 generate:
