@@ -13,10 +13,6 @@ import (
 	StageID 游戏阶段ID
 */
 
-const (
-	DefaultLongTimeout = 600 // 超时时间600s
-)
-
 type StageID int32
 
 const (
@@ -32,7 +28,7 @@ const (
 
 // StageTimeouts maps each stage to its timeout duration (in seconds).
 var StageTimeouts = map[StageID]int64{
-	StWait:        DefaultLongTimeout,
+	StWait:        0,
 	StReady:       0,
 	StSendCard:    3,
 	StAction:      12,

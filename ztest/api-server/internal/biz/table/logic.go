@@ -41,8 +41,8 @@ func (t *Table) OnTimer() {
 
 	switch t.stage.State {
 	case StWait:
-		// StWait 状态通常不会超时的，除非没有玩家开局，可选踢掉长时间占桌不开局的玩家
-		log.Infof("StWait timmeout.")
+		// StWait 可选踢掉长时间占桌不开局的玩家
+		log.Infof("StWait timmeout. TimerID:%d", t.stage.TimerID)
 	case StReady:
 		t.onGameStart()
 	case StSendCard:
@@ -82,19 +82,19 @@ func (t *Table) checkStartGame() {
 		return
 	}
 
-	canStart, _, chairs := t.calcReadyPlayer()
+	canStart, _, canGameInfo := t.checkReadyPlayer()
 	if !canStart {
 		return
 	}
 
 	// 准备开局
 	t.updateStage(StReady)
-	log.Debugf("=> 准备开局. ReadyCnt=%d chairs:%s", len(chairs), chairs)
+	log.Debugf("=> 准备开局. ReadyCnt=%d canGameInfo:%s", len(canGameInfo), canGameInfo)
 }
 
 func (t *Table) onGameStart() {
 	// 再次检查是否可进行游戏; 兜底回退到StWait
-	can, canGameSeats, infos := t.calcReadyPlayer()
+	can, canGameSeats, canGameInfo := t.checkReadyPlayer()
 	if !can || t.stage.State != StReady {
 		t.updateStage(StWait)
 		return
@@ -112,12 +112,12 @@ func (t *Table) onGameStart() {
 	// 发牌状态倒计时3s
 	t.updateStage(StSendCard)
 
-	log.Debugf("******** <游戏开始> %s canGameSeats:%+v", t.Desc(), infos)
-	t.mLog.begin(t.Desc(), t.curBet, canGameSeats, infos)
+	log.Debugf("******** <游戏开始> %s canGameSeats:%+v", t.Desc(), canGameInfo)
+	t.mLog.begin(t.Desc(), t.curBet, canGameSeats, canGameInfo)
 }
 
 // 检查用户是否可以开局
-func (t *Table) calcReadyPlayer() (bool, []*player.Player, []string) {
+func (t *Table) checkReadyPlayer() (bool, []*player.Player, []string) {
 	canGameInfo := []string(nil)
 	canGameSeats := []*player.Player(nil)
 	for _, v := range t.seats {
@@ -240,9 +240,14 @@ func (t *Table) gameEnd() {
 }
 
 func (t *Table) onEndTimeout() {
-	// 游戏结束后判断
+	// 游戏结束后踢人
 	t.checkKick()
+
+	// 重置数据
 	t.Reset()
+
+	log.Debugf("结束清理完成。\n")
+	t.mLog.end(fmt.Sprintf("结束清理完成。%s", t.Desc()))
 
 	// 状态进入 StWait
 	t.updateStage(StWait)
@@ -252,7 +257,4 @@ func (t *Table) onEndTimeout() {
 
 	// 是否可以下一局
 	t.checkStartGame()
-
-	log.Debugf("结束清理完成。\n")
-	t.mLog.end(fmt.Sprintf("结束清理完成。%s", t.Desc()))
 }
