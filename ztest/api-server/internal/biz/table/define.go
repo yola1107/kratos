@@ -33,7 +33,7 @@ const (
 // StageTimeouts maps each stage to its timeout duration (in seconds).
 var StageTimeouts = map[StageID]int64{
 	StWait:        DefaultLongTimeout,
-	StReady:       2,
+	StReady:       0,
 	StSendCard:    3,
 	StAction:      12,
 	StSideShow:    12,
@@ -67,9 +67,8 @@ func (s StageID) Timeout() int64 {
 	if timeout, ok := StageTimeouts[s]; ok {
 		return timeout
 	}
-	// 未知阶段注意不要返回0 避免无限循环
-	log.Warnf("unknown stage: %d. use default timeout=360s", s)
-	return DefaultLongTimeout
+	log.Warnf("unknown stage: %d. use default timeout=0s", s)
+	return 0
 }
 
 /*

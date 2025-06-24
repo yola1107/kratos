@@ -53,9 +53,8 @@ func (l *Log) userExit(p *player.Player, sitCnt int16, lastChair int32, isSwitch
 	l.write("[离开房间] 玩家:%+v 桌子人数(%+v) lastChair(%d) 是否换桌(%+v) ", p.Desc(), sitCnt, lastChair, isSwitchTable)
 }
 
-func (l *Log) begin(tb string, bet float64, chairs []int32, seats []*player.Player) {
-	logs := []string{fmt.Sprintf("[游戏开始] %s bet:%.1f 玩家椅子顺序:%d",
-		tb, bet, chairs)}
+func (l *Log) begin(tb string, bet float64, seats []*player.Player, infos any) {
+	logs := []string{fmt.Sprintf("[游戏开始] %s bet:%.1f %v", tb, bet, infos)}
 	for _, p := range seats {
 		logs = append(logs, fmt.Sprintf("玩家:%+v 投注[%+v]", p.Desc(), bet))
 	}

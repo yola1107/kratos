@@ -105,7 +105,7 @@ func (t *Table) ThrowInto(p *player.Player) bool {
 		p.Reset()
 		p.SetTableID(t.ID)
 		p.SetChairID(int32(k))
-		p.SetStatus(player.StSit)
+		p.SetSit()
 		t.checkAutoReady(p)
 
 		// 通知客户端登录成功
@@ -122,10 +122,7 @@ func (t *Table) ThrowInto(p *player.Player) bool {
 		log.Infof("EnterTable. p:%+v sitCnt:%d", p.Desc(), t.sitCnt)
 
 		// 检查游戏是否开始
-		t.tryStartGame()
-		// if t.stage.State == StWait {
-		// 	t.checkReady()
-		// }
+		t.checkStartGame()
 
 		// 上报桌子/玩家位置 todo
 		return true

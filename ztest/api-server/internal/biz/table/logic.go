@@ -37,7 +37,7 @@ func (s *Stage) Set(state StageID, duration time.Duration, timerID int64) {
 }
 
 func (t *Table) OnTimer() {
-	// log.Debugf("TimeOut Stage ... %v ", t.stage.State)
+	log.Debugf("TimeOut Stage ... %v ", t.stage.State)
 
 	switch t.stage.State {
 	case StWait:
@@ -74,28 +74,28 @@ func (t *Table) updateStageWith(state StageID, duration time.Duration) {
 
 	// 日志
 	t.mLog.stage(t.stage.Prev, t.stage.State, t.active)
-	// log.Debugf("Stage changed: %s -> %s  dur=%v", t.stage.Prev.String(), t.stage.State.String(), duration)
+	log.Debugf("*** %s -> %s  dur=%v", t.stage.Prev.String(), t.stage.State.String(), duration)
 }
 
-func (t *Table) tryStartGame() {
+func (t *Table) checkStartGame() {
 	if t.stage.State != StWait {
 		return
 	}
 
-	canStart, _, _ := t.checkStart()
+	canStart, _, chairs := t.calcReadyPlayer()
 	if !canStart {
 		return
 	}
 
-	// 准备状态倒计时2s
+	// 准备开局
 	t.updateStage(StReady)
+	log.Debugf("=> 准备开局. ReadyCnt=%d chairs:%s", len(chairs), chairs)
 }
 
 func (t *Table) onGameStart() {
-	// 再次检查是否可进行游戏; 兜底回退到StWait，同时取消StReady状态的超时定时器事件
-	can, canGameSeats, chairs := t.checkStart()
-	if !can {
-		// t.stage.State = StWait //错误示范 定时任务仍在
+	// 再次检查是否可进行游戏; 兜底回退到StWait
+	can, canGameSeats, infos := t.calcReadyPlayer()
+	if !can || t.stage.State != StReady {
 		t.updateStage(StWait)
 		return
 	}
@@ -112,21 +112,23 @@ func (t *Table) onGameStart() {
 	// 发牌状态倒计时3s
 	t.updateStage(StSendCard)
 
-	log.Debugf("******** <游戏开始> %s canGameSeats:%+v", t.Desc(), chairs)
-	t.mLog.begin(t.Desc(), t.curBet, chairs, canGameSeats)
+	log.Debugf("******** <游戏开始> %s canGameSeats:%+v", t.Desc(), infos)
+	t.mLog.begin(t.Desc(), t.curBet, canGameSeats, infos)
 }
 
 // 检查用户是否可以开局
-func (t *Table) checkStart() (bool, []*player.Player, []int32) {
-	canGameSeats, chairs := []*player.Player(nil), []int32(nil)
+func (t *Table) calcReadyPlayer() (bool, []*player.Player, []string) {
+	canGameInfo := []string(nil)
+	canGameSeats := []*player.Player(nil)
 	for _, v := range t.seats {
 		if v == nil || v.GetAllMoney() < t.curBet || !v.IsReady() {
 			continue
 		}
 		canGameSeats = append(canGameSeats, v)
-		chairs = append(chairs, v.GetChairID())
+		canGameInfo = append(canGameInfo, fmt.Sprintf("%d:%d", v.GetPlayerID(), v.GetChairID()))
 	}
-	return len(canGameSeats) >= MinStartPlayerCnt, canGameSeats, chairs
+
+	return len(canGameSeats) >= MinStartPlayerCnt, canGameSeats, canGameInfo
 }
 
 // 检查是否自动准备
@@ -135,7 +137,7 @@ func (t *Table) checkAutoReady(p *player.Player) {
 		return
 	}
 	if p != nil && !p.IsReady() && p.GetAllMoney() >= t.curBet {
-		p.SetStatus(player.StReady)
+		p.SetReady()
 	}
 }
 
@@ -145,7 +147,7 @@ func (t *Table) checkAutoReadyAll() {
 	}
 	for _, p := range t.seats {
 		if p != nil && !p.IsReady() && p.GetAllMoney() >= t.curBet {
-			p.SetStatus(player.StReady)
+			p.SetReady()
 		}
 	}
 }
@@ -153,11 +155,13 @@ func (t *Table) checkAutoReadyAll() {
 // 扣钱 （或处理可以进行游戏的玩家状态等逻辑）
 func (t *Table) intoGaming(canGameSeats []*player.Player) {
 	for _, p := range canGameSeats {
+		p.SetGaming() //
 		if !p.IntoGaming(t.curBet) {
 			log.Errorf("intoGaming error. p:%+v currBet=%.1f", p.Desc(), t.curBet)
-			continue
+			// continue
+		} else {
+			t.totalBet += t.curBet
 		}
-		t.totalBet += t.curBet
 	}
 }
 
@@ -247,7 +251,7 @@ func (t *Table) onEndTimeout() {
 	t.checkAutoReadyAll()
 
 	// 是否可以下一局
-	t.tryStartGame()
+	t.checkStartGame()
 
 	log.Debugf("结束清理完成。\n")
 	t.mLog.end(fmt.Sprintf("结束清理完成。%s", t.Desc()))

@@ -136,20 +136,48 @@ func (p *Player) IsOffline() bool {
 	return p.gameData.isOffline
 }
 
-func (p *Player) SetStatus(status Status) {
-	p.gameData.status = status
-}
+// func (p *Player) SetStatus(status Status) {
+// 	p.gameData.status = status
+// }
 
 func (p *Player) GetStatus() Status {
 	return p.gameData.status
+}
+
+func (p *Player) SetSit() {
+	p.gameData.status = StSit
+}
+
+func (p *Player) SetReady() {
+	p.gameData.status = StReady
 }
 
 func (p *Player) IsReady() bool {
 	return p.gameData.status == StReady
 }
 
+func (p *Player) SetGaming() {
+	p.gameData.status = StGaming
+}
+
 func (p *Player) IsGaming() bool {
 	return p.gameData.status == StGaming
+}
+
+func (p *Player) SetFold() {
+	p.gameData.status = StGameFold
+}
+
+func (p *Player) IsFold() bool {
+	return p.gameData.status == StGameFold
+}
+
+func (p *Player) SetLost() {
+	p.gameData.status = StGameFold
+}
+
+func (p *Player) IsLost() bool {
+	return p.gameData.status == StGameLost
 }
 
 func (p *Player) SetLastOp(op v1.ACTION) {
@@ -207,7 +235,6 @@ func (p *Player) IntoGaming(bet float64) bool {
 		return false
 	}
 	p.gameData.bet += bet
-	p.SetStatus(StGaming)
 	return true
 }
 

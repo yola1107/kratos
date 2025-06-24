@@ -66,7 +66,6 @@ func (r *RobotLogic) CanEnter(p *player.Player) bool {
 	switch {
 	case aiCnt >= cfg.TableMaxCount:
 		return false
-		// case cfg.ReserveN > 0 && r.mTable.ID <= cfg.ReserveN:
 	case n > 0 && r.mTable.ID <= n:
 		return true
 	case userCnt == 0:
@@ -103,7 +102,7 @@ func (r *RobotLogic) OnMessage(p *player.Player, cmd v1.GameCommand, msg proto.M
 	}
 	switch cmd {
 	case v1.GameCommand_OnActivePush:
-		r.onActivePush(p, msg)
+		r.ActivePlayer(p, msg)
 	case v1.GameCommand_OnResultPush:
 		r.onExit(p, msg)
 	default:
@@ -111,7 +110,7 @@ func (r *RobotLogic) OnMessage(p *player.Player, cmd v1.GameCommand, msg proto.M
 	}
 }
 
-func (r *RobotLogic) onActivePush(p *player.Player, msg proto.Message) {
+func (r *RobotLogic) ActivePlayer(p *player.Player, msg proto.Message) {
 	rsp, ok := msg.(*v1.ActivePush)
 	if !ok || rsp == nil || p.GetChairID() != rsp.Active {
 		return

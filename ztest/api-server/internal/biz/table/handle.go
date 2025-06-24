@@ -120,7 +120,7 @@ func (t *Table) handlePack(p *player.Player, in *v1.ActionReq, timeout bool) {
 		return
 	}
 
-	p.SetStatus(player.StGameFold) // 弃牌标记
+	p.SetFold() // 弃牌标记
 	t.addBetInfo(p, in.Action, timeout, 0)
 	t.broadcastActionRsp(p, in.Action, 0, nil, false)
 	t.mLog.PackCard(p, timeout)
@@ -375,7 +375,7 @@ func (t *Table) dealCompare(compares []*player.Player, kind CompareType) (winner
 		w, l := compareCard(winner, v)
 		winner = w
 		loss = append(loss, l)
-		l.SetStatus(player.StGameLost) // 比牌输家标记
+		l.SetLost() // 比牌输家标记
 	}
 
 	t.mLog.compareCard(kind, winner, loss)
