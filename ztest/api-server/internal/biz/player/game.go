@@ -19,6 +19,25 @@ var (
 
 type Status int32
 
+func (s Status) String() string {
+	switch s {
+	case StFree:
+		return "Free"
+	case StSit:
+		return "Sit"
+	case StReady:
+		return "Ready"
+	case StGaming:
+		return "Gaming"
+	case StGameFold:
+		return "Fold"
+	case StGameLost:
+		return "Lost"
+	default:
+		return fmt.Sprintf("%d", s)
+	}
+}
+
 type GameData struct {
 	TableID      int32         // 桌子ID
 	ChairID      int32         // 椅子ID
@@ -73,8 +92,8 @@ func (p *Player) Desc() string {
 		}
 		return 0
 	}
-	return fmt.Sprintf("(%d %d T:%d M:%.1f B:%.1f S:%d ai:%d)", p.GetPlayerID(), p.GetChairID(), p.GetTableID(),
-		p.GetAllMoney(), p.GetBet(), bool2Int(p.gameData.seen), bool2Int(p.isRobot))
+	return fmt.Sprintf("(%d %d T:%d M:%.1f B:%.1f St:%v Se:%d ai:%d)", p.GetPlayerID(), p.GetChairID(), p.GetTableID(),
+		p.GetAllMoney(), p.GetBet(), p.GetStatus(), bool2Int(p.gameData.seen), bool2Int(p.isRobot))
 }
 
 func (p *Player) SetTableID(tableID int32) {
@@ -92,14 +111,6 @@ func (p *Player) SetChairID(ChairID int32) {
 
 func (p *Player) GetChairID() (ChairID int32) {
 	return p.gameData.ChairID
-}
-
-func (p *Player) SetStatus(status Status) {
-	p.gameData.status = status
-}
-
-func (p *Player) GetStatus() Status {
-	return p.gameData.status
 }
 
 func (p *Player) IncrTimeoutCnt(timeout bool) {
@@ -123,6 +134,14 @@ func (p *Player) SetOffline(offline bool) {
 
 func (p *Player) IsOffline() bool {
 	return p.gameData.isOffline
+}
+
+func (p *Player) SetStatus(status Status) {
+	p.gameData.status = status
+}
+
+func (p *Player) GetStatus() Status {
+	return p.gameData.status
 }
 
 func (p *Player) IsReady() bool {

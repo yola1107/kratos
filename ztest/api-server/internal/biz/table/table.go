@@ -1,6 +1,8 @@
 package table
 
 import (
+	"fmt"
+
 	"github.com/yola1107/kratos/v2/errors"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
@@ -70,6 +72,12 @@ func (t *Table) Reset() {
 	}
 }
 
+func (t *Table) Desc() string {
+	str := fmt.Sprintf("(TableID:%d Banker:%d First:%d CurrBet:%.1f SitCnt:%d Gamers:%d [%+v] active:%d)",
+		t.ID, t.banker, t.first, t.curBet, t.sitCnt, len(t.GetGamers()), t.stage.State, t.active)
+	return str
+}
+
 func (t *Table) Empty() bool {
 	return t.sitCnt <= 0
 }
@@ -98,6 +106,7 @@ func (t *Table) ThrowInto(p *player.Player) bool {
 		p.SetTableID(t.ID)
 		p.SetChairID(int32(k))
 		p.SetStatus(player.StSit)
+		t.checkAutoReady(p)
 
 		// 通知客户端登录成功
 		t.SendLoginRsp(p, codes.SUCCESS, "")
@@ -113,9 +122,10 @@ func (t *Table) ThrowInto(p *player.Player) bool {
 		log.Infof("EnterTable. p:%+v sitCnt:%d", p.Desc(), t.sitCnt)
 
 		// 检查游戏是否开始
-		if t.stage.State == StWait {
-			t.checkReady()
-		}
+		t.tryStartGame()
+		// if t.stage.State == StWait {
+		// 	t.checkReady()
+		// }
 
 		// 上报桌子/玩家位置 todo
 		return true
