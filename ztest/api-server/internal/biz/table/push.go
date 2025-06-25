@@ -207,7 +207,7 @@ func (t *Table) broadcastActivePlayerPush() {
 			TotalBet: t.totalBet,
 			RaiseBet: t.curBet * 2,
 		}
-		if p.GetChairID() == t.active {
+		if p.GetChairID() == t.active && p.IsGaming() {
 			rsp.CanOp = t.getCanOp(t.GetActivePlayer())
 			t.mLog.activePush(t.GetActivePlayer(), t.first, t.curRound, rsp.CanOp, len(t.GetGamers()))
 			if len(rsp.CanOp) == 0 {

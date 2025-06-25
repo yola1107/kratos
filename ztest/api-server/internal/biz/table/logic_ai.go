@@ -112,7 +112,7 @@ func (r *RobotLogic) OnMessage(p *player.Player, cmd v1.GameCommand, msg proto.M
 
 func (r *RobotLogic) ActivePlayer(p *player.Player, msg proto.Message) {
 	rsp, ok := msg.(*v1.ActivePush)
-	if !ok || rsp == nil || p.GetChairID() != rsp.Active {
+	if !ok || rsp == nil || p.GetChairID() != rsp.Active || !p.IsGaming() {
 		return
 	}
 

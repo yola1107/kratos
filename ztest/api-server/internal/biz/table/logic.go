@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/log"
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
@@ -24,8 +25,12 @@ type Stage struct {
 	Duration time.Duration
 }
 
+func (s *Stage) IsExpired() bool {
+	return time.Since(s.StartAt) > s.Duration
+}
+
 func (s *Stage) Remaining() time.Duration {
-	return max(s.Duration-time.Since(s.StartAt), time.Millisecond)
+	return max(s.Duration-time.Since(s.StartAt), 0)
 }
 
 func (s *Stage) Set(state StageID, duration time.Duration, timerID int64) {
@@ -37,12 +42,12 @@ func (s *Stage) Set(state StageID, duration time.Duration, timerID int64) {
 }
 
 func (t *Table) OnTimer() {
-	log.Debugf("TimeOut Stage ... %v ", t.stage.State)
+	log.Debugf("[Stage] OnTimer. St:%v TimerID=%d", t.stage.State, t.stage.TimerID)
 
 	switch t.stage.State {
 	case StWait:
 		// StWait 可选踢掉长时间占桌不开局的玩家
-		log.Infof("StWait timmeout. TimerID:%d", t.stage.TimerID)
+		log.Infof("StWait timeout. TimerID:%d", t.stage.TimerID)
 	case StReady:
 		t.onGameStart()
 	case StSendCard:
@@ -74,46 +79,46 @@ func (t *Table) updateStageWith(state StageID, duration time.Duration) {
 
 	// 日志
 	t.mLog.stage(t.stage.Prev, t.stage.State, t.active)
-	log.Debugf("*** %s -> %s  dur=%v", t.stage.Prev.String(), t.stage.State.String(), duration)
+	log.Debugf("[Stage] ====>. %s -> %s  dur=%v timerID=%d", t.stage.Prev, t.stage.State, duration, timerID)
 }
 
-func (t *Table) checkStartGame() {
+func (t *Table) checkCanStart() {
 	if t.stage.State != StWait {
 		return
 	}
 
-	canStart, _, canGameInfo := t.checkReadyPlayer()
+	canStart, _, readyInfo := t.checkReadyPlayer()
 	if !canStart {
 		return
 	}
 
 	// 准备开局
 	t.updateStage(StReady)
-	log.Debugf("=> 准备开局. ReadyCnt=%d canGameInfo:%s", len(canGameInfo), canGameInfo)
+	log.Debugf("=> 准备开局. ReadyCnt=%d Info:%s", len(readyInfo), readyInfo)
 }
 
 func (t *Table) onGameStart() {
 	// 再次检查是否可进行游戏; 兜底回退到StWait
-	can, canGameSeats, canGameInfo := t.checkReadyPlayer()
+	can, seats, infos := t.checkReadyPlayer()
 	if !can || t.stage.State != StReady {
 		t.updateStage(StWait)
 		return
 	}
 
 	// 扣钱
-	t.intoGaming(canGameSeats)
+	t.intoGaming(seats)
 
 	// 计算庄家及操作玩家
-	t.calcBanker()
+	t.calcBanker(seats)
 
 	// 发牌
-	t.dispatchCard(canGameSeats)
+	t.dispatchCard(seats)
 
 	// 发牌状态倒计时3s
 	t.updateStage(StSendCard)
 
-	log.Debugf("******** <游戏开始> %s canGameSeats:%+v", t.Desc(), canGameInfo)
-	t.mLog.begin(t.Desc(), t.curBet, canGameSeats, canGameInfo)
+	log.Debugf("******** <游戏开始> %s infos=%+v", t.Desc(), infos)
+	t.mLog.begin(t.Desc(), t.curBet, seats, infos)
 }
 
 // 检查用户是否可以开局
@@ -153,8 +158,8 @@ func (t *Table) checkAutoReadyAll() {
 }
 
 // 扣钱 （或处理可以进行游戏的玩家状态等逻辑）
-func (t *Table) intoGaming(canGameSeats []*player.Player) {
-	for _, p := range canGameSeats {
+func (t *Table) intoGaming(seats []*player.Player) {
+	for _, p := range seats {
 		p.SetGaming() //
 		if !p.IntoGaming(t.curBet) {
 			log.Errorf("intoGaming error. p:%+v currBet=%.1f", p.Desc(), t.curBet)
@@ -166,31 +171,27 @@ func (t *Table) intoGaming(canGameSeats []*player.Player) {
 }
 
 // 计算庄家位置
-func (t *Table) calcBanker() {
-	next := t.NextPlayer(t.banker)
-	if next == nil {
-		log.Errorf("calcBanker err. banker=%v", t.banker)
-		return
-	}
+func (t *Table) calcBanker(seats []*player.Player) {
+	idx := ext.RandInt(0, len(seats))
+	t.banker = seats[int32(idx)].GetChairID()
 	t.curRound = 1
-	t.banker = next.GetChairID()
 	t.active = t.banker
 	t.first = t.active
 	t.broadcastSetBankerRsp()
 }
 
 // 发牌
-func (t *Table) dispatchCard(canGameSeats []*player.Player) {
+func (t *Table) dispatchCard(seats []*player.Player) {
 	// 洗牌
 	t.cards.Shuffle()
 
 	// 发牌
-	for _, p := range canGameSeats {
+	for _, p := range seats {
 		p.AddCards(t.cards.DispatchCards(3))
 	}
 
 	// 发牌广播
-	t.dispatchCardPush(canGameSeats)
+	t.dispatchCardPush(seats)
 }
 
 func (t *Table) onSendCardTimeout() {
@@ -256,5 +257,5 @@ func (t *Table) onEndTimeout() {
 	t.checkAutoReadyAll()
 
 	// 是否可以下一局
-	t.checkStartGame()
+	t.checkCanStart()
 }

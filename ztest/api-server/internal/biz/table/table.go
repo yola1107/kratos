@@ -121,8 +121,8 @@ func (t *Table) ThrowInto(p *player.Player) bool {
 		t.mLog.userEnter(p, t.sitCnt)
 		log.Infof("EnterTable. p:%+v sitCnt:%d", p.Desc(), t.sitCnt)
 
-		// 检查游戏是否开始
-		t.checkStartGame()
+		// 检查是否可开局
+		t.checkCanStart()
 
 		// 上报桌子/玩家位置 todo
 		return true
