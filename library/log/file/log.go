@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	timeFormat        = "2006/01/02 15:04:05"
+	timeFormat        = "2006/01/02 15:04:05.000"
 	defaultMaxSize    = 10 // 10 MB
 	defaultMaxAge     = 7  // 7 days
 	defaultMaxBackups = 3  // 3 back

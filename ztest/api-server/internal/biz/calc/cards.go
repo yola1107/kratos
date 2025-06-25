@@ -51,6 +51,11 @@ func (h *HandCard) Set(cards []int32) {
 }
 
 func (h *HandCard) CalcType() {
+	if len(h.Cards) != 3 {
+		log.Errorf("Set cards error, cards length is not 3: %v", h.Cards)
+		return
+	}
+
 	// 拷贝并排序：从大到小
 	sort.Slice(h.Cards, func(i, j int) bool {
 		return GetCardScore(h.Cards[i]) > GetCardScore(h.Cards[j])

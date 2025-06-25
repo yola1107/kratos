@@ -211,9 +211,9 @@ func (t *Table) broadcastActivePlayerPush() {
 			rsp.CanOp = t.getCanOp(t.GetActivePlayer())
 			t.mLog.activePush(t.GetActivePlayer(), t.first, t.curRound, rsp.CanOp, len(t.GetGamers()))
 			if len(rsp.CanOp) == 0 {
-				log.Errorf("ActivePush empty. p:%v stage:%v active:%v t.SitCnt:%d gaming=%d.",
-					p.Desc(), t.stage.State, t.active, t.sitCnt, len(t.GetGamers()))
+				log.Errorf("ActivePush empty. tb:%v p:%v", t.Desc(), p.Desc())
 			}
+			log.Debugf("ActivePush. p:%v CanOp=%v tb:%v ", p.Desc(), rsp.CanOp, t.Desc())
 		}
 		t.SendPacketToClient(p, v1.GameCommand_OnActivePush, rsp)
 		return true

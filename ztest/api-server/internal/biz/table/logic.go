@@ -42,7 +42,7 @@ func (s *Stage) Set(state StageID, duration time.Duration, timerID int64) {
 }
 
 func (t *Table) OnTimer() {
-	log.Debugf("[Stage] OnTimer. St:%v TimerID=%d", t.stage.State, t.stage.TimerID)
+	log.Debugf("[Stage] OnTimer timeout. St:%v TimerID=%d", t.stage.State, t.stage.TimerID)
 
 	switch t.stage.State {
 	case StWait:
@@ -247,14 +247,14 @@ func (t *Table) onEndTimeout() {
 	// 重置数据
 	t.Reset()
 
-	log.Debugf("结束清理完成。\n")
-	t.mLog.end(fmt.Sprintf("结束清理完成。%s", t.Desc()))
-
 	// 状态进入 StWait
 	t.updateStage(StWait)
 
 	// 是否自动准备
 	t.checkAutoReadyAll()
+
+	log.Debugf("结束清理完成。\n")
+	t.mLog.end(fmt.Sprintf("结束清理完成。%s", t.Desc()))
 
 	// 是否可以下一局
 	t.checkCanStart()
