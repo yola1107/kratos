@@ -87,14 +87,13 @@ func (t *Table) checkCanStart() {
 		return
 	}
 
-	canStart, _, readyInfo := t.checkReadyPlayer()
+	canStart, _, _ := t.checkReadyPlayer()
 	if !canStart {
 		return
 	}
 
 	// 准备开局
 	t.updateStage(StReady)
-	log.Debugf("=> 准备开局. ReadyCnt=%d Info:%s", len(readyInfo), readyInfo)
 }
 
 func (t *Table) onGameStart() {
@@ -117,8 +116,8 @@ func (t *Table) onGameStart() {
 	// 发牌状态倒计时3s
 	t.updateStage(StSendCard)
 
-	log.Debugf("******** <游戏开始> %s infos=%+v", t.Desc(), infos)
-	t.mLog.begin(t.Desc(), t.curBet, seats, infos)
+	log.Debugf("******** <游戏开始> %s infos=%+v all=%v", t.Desc(), infos, logPlayers(t.seats))
+	t.mLog.begin(t.Desc(), t.curBet, t.seats, infos)
 }
 
 // 检查用户是否可以开局
@@ -247,14 +246,14 @@ func (t *Table) onEndTimeout() {
 	// 重置数据
 	t.Reset()
 
+	log.Debugf("结束清理完成。tb=%v %s\n", t.Desc(), logPlayers(t.seats))
+	t.mLog.end(fmt.Sprintf("结束清理完成。%s %s", t.Desc(), logPlayers(t.seats)))
+
 	// 状态进入 StWait
 	t.updateStage(StWait)
 
 	// 是否自动准备
 	t.checkAutoReadyAll()
-
-	log.Debugf("结束清理完成。\n")
-	t.mLog.end(fmt.Sprintf("结束清理完成。%s", t.Desc()))
 
 	// 是否可以下一局
 	t.checkCanStart()

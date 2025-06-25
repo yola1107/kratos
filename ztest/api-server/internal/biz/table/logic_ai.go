@@ -126,7 +126,7 @@ func (r *RobotLogic) ActivePlayer(p *player.Player, msg proto.Message) {
 
 	op := RandOpWithWeight(ops)                            // 按权重随机选操作
 	remaining := r.mTable.stage.Remaining().Milliseconds() // 获取剩余操作时间
-	dur := time.Duration(ext.RandInt(10, remaining*3/4)) * time.Millisecond
+	dur := time.Duration(ext.RandInt(1000, remaining*3/4)) * time.Millisecond
 	req := &v1.ActionReq{
 		UserID:         p.GetPlayerID(),
 		Action:         op,

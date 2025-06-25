@@ -54,9 +54,12 @@ func (l *Log) userExit(p *player.Player, sitCnt int16, lastChair int32, isSwitch
 }
 
 func (l *Log) begin(tb string, bet float64, seats []*player.Player, infos any) {
-	logs := []string{fmt.Sprintf("[游戏开始] %s bet:%.1f %v", tb, bet, infos)}
+	logs := []string{fmt.Sprintf("[游戏开始] %s bet:%.1f Gamer=%v", tb, bet, infos)}
 	for _, p := range seats {
-		logs = append(logs, fmt.Sprintf("玩家:%+v 投注[%+v]", p.Desc(), bet))
+		if p == nil {
+			continue
+		}
+		logs = append(logs, fmt.Sprintf("玩家:%+v 投注[%+v] 状态:%v", p.Desc(), bet, p.GetStatus()))
 	}
 	l.write(strings.Join(logs, "\r\n"))
 }
@@ -78,15 +81,15 @@ func (l *Log) PackCard(p *player.Player, timeout bool) {
 }
 
 func (l *Log) CallCard(p *player.Player, bet float64, double bool, timeout bool) {
-	l.write("[跟注] 玩家:%+v 加倍(%+v) bet:%.3f timeout=%+v", p.Desc(), double, bet, timeout)
+	l.write("[跟注] 玩家:%+v 加倍(%+v) bet:%.1f timeout=%+v", p.Desc(), double, bet, timeout)
 }
 
 func (l *Log) ShowCard(p, target *player.Player, bet float64, timeout bool) {
-	l.write(fmt.Sprintf("[比牌] 比牌金额:%.3f 发起玩家:%+v -> 目标玩家:%+v timeout=%+v", bet, p.Desc(), target.Desc(), timeout))
+	l.write(fmt.Sprintf("[比牌] 比牌金额:%.1f 发起玩家:%+v -> 目标玩家:%+v timeout=%+v", bet, p.Desc(), target.Desc(), timeout))
 }
 
 func (l *Log) SidedShow(p, target *player.Player, bet float64, timeout bool) {
-	l.write(fmt.Sprintf("[提前比牌(发起)] 比牌金额:%.3f 发起玩家:%+v -> 目标玩家:%+v timeout=%+v", bet, p.Desc(), target.Desc(), timeout))
+	l.write(fmt.Sprintf("[提前比牌(发起)] 比牌金额:%.1f 发起玩家:%+v -> 目标玩家:%+v timeout=%+v", bet, p.Desc(), target.Desc(), timeout))
 }
 
 func (l *Log) SideShowReply(p, target *player.Player, allow bool, timeout bool) {
@@ -104,6 +107,17 @@ func logCompare(kind CompareType, winner *player.Player, loss []*player.Player) 
 		logs = append(logs, fmt.Sprintf("<输家>:%+v Hands:%v", p.Desc(), p.GetHand()))
 	}
 	return strings.Join(logs, "\r\n\t\t")
+}
+
+func logPlayers(players []*player.Player) string {
+	logs := []string{""}
+	for _, p := range players {
+		if p == nil {
+			continue
+		}
+		logs = append(logs, fmt.Sprintf("<玩家>:%+v Hands:%v 状态:%v", p.Desc(), p.GetHand(), p.GetStatus()))
+	}
+	return strings.Join(logs, "\r\n")
 }
 
 func (l *Log) settle(msg ...any) {
