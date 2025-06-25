@@ -226,16 +226,17 @@ func (t *Table) gameEnd() {
 
 	if winner == nil {
 		t.updateStage(StEnd)
-		log.Errorf("gameEnd err. winner=%+v", winner)
+		log.Errorf("gameEnd err. tb=%+v", t.Desc())
 		return
 	}
 
 	// 结算
-	profit := winner.Settle(t.totalBet)
+	winner.Settle(t.totalBet)
 	// t.Broadcast(-1, packet)
 	// t.SendShowCard()
 	t.broadcastResult()
-	t.mLog.settle(profit)
+	log.Debugf("gameEnd tb=%s winner=%+v", t.Desc(), winner.Desc())
+	t.mLog.settle(winner, logPlayers(t.seats))
 	t.updateStage(StEnd)
 }
 

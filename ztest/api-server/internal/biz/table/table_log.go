@@ -120,8 +120,14 @@ func logPlayers(players []*player.Player) string {
 	return strings.Join(logs, "\r\n")
 }
 
-func (l *Log) settle(msg ...any) {
+func (l *Log) settle(winner *player.Player, msgs ...any) {
 	logs := []string{"[结算]"}
+	if winner != nil {
+		logs = append(logs, fmt.Sprintf("<赢家>:%+v Hands:%v", winner.Desc(), winner.GetHand()))
+	}
+	for _, msg := range msgs {
+		logs = append(logs, fmt.Sprintf("%v", msg))
+	}
 	l.write(strings.Join(logs, "\r\n"))
 }
 func (l *Log) endClear(msg ...any) {
