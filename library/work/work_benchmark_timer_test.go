@@ -45,8 +45,8 @@ func BenchmarkOnceTasks(b *testing.B) {
 	}
 }
 
-// BenchmarkRepeatedTasks 测试高频重复任务的调度精度和负载
-func BenchmarkRepeatedTasks(b *testing.B) {
+// BenchmarkForeverTasks 测试高频重复任务的调度精度和负载
+func BenchmarkForeverTasks(b *testing.B) {
 	executor := &mockExecutor{}
 	scheduler := NewTaskScheduler(executor, context.Background())
 	defer scheduler.CancelAll()
@@ -74,7 +74,7 @@ func BenchmarkRepeatedTasks(b *testing.B) {
 	case <-done:
 		// 测试完成
 	case <-time.After(10 * time.Second):
-		b.Fatal("timeout waiting for repeated tasks")
+		b.Fatal("timeout waiting for forever tasks")
 	}
 }
 
@@ -137,9 +137,11 @@ func TestSchedulerPrecision(t *testing.T) {
 	}
 }
 
+// TestSchedulerPrecisionStats 统计大量定时任务精度误差
 func TestSchedulerPrecisionStats(t *testing.T) {
 	executor := &mockExecutor{}
 	scheduler := NewTaskScheduler(executor, context.Background())
+	defer scheduler.CancelAll()
 
 	const taskCount = 5000
 	const delay = 50 * time.Millisecond
