@@ -197,7 +197,7 @@ func (t *Table) CanExit(p *player.Player) bool {
 }
 
 func (t *Table) CanSwitchTable(p *player.Player) bool {
-	return p != nil && !p.IsGaming()
+	return p != nil && !p.IsGaming() && t.stage.State != StReady
 }
 
 func (t *Table) CanEnterRobot(p *player.Player) bool {
