@@ -42,12 +42,13 @@ func (s *Stage) Set(state StageID, duration time.Duration, timerID int64) {
 }
 
 func (t *Table) OnTimer() {
-	log.Debugf("[Stage] OnTimer timeout. St:%v TimerID=%d", t.stage.State, t.stage.TimerID)
+	// log.Debugf("[Stage] OnTimer timeout. St:%v TimerID=%d", t.stage.State, t.stage.TimerID)
 
-	switch t.stage.State {
+	state := t.stage.State
+	switch state {
 	case StWait:
 		// StWait 可选踢掉长时间占桌不开局的玩家
-		log.Infof("StWait timeout. TimerID:%d", t.stage.TimerID)
+		log.Infof("StWait timeout. ")
 	case StReady:
 		t.onGameStart()
 	case StSendCard:
@@ -63,7 +64,7 @@ func (t *Table) OnTimer() {
 	case StEnd:
 		t.onEndTimeout()
 	default:
-		log.Errorf("unhandled stage timeout: %v", t.stage.State)
+		log.Errorf("unhandled stage timeout: %v", state)
 	}
 }
 
@@ -79,7 +80,7 @@ func (t *Table) updateStageWith(state StageID, duration time.Duration) {
 
 	// 日志
 	t.mLog.stage(t.stage.Prev, t.stage.State, t.active)
-	log.Debugf("[Stage] ====>. %s -> %s  dur=%v timerID=%d", t.stage.Prev, t.stage.State, duration, timerID)
+	// log.Debugf("[Stage] ====>. %s -> %s  dur=%v timerID=%d", t.stage.Prev, t.stage.State, duration, timerID)
 }
 
 func (t *Table) checkCanStart() {
@@ -236,7 +237,7 @@ func (t *Table) gameEnd() {
 	// t.SendShowCard()
 	t.broadcastResult()
 	log.Debugf("gameEnd tb=%s winner=%+v", t.Desc(), winner.Desc())
-	t.mLog.settle(winner, logPlayers(t.seats))
+	t.mLog.settle(winner)
 	t.updateStage(StEnd)
 }
 
@@ -247,7 +248,7 @@ func (t *Table) onEndTimeout() {
 	// 重置数据
 	t.Reset()
 
-	log.Debugf("结束清理完成。tb=%v %s\n", t.Desc(), logPlayers(t.seats))
+	log.Debugf("结束清理完成。tb=%v \n", t.Desc())
 	t.mLog.end(fmt.Sprintf("结束清理完成。%s %s", t.Desc(), logPlayers(t.seats)))
 
 	// 状态进入 StWait

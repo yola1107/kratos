@@ -197,6 +197,12 @@ func (t *Table) getScene(p *player.Player) *v1.PlayerScene {
 
 // 当前活动玩家推送
 func (t *Table) broadcastActivePlayerPush() {
+
+	playerCnt := len(t.GetGamers())
+	if playerCnt <= 1 {
+		return
+	}
+
 	t.RangePlayer(func(k int32, p *player.Player) bool {
 		rsp := &v1.ActivePush{
 			Stage:    int32(t.stage.State),
@@ -208,12 +214,12 @@ func (t *Table) broadcastActivePlayerPush() {
 			RaiseBet: t.curBet * 2,
 		}
 		if p.GetChairID() == t.active && p.IsGaming() {
-			rsp.CanOp = t.getCanOp(t.GetActivePlayer())
-			t.mLog.activePush(t.GetActivePlayer(), t.first, t.curRound, rsp.CanOp, len(t.GetGamers()))
+			rsp.CanOp = t.getCanOp(p)
+			t.mLog.activePush(p, t.first, t.curRound, rsp.CanOp, playerCnt)
 			if len(rsp.CanOp) == 0 {
 				log.Errorf("ActivePush empty. tb:%v, p:%v", t.Desc(), p.Desc())
 			}
-			log.Debugf("ActivePush. p:%v CanOp=%v, tb:%v ", p.Desc(), rsp.CanOp, t.Desc())
+			// log.Debugf("ActivePush. p:%v CanOp=%v, tb:%v ", p.Desc(), rsp.CanOp, t.Desc())
 		}
 		t.SendPacketToClient(p, v1.GameCommand_OnActivePush, rsp)
 		return true
