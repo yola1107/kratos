@@ -9,6 +9,7 @@ import (
 	"time"
 
 	gproto "github.com/golang/protobuf/proto"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/matoous/go-nanoid/v2"
 	"github.com/yola1107/kratos/v2/library/ext"
@@ -59,7 +60,7 @@ func newNanoID() string {
 func NewSession(h iHandler, conn *websocket.Conn, config *SessionConfig) *Session {
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &Session{
-		id:       newNanoID(),
+		id:       uuid.New().String(), // newNanoID()
 		h:        h,
 		conn:     conn,
 		config:   config,
