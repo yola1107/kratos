@@ -48,6 +48,7 @@ type Session struct {
 	lastActive atomic.Value // time.Time
 	ctx        context.Context
 	cancel     context.CancelFunc
+	sendMu     sync.Mutex
 }
 
 func newNanoID() string {
@@ -91,6 +92,9 @@ func (s *Session) Closed() bool {
 }
 
 func (s *Session) Send(message []byte) error {
+	s.sendMu.Lock()
+	defer s.sendMu.Unlock()
+
 	if s.Closed() {
 		return errSessionClosed
 	}
@@ -217,7 +221,10 @@ func (s *Session) Close(force bool) bool {
 	s.closeNotify(force)
 
 	s.cancel()
+
+	s.sendMu.Lock()
 	close(s.sendChan)
+	s.sendMu.Unlock()
 
 	s.connMu.Lock()
 	_ = s.conn.Close()
