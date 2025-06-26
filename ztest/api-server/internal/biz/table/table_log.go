@@ -59,7 +59,7 @@ func (l *Log) begin(tb string, bet float64, seats []*player.Player, infos any) {
 		if p == nil {
 			continue
 		}
-		logs = append(logs, fmt.Sprintf("玩家:%+v 投注[%+v] 状态:%v", p.Desc(), bet, p.GetStatus()))
+		logs = append(logs, fmt.Sprintf("玩家:%+v 投注[%+v] Hands:%v 状态:%v", p.Desc(), bet, p.GetHand(), p.GetStatus()))
 	}
 	l.write(strings.Join(logs, "\r\n"))
 }

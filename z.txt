@@ -53,7 +53,7 @@ grep "2025/06/14 16:55" /var/log/myapp.log
 # 目录树状结构
 tree /f /a > tree.txt
 
-lsof -i -P | grep -E ':3102|:3103|:3104'
+lsof -i -P | grep -E ':3102|:3103|:3104|:3105|:3106'
 watch -n 2 'ss -lntp | awk '\''/:(8000|9000|3102)/ {print $0}'\'
 
 tail -F logs/ws-*.log | grep --color=always -E '[a-zA-Z0-9_/.-]+\.go:[0-9]+\]|$'
