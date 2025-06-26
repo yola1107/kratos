@@ -29,7 +29,7 @@ const (
 // StageTimeouts maps each stage to its timeout duration (in seconds).
 var StageTimeouts = map[StageID]int64{
 	StWait:        0,
-	StReady:       0,
+	StReady:       2,
 	StSendCard:    3,
 	StAction:      12,
 	StSideShow:    12,
