@@ -7,6 +7,7 @@ import (
 	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/library/work"
 	"github.com/yola1107/kratos/v2/log"
+	"github.com/yola1107/kratos/v2/transport/websocket"
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/table"
@@ -84,9 +85,16 @@ func (uc *Usecase) enterRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp
 	}
 
 	uc.ws.Post(func() {
+		if tableID := p.GetTableID(); tableID > 0 {
+			uc.log.Warnf("enter failed. already exist in table. UserID(%d) TableID(%d) %v",
+				in.UserID, tableID, codes.ErrPlayerAlreadyInTable)
+			uc.LogoutGame(p, codes.ErrPlayerAlreadyInTable.Code, "already in table")
+			return
+		}
 		if ok := uc.tm.ThrowInto(p); !ok {
 			uc.log.Errorf("ThrowInto failed. UserID(%d) %v", in.UserID, codes.ErrEnterTableFail)
 			uc.LogoutGame(p, codes.ErrEnterTableFail.Code, "throw into table failed")
+			return
 		}
 	})
 
@@ -138,6 +146,26 @@ func (uc *Usecase) createPlayer(raw *player.Raw) (*player.Player, error) {
 	}
 	log.Debugf("createPlayer. p:%+v ", p.Desc())
 	return p, nil
+}
+
+func (uc *Usecase) Disconnect(session *websocket.Session) {
+	if session == nil {
+		return
+	}
+
+	p := uc.pm.GetBySessionID(session.ID())
+	if p == nil {
+		return
+	}
+
+	t := uc.tm.GetTable(p.GetTableID())
+	if t == nil {
+		uc.LogoutGame(p, codes.ErrKickByBroke.Code, fmt.Sprintf("disconnect. table is nil. pid:%d", p.GetPlayerID()))
+		return
+	}
+
+	p.UpdateSession(nil)
+	t.OnOffline(p)
 }
 
 // LogoutGame .

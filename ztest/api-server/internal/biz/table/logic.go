@@ -117,7 +117,7 @@ func (t *Table) onGameStart() {
 	// 发牌状态倒计时3s
 	t.updateStage(StSendCard)
 
-	log.Debugf("******** <游戏开始> %s infos=%+v all=%v", t.Desc(), infos, logPlayers(t.seats))
+	log.Debugf("******** <游戏开始> %s GamerInfo=%+v all=%v", t.Desc(), infos, logPlayers(t.seats))
 	t.mLog.begin(t.Desc(), t.curBet, t.seats, infos)
 }
 

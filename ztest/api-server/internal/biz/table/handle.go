@@ -6,6 +6,7 @@ import (
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/calc"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
+	"github.com/yola1107/kratos/v2/ztest/api-server/pkg/codes"
 )
 
 func (t *Table) OnExitGame(p *player.Player, code int32, msg string) bool {
@@ -34,6 +35,18 @@ func (t *Table) OnHosting(p *player.Player, isHosting bool) bool {
 }
 
 func (t *Table) OnAutoCallReq(p *player.Player, autoCall bool) bool {
+	return true
+}
+
+func (t *Table) OnOffline(p *player.Player) bool {
+	t.mLog.offline(p)
+	if !p.IsGaming() {
+		t.OnExitGame(p, codes.ErrKickByBroke.Code, "OnOffline kick by broke")
+		return true
+	}
+
+	p.SetOffline(true)
+	t.broadcastUserOffline(p)
 	return true
 }
 

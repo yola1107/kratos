@@ -22,6 +22,7 @@ func (s *Service) OnSessionOpen(sess *websocket.Session) {
 // OnSessionClose 连接关闭回调
 func (s *Service) OnSessionClose(sess *websocket.Session) {
 	log.Infof("OnCloseFunc: %q", sess.ID())
+	s.uc.Disconnect(sess)
 }
 
 // SayHelloReq implements helloworld.GreeterServer.
