@@ -8,6 +8,6 @@ require (
 	github.com/yola1107/kratos/v2 v2.8.6
 )
 
-require golang.org/x/net v0.40.0 // indirect
+require golang.org/x/net v0.41.0 // indirect
 
 replace github.com/yola1107/kratos/v2 => ../../../

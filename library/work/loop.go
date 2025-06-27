@@ -11,6 +11,18 @@ import (
 	"github.com/yola1107/kratos/v2/log"
 )
 
+var resultChanPool = sync.Pool{
+	New: func() any {
+		return make(chan *asyncResult, 1)
+	},
+}
+
+var asyncResultPool = sync.Pool{
+	New: func() any {
+		return new(asyncResult)
+	},
+}
+
 // 定义结果类型
 type asyncResult struct {
 	data []byte
@@ -44,11 +56,19 @@ func WithFallback(fallback func(ctx context.Context, fn func())) Option {
 	}
 }
 
+// WithPoolOptions 自定义ants池选项
+func WithPoolOptions(opts ...ants.Option) Option {
+	return func(l *antsLoop) {
+		l.poolOptions = append(l.poolOptions, opts...)
+	}
+}
+
 type antsLoop struct {
-	mu       sync.RWMutex
-	pool     *ants.Pool
-	size     int
-	fallback func(context.Context, func())
+	mu          sync.RWMutex
+	pool        *ants.Pool
+	size        int
+	fallback    func(context.Context, func())
+	poolOptions []ants.Option
 }
 
 // NewAntsLoop 创建协程池实例
@@ -57,6 +77,12 @@ func NewAntsLoop(size int, opts ...Option) ITaskLoop {
 		size: size,
 		fallback: func(ctx context.Context, fn func()) {
 			go safeRun(ctx, fn)
+		},
+		poolOptions: []ants.Option{
+			ants.WithExpiryDuration(60 * time.Second), // 每60s清理一次闲置 worker
+			// ants.WithPreAlloc(true),                 // 预分配容量，避免 runtime 扩容内存
+			// ants.WithNonblocking(false),  // 非阻塞提交，任务满时立即报错（否则阻塞） 默认阻塞模式:true
+			// ants.WithMaxBlockingTasks(0), // 最大阻塞任务数（非阻塞模式下可设为0）
 		},
 	}
 	for _, opt := range opts {
@@ -74,12 +100,8 @@ func (l *antsLoop) Start() error {
 		return nil
 	}
 
-	pool, err := ants.NewPool(l.size,
-		ants.WithExpiryDuration(60*time.Second), // 每60s清理一次闲置 worker
-		// ants.WithPreAlloc(true),                 // 预分配容量，避免 runtime 扩容内存
-		// ants.WithNonblocking(false),  // 非阻塞提交，任务满时立即报错（否则阻塞） 默认阻塞模式:true
-		// ants.WithMaxBlockingTasks(0), // 最大阻塞任务数（非阻塞模式下可设为0）
-	)
+	// 创建协程池
+	pool, err := ants.NewPool(l.size, l.poolOptions...)
 	if err != nil {
 		return fmt.Errorf("pool init failed: %w", err)
 	}
@@ -117,7 +139,11 @@ func (l *antsLoop) Status() LoopStatus {
 		free = 0
 	}
 
-	return LoopStatus{capacity, running, free}
+	return LoopStatus{
+		Capacity: capacity,
+		Running:  running,
+		Free:     free,
+	}
 }
 
 func (l *antsLoop) Post(job func()) {
@@ -132,18 +158,6 @@ func (l *antsLoop) PostCtx(ctx context.Context, job func()) {
 
 func (l *antsLoop) PostAndWait(job func() ([]byte, error)) ([]byte, error) {
 	return l.PostAndWaitCtx(context.Background(), job)
-}
-
-var resultChanPool = sync.Pool{
-	New: func() any {
-		return make(chan *asyncResult, 1)
-	},
-}
-
-var asyncResultPool = sync.Pool{
-	New: func() any {
-		return new(asyncResult)
-	},
 }
 
 func (l *antsLoop) PostAndWaitCtx(ctx context.Context, job func() ([]byte, error)) ([]byte, error) {
