@@ -144,8 +144,8 @@ func (s *timingWheelScheduler) schedule(delay time.Duration, repeated bool, f fu
 		return -1
 	}
 
-	taskID := s.nextID
 	s.nextID++
+	taskID := s.nextID
 
 	entry := &taskEntry{repeated: repeated}
 	s.tasks[taskID] = entry
