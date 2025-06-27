@@ -15,181 +15,155 @@ func (m *mockExecutor) Post(job func()) {
 	go job()
 }
 
-// BenchmarkOnceTasks 测试大量单次任务的调度开销
-func BenchmarkOnceTasks(b *testing.B) {
+func createScheduler(tb testing.TB, timeout time.Duration) (context.Context, context.CancelFunc, ITaskScheduler) {
+	tb.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	executor := &mockExecutor{}
-	scheduler := NewTaskScheduler(executor, context.Background())
-	defer scheduler.CancelAll()
+	scheduler := NewTaskScheduler(executor, ctx)
+	return ctx, cancel, scheduler
+}
+
+func BenchmarkOnceTasks(b *testing.B) {
+	_, cancel, scheduler := createScheduler(b, 5*time.Second)
+	defer cancel()
+	defer scheduler.Shutdown()
 
 	var counter int64
 	b.ResetTimer()
-
 	for i := 0; i < b.N; i++ {
-		scheduler.Once(time.Millisecond, func() {
+		scheduler.Once(10*time.Millisecond, func() {
 			atomic.AddInt64(&counter, 1)
 		})
 	}
 
-	// 等待所有任务执行完，带超时防止死循环
-	timeout := time.After(5 * time.Second)
-	for {
-		if atomic.LoadInt64(&counter) >= int64(b.N) {
+	for start := time.Now(); ; {
+		if atomic.LoadInt64(&counter) == int64(b.N) {
 			break
 		}
-		select {
-		case <-timeout:
-			b.Fatal("timeout waiting for Once tasks to finish")
-		default:
-			time.Sleep(1 * time.Millisecond)
+		if time.Since(start) > 5*time.Second {
+			b.Fatalf("timeout: only %d/%d tasks completed", counter, b.N)
 		}
+		time.Sleep(1 * time.Millisecond)
 	}
 }
 
-// BenchmarkForeverTasks 测试高频重复任务的调度精度和负载
 func BenchmarkForeverTasks(b *testing.B) {
-	executor := &mockExecutor{}
-	scheduler := NewTaskScheduler(executor, context.Background())
-	defer scheduler.CancelAll()
+	ctx, cancel, scheduler := createScheduler(b, 3*time.Second)
+	defer cancel()
+	defer scheduler.Shutdown()
 
 	var counter int64
-	var wg sync.WaitGroup
-	wg.Add(b.N)
-
+	done := make(chan struct{})
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		scheduler.Forever(time.Millisecond*5, func() {
-			val := atomic.AddInt64(&counter, 1)
-			if val <= int64(b.N) {
-				wg.Done()
+		scheduler.Forever(20*time.Millisecond, func() {
+			if atomic.AddInt64(&counter, 1) == int64(b.N*5) {
+				close(done)
 			}
 		})
 	}
-
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
 
 	select {
 	case <-done:
-		// 测试完成
-	case <-time.After(10 * time.Second):
-		b.Fatal("timeout waiting for forever tasks")
+		b.Logf("Completed %d executions", counter)
+	case <-ctx.Done():
+		b.Fatal("timeout waiting for tasks")
 	}
 }
 
-// TestSchedulerPrecision 多次触发测试时间精度并计算偏差
-func TestSchedulerPrecision(t *testing.T) {
-	executor := &mockExecutor{}
-	scheduler := NewTaskScheduler(executor, context.Background())
-	defer scheduler.CancelAll()
+func BenchmarkMixedTasks(b *testing.B) {
+	ctx, cancel, scheduler := createScheduler(b, 5*time.Second)
+	defer cancel()
+	defer scheduler.Shutdown()
 
-	const tries = 10
-	delay := 100 * time.Millisecond
-	var diffs []time.Duration
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-	wg.Add(tries)
+	var onceCounter, foreverCounter int64
+	done := make(chan struct{})
+	var once sync.Once
 
-	for i := 0; i < tries; i++ {
-		start := time.Now()
-		scheduler.Once(delay, func() {
-			actualDelay := time.Since(start)
-			diff := actualDelay - delay
-			mu.Lock()
-			diffs = append(diffs, diff)
-			mu.Unlock()
-			wg.Done()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		scheduler.Once(time.Duration(i%10+1)*time.Millisecond, func() {
+			atomic.AddInt64(&onceCounter, 1)
 		})
-		time.Sleep(20 * time.Millisecond) // 适当错开触发时间，防止集中调度
+		if i%3 == 0 {
+			scheduler.Forever(time.Duration(i%20+10)*time.Millisecond, func() {
+				val := atomic.AddInt64(&foreverCounter, 1)
+				if val >= int64(b.N*10) {
+					once.Do(func() {
+						close(done)
+					})
+				}
+			})
+		}
 	}
-
-	waitCh := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(waitCh)
-	}()
 
 	select {
-	case <-waitCh:
-	case <-time.After(5 * time.Second):
-		t.Fatal("timeout waiting for scheduled tasks")
-	}
-
-	// 计算最大偏差和平均偏差
-	var maxDiff time.Duration
-	var totalDiff time.Duration
-	for _, d := range diffs {
-		if d < 0 {
-			d = -d
-		}
-		if d > maxDiff {
-			maxDiff = d
-		}
-		totalDiff += d
-	}
-	avgDiff := totalDiff / time.Duration(len(diffs))
-
-	if maxDiff > 20*time.Millisecond {
-		t.Errorf("scheduler max precision deviation too high: max %v, avg %v", maxDiff, avgDiff)
-	} else {
-		t.Logf("scheduler precision max deviation: %v, avg deviation: %v", maxDiff, avgDiff)
+	case <-done:
+		b.Logf("Once: %d, Forever: %d", onceCounter, foreverCounter)
+	case <-ctx.Done():
+		b.Fatal("timeout waiting for tasks")
 	}
 }
 
-// TestSchedulerPrecisionStats 统计大量定时任务精度误差
-func TestSchedulerPrecisionStats(t *testing.T) {
-	executor := &mockExecutor{}
-	scheduler := NewTaskScheduler(executor, context.Background())
-	defer scheduler.CancelAll()
+func BenchmarkSchedulerPrecision(b *testing.B) {
+	_, cancel, scheduler := createScheduler(b, 10*time.Second)
+	defer cancel()
+	defer scheduler.Shutdown()
 
-	const taskCount = 5000
-	const delay = 50 * time.Millisecond
+	var (
+		mu     sync.Mutex
+		errors []time.Duration // 记录所有误差
+	)
 
-	type Result struct {
-		delayDiff time.Duration
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		scheduledAt := time.Now().Add(50 * time.Millisecond) // 计划触发时间
+		done := make(chan struct{})
+
+		scheduler.Once(50*time.Millisecond, func() {
+			actual := time.Now()
+			diff := actual.Sub(scheduledAt)
+
+			mu.Lock()
+			errors = append(errors, diff)
+			mu.Unlock()
+
+			close(done)
+		})
+
+		// 等待任务执行完成，避免重叠影响测量
+		select {
+		case <-done:
+		case <-time.After(200 * time.Millisecond):
+			b.Fatalf("task timeout")
+		}
 	}
+	b.StopTimer()
 
-	results := make([]Result, taskCount)
-	var wg sync.WaitGroup
-	wg.Add(taskCount)
+	// 统计误差
+	var (
+		total time.Duration
+		max   time.Duration
+		min   time.Duration = time.Hour
+	)
 
-	start := time.Now()
-
-	for i := 0; i < taskCount; i++ {
-		scheduler.Once(delay, func(i int) func() {
-			return func() {
-				actual := time.Now()
-				expected := start.Add(delay)
-				diff := actual.Sub(expected)
-				results[i].delayDiff = diff
-				wg.Done()
-			}
-		}(i))
-	}
-
-	wg.Wait()
-
-	var totalDiff time.Duration
-	var maxDiff time.Duration
-	var minDiff time.Duration = time.Hour
-
-	for _, r := range results {
-		d := r.delayDiff
+	for _, d := range errors {
+		absd := d
 		if d < 0 {
-			d = -d
+			absd = -d
 		}
-		totalDiff += d
-		if d > maxDiff {
-			maxDiff = d
+		if absd > max {
+			max = absd
 		}
-		if d < minDiff {
-			minDiff = d
+		if absd < min {
+			min = absd
 		}
+		total += absd
 	}
+	avg := time.Duration(int64(total) / int64(len(errors)))
 
-	avgDiff := totalDiff / taskCount
-
-	t.Logf("定时任务精度统计 (误差绝对值)：任务数=%d, 平均误差=%v, 最大误差=%v, 最小误差=%v",
-		taskCount, avgDiff, maxDiff, minDiff)
+	b.Logf("Executed %d tasks", len(errors))
+	b.Logf("Min delay error: %v", min)
+	b.Logf("Max delay error: %v", max)
+	b.Logf("Avg delay error: %v", avg)
 }

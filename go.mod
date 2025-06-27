@@ -4,6 +4,7 @@ go 1.24.2
 
 require (
 	dario.cat/mergo v1.0.0
+	github.com/RussellLuo/timingwheel v0.0.0-20220218152713-54845bda3108
 	github.com/envoyproxy/protoc-gen-validate v1.2.1
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/go-kratos/aegis v0.2.0

@@ -47,7 +47,7 @@ func (w *workStore) Start() error {
 func (w *workStore) Stop() {
 	w.loop.Stop()
 	w.timer.CancelAll()
-	// w.timer.Shutdown()
+	w.timer.Shutdown()
 }
 
 func (w *workStore) Status() LoopStatus {
@@ -96,9 +96,9 @@ func (w *workStore) ForeverNow(interval time.Duration, f func()) int64 {
 	return w.timer.ForeverNow(interval, f)
 }
 
-func (w *workStore) ForeverTime(durFirst, durRepeat time.Duration, f func()) int64 {
-	return w.timer.ForeverTime(durFirst, durRepeat, f)
-}
+// func (w *workStore) ForeverTime(durFirst, durRepeat time.Duration, f func()) int64 {
+// 	return w.timer.ForeverTime(durFirst, durRepeat, f)
+// }
 
 func (w *workStore) Cancel(taskID int64) {
 	w.timer.Cancel(taskID)
@@ -108,6 +108,6 @@ func (w *workStore) CancelAll() {
 	w.timer.CancelAll()
 }
 
-// func (w *workStore) Shutdown() {
-// 	w.timer.Shutdown()
-// }
+func (w *workStore) Shutdown() {
+	w.timer.Shutdown()
+}

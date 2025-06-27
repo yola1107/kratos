@@ -3,7 +3,6 @@ package work
 import (
 	"context"
 	"fmt"
-	"runtime/debug"
 	"sync"
 	"time"
 
@@ -135,30 +134,61 @@ func (l *antsLoop) PostAndWait(job func() ([]byte, error)) ([]byte, error) {
 	return l.PostAndWaitCtx(context.Background(), job)
 }
 
+var resultChanPool = sync.Pool{
+	New: func() any {
+		return make(chan *asyncResult, 1)
+	},
+}
+
+var asyncResultPool = sync.Pool{
+	New: func() any {
+		return new(asyncResult)
+	},
+}
+
 func (l *antsLoop) PostAndWaitCtx(ctx context.Context, job func() ([]byte, error)) ([]byte, error) {
-	ch := make(chan *asyncResult, 1)
+	ch := resultChanPool.Get().(chan *asyncResult)
+
+	// 清理通道并归还池中
+	defer func() {
+		select {
+		case <-ch: // drain
+		default:
+		}
+		resultChanPool.Put(ch)
+	}()
 
 	l.submit(ctx, func() {
 		defer RecoverFromError(func(e any) {
-			// 通过select确保panic信息能发送出去, 防止调用方一直阻塞等待接收job的返回结果
+			res := asyncResultPool.Get().(*asyncResult)
+			res.data = nil
+			res.err = fmt.Errorf("panic: %v", e)
+
 			select {
-			case ch <- &asyncResult{nil, fmt.Errorf("panic: %v", e)}:
+			case ch <- res:
 			default:
 			}
 		})
+
 		data, err := job()
+		res := asyncResultPool.Get().(*asyncResult)
+		res.data = data
+		res.err = err
+
 		select {
-		case ch <- &asyncResult{data, err}:
+		case ch <- res:
 		case <-ctx.Done():
 		}
 	})
 
 	select {
 	case res := <-ch:
+		defer asyncResultPool.Put(res)
 		return res.data, res.err
 	case <-ctx.Done():
 		select {
 		case res := <-ch:
+			defer asyncResultPool.Put(res)
 			return res.data, res.err
 		default:
 			// 确保job被取消的信息能发送出去, 防止调用方一直阻塞等待接收job的返回结果
@@ -192,75 +222,3 @@ func safeRun(ctx context.Context, fn func()) {
 		fn()
 	}
 }
-
-func RecoverFromError(cb func(e any)) {
-	if e := recover(); e != nil {
-		log.Errorf("Recover => %v\n%s\n", e, debug.Stack())
-		if cb != nil {
-			cb(e)
-		}
-	}
-}
-
-//
-// var resultChanPool = sync.Pool{
-// 	New: func() any {
-// 		return make(chan *asyncResult, 1)
-// 	},
-// }
-//
-// var asyncResultPool = sync.Pool{
-// 	New: func() any {
-// 		return new(asyncResult)
-// 	},
-// }
-
-// func (l *antsLoop) PostAndWaitCtx(ctx context.Context, job func() ([]byte, error)) ([]byte, error) {
-// 	ch := resultChanPool.Get().(chan *asyncResult)
-//
-// 	// 清理通道并归还池中
-// 	defer func() {
-// 		select {
-// 		case <-ch: // drain
-// 		default:
-// 		}
-// 		resultChanPool.Put(ch)
-// 	}()
-//
-// 	l.submit(ctx, func() {
-// 		defer RecoverFromError(func(e any) {
-// 			res := asyncResultPool.Get().(*asyncResult)
-// 			res.data = nil
-// 			res.err = fmt.Errorf("panic: %v", e)
-//
-// 			select {
-// 			case ch <- res:
-// 			default:
-// 			}
-// 		})
-//
-// 		data, err := job()
-// 		res := asyncResultPool.Get().(*asyncResult)
-// 		res.data = data
-// 		res.err = err
-//
-// 		select {
-// 		case ch <- res:
-// 		case <-ctx.Done():
-// 		}
-// 	})
-//
-// 	select {
-// 	case res := <-ch:
-// 		defer asyncResultPool.Put(res)
-// 		return res.data, res.err
-// 	case <-ctx.Done():
-// 		select {
-// 		case res := <-ch:
-// 			defer asyncResultPool.Put(res)
-// 			return res.data, res.err
-// 		default:
-// 			return nil, fmt.Errorf("canceled: %w", ctx.Err())
-// 		}
-// 	}
-// }

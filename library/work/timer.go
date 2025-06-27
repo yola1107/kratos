@@ -2,131 +2,210 @@ package work
 
 import (
 	"context"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/RussellLuo/timingwheel"
+	"github.com/yola1107/kratos/v2/log"
 )
 
-/*
-	定时器任务
-*/
-
-// ITaskScheduler 核心调度接口
 type ITaskScheduler interface {
-	Len() int // 当前活跃定时任务数量
+	Len() int
 	Once(duration time.Duration, f func()) int64
 	Forever(interval time.Duration, f func()) int64
 	ForeverNow(interval time.Duration, f func()) int64
-	ForeverTime(durFirst, durRepeat time.Duration, f func()) int64
 	Cancel(taskID int64)
 	CancelAll()
+	Shutdown()
 }
 
 type ITaskExecutor interface {
 	Post(job func())
 }
 
-// taskScheduler  定时器任务
-type taskScheduler struct {
-	count atomic.Int64    // 当前活跃任务数量
-	seq   atomic.Int64    // 原子递增的任务ID计数器
-	tasks sync.Map        // 存储任务ID对应的停止通道 [int64]context.CancelFunc
-	loop  ITaskExecutor   // 任务池执行器
-	ctx   context.Context // 根上下文
+type Every struct{ Interval time.Duration }
+
+func (e *Every) Next(t time.Time) time.Time {
+	if e.Interval <= 0 {
+		return time.Time{}
+	}
+	return t.Add(e.Interval)
 }
 
-// NewTaskScheduler 创建新定时器实例
-func NewTaskScheduler(loop ITaskExecutor, ctx context.Context) ITaskScheduler {
-	return &taskScheduler{
-		loop: loop,
-		ctx:  ctx,
+type timingWheelScheduler struct {
+	tw       *timingwheel.TimingWheel
+	executor ITaskExecutor
+
+	mu        sync.Mutex
+	tasks     map[int64]*taskEntry
+	nextID    int64
+	shutdown  bool
+	wg        sync.WaitGroup
+	closeOnce sync.Once
+
+	ctx    context.Context
+	cancel context.CancelFunc
+}
+
+type taskEntry struct {
+	timer     *timingwheel.Timer
+	cancelled atomic.Bool // 原子操作确保并发安全
+	repeated  bool
+}
+
+func NewTaskScheduler(exec ITaskExecutor, parentCtx context.Context) ITaskScheduler {
+	tw := timingwheel.NewTimingWheel(1*time.Millisecond, 512)
+	ctx, cancel := context.WithCancel(parentCtx)
+
+	s := &timingWheelScheduler{
+		tw:       tw,
+		executor: exec,
+		ctx:      ctx,
+		cancel:   cancel,
+		tasks:    make(map[int64]*taskEntry),
 	}
+
+	go func() {
+		tw.Start()
+		<-ctx.Done()
+		tw.Stop()
+	}()
+
+	return s
 }
 
 // Len 返回当前活跃任务数量
-func (t *taskScheduler) Len() int {
-	return int(t.count.Load())
+func (s *timingWheelScheduler) Len() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.tasks)
 }
 
 // Once 执行一次定时任务
-func (t *taskScheduler) Once(duration time.Duration, f func()) int64 {
-	return t.run(duration, 0, false, f)
+func (s *timingWheelScheduler) Once(delay time.Duration, f func()) int64 {
+	return s.schedule(delay, false, f)
 }
 
 // Forever 固定间隔重复执行
-func (t *taskScheduler) Forever(interval time.Duration, f func()) int64 {
-	return t.run(interval, interval, true, f)
+func (s *timingWheelScheduler) Forever(interval time.Duration, f func()) int64 {
+	return s.schedule(interval, true, f)
 }
 
 // ForeverNow 立即执行后按间隔重复
-func (t *taskScheduler) ForeverNow(interval time.Duration, f func()) int64 {
-	safeCall(t.loop, f)
-	return t.Forever(interval, f)
-}
-
-// ForeverTime 首次延迟与后续间隔不同的定时任务
-func (t *taskScheduler) ForeverTime(durFirst, durRepeat time.Duration, f func()) int64 {
-	return t.run(durFirst, durRepeat, true, f)
+func (s *timingWheelScheduler) ForeverNow(interval time.Duration, f func()) int64 {
+	s.executeAsync(f)
+	return s.schedule(interval, true, f)
 }
 
 // Cancel 停止指定ID的定时任务
-func (t *taskScheduler) Cancel(taskID int64) {
-	if cancel, ok := t.tasks.LoadAndDelete(taskID); ok {
-		if cancelFn, ok := cancel.(context.CancelFunc); ok {
-			cancelFn() // 取消特定任务
-		}
-	}
+func (s *timingWheelScheduler) Cancel(taskID int64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.cancelTaskLocked(taskID)
 }
 
 // CancelAll 停止所有定时任务
-func (t *taskScheduler) CancelAll() {
-	t.tasks.Range(func(_, value any) bool {
-		if cancelFn, ok := value.(context.CancelFunc); ok {
-			cancelFn()
+func (s *timingWheelScheduler) CancelAll() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for id := range s.tasks {
+		s.cancelTaskLocked(id)
+	}
+}
+
+func (s *timingWheelScheduler) Shutdown() {
+	s.closeOnce.Do(func() {
+		s.mu.Lock()
+		s.shutdown = true
+
+		// 取消所有任务
+		for id := range s.tasks {
+			s.cancelTaskLocked(id)
 		}
-		return true
+		s.mu.Unlock()
+
+		// 取消上下文，停止时间轮
+		s.cancel()
+
+		// 等待所有执行中的任务完成
+		s.wg.Wait()
 	})
 }
 
 // 核心执行方法
-func (t *taskScheduler) run(durFirst, durRepeat time.Duration, repeated bool, f func()) int64 {
-	taskID := t.seq.Add(1)
-	ctx, cancel := context.WithCancel(t.ctx) // 派生Context
-	t.tasks.Store(taskID, cancel)
-	t.count.Add(1) // 统计 +1
+func (s *timingWheelScheduler) schedule(delay time.Duration, repeated bool, f func()) int64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	// 启动定时任务协程
-	go func() {
-		defer func() {
-			t.tasks.Delete(taskID)
-			cancel()
-			t.count.Add(-1) // 统计 -1
-		}()
+	// 检查调度器状态
+	if s.shutdown || s.ctx.Err() != nil {
+		return -1
+	}
 
-		timer := time.NewTimer(durFirst)
-		defer timer.Stop()
+	taskID := s.nextID
+	s.nextID++
 
-		for {
-			select {
-			case <-ctx.Done(): // 监听取消
-				return
-			case <-timer.C:
-				safeCall(t.loop, f)
-				if !repeated {
-					return
-				}
-				safeReset(timer, durRepeat)
-			}
+	entry := &taskEntry{repeated: repeated}
+	s.tasks[taskID] = entry
+
+	// 创建任务包装函数（在时间轮的goroutine中执行）
+	wrapped := func() {
+		// 在任务触发时检查取消状态
+		if entry.cancelled.Load() {
+			return
 		}
-	}()
+
+		// 关键：在创建 goroutine 之前增加计数
+		s.wg.Add(1)
+		go func() {
+			defer s.wg.Done()
+
+			// 在实际执行前再次检查取消状态
+			if entry.cancelled.Load() {
+				return
+			}
+
+			s.executeAsync(f)
+
+			// 一次性任务执行后自动清理
+			if !repeated {
+				s.mu.Lock()
+				s.cancelTaskLocked(taskID)
+				s.mu.Unlock()
+			}
+		}()
+	}
+
+	if repeated {
+		// 周期性任务
+		entry.timer = s.tw.ScheduleFunc(&Every{Interval: delay}, wrapped)
+	} else {
+		// 一次性任务
+		entry.timer = s.tw.AfterFunc(delay, wrapped)
+	}
 
 	return taskID
 }
 
-// safeCall 把 f 投递到任务池或直接 goroutine，并带 recover
-func safeCall(loop ITaskExecutor, f func()) {
-	if loop != nil {
-		loop.Post(func() {
+func (s *timingWheelScheduler) cancelTaskLocked(taskID int64) {
+	entry, ok := s.tasks[taskID]
+	if !ok {
+		return
+	}
+
+	if entry.timer != nil {
+		entry.timer.Stop()
+	}
+	entry.cancelled.Store(true)
+	delete(s.tasks, taskID)
+}
+
+// executeAsync 把 f 投递到任务池或直接 goroutine，并带 recover
+func (s *timingWheelScheduler) executeAsync(f func()) {
+	if s.executor != nil {
+		s.executor.Post(func() {
 			defer RecoverFromError(nil)
 			f()
 		})
@@ -138,13 +217,11 @@ func safeCall(loop ITaskExecutor, f func()) {
 	}
 }
 
-// safeReset 安全地 reset timer，避免潜在 panic
-func safeReset(t *time.Timer, d time.Duration) {
-	if !t.Stop() {
-		select {
-		case <-t.C:
-		default:
+func RecoverFromError(cb func(e any)) {
+	if e := recover(); e != nil {
+		log.Errorf("Recover => %v\n%s\n", e, debug.Stack())
+		if cb != nil {
+			cb(e)
 		}
 	}
-	t.Reset(d)
 }
