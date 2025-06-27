@@ -93,7 +93,6 @@ func (t *taskScheduler) run(durFirst, durRepeat time.Duration, repeated bool, f 
 	taskID := t.seq.Add(1)
 	ctx, cancel := context.WithCancel(t.ctx) // 派生Context
 	t.tasks.Store(taskID, cancel)
-
 	t.count.Add(1) // 统计 +1
 
 	// 启动定时任务协程
@@ -116,7 +115,7 @@ func (t *taskScheduler) run(durFirst, durRepeat time.Duration, repeated bool, f 
 				if !repeated {
 					return
 				}
-				timer.Reset(durRepeat)
+				safeReset(timer, durRepeat)
 			}
 		}
 	}()
@@ -137,4 +136,15 @@ func safeCall(loop ITaskExecutor, f func()) {
 			f()
 		}()
 	}
+}
+
+// safeReset 安全地 reset timer，避免潜在 panic
+func safeReset(t *time.Timer, d time.Duration) {
+	if !t.Stop() {
+		select {
+		case <-t.C:
+		default:
+		}
+	}
+	t.Reset(d)
 }
