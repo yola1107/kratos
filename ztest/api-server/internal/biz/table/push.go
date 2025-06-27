@@ -219,6 +219,7 @@ func (t *Table) broadcastActivePlayerPush() {
 			if len(rsp.CanOp) == 0 {
 				log.Errorf("ActivePush empty. tb:%v, p:%v", t.Desc(), p.Desc())
 			}
+			// log.Debugf("ActivePush ok. %v", ext.ToJSON(rsp))
 			// log.Debugf("ActivePush. p:%v CanOp=%v, tb:%v ", p.Desc(), rsp.CanOp, t.Desc())
 		}
 		t.SendPacketToClient(p, v1.GameCommand_OnActivePush, rsp)

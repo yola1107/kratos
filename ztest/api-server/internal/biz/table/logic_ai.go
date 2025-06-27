@@ -134,10 +134,8 @@ func (r *RobotLogic) ActivePlayer(p *player.Player, msg proto.Message) {
 		SideReplyAllow: ext.IsHitFloat(0.5),
 	}
 
-	r.mTable.repo.GetLoop().Post(func() {
-		r.mTable.repo.GetTimer().Once(dur, func() {
-			r.mTable.OnActionReq(p, req, false)
-		})
+	r.mTable.repo.GetTimer().Once(dur, func() {
+		r.mTable.OnActionReq(p, req, false)
 	})
 }
 

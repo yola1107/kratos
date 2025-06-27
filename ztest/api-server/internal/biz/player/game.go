@@ -92,8 +92,8 @@ func (p *Player) Desc() string {
 		}
 		return 0
 	}
-	return fmt.Sprintf("(%d %d T:%d M:%.1f B:%.1f St:%v Se:%d ai:%d)", p.GetPlayerID(), p.GetChairID(), p.GetTableID(),
-		p.GetAllMoney(), p.GetBet(), p.GetStatus(), bool2Int(p.gameData.seen), bool2Int(p.isRobot))
+	return fmt.Sprintf("(%d %d T:%d M:%.1f B:%.1f St:%v Se:%d ai:%d offline:%v)", p.GetPlayerID(), p.GetChairID(), p.GetTableID(),
+		p.GetAllMoney(), p.GetBet(), p.GetStatus(), bool2Int(p.gameData.seen), bool2Int(p.isRobot), bool2Int(p.IsOffline()))
 }
 
 func (p *Player) SetTableID(tableID int32) {

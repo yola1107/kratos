@@ -74,12 +74,12 @@ func (uc *Usecase) enterRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp
 	}
 	p, err := uc.createPlayer(raw)
 	if err != nil {
-		uc.log.Warnf("createPlayer failed: %v", err)
+		log.Warnf("createPlayer failed: %v", err)
 		return nil, err
 	}
 
 	if err := uc.tm.CanEnterRoom(p, in.Token, uc.rc.Game); err != nil {
-		uc.log.Warnf("canEnterRoom failed for user %d: %v", in.UserID, err)
+		log.Warnf("canEnterRoom failed for user %d: %v", in.UserID, err)
 		uc.LogoutGame(p, err.Code, err.Message)
 		return nil, err
 	}
@@ -144,7 +144,7 @@ func (uc *Usecase) createPlayer(raw *player.Raw) (*player.Player, error) {
 	if !raw.IsRobot {
 		uc.pm.Add(p)
 	}
-	log.Debugf("createPlayer. p:%+v ", p.Desc())
+	log.Debugf("createPlayer success. p:%+v ", p.Desc())
 	return p, nil
 }
 

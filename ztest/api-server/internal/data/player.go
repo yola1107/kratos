@@ -56,9 +56,18 @@ func (r *dataRepo) ExistPlayer(ctx context.Context, uid int64) bool {
 // LoadPlayer ==> BaseUserInfoGet
 func (r *dataRepo) LoadPlayer(ctx context.Context, uid int64) (*player.BaseData, error) {
 	key := GetPlayerKey(uid)
+
+	v, err := r.data.redis.Exists(ctx, key).Result()
+	if err != nil {
+		return nil, err
+	}
+	if v == 0 {
+		return nil, errRedisNil
+	}
+
 	values, err := r.data.redis.HMGet(ctx, key, allBaseDataFields...).Result()
 	if err != nil {
-		return nil, errors.New(1, "", err.Error())
+		return nil, errors.New(2, "Redis HMGet ERROR", err.Error())
 	}
 	if len(values) == 0 {
 		return nil, errRedisNil
