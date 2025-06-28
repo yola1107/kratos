@@ -13,8 +13,8 @@ import (
 
 type ITaskScheduler interface {
 	Len() int       // 注册在调度系统的任务数量
-	Running() int32 // 当前前活跃执行中的任务数
-	Once(duration time.Duration, f func()) int64
+	Running() int32 // 当前活跃执行中的任务数
+	Once(delay time.Duration, f func()) int64
 	Forever(interval time.Duration, f func()) int64
 	ForeverNow(interval time.Duration, f func()) int64
 	Cancel(taskID int64)
@@ -56,7 +56,7 @@ type timingWheelScheduler struct {
 
 	tasks     sync.Map // map[int64]*taskEntry
 	nextID    atomic.Int64
-	taskCount atomic.Int32 // 正在运行的活跃数计数
+	taskCount atomic.Int32 // 正在运行的活跃任务计数
 	wg        sync.WaitGroup
 	shutdown  atomic.Bool
 	closeOnce sync.Once
@@ -66,7 +66,7 @@ type timingWheelScheduler struct {
 }
 
 func NewTaskScheduler(exec ITaskExecutor, parentCtx context.Context) ITaskScheduler {
-	// 使用 timingwheel.TimingWheel 达到毫秒级调度精度
+	// 创建时间轮 (1ms精度，512槽位)
 	tw := timingwheel.NewTimingWheel(1*time.Millisecond, 512)
 	ctx, cancel := context.WithCancel(parentCtx)
 
@@ -140,7 +140,7 @@ func (s *timingWheelScheduler) Shutdown() {
 		case <-done:
 			// 正常完成
 		case <-time.After(100 * time.Millisecond):
-			log.Warnf("Shutdown timed out waiting for tasks")
+			log.Warn("Scheduler shutdown timed out, some tasks may still be running")
 		}
 	})
 }
@@ -151,14 +151,13 @@ func (s *timingWheelScheduler) schedule(delay time.Duration, repeated bool, f fu
 		return -1
 	}
 
+	// 生成唯一任务ID
 	taskID := s.nextID.Add(1)
 	entry := &taskEntry{repeated: repeated}
-	s.tasks.Store(taskID, entry) // 先存储任务再启动计时器
-
-	var once sync.Once // 确保清理只执行一次
+	s.tasks.Store(taskID, entry)
 
 	wrapped := func() {
-		// 在任务触发时立即检查取消状态
+		// 检查任务是否已取消
 		if entry.cancelled.Load() {
 			return
 		}
@@ -167,25 +166,23 @@ func (s *timingWheelScheduler) schedule(delay time.Duration, repeated bool, f fu
 		s.taskCount.Add(1)
 		s.wg.Add(1)
 
-		// 放入到线程池安全执行
+		// 通过线程池执行器执行任务
 		s.executeAsync(func() {
 			// 确保计数减少
 			defer s.taskCount.Add(-1)
 			defer s.wg.Done()
 
-			// 执行前再次检查取消状态
+			// 再次检查取消状态
 			if entry.cancelled.Load() {
 				return
 			}
 
-			// 执行回调
+			// 执行任务
 			f()
 
-			// 一次性任务执行后自动清理
+			// 单次任务执行后立即移除
 			if !repeated {
-				once.Do(func() {
-					s.removeTask(taskID)
-				})
+				s.removeTask(taskID)
 			}
 		})
 	}
@@ -206,7 +203,7 @@ func (s *timingWheelScheduler) removeTask(taskID int64) {
 	}
 	entry := value.(*taskEntry)
 
-	// 使用原子操作确保只取消一次
+	// 原子标记任务为已取消
 	if !entry.cancelled.CompareAndSwap(false, true) {
 		return
 	}
