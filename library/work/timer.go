@@ -56,7 +56,7 @@ type timingWheelScheduler struct {
 
 	tasks     sync.Map // map[int64]*taskEntry
 	nextID    atomic.Int64
-	taskCount atomic.Int32 // 正在运行的活跃任务计数
+	running   atomic.Int32 // 正在运行的活跃任务计数
 	wg        sync.WaitGroup
 	shutdown  atomic.Bool
 	closeOnce sync.Once
@@ -96,7 +96,7 @@ func (s *timingWheelScheduler) Len() int {
 }
 
 func (s *timingWheelScheduler) Running() int32 {
-	return s.taskCount.Load()
+	return s.running.Load()
 }
 
 func (s *timingWheelScheduler) Once(delay time.Duration, f func()) int64 {
@@ -163,13 +163,13 @@ func (s *timingWheelScheduler) schedule(delay time.Duration, repeated bool, f fu
 		}
 
 		// 在任务触发时增加计数
-		s.taskCount.Add(1)
+		s.running.Add(1)
 		s.wg.Add(1)
 
 		// 通过线程池执行器执行任务
 		s.executeAsync(func() {
 			// 确保计数减少
-			defer s.taskCount.Add(-1)
+			defer s.running.Add(-1)
 			defer s.wg.Done()
 
 			// 再次检查取消状态
