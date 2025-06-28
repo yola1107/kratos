@@ -260,7 +260,7 @@ func (p *Player) Settle(totalBet float64) float64 {
 	totalWin := totalBet
 	profit := totalWin - p.gameData.bet
 
-	log.Infof("Settle. p:%+v totalWin:%.1f profit:%.1f", p.Desc(), totalWin, profit)
+	log.Debugf("Settle. p:%+v totalWin:%.1f profit:%.1f", p.Desc(), totalWin, profit)
 
 	return profit
 }

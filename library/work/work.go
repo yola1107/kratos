@@ -45,9 +45,9 @@ func (w *workStore) Start() error {
 }
 
 func (w *workStore) Stop() {
-	w.loop.Stop()
 	w.timer.CancelAll()
 	w.timer.Shutdown()
+	w.loop.Stop()
 }
 
 func (w *workStore) Status() LoopStatus {
