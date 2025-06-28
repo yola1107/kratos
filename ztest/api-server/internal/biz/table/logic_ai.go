@@ -116,18 +116,18 @@ func (r *RobotLogic) ActivePlayer(p *player.Player, msg proto.Message) {
 		return
 	}
 
+	s := r.mTable.stage
 	ops := rsp.GetCanOp()
 	ops2 := r.mTable.getCanOp(r.mTable.GetActivePlayer())
 	if len(ops) == 0 || len(ops2) == 0 || !ext.SliceContains(ops, ops2...) || !ext.SliceContains(ops2, ops...) {
 		log.Errorf("empty. p:%+v stage:%v active:%v ops:%v ops2:%v ",
-			p.Desc(), r.mTable.stage.State, r.mTable.active, ops, ops2)
+			p.Desc(), s.Desc(), r.mTable.active, ops, ops2)
 		ops = ops2
 	}
 
-	op := RandOpWithWeight(ops)             // 按权重随机选操作
-	remaining := r.mTable.stage.Remaining() // 获取剩余操作时间
+	op := RandOpWithWeight(ops) // 按权重随机选操作
+	remaining := s.Remaining()  // 获取剩余操作时间
 	dur := time.Duration(ext.RandInt(1000, remaining.Milliseconds()*3/4)) * time.Millisecond
-	// log.Debugf("操作ops=%+v, op=%s, 延迟 dur=%v, remainDur=%v", ops, op, dur, remaining)
 	req := &v1.ActionReq{
 		UserID:         p.GetPlayerID(),
 		Action:         op,

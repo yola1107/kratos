@@ -150,7 +150,7 @@ func (t *Table) SendSceneInfo(p *player.Player) {
 		ChLimit:      c.Game.ChLimit,
 		PotLimit:     c.Game.PotLimit,
 		AutoSeeRound: c.Game.AutoSeeRound,
-		Stage:        int32(t.stage.State),
+		Stage:        int32(t.stage.GetState()),
 		Timeout:      int64(t.stage.Remaining().Seconds()),
 		Active:       t.active,
 		Banker:       t.banker,
@@ -205,7 +205,7 @@ func (t *Table) broadcastActivePlayerPush() {
 
 	t.RangePlayer(func(k int32, p *player.Player) bool {
 		rsp := &v1.ActivePush{
-			Stage:    int32(t.stage.State),
+			Stage:    int32(t.stage.GetState()),
 			Timeout:  int64(t.stage.Remaining().Seconds()),
 			Active:   t.active,
 			CurRound: t.curRound,
@@ -295,7 +295,7 @@ func (t *Table) getCanOp(p *player.Player) (actions []v1.ACTION) {
 		return
 	}
 
-	stage := t.stage.State
+	stage := t.stage.GetState()
 	if stage == StWait || stage == StReady || stage == StWaitEnd || stage == StEnd {
 		return
 	}

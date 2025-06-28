@@ -73,8 +73,8 @@ func (l *Log) activePush(p *player.Player, first int32, curRound int32, canOp []
 	l.write("[操作通知] 玩家:%+v first:%+v curRound:%d canOp:%v gaming:%d", p.Desc(), first, curRound, canOp, gamingCnt)
 }
 
-func (l *Log) stage(old, new StageID, active int32) {
-	l.write("[状态转移] [%v->%+v, %+v -> %v]. active=%+v", int32(old), int32(new), old, new, active)
+func (l *Log) stage(s string, active int32) {
+	l.write("[状态转移] %s. active=%+v", s, active)
 }
 
 func (l *Log) SeeCard(p *player.Player) {
@@ -135,9 +135,11 @@ func (l *Log) settle(winner *player.Player, msgs ...any) {
 	}
 	l.write(strings.Join(logs, "\r\n"))
 }
+
 func (l *Log) endClear(msg ...any) {
 	l.write("[结束后清理数据] %s", msg)
 }
+
 func (l *Log) end(msg ...any) {
 	l.write("[GameEnd] %s", msg)
 	l.write("\r\n\r\n\r\n")

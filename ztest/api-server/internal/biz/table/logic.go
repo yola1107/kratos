@@ -2,6 +2,7 @@ package table
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/yola1107/kratos/v2/library/ext"
@@ -18,6 +19,7 @@ import (
 const MinStartPlayerCnt = 2
 
 type Stage struct {
+	mu       sync.RWMutex
 	State    StageID
 	Prev     StageID
 	TimerID  int64
@@ -26,14 +28,49 @@ type Stage struct {
 }
 
 func (s *Stage) IsExpired() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return time.Since(s.StartAt) > s.Duration
 }
 
 func (s *Stage) Remaining() time.Duration {
-	return max(s.Duration-time.Since(s.StartAt), 0)
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	elapsed := time.Since(s.StartAt)
+	if elapsed > s.Duration {
+		return 0
+	}
+	return s.Duration - elapsed
+}
+
+func (s *Stage) GetState() StageID {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.State
+}
+
+func (s *Stage) GetTimerID() int64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.TimerID
+}
+
+func (s *Stage) Snap() (StageID, StageID, time.Duration, time.Time, int64) {
+	s.mu.RLock()
+	prev, state, dur, at, timerID := s.Prev, s.State, s.Duration, s.StartAt, s.TimerID
+	s.mu.RUnlock()
+	return prev, state, dur, at, timerID
+}
+
+func (s *Stage) Desc() string {
+	prev, state, duration, _, _ := s.Snap()
+	return fmt.Sprintf("[%v->%+v, %+v -> %v, dur=%v]",
+		int32(prev), int32(state), prev, state, duration)
 }
 
 func (s *Stage) Set(state StageID, duration time.Duration, timerID int64) {
+	s.mu.Lock() // 写锁
+	defer s.mu.Unlock()
 	s.Prev = s.State
 	s.State = state
 	s.StartAt = time.Now()
@@ -42,13 +79,13 @@ func (s *Stage) Set(state StageID, duration time.Duration, timerID int64) {
 }
 
 func (t *Table) OnTimer() {
-	// log.Debugf("[Stage] OnTimer timeout. St:%v TimerID=%d", t.stage.State, t.stage.TimerID)
+	state := t.stage.GetState()
+	timerID := t.stage.GetTimerID()
+	// log.Debugf("[Stage] OnTimer timeout. St:%v TimerID=%d", state, timerID)
 
-	state := t.stage.State
 	switch state {
 	case StWait:
-		// StWait 可选踢掉长时间占桌不开局的玩家
-		log.Infof("StWait timeout. ")
+		log.Debugf("StWait timeout. TimerID=%d", timerID)
 	case StReady:
 		t.onGameStart()
 	case StSendCard:
@@ -64,7 +101,7 @@ func (t *Table) OnTimer() {
 	case StEnd:
 		t.onEndTimeout()
 	default:
-		log.Errorf("unhandled stage timeout: %v", state)
+		log.Errorf("unhandled stage timeout: %v TimerID=%d", state, timerID)
 	}
 }
 
@@ -74,17 +111,23 @@ func (t *Table) updateStage(state StageID) {
 }
 
 func (t *Table) updateStageWith(state StageID, duration time.Duration) {
-	t.repo.GetTimer().Cancel(t.stage.TimerID)              // 取消当前定时器
-	timerID := t.repo.GetTimer().Once(duration, t.OnTimer) // 启动新定时器
-	t.stage.Set(state, duration, timerID)                  // 设置阶段
+	// 获取当前定时器ID并取消
+	currentTimerID := t.stage.GetTimerID()
+	t.repo.GetTimer().Cancel(currentTimerID)
+
+	// 启动新定时器
+	timerID := t.repo.GetTimer().Once(duration, t.OnTimer)
+
+	// 更新阶段
+	t.stage.Set(state, duration, timerID)
 
 	// 日志
-	t.mLog.stage(t.stage.Prev, t.stage.State, t.active)
-	// log.Debugf("[Stage] ====>. %s -> %s  dur=%v timerID=%d", t.stage.Prev, t.stage.State, duration, timerID)
+	t.mLog.stage(t.stage.Desc(), t.active)
+	log.Debugf("[Stage] ====> %v, timerID: %d->%d", t.stage.Desc(), currentTimerID, timerID)
 }
 
 func (t *Table) checkCanStart() {
-	if t.stage.State != StWait {
+	if t.stage.GetState() != StWait {
 		return
 	}
 
@@ -100,7 +143,7 @@ func (t *Table) checkCanStart() {
 func (t *Table) onGameStart() {
 	// 再次检查是否可进行游戏; 兜底回退到StWait
 	can, seats, infos := t.checkReadyPlayer()
-	if !can || t.stage.State != StReady {
+	if !can || t.stage.GetState() != StReady {
 		t.updateStage(StWait)
 		return
 	}

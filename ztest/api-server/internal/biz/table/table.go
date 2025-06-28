@@ -73,8 +73,8 @@ func (t *Table) Reset() {
 }
 
 func (t *Table) Desc() string {
-	str := fmt.Sprintf("(TableID:%d Banker:%d First:%d CurrBet:%.1f SitCnt:%d Gamers:%d [%+v] active:%d)",
-		t.ID, t.banker, t.first, t.curBet, t.sitCnt, len(t.GetGamers()), t.stage.State, t.active)
+	str := fmt.Sprintf("(TableID:%d Banker:%d First:%d CurrBet:%.1f SitCnt:%d Gamers:%d St:%+v active:%d)",
+		t.ID, t.banker, t.first, t.curBet, t.sitCnt, len(t.GetGamers()), t.stage.GetState(), t.active)
 	return str
 }
 
