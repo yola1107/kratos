@@ -40,8 +40,10 @@ type Usecase struct {
 	repo DataRepo    // 数据访问层接口，持久化玩家信息
 	log  *log.Helper // 日志记录器
 
+	loop  work.ITaskLoop      // 任务循环
+	timer work.ITaskScheduler // 定时任务
+
 	rc *conf.Room      // 房间配置（从配置文件读取）
-	ws work.IWorkStore // 通用工作存储，用于任务调度（定时器、循环）
 	pm *player.Manager // 玩家管理器
 	tm *table.Manager  // 桌子管理器
 	rm *robot.Manager  // 机器人管理器
@@ -52,18 +54,20 @@ func NewUsecase(repo DataRepo, logger log.Logger, c *conf.Room) (*Usecase, func(
 	ctx, cancel := context.WithCancel(context.Background())
 	uc := &Usecase{repo: repo, log: log.NewHelper(logger), rc: c}
 
-	// 初始化顺序：WorkStore -> Table -> Player -> Robot
-	uc.ws = work.NewWorkStore(ctx, defaultPendingNum)
+	// 初始化顺序：loop -> timer -> Table -> Player -> Robot
+	uc.loop = work.NewAntsLoop(defaultPendingNum)
+	uc.timer = work.NewTaskScheduler(uc.loop, ctx)
 	uc.tm = table.NewManager(c, uc)
 	uc.pm = player.NewManager()
 	uc.rm = robot.NewManager(c, uc)
 
 	cleanup := func() {
-		log.Info("closing the Room resources")
+		// log.Info("closing the Room resources")
 		// 	uc.tm.Close()
 		// 	uc.pm.Close()
 		uc.rm.Stop()
-		uc.ws.Stop()
+		uc.timer.Stop()
+		uc.loop.Stop()
 		cancel() // 最后释放
 	}
 	return uc, cleanup, uc.start()
@@ -74,16 +78,16 @@ func (uc *Usecase) start() error {
 	log.Infof("GameID=%d ArenaID=%d ServerID=%s", conf.GameID, conf.ArenaID, conf.ServerID)
 
 	err := errors.Join(
-		uc.ws.Start(),
+		uc.loop.Start(),
 		uc.rm.Start(),
 	)
-	uc.ws.Forever(defaultStatusInterval, uc.post)
+	uc.timer.Forever(defaultStatusInterval, uc.post)
 	return err
 }
 
 func (uc *Usecase) post() {
-	timers, running := uc.ws.Len(), uc.ws.Running()
-	loops := uc.ws.Status()
+	timers, running := uc.timer.Len(), uc.timer.Running()
+	loops := uc.loop.Status()
 	all, offline := uc.pm.Counter()
 	aiAll, aiFree, aiGaming := uc.rm.Counter()
 

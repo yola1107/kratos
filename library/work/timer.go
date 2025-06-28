@@ -11,6 +11,12 @@ import (
 	"github.com/yola1107/kratos/v2/log"
 )
 
+var (
+	// 创建时间轮 (100ms精度，1024槽位, 跨度0.1*1024=102.4s)
+	defaultTickPrecision = 100 * time.Millisecond // 时间轮精度 单位毫秒
+	defaultWheelSize     = int64(1024)            // 时间轮槽位
+)
+
 type ITaskScheduler interface {
 	Len() int       // 注册在调度系统的任务数量
 	Running() int32 // 当前活跃执行中的任务数
@@ -19,7 +25,7 @@ type ITaskScheduler interface {
 	ForeverNow(interval time.Duration, f func()) int64
 	Cancel(taskID int64)
 	CancelAll()
-	Shutdown()
+	Stop()
 }
 
 type ITaskExecutor interface {
@@ -66,8 +72,7 @@ type timingWheelScheduler struct {
 }
 
 func NewTaskScheduler(exec ITaskExecutor, parentCtx context.Context) ITaskScheduler {
-	// 创建时间轮 (1ms精度，512槽位)
-	tw := timingwheel.NewTimingWheel(1*time.Millisecond, 512)
+	tw := timingwheel.NewTimingWheel(defaultTickPrecision, defaultWheelSize)
 	ctx, cancel := context.WithCancel(parentCtx)
 
 	s := &timingWheelScheduler{
@@ -123,7 +128,7 @@ func (s *timingWheelScheduler) CancelAll() {
 	})
 }
 
-func (s *timingWheelScheduler) Shutdown() {
+func (s *timingWheelScheduler) Stop() {
 	s.closeOnce.Do(func() {
 		s.shutdown.Store(true)
 		s.cancel() // 先停止时间轮，防止新任务触发
@@ -154,34 +159,24 @@ func (s *timingWheelScheduler) schedule(delay time.Duration, repeated bool, f fu
 	// 生成唯一任务ID
 	taskID := s.nextID.Add(1)
 	entry := &taskEntry{repeated: repeated}
-	s.tasks.Store(taskID, entry)
 
 	wrapped := func() {
-		// 检查任务是否已取消
 		if entry.cancelled.Load() {
 			return
 		}
-
-		// 在任务触发时增加计数
 		s.running.Add(1)
 		s.wg.Add(1)
 
-		// 通过线程池执行器执行任务
+		// 线程池执行器执行任务
 		s.executeAsync(func() {
-			// 确保计数减少
 			defer s.running.Add(-1)
 			defer s.wg.Done()
-
-			// 再次检查取消状态
 			if entry.cancelled.Load() {
 				return
 			}
-
-			// 执行任务
 			f()
-
-			// 单次任务执行后立即移除
 			if !repeated {
+				// 单次任务执行后立即移除
 				s.removeTask(taskID)
 			}
 		})
@@ -193,6 +188,9 @@ func (s *timingWheelScheduler) schedule(delay time.Duration, repeated bool, f fu
 		entry.timer = s.tw.AfterFunc(delay, wrapped)
 	}
 
+	// Move this after `entry` is fully initialized
+	s.tasks.Store(taskID, entry)
+
 	return taskID
 }
 
@@ -202,12 +200,9 @@ func (s *timingWheelScheduler) removeTask(taskID int64) {
 		return
 	}
 	entry := value.(*taskEntry)
-
-	// 原子标记任务为已取消
 	if !entry.cancelled.CompareAndSwap(false, true) {
 		return
 	}
-
 	if entry.timer != nil {
 		entry.timer.Stop()
 	}

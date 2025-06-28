@@ -17,12 +17,12 @@ import (
 
 // GetLoop 获取任务队列
 func (uc *Usecase) GetLoop() work.ITaskLoop {
-	return uc.ws
+	return uc.loop
 }
 
 // GetTimer 获取定时器
 func (uc *Usecase) GetTimer() work.ITaskScheduler {
-	return uc.ws
+	return uc.timer
 }
 
 // GetRoomConfig 获取房间配置
@@ -49,7 +49,7 @@ func (uc *Usecase) reconnect(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp
 		return nil, codes.ErrSessionNotFound
 	}
 
-	uc.ws.Post(func() {
+	uc.loop.Post(func() {
 		p := uc.pm.GetByID(in.UserID)
 		if p == nil {
 			return
@@ -84,7 +84,7 @@ func (uc *Usecase) enterRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp
 		return nil, err
 	}
 
-	uc.ws.Post(func() {
+	uc.loop.Post(func() {
 		if tableID := p.GetTableID(); tableID > 0 {
 			uc.log.Warnf("enter failed. already exist in table. UserID(%d) TableID(%d) %v",
 				in.UserID, tableID, codes.ErrPlayerAlreadyInTable)
@@ -174,8 +174,6 @@ func (uc *Usecase) LogoutGame(p *player.Player, code int32, msg string) {
 		return
 	}
 
-	log.Debugf("logoutGame. p:%+v code=%d msg=%q", p.Desc(), code, msg)
-
 	uid := p.GetPlayerID()
 	if p.IsRobot() {
 		uc.rm.Leave(uid)
@@ -184,8 +182,10 @@ func (uc *Usecase) LogoutGame(p *player.Player, code int32, msg string) {
 		uc.pm.Remove(uid)
 	}
 
+	log.Infof("logoutGame. p:%+v code=%d msg=%q", p.Desc(), code, msg)
+
 	// 异步释放玩家
-	uc.ws.Post(func() {
+	uc.loop.Post(func() {
 		// 数据入库
 		baseData := *(p.GetBaseData()) // 复制一份
 

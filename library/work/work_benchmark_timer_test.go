@@ -24,14 +24,15 @@ func createScheduler(b *testing.B, timeout time.Duration) (context.Context, cont
 func BenchmarkOnceTasks(b *testing.B) {
 	ctx, cancel, scheduler := createScheduler(b, 3*time.Second)
 	defer cancel()
-	defer scheduler.Shutdown()
+	defer scheduler.Stop()
 
 	var counter int64
 	done := make(chan struct{})
 	target := int64(b.N)
 
 	for i := 0; i < b.N; i++ {
-		scheduler.Once(time.Duration(i%10+1)*time.Millisecond, func() {
+		delay := defaultTickPrecision + time.Duration(i%3)*defaultTickPrecision // 100ms ~ 300ms
+		scheduler.Once(delay, func() {
 			if atomic.AddInt64(&counter, 1) == target {
 				close(done)
 			}
@@ -48,14 +49,15 @@ func BenchmarkOnceTasks(b *testing.B) {
 func BenchmarkForeverTasks(b *testing.B) {
 	ctx, cancel, scheduler := createScheduler(b, 3*time.Second)
 	defer cancel()
-	defer scheduler.Shutdown()
+	defer scheduler.Stop()
 
 	var counter int64
 	done := make(chan struct{})
 	target := int64(b.N)
 
 	for i := 0; i < b.N; i++ {
-		scheduler.Forever(time.Duration(i%20+10)*time.Millisecond, func() {
+		delay := defaultTickPrecision + time.Duration(i%3)*defaultTickPrecision // 100ms ~ 300ms
+		scheduler.Forever(delay, func() {
 			if atomic.AddInt64(&counter, 1) == target {
 				close(done)
 			}
@@ -72,7 +74,7 @@ func BenchmarkForeverTasks(b *testing.B) {
 func BenchmarkMixedTasks(b *testing.B) {
 	ctx, cancel, scheduler := createScheduler(b, 5*time.Second)
 	defer cancel()
-	defer scheduler.Shutdown()
+	defer scheduler.Stop()
 
 	var onceCounter, foreverCounter int64
 	done := make(chan struct{})
@@ -83,11 +85,14 @@ func BenchmarkMixedTasks(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < n; i++ {
-		scheduler.Once(time.Duration(i%10+1)*time.Millisecond, func() {
+		onceDelay := defaultTickPrecision + time.Duration(i%3)*defaultTickPrecision // 100ms ~ 300ms
+		foreverDelay := defaultTickPrecision + time.Duration(i%5)*defaultTickPrecision
+
+		scheduler.Once(onceDelay, func() {
 			atomic.AddInt64(&onceCounter, 1)
 		})
 		if i%3 == 0 {
-			scheduler.Forever(time.Duration(i%20+10)*time.Millisecond, func() {
+			scheduler.Forever(foreverDelay, func() {
 				val := atomic.AddInt64(&foreverCounter, 1)
 				if val >= int64(n*10) {
 					once.Do(func() {
@@ -109,16 +114,15 @@ func BenchmarkMixedTasks(b *testing.B) {
 func BenchmarkSchedulerPrecision(b *testing.B) {
 	ctx, cancel, scheduler := createScheduler(b, 2*time.Second)
 	defer cancel()
-	defer scheduler.Shutdown()
+	defer scheduler.Stop()
 
 	var delayErrors []time.Duration
 	var mu sync.Mutex
 	var executed int64
-	// start := time.Now()
 	target := b.N
 
 	for i := 0; i < b.N; i++ {
-		delay := time.Duration(1+i%3) * time.Millisecond
+		delay := defaultTickPrecision + time.Duration(i%3)*defaultTickPrecision // 100ms ~ 300ms
 		expect := time.Now().Add(delay)
 
 		scheduler.Once(delay, func() {

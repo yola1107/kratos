@@ -11,6 +11,8 @@ import (
 	"github.com/yola1107/kratos/v2/log"
 )
 
+const defaultPendingNum = 100 // 默认100条任务池缓冲空间
+
 var resultChanPool = sync.Pool{
 	New: func() any {
 		return make(chan *asyncResult, 1)
@@ -73,6 +75,9 @@ type antsLoop struct {
 
 // NewAntsLoop 创建协程池实例
 func NewAntsLoop(size int, opts ...Option) ITaskLoop {
+	if size <= 0 {
+		size = defaultPendingNum
+	}
 	l := &antsLoop{
 		size: size,
 		fallback: func(ctx context.Context, fn func()) {
