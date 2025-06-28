@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"os"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -128,20 +127,11 @@ func TestTaskScheduler_BasicOperations(t *testing.T) {
 	defer scheduler.Shutdown()
 
 	t.Run("Once task executes", func(t *testing.T) {
-		var executed atomic.Bool
 		done := make(chan struct{})
-
 		scheduler.Once(10*time.Millisecond, func() {
-			executed.Store(true)
 			close(done)
 		})
-
-		select {
-		case <-done:
-			require.True(t, executed.Load(), "Once task did not execute")
-		case <-time.After(100 * time.Millisecond):
-			t.Fatal("Once task timed out")
-		}
+		waitForChannel(t, done, 100*time.Millisecond, "Once task did not execute")
 	})
 
 	t.Run("Forever task repeats", func(t *testing.T) {
@@ -152,56 +142,37 @@ func TestTaskScheduler_BasicOperations(t *testing.T) {
 		done := make(chan struct{})
 
 		id := scheduler.Forever(20*time.Millisecond, func() {
-			now := time.Now()
-			elapsed := now.Sub(start)
 			current := count.Add(1)
-			t.Logf("Task executed at: %s | Elapsed: %s | Count: %d",
-				now.Format(time.RFC3339Nano), elapsed, current)
+			t.Logf("Task executed | Count: %d | Elapsed: %v", current, time.Since(start))
 
 			if current >= 3 {
 				close(done)
 			}
 		})
 
-		select {
-		case <-done:
-			require.GreaterOrEqual(t, count.Load(), int32(3), "Expected at least 3 executions")
-		case <-time.After(200 * time.Millisecond):
-			t.Fatal("Forever task timed out")
-		}
+		waitForChannel(t, done, 200*time.Millisecond, "Forever task timed out")
+		require.GreaterOrEqual(t, count.Load(), int32(3), "Expected at least 3 executions")
 
 		// Test cancellation
-		cancelTime := time.Now()
+		t.Logf("Cancelling task at: %v", time.Since(start))
 		scheduler.Cancel(id)
-		t.Logf("Task cancelled at: %s", cancelTime.Format(time.RFC3339Nano))
 
-		time.Sleep(50 * time.Millisecond)
 		prev := count.Load()
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond) // Wait to ensure no further executions
 		require.Equal(t, prev, count.Load(), "Task continued after cancellation")
-		t.Logf("Final count after cancellation: %d", count.Load())
 	})
 
 	t.Run("ForeverNow executes immediately", func(t *testing.T) {
-		var count atomic.Int32
+		start := time.Now()
 		first := make(chan struct{})
 
-		// Execute immediately and then every 50ms
 		id := scheduler.ForeverNow(50*time.Millisecond, func() {
-			if count.Add(1) == 1 {
+			if count := time.Since(start); count < 20*time.Millisecond {
 				close(first)
 			}
 		})
 
-		// Verify immediate execution
-		select {
-		case <-first:
-			// Correct execution
-		case <-time.After(20 * time.Millisecond):
-			t.Fatal("ForeverNow did not execute immediately")
-		}
-
-		// Cancel task
+		waitForChannel(t, first, 20*time.Millisecond, "ForeverNow did not execute immediately")
 		scheduler.Cancel(id)
 	})
 }
@@ -222,7 +193,6 @@ func TestTaskScheduler_Cancellation(t *testing.T) {
 
 		scheduler.Cancel(id)
 		time.Sleep(50 * time.Millisecond)
-
 		require.False(t, executed.Load(), "Cancelled task was executed")
 	})
 
@@ -236,10 +206,8 @@ func TestTaskScheduler_Cancellation(t *testing.T) {
 			})
 		}
 
-		time.Sleep(10 * time.Millisecond) // Ensure tasks are added
 		scheduler.CancelAll()
 		time.Sleep(50 * time.Millisecond)
-
 		require.Zero(t, executed.Load(), "Expected 0 executions after CancelAll")
 	})
 }
@@ -251,35 +219,21 @@ func TestTaskScheduler_Shutdown(t *testing.T) {
 	executor := &mockExecutor{}
 	scheduler := NewTaskScheduler(executor, ctx)
 
-	// Add some tasks
-	var wg sync.WaitGroup
-	wg.Add(2)
-
-	scheduler.Once(100*time.Millisecond, func() { wg.Done() })
-	scheduler.Forever(50*time.Millisecond, func() { wg.Done() })
+	// Add tasks that should not execute
+	scheduler.Once(100*time.Millisecond, func() { t.Error("Once task executed after shutdown") })
+	scheduler.Forever(50*time.Millisecond, func() { t.Error("Forever task executed after shutdown") })
 
 	// Shutdown immediately
 	scheduler.Shutdown()
-
-	// Verify shutdown completed
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
-
-	select {
-	case <-done:
-		t.Error("Tasks executed after Shutdown")
-	case <-time.After(200 * time.Millisecond):
-		// Expected behavior - tasks should not execute
-	}
 
 	// Try to add new task
 	id := scheduler.Once(10*time.Millisecond, func() {
 		t.Error("New task executed after Shutdown")
 	})
 	require.Equal(t, int64(-1), id, "Expected -1 when scheduling after shutdown")
+
+	// Ensure no tasks executed
+	time.Sleep(200 * time.Millisecond)
 }
 
 func TestTaskScheduler_PanicRecovery(t *testing.T) {
@@ -292,40 +246,24 @@ func TestTaskScheduler_PanicRecovery(t *testing.T) {
 
 	t.Run("Recover from panic in Once task", func(t *testing.T) {
 		done := make(chan struct{})
-
 		scheduler.Once(10*time.Millisecond, func() {
-			defer func() {
-				close(done)
-			}()
+			defer close(done)
 			panic("test panic")
 		})
-
-		select {
-		case <-done:
-			// Recovery should have caught panic
-		case <-time.After(100 * time.Millisecond):
-			t.Error("Task did not execute")
-		}
+		waitForChannel(t, done, 100*time.Millisecond, "Task did not execute")
 	})
 
 	t.Run("Recover from panic in Forever task", func(t *testing.T) {
 		done := make(chan struct{})
 		var count atomic.Int32
 
-		// 使用外部变量控制取消
-		var id int64
-		shouldCancel := atomic.Bool{}
-
-		id = scheduler.Forever(20*time.Millisecond, func() {
-			// 在任务内部使用recover捕获panic
+		id := scheduler.Forever(20*time.Millisecond, func() {
 			defer func() {
 				if r := recover(); r != nil {
 					t.Logf("Recovered from panic: %v", r)
 				}
-
-				// 达到执行次数后标记需要取消
 				if count.Load() >= 2 {
-					shouldCancel.Store(true)
+					close(done)
 				}
 			}()
 
@@ -333,32 +271,9 @@ func TestTaskScheduler_PanicRecovery(t *testing.T) {
 			panic("periodic panic")
 		})
 
-		// 启动一个goroutine检查是否需要取消任务
-		go func() {
-			ticker := time.NewTicker(5 * time.Millisecond)
-			defer ticker.Stop()
-
-			for {
-				select {
-				case <-ticker.C:
-					if shouldCancel.Load() {
-						scheduler.Cancel(id)
-						close(done)
-						return
-					}
-				case <-time.After(200 * time.Millisecond):
-					close(done)
-					return
-				}
-			}
-		}()
-
-		select {
-		case <-done:
-			require.GreaterOrEqual(t, count.Load(), int32(2), "Task should have executed multiple times")
-		case <-time.After(200 * time.Millisecond):
-			t.Error("Forever task timed out")
-		}
+		waitForChannel(t, done, 200*time.Millisecond, "Forever task timed out")
+		scheduler.Cancel(id)
+		require.GreaterOrEqual(t, count.Load(), int32(2), "Task should have executed multiple times")
 	})
 }
 
@@ -366,6 +281,7 @@ func TestTaskScheduler_ContextCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	executor := &mockExecutor{}
 	scheduler := NewTaskScheduler(executor, ctx)
+	defer scheduler.Shutdown()
 
 	t.Run("Context cancel stops scheduler", func(t *testing.T) {
 		var executed atomic.Bool
@@ -373,13 +289,18 @@ func TestTaskScheduler_ContextCancel(t *testing.T) {
 			executed.Store(true)
 		})
 
-		// Cancel parent context
-		cancel()
+		cancel() // Cancel parent context
 		time.Sleep(150 * time.Millisecond)
-
 		require.False(t, executed.Load(), "Task should not execute after context cancel")
 	})
+}
 
-	// Should be safe to call multiple times
-	scheduler.Shutdown()
+// Helper function to wait for a channel with timeout
+func waitForChannel(t *testing.T, ch <-chan struct{}, timeout time.Duration, failMsg string) {
+	select {
+	case <-ch:
+		// Success
+	case <-time.After(timeout):
+		t.Fatal(failMsg)
+	}
 }
