@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	// 创建时间轮 (默认100ms精度，2048槽位, 跨度0.1*2048=204.8s)
+	// 创建时间轮 (默认100ms精度，512槽位, 跨度0.1*512=51.2s)
 	defaultTickPrecision = 100 * time.Millisecond // 时间轮精度
-	defaultWheelSize     = int64(2048)            // 时间轮槽位
+	defaultWheelSize     = int64(512)             // 时间轮槽位
 )
 
 type ITaskScheduler interface {
