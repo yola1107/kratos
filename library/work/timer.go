@@ -145,11 +145,13 @@ func (s *timingWheelScheduler) Shutdown() {
 
 func (s *timingWheelScheduler) schedule(delay time.Duration, repeated bool, f func()) int64 {
 	if s.shutdown.Load() || s.ctx.Err() != nil {
+		log.Warnf("Scheduler is shutdown, cannot schedule new task")
 		return -1
 	}
 
 	taskID := s.nextID.Add(1)
 	entry := &taskEntry{repeated: repeated}
+	s.tasks.Store(taskID, entry) // 先存储任务再启动计时器
 
 	var once sync.Once // 确保清理只执行一次
 
@@ -160,7 +162,7 @@ func (s *timingWheelScheduler) schedule(delay time.Duration, repeated bool, f fu
 		}
 
 		s.wg.Add(1) // 在任务触发时增加计数
-		go func() {
+		s.executeAsync(func() {
 			defer s.wg.Done() // 确保计数减少
 
 			// 执行前再次检查取消状态
@@ -177,11 +179,8 @@ func (s *timingWheelScheduler) schedule(delay time.Duration, repeated bool, f fu
 					s.removeTask(taskID)
 				})
 			}
-		}()
+		})
 	}
-
-	// 先存储任务再启动计时器
-	s.tasks.Store(taskID, entry)
 
 	if repeated {
 		entry.timer = s.tw.ScheduleFunc(&preciseEvery{Interval: delay}, wrapped)
