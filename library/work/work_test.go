@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"os"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -111,4 +113,273 @@ func TestAntsLoop(t *testing.T) {
 		require.Error(t, err)
 		require.True(t, errors.Is(err, context.DeadlineExceeded))
 	})
+}
+
+/*
+	定时器timer
+*/
+
+func TestTaskScheduler_BasicOperations(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	executor := &mockExecutor{}
+	scheduler := NewTaskScheduler(executor, ctx)
+	defer scheduler.Shutdown()
+
+	t.Run("Once task executes", func(t *testing.T) {
+		var executed atomic.Bool
+		done := make(chan struct{})
+
+		scheduler.Once(10*time.Millisecond, func() {
+			executed.Store(true)
+			close(done)
+		})
+
+		select {
+		case <-done:
+			require.True(t, executed.Load(), "Once task did not execute")
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("Once task timed out")
+		}
+	})
+
+	t.Run("Forever task repeats", func(t *testing.T) {
+		start := time.Now()
+		t.Logf("Test started at: %s", start.Format(time.RFC3339Nano))
+
+		var count atomic.Int32
+		done := make(chan struct{})
+
+		id := scheduler.Forever(20*time.Millisecond, func() {
+			now := time.Now()
+			elapsed := now.Sub(start)
+			current := count.Add(1)
+			t.Logf("Task executed at: %s | Elapsed: %s | Count: %d",
+				now.Format(time.RFC3339Nano), elapsed, current)
+
+			if current >= 3 {
+				close(done)
+			}
+		})
+
+		select {
+		case <-done:
+			require.GreaterOrEqual(t, count.Load(), int32(3), "Expected at least 3 executions")
+		case <-time.After(200 * time.Millisecond):
+			t.Fatal("Forever task timed out")
+		}
+
+		// Test cancellation
+		cancelTime := time.Now()
+		scheduler.Cancel(id)
+		t.Logf("Task cancelled at: %s", cancelTime.Format(time.RFC3339Nano))
+
+		time.Sleep(50 * time.Millisecond)
+		prev := count.Load()
+		time.Sleep(50 * time.Millisecond)
+		require.Equal(t, prev, count.Load(), "Task continued after cancellation")
+		t.Logf("Final count after cancellation: %d", count.Load())
+	})
+
+	t.Run("ForeverNow executes immediately", func(t *testing.T) {
+		var count atomic.Int32
+		first := make(chan struct{})
+
+		// Execute immediately and then every 50ms
+		id := scheduler.ForeverNow(50*time.Millisecond, func() {
+			if count.Add(1) == 1 {
+				close(first)
+			}
+		})
+
+		// Verify immediate execution
+		select {
+		case <-first:
+			// Correct execution
+		case <-time.After(20 * time.Millisecond):
+			t.Fatal("ForeverNow did not execute immediately")
+		}
+
+		// Cancel task
+		scheduler.Cancel(id)
+	})
+}
+
+func TestTaskScheduler_Cancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	executor := &mockExecutor{}
+	scheduler := NewTaskScheduler(executor, ctx)
+	defer scheduler.Shutdown()
+
+	t.Run("Cancel single task", func(t *testing.T) {
+		var executed atomic.Bool
+		id := scheduler.Once(20*time.Millisecond, func() {
+			executed.Store(true)
+		})
+
+		scheduler.Cancel(id)
+		time.Sleep(50 * time.Millisecond)
+
+		require.False(t, executed.Load(), "Cancelled task was executed")
+	})
+
+	t.Run("CancelAll stops all tasks", func(t *testing.T) {
+		const taskCount = 5
+		var executed atomic.Int32
+
+		for i := 0; i < taskCount; i++ {
+			scheduler.Once(30*time.Millisecond, func() {
+				executed.Add(1)
+			})
+		}
+
+		time.Sleep(10 * time.Millisecond) // Ensure tasks are added
+		scheduler.CancelAll()
+		time.Sleep(50 * time.Millisecond)
+
+		require.Zero(t, executed.Load(), "Expected 0 executions after CancelAll")
+	})
+}
+
+func TestTaskScheduler_Shutdown(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	executor := &mockExecutor{}
+	scheduler := NewTaskScheduler(executor, ctx)
+
+	// Add some tasks
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	scheduler.Once(100*time.Millisecond, func() { wg.Done() })
+	scheduler.Forever(50*time.Millisecond, func() { wg.Done() })
+
+	// Shutdown immediately
+	scheduler.Shutdown()
+
+	// Verify shutdown completed
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		t.Error("Tasks executed after Shutdown")
+	case <-time.After(200 * time.Millisecond):
+		// Expected behavior - tasks should not execute
+	}
+
+	// Try to add new task
+	id := scheduler.Once(10*time.Millisecond, func() {
+		t.Error("New task executed after Shutdown")
+	})
+	require.Equal(t, int64(-1), id, "Expected -1 when scheduling after shutdown")
+}
+
+func TestTaskScheduler_PanicRecovery(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	executor := &mockExecutor{}
+	scheduler := NewTaskScheduler(executor, ctx)
+	defer scheduler.Shutdown()
+
+	t.Run("Recover from panic in Once task", func(t *testing.T) {
+		done := make(chan struct{})
+
+		scheduler.Once(10*time.Millisecond, func() {
+			defer func() {
+				close(done)
+			}()
+			panic("test panic")
+		})
+
+		select {
+		case <-done:
+			// Recovery should have caught panic
+		case <-time.After(100 * time.Millisecond):
+			t.Error("Task did not execute")
+		}
+	})
+
+	t.Run("Recover from panic in Forever task", func(t *testing.T) {
+		done := make(chan struct{})
+		var count atomic.Int32
+
+		// 使用外部变量控制取消
+		var id int64
+		shouldCancel := atomic.Bool{}
+
+		id = scheduler.Forever(20*time.Millisecond, func() {
+			// 在任务内部使用recover捕获panic
+			defer func() {
+				if r := recover(); r != nil {
+					t.Logf("Recovered from panic: %v", r)
+				}
+
+				// 达到执行次数后标记需要取消
+				if count.Load() >= 2 {
+					shouldCancel.Store(true)
+				}
+			}()
+
+			count.Add(1)
+			panic("periodic panic")
+		})
+
+		// 启动一个goroutine检查是否需要取消任务
+		go func() {
+			ticker := time.NewTicker(5 * time.Millisecond)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-ticker.C:
+					if shouldCancel.Load() {
+						scheduler.Cancel(id)
+						close(done)
+						return
+					}
+				case <-time.After(200 * time.Millisecond):
+					close(done)
+					return
+				}
+			}
+		}()
+
+		select {
+		case <-done:
+			require.GreaterOrEqual(t, count.Load(), int32(2), "Task should have executed multiple times")
+		case <-time.After(200 * time.Millisecond):
+			t.Error("Forever task timed out")
+		}
+	})
+}
+
+func TestTaskScheduler_ContextCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	executor := &mockExecutor{}
+	scheduler := NewTaskScheduler(executor, ctx)
+
+	t.Run("Context cancel stops scheduler", func(t *testing.T) {
+		var executed atomic.Bool
+		scheduler.Once(100*time.Millisecond, func() {
+			executed.Store(true)
+		})
+
+		// Cancel parent context
+		cancel()
+		time.Sleep(150 * time.Millisecond)
+
+		require.False(t, executed.Load(), "Task should not execute after context cancel")
+	})
+
+	// Should be safe to call multiple times
+	scheduler.Shutdown()
 }

@@ -27,15 +27,24 @@ type ITaskExecutor interface {
 
 type preciseEvery struct {
 	Interval time.Duration
-	last     time.Time
+	last     atomic.Value // 使用atomic.Value确保线程安全
 }
 
 func (p *preciseEvery) Next(t time.Time) time.Time {
-	if p.last.IsZero() {
-		p.last = t
+	last, _ := p.last.Load().(time.Time)
+	if last.IsZero() {
+		last = t
 	}
-	p.last = p.last.Add(p.Interval)
-	return p.last
+	next := last.Add(p.Interval)
+
+	// 减少因时间漂移导致的任务堆积
+	// 确保返回的时间在未来
+	for !next.After(t) {
+		next = next.Add(p.Interval)
+	}
+
+	p.last.Store(next)
+	return next
 }
 
 type taskEntry struct {
@@ -107,12 +116,7 @@ func (s *timingWheelScheduler) Cancel(taskID int64) {
 func (s *timingWheelScheduler) CancelAll() {
 	s.tasks.Range(func(key, value any) bool {
 		id := key.(int64)
-		entry := value.(*taskEntry)
-		entry.cancelled.Store(true)
-		if entry.timer != nil {
-			entry.timer.Stop()
-		}
-		s.tasks.Delete(id)
+		s.removeTask(id)
 		return true
 	})
 }
@@ -120,9 +124,22 @@ func (s *timingWheelScheduler) CancelAll() {
 func (s *timingWheelScheduler) Shutdown() {
 	s.closeOnce.Do(func() {
 		s.shutdown.Store(true)
+		s.cancel() // 先停止时间轮，防止新任务触发
 		s.CancelAll()
-		s.cancel()
-		s.wg.Wait()
+
+		// 等待所有任务完成
+		done := make(chan struct{})
+		go func() {
+			s.wg.Wait()
+			close(done)
+		}()
+
+		select {
+		case <-done:
+			// 正常完成
+		case <-time.After(100 * time.Millisecond):
+			log.Warnf("Shutdown timed out waiting for tasks")
+		}
 	})
 }
 
@@ -137,20 +154,24 @@ func (s *timingWheelScheduler) schedule(delay time.Duration, repeated bool, f fu
 	var once sync.Once // 确保清理只执行一次
 
 	wrapped := func() {
+		// 在任务触发时立即检查取消状态
 		if entry.cancelled.Load() {
 			return
 		}
 
-		s.wg.Add(1)
+		s.wg.Add(1) // 在任务触发时增加计数
 		go func() {
-			defer s.wg.Done()
+			defer s.wg.Done() // 确保计数减少
 
+			// 执行前再次检查取消状态
 			if entry.cancelled.Load() {
 				return
 			}
 
+			// 放入到线程池安全执行
 			s.executeAsync(f)
 
+			// 一次性任务执行后自动清理
 			if !repeated {
 				once.Do(func() {
 					s.removeTask(taskID)
@@ -159,13 +180,15 @@ func (s *timingWheelScheduler) schedule(delay time.Duration, repeated bool, f fu
 		}()
 	}
 
+	// 先存储任务再启动计时器
+	s.tasks.Store(taskID, entry)
+
 	if repeated {
 		entry.timer = s.tw.ScheduleFunc(&preciseEvery{Interval: delay}, wrapped)
 	} else {
 		entry.timer = s.tw.AfterFunc(delay, wrapped)
 	}
 
-	s.tasks.Store(taskID, entry)
 	return taskID
 }
 
@@ -176,7 +199,7 @@ func (s *timingWheelScheduler) removeTask(taskID int64) {
 	}
 	entry := value.(*taskEntry)
 
-	// 使用 atomic.CompareAndSwapBool 防止重复取消
+	// 使用原子操作确保只取消一次
 	if !entry.cancelled.CompareAndSwap(false, true) {
 		return
 	}

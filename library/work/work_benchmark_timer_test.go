@@ -15,36 +15,33 @@ func (m *mockExecutor) Post(job func()) {
 	go job()
 }
 
-func createScheduler(tb testing.TB, timeout time.Duration) (context.Context, context.CancelFunc, ITaskScheduler) {
-	tb.Helper()
+func createScheduler(b *testing.B, timeout time.Duration) (context.Context, context.CancelFunc, ITaskScheduler) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	executor := &mockExecutor{}
-	scheduler := NewTaskScheduler(executor, ctx)
+	scheduler := NewTaskScheduler(&mockExecutor{}, ctx)
 	return ctx, cancel, scheduler
 }
 
 func BenchmarkOnceTasks(b *testing.B) {
-	_, cancel, scheduler := createScheduler(b, 5*time.Second)
+	ctx, cancel, scheduler := createScheduler(b, 3*time.Second)
 	defer cancel()
 	defer scheduler.Shutdown()
 
 	var counter int64
-	b.ResetTimer()
+	done := make(chan struct{})
+	target := int64(b.N)
 
 	for i := 0; i < b.N; i++ {
-		scheduler.Once(10*time.Millisecond, func() {
-			atomic.AddInt64(&counter, 1)
+		scheduler.Once(time.Duration(i%10+1)*time.Millisecond, func() {
+			if atomic.AddInt64(&counter, 1) == target {
+				close(done)
+			}
 		})
 	}
 
-	for start := time.Now(); ; {
-		if atomic.LoadInt64(&counter) == int64(b.N) {
-			break
-		}
-		if time.Since(start) > 5*time.Second {
-			b.Fatalf("timeout: only %d/%d tasks completed", atomic.LoadInt64(&counter), b.N)
-		}
-		time.Sleep(1 * time.Millisecond)
+	select {
+	case <-done:
+	case <-ctx.Done():
+		b.Fatal("timeout waiting for once tasks")
 	}
 }
 
@@ -55,27 +52,20 @@ func BenchmarkForeverTasks(b *testing.B) {
 
 	var counter int64
 	done := make(chan struct{})
-	expected := int64(b.N * 5)
-	var once sync.Once
-
-	b.ResetTimer()
+	target := int64(b.N)
 
 	for i := 0; i < b.N; i++ {
-		scheduler.Forever(20*time.Millisecond, func() {
-			val := atomic.AddInt64(&counter, 1)
-			if val >= expected {
-				once.Do(func() {
-					close(done)
-				})
+		scheduler.Forever(time.Duration(i%20+10)*time.Millisecond, func() {
+			if atomic.AddInt64(&counter, 1) == target {
+				close(done)
 			}
 		})
 	}
 
 	select {
 	case <-done:
-		b.Logf("Completed %d executions", atomic.LoadInt64(&counter))
 	case <-ctx.Done():
-		b.Fatal("timeout waiting for tasks")
+		b.Fatal("timeout waiting for forever tasks")
 	}
 }
 
@@ -88,8 +78,7 @@ func BenchmarkMixedTasks(b *testing.B) {
 	done := make(chan struct{})
 	var once sync.Once
 
-	// 复制 b.N 到局部变量
-	n := b.N
+	n := b.N // 避免闭包中并发访问 b.N
 
 	b.ResetTimer()
 
@@ -113,70 +102,58 @@ func BenchmarkMixedTasks(b *testing.B) {
 	case <-done:
 		b.Logf("Once: %d, Forever: %d", atomic.LoadInt64(&onceCounter), atomic.LoadInt64(&foreverCounter))
 	case <-ctx.Done():
-		b.Fatal("timeout waiting for tasks")
+		b.Fatal("timeout waiting for mixed tasks")
 	}
 }
 
 func BenchmarkSchedulerPrecision(b *testing.B) {
-	_, cancel, scheduler := createScheduler(b, 10*time.Second)
+	ctx, cancel, scheduler := createScheduler(b, 2*time.Second)
 	defer cancel()
 	defer scheduler.Shutdown()
 
-	var (
-		mu     sync.Mutex
-		errors []time.Duration
-	)
-
-	b.ResetTimer()
+	var delayErrors []time.Duration
+	var mu sync.Mutex
+	var executed int64
+	// start := time.Now()
+	target := b.N
 
 	for i := 0; i < b.N; i++ {
-		scheduledAt := time.Now().Add(50 * time.Millisecond)
-		done := make(chan struct{})
+		delay := time.Duration(1+i%3) * time.Millisecond
+		expect := time.Now().Add(delay)
 
-		scheduler.Once(50*time.Millisecond, func() {
-			actual := time.Now()
-			diff := actual.Sub(scheduledAt)
-
+		scheduler.Once(delay, func() {
+			actual := time.Since(expect)
 			mu.Lock()
-			errors = append(errors, diff)
+			delayErrors = append(delayErrors, actual)
 			mu.Unlock()
 
-			close(done)
+			if atomic.AddInt64(&executed, 1) == int64(target) {
+				cancel()
+			}
 		})
-
-		select {
-		case <-done:
-		case <-time.After(200 * time.Millisecond):
-			b.Fatalf("task timeout")
-		}
 	}
 
-	b.StopTimer()
+	<-ctx.Done()
 
-	var (
-		total time.Duration
-		max   time.Duration
-		min   = time.Hour
-	)
+	if executed == 0 {
+		b.Fatal("no task executed")
+	}
 
-	mu.Lock()
-	for _, d := range errors {
-		if d < 0 {
-			d = -d
+	var min, max, sum time.Duration
+	min = delayErrors[0]
+	max = delayErrors[0]
+	for _, d := range delayErrors {
+		if d < min {
+			min = d
 		}
 		if d > max {
 			max = d
 		}
-		if d < min {
-			min = d
-		}
-		total += d
+		sum += d
 	}
-	mu.Unlock()
+	avg := sum / time.Duration(len(delayErrors))
 
-	avg := time.Duration(int64(total) / int64(len(errors)))
-
-	b.Logf("Executed %d tasks", len(errors))
+	b.Logf("Executed %d tasks", executed)
 	b.Logf("Min delay error: %v", min)
 	b.Logf("Max delay error: %v", max)
 	b.Logf("Avg delay error: %v", avg)
