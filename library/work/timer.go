@@ -68,6 +68,7 @@ type timingWheelScheduler struct {
 }
 
 func NewTaskScheduler(exec ITaskExecutor, parentCtx context.Context) ITaskScheduler {
+	// 使用 timingwheel.TimingWheel 达到毫秒级调度精度
 	tw := timingwheel.NewTimingWheel(1*time.Millisecond, 512)
 	ctx, cancel := context.WithCancel(parentCtx)
 
@@ -161,17 +162,21 @@ func (s *timingWheelScheduler) schedule(delay time.Duration, repeated bool, f fu
 			return
 		}
 
-		s.wg.Add(1) // 在任务触发时增加计数
+		// 在任务触发时增加计数
+		s.wg.Add(1)
+
+		// 放入到线程池安全执行
 		s.executeAsync(func() {
-			defer s.wg.Done() // 确保计数减少
+			// 确保计数减少
+			defer s.wg.Done()
 
 			// 执行前再次检查取消状态
 			if entry.cancelled.Load() {
 				return
 			}
 
-			// 放入到线程池安全执行
-			s.executeAsync(f)
+			// 执行回调
+			f()
 
 			// 一次性任务执行后自动清理
 			if !repeated {
