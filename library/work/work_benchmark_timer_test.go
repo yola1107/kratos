@@ -17,7 +17,7 @@ func (m *mockExecutor) Post(job func()) {
 
 func createScheduler(b *testing.B, timeout time.Duration) (context.Context, context.CancelFunc, ITaskScheduler) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	scheduler := NewTaskScheduler(&mockExecutor{}, ctx)
+	scheduler := NewTaskScheduler(WithContext(ctx), WithExecutor(&mockExecutor{}))
 	return ctx, cancel, scheduler
 }
 

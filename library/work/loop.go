@@ -51,6 +51,15 @@ type ITaskLoop interface {
 
 type Option func(*antsLoop)
 
+// WithSize 通过 Option 设置池大小
+func WithSize(size int) Option {
+	return func(l *antsLoop) {
+		if size > 0 {
+			l.size = size
+		}
+	}
+}
+
 // WithFallback 自定义任务提交失败处理策略
 func WithFallback(fallback func(ctx context.Context, fn func())) Option {
 	return func(l *antsLoop) {
@@ -73,21 +82,18 @@ type antsLoop struct {
 	poolOptions []ants.Option
 }
 
-// NewAntsLoop 创建协程池实例
-func NewAntsLoop(size int, opts ...Option) ITaskLoop {
-	if size <= 0 {
-		size = defaultPendingNum
-	}
+// NewAntsLoop 创建协程池实例，size 从 Option 获取
+func NewAntsLoop(opts ...Option) ITaskLoop {
 	l := &antsLoop{
-		size: size,
+		size: defaultPendingNum,
 		fallback: func(ctx context.Context, fn func()) {
 			go safeRun(ctx, fn)
 		},
 		poolOptions: []ants.Option{
 			ants.WithExpiryDuration(60 * time.Second), // 每60s清理一次闲置 worker
-			// ants.WithPreAlloc(true),                 // 预分配容量，避免 runtime 扩容内存
-			// ants.WithNonblocking(false),  // 非阻塞提交，任务满时立即报错（否则阻塞） 默认阻塞模式:true
-			// ants.WithMaxBlockingTasks(0), // 最大阻塞任务数（非阻塞模式下可设为0）
+			// ants.WithPreAlloc(true),                   // 预分配容量，避免 runtime 扩容内存
+			// ants.WithNonblocking(false),               // false:默认阻塞模式 true:非阻塞提交，任务满时立即报错
+			// ants.WithMaxBlockingTasks(0),              // 最大阻塞任务数（非阻塞模式下可设为0）
 		},
 	}
 	for _, opt := range opts {
@@ -128,7 +134,6 @@ func (l *antsLoop) Stop() {
 	}
 }
 
-// Status 获取当前池状态
 func (l *antsLoop) Status() LoopStatus {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
@@ -231,7 +236,7 @@ func (l *antsLoop) submit(ctx context.Context, fn func()) {
 }
 
 func (l *antsLoop) triggerFallback(ctx context.Context, fn func(), reason string) {
-	log.Warnf("ansloop fallback. reason=%s", reason)
+	log.Warnf("antsLoop fallback. reason=%s", reason)
 	l.fallback(ctx, fn)
 }
 

@@ -166,7 +166,7 @@ func main() {
 		kratos.Logger(zapLogger), // 使用自定义 Logger
 		// kratos.Registrar(etcd.New(etcdClient)), // 注册中心 ETCD
 		kratos.BeforeStart(func(ctx context.Context) error {
-			wsLoop = work.NewAntsLoop(10000)
+			wsLoop = work.NewAntsLoop(work.WithSize(10000))
 			return wsLoop.Start()
 		}),
 		kratos.AfterStop(func(ctx context.Context) error {

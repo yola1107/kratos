@@ -55,8 +55,8 @@ func NewUsecase(repo DataRepo, logger log.Logger, c *conf.Room) (*Usecase, func(
 	uc := &Usecase{repo: repo, log: log.NewHelper(logger), rc: c}
 
 	// 初始化顺序：loop -> timer -> Table -> Player -> Robot
-	uc.loop = work.NewAntsLoop(defaultPendingNum)
-	uc.timer = work.NewTaskScheduler(uc.loop, ctx)
+	uc.loop = work.NewAntsLoop(work.WithSize(defaultPendingNum))
+	uc.timer = work.NewTaskScheduler(work.WithContext(ctx), work.WithExecutor(uc.loop))
 	uc.tm = table.NewManager(c, uc)
 	uc.pm = player.NewManager()
 	uc.rm = robot.NewManager(c, uc)

@@ -133,7 +133,7 @@ func main() {
 			tcpSrv,
 		),
 		kratos.BeforeStart(func(ctx context.Context) error {
-			s.tcpLoop = work.NewAntsLoop(10000)
+			s.tcpLoop = work.NewAntsLoop(work.WithSize(10000))
 			return s.tcpLoop.Start()
 		}),
 		kratos.AfterStop(func(ctx context.Context) error {

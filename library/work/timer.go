@@ -11,10 +11,10 @@ import (
 	"github.com/yola1107/kratos/v2/log"
 )
 
-var (
-	// 创建时间轮 (100ms精度，1024槽位, 跨度0.1*1024=102.4s)
-	defaultTickPrecision = 100 * time.Millisecond // 时间轮精度 单位毫秒
-	defaultWheelSize     = int64(1024)            // 时间轮槽位
+const (
+	// 创建时间轮 (默认100ms精度，2048槽位, 跨度0.1*2048=204.8s)
+	defaultTickPrecision = 100 * time.Millisecond // 时间轮精度
+	defaultWheelSize     = int64(2048)            // 时间轮槽位
 )
 
 type ITaskScheduler interface {
@@ -56,9 +56,41 @@ type taskEntry struct {
 	repeated  bool
 }
 
+type SchedulerOption func(*timingWheelScheduler)
+
+// WithTick 设置时间轮 tick 精度 tick最小1ms 精度越小越消耗cpu
+func WithTick(tick time.Duration) SchedulerOption {
+	return func(cfg *timingWheelScheduler) {
+		cfg.tick = tick
+	}
+}
+
+// WithWheelSize 设置时间轮槽数量
+func WithWheelSize(size int64) SchedulerOption {
+	return func(cfg *timingWheelScheduler) {
+		cfg.wheelSize = size
+	}
+}
+
+// WithContext 设置上下文
+func WithContext(ctx context.Context) SchedulerOption {
+	return func(cfg *timingWheelScheduler) {
+		cfg.ctx = ctx
+	}
+}
+
+// WithExecutor 设置任务执行器
+func WithExecutor(exec ITaskExecutor) SchedulerOption {
+	return func(cfg *timingWheelScheduler) {
+		cfg.executor = exec
+	}
+}
+
 type timingWheelScheduler struct {
-	tw       *timingwheel.TimingWheel
-	executor ITaskExecutor
+	tick      time.Duration
+	wheelSize int64
+	executor  ITaskExecutor
+	tw        *timingwheel.TimingWheel
 
 	tasks     sync.Map // map[int64]*taskEntry
 	nextID    atomic.Int64
@@ -71,21 +103,31 @@ type timingWheelScheduler struct {
 	cancel context.CancelFunc
 }
 
-func NewTaskScheduler(exec ITaskExecutor, parentCtx context.Context) ITaskScheduler {
-	tw := timingwheel.NewTimingWheel(defaultTickPrecision, defaultWheelSize)
-	ctx, cancel := context.WithCancel(parentCtx)
-
+func NewTaskScheduler(opts ...SchedulerOption) ITaskScheduler {
 	s := &timingWheelScheduler{
-		tw:       tw,
-		executor: exec,
-		ctx:      ctx,
-		cancel:   cancel,
+		tick:      defaultTickPrecision,
+		wheelSize: defaultWheelSize,
+		ctx:       context.Background(),
+		executor:  nil,
 	}
 
+	for _, opt := range opts {
+		opt(s)
+	}
+
+	// 初始化定时轮
+	s.tw = timingwheel.NewTimingWheel(s.tick, s.wheelSize)
+
+	// 创建带取消的上下文
+	ctx, cancel := context.WithCancel(s.ctx)
+	s.ctx = ctx
+	s.cancel = cancel
+
+	// 启动时间轮，并监听上下文退出
 	go func() {
-		tw.Start()
+		s.tw.Start()
 		<-ctx.Done()
-		tw.Stop()
+		s.tw.Stop()
 	}()
 
 	return s
@@ -128,72 +170,6 @@ func (s *timingWheelScheduler) CancelAll() {
 	})
 }
 
-func (s *timingWheelScheduler) Stop() {
-	s.closeOnce.Do(func() {
-		s.shutdown.Store(true)
-		s.cancel() // 先停止时间轮，防止新任务触发
-		s.CancelAll()
-
-		// 等待所有任务完成
-		done := make(chan struct{})
-		go func() {
-			s.wg.Wait()
-			close(done)
-		}()
-
-		select {
-		case <-done:
-			// 正常完成
-		case <-time.After(100 * time.Millisecond):
-			log.Warn("Scheduler shutdown timed out, some tasks may still be running")
-		}
-	})
-}
-
-func (s *timingWheelScheduler) schedule(delay time.Duration, repeated bool, f func()) int64 {
-	if s.shutdown.Load() || s.ctx.Err() != nil {
-		log.Warnf("Scheduler is shutdown, cannot schedule new task")
-		return -1
-	}
-
-	// 生成唯一任务ID
-	taskID := s.nextID.Add(1)
-	entry := &taskEntry{repeated: repeated}
-
-	wrapped := func() {
-		if entry.cancelled.Load() {
-			return
-		}
-		s.running.Add(1)
-		s.wg.Add(1)
-
-		// 线程池执行器执行任务
-		s.executeAsync(func() {
-			defer s.running.Add(-1)
-			defer s.wg.Done()
-			if entry.cancelled.Load() {
-				return
-			}
-			f()
-			if !repeated {
-				// 单次任务执行后立即移除
-				s.removeTask(taskID)
-			}
-		})
-	}
-
-	if repeated {
-		entry.timer = s.tw.ScheduleFunc(&preciseEvery{Interval: delay}, wrapped)
-	} else {
-		entry.timer = s.tw.AfterFunc(delay, wrapped)
-	}
-
-	// Move this after `entry` is fully initialized
-	s.tasks.Store(taskID, entry)
-
-	return taskID
-}
-
 func (s *timingWheelScheduler) removeTask(taskID int64) {
 	value, ok := s.tasks.Load(taskID)
 	if !ok {
@@ -207,6 +183,67 @@ func (s *timingWheelScheduler) removeTask(taskID int64) {
 		entry.timer.Stop()
 	}
 	s.tasks.Delete(taskID)
+}
+
+func (s *timingWheelScheduler) Stop() {
+	s.closeOnce.Do(func() {
+		s.shutdown.Store(true)
+		s.cancel() // 先停止时间轮，防止新任务触发
+		s.CancelAll()
+
+		// 等待所有任务完成
+		done := make(chan struct{})
+		go func() {
+			s.wg.Wait()
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-time.After(100 * time.Millisecond):
+			log.Warn("Scheduler shutdown timed out, some tasks may still be running")
+		}
+	})
+}
+
+// schedule 定时任务核心方法
+func (s *timingWheelScheduler) schedule(delay time.Duration, repeated bool, f func()) int64 {
+	if s.shutdown.Load() || s.ctx.Err() != nil {
+		log.Warnf("Scheduler is shutdown, cannot schedule new task")
+		return -1
+	}
+
+	taskID := s.nextID.Add(1)
+	entry := &taskEntry{repeated: repeated}
+
+	wrapped := func() {
+		if entry.cancelled.Load() {
+			return
+		}
+		s.running.Add(1)
+		s.wg.Add(1)
+
+		s.executeAsync(func() {
+			defer s.running.Add(-1)
+			defer s.wg.Done()
+			if entry.cancelled.Load() {
+				return
+			}
+			f()
+			if !repeated {
+				s.removeTask(taskID)
+			}
+		})
+	}
+
+	if repeated {
+		entry.timer = s.tw.ScheduleFunc(&preciseEvery{Interval: delay}, wrapped)
+	} else {
+		entry.timer = s.tw.AfterFunc(delay, wrapped)
+	}
+
+	// Move this after `entry` is fully initialized
+	s.tasks.Store(taskID, entry)
+	return taskID
 }
 
 // executeAsync 把 f 投递到任务池或直接 goroutine，并带 recover
