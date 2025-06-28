@@ -82,13 +82,13 @@ func (uc *Usecase) start() error {
 }
 
 func (uc *Usecase) post() {
-	timers := uc.ws.Len()
+	timers, running := uc.ws.Len(), uc.ws.Running()
 	loops := uc.ws.Status()
 	all, offline := uc.pm.Counter()
 	aiAll, aiFree, aiGaming := uc.rm.Counter()
 
 	log.Infof("[Counter]")
-	log.Infof("[Counter]<Timer> Count=%d", timers)
+	log.Infof("[Counter]<Timer> Count=%d Running=%d", timers, running)
 	log.Infof("[Counter]<Loop> Capacity=%d, Running=%d, Free=%d ", loops.Capacity, loops.Running, loops.Free)
 	log.Infof("[Counter]<Player> Total=%d Offline=%d ", all, offline)
 	log.Infof("[Counter]<AI> MaxNum:%d Total=%d Free=%d Gaming=%d", uc.rc.Robot.Num, aiAll, aiFree, aiGaming)

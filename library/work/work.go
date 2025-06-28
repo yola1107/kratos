@@ -79,6 +79,11 @@ func (w *workStore) Len() int {
 	return w.timer.Len()
 }
 
+// Running .
+func (w *workStore) Running() int32 {
+	return w.timer.Running()
+}
+
 // Once .
 func (w *workStore) Once(duration time.Duration, f func()) int64 {
 	return w.timer.Once(duration, f)

@@ -12,7 +12,8 @@ import (
 )
 
 type ITaskScheduler interface {
-	Len() int
+	Len() int       // 注册在调度系统的任务数量
+	Running() int32 // 当前前活跃执行中的任务数
 	Once(duration time.Duration, f func()) int64
 	Forever(interval time.Duration, f func()) int64
 	ForeverNow(interval time.Duration, f func()) int64
@@ -27,7 +28,7 @@ type ITaskExecutor interface {
 
 type preciseEvery struct {
 	Interval time.Duration
-	last     atomic.Value // 使用atomic.Value确保线程安全
+	last     atomic.Value
 }
 
 func (p *preciseEvery) Next(t time.Time) time.Time {
@@ -36,13 +37,9 @@ func (p *preciseEvery) Next(t time.Time) time.Time {
 		last = t
 	}
 	next := last.Add(p.Interval)
-
-	// 减少因时间漂移导致的任务堆积
-	// 确保返回的时间在未来
 	for !next.After(t) {
 		next = next.Add(p.Interval)
 	}
-
 	p.last.Store(next)
 	return next
 }
@@ -59,8 +56,9 @@ type timingWheelScheduler struct {
 
 	tasks     sync.Map // map[int64]*taskEntry
 	nextID    atomic.Int64
-	shutdown  atomic.Bool
+	taskCount atomic.Int32 // 正在运行的活跃数计数
 	wg        sync.WaitGroup
+	shutdown  atomic.Bool
 	closeOnce sync.Once
 
 	ctx    context.Context
@@ -97,6 +95,10 @@ func (s *timingWheelScheduler) Len() int {
 	return count
 }
 
+func (s *timingWheelScheduler) Running() int32 {
+	return s.taskCount.Load()
+}
+
 func (s *timingWheelScheduler) Once(delay time.Duration, f func()) int64 {
 	return s.schedule(delay, false, f)
 }
@@ -115,9 +117,8 @@ func (s *timingWheelScheduler) Cancel(taskID int64) {
 }
 
 func (s *timingWheelScheduler) CancelAll() {
-	s.tasks.Range(func(key, value any) bool {
-		id := key.(int64)
-		s.removeTask(id)
+	s.tasks.Range(func(key, _ any) bool {
+		s.removeTask(key.(int64))
 		return true
 	})
 }
@@ -163,11 +164,13 @@ func (s *timingWheelScheduler) schedule(delay time.Duration, repeated bool, f fu
 		}
 
 		// 在任务触发时增加计数
+		s.taskCount.Add(1)
 		s.wg.Add(1)
 
 		// 放入到线程池安全执行
 		s.executeAsync(func() {
 			// 确保计数减少
+			defer s.taskCount.Add(-1)
 			defer s.wg.Done()
 
 			// 执行前再次检查取消状态
