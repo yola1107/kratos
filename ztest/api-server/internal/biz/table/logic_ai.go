@@ -112,22 +112,23 @@ func (r *RobotLogic) OnMessage(p *player.Player, cmd v1.GameCommand, msg proto.M
 
 func (r *RobotLogic) ActivePlayer(p *player.Player, msg proto.Message) {
 	rsp, ok := msg.(*v1.ActivePush)
-	if !ok || rsp == nil || p.GetChairID() != rsp.Active || !p.IsGaming() {
+	if !ok || rsp == nil || !p.IsGaming() ||
+		p.GetChairID() != rsp.Active || p.GetChairID() != r.mTable.active {
 		return
 	}
 
 	s := r.mTable.stage
 	ops := rsp.GetCanOp()
-	ops2 := r.mTable.getCanOp(r.mTable.GetActivePlayer())
+	ops2 := r.mTable.getCanOp(p)
 	if len(ops) == 0 || len(ops2) == 0 || !ext.SliceContains(ops, ops2...) || !ext.SliceContains(ops2, ops...) {
 		log.Errorf("empty. p:%+v stage:%v active:%v ops:%v ops2:%v ",
 			p.Desc(), s.Desc(), r.mTable.active, ops, ops2)
 		ops = ops2
 	}
 
-	op := RandOpWithWeight(ops) // 按权重随机选操作
-	remaining := s.Remaining()  // 获取剩余操作时间
-	dur := time.Duration(ext.RandInt(1000, remaining.Milliseconds()*3/4)) * time.Millisecond
+	op := RandOpWithWeight(ops)               // 按权重随机选操作
+	remaining := s.Remaining().Milliseconds() // 获取剩余操作时间 ms
+	dur := time.Duration(ext.RandInt(1000, remaining*3/4)) * time.Millisecond
 	req := &v1.ActionReq{
 		UserID:         p.GetPlayerID(),
 		Action:         op,
