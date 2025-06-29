@@ -159,7 +159,7 @@ func (t *Table) ThrowOff(p *player.Player, isSwitchTable bool) bool {
 
 	// 上报桌子/玩家位置 todo
 	t.mLog.userExit(p, t.sitCnt, chair, isSwitchTable)
-	log.Infof("ExitTable. p:%+v sitCnt:%d lastChair:%d isSwitch:%+v", p.Desc(), t.sitCnt, chair, isSwitchTable)
+	log.Infof("ExitTable. p:%+v sitCnt:%d st:%v isSwitch:%+v", p.Desc(), t.sitCnt, t.stage.GetState(), isSwitchTable)
 	return true
 }
 

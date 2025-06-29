@@ -12,45 +12,68 @@ import (
 )
 
 const (
-	defaultBatchLoadCnt    = 100
-	defaultBatchLoginCnt   = 100
-	defaultBatchReleaseCnt = 100
-	defaultLoadInterval    = 5 * time.Second
-	defaultLoginInterval   = 3 * time.Second
-	failRetryInterval      = 30 * time.Second
+	defaultBatchLoadCount    = 100
+	defaultBatchLoginCount   = 100
+	defaultBatchReleaseCount = 100
+	defaultLoadInterval      = 5 * time.Second
+	defaultLoginInterval     = 3 * time.Second
+	failRetryInterval        = 3 * time.Second
 )
 
-type robotMeta struct {
-	lastUsed        time.Time
-	lastFailEnterAt sync.Map // map[tableID]int64 (Unix)
+type MetaData struct {
+	lastUsed      time.Time
+	lastFailEnter sync.Map // map[tableID]int64, value is unix timestamp of last failure
 }
 
-func (rm *robotMeta) ShouldRetry(tableID int32) bool {
-	v, _ := rm.lastFailEnterAt.LoadOrStore(tableID, int32(0))
-	last := v.(int64)
-	return time.Now().Unix()-last >= int64(failRetryInterval.Seconds())
+// ShouldRetry 判断当前机器人是否可以重试进入指定的桌子
+func (md *MetaData) ShouldRetry(tableID int32) bool {
+	val, _ := md.lastFailEnter.LoadOrStore(tableID, int64(0))
+	lastFailUnix := val.(int64)
+	return time.Now().Unix()-lastFailUnix >= int64(failRetryInterval.Seconds())
 }
 
-func (rm *robotMeta) MarkFail(tableID int32) {
-	rm.lastFailEnterAt.Store(tableID, time.Now().Unix())
+// MarkFail 标记机器人进入桌子失败的时间戳
+func (md *MetaData) MarkFail(tableID int32) {
+	md.lastFailEnter.Store(tableID, time.Now().Unix())
+}
+
+// TryEnterTable 让机器人尝试进入列表中的某个桌子，返回成功进入的桌子实例
+func (md *MetaData) TryEnterTable(p *player.Player, tables []*table.Table) *table.Table {
+	for _, tb := range tables {
+		// if !md.ShouldRetry(tb.ID) {
+		// 	continue
+		// }
+		if tb.IsFull() || !tb.CanEnterRobot(p) {
+			md.MarkFail(tb.ID)
+			continue
+		}
+		if tb.ThrowInto(p) {
+			md.lastUsed = time.Now()
+			return tb
+		}
+		md.MarkFail(tb.ID)
+	}
+	return nil
 }
 
 type Manager struct {
 	repo       Repo
-	c          *conf.Room
-	all        sync.Map // playerID → *player.Player
-	free       sync.Map // playerID → *player.Player
-	meta       sync.Map // playerID → *robotMeta
-	timerIDMap sync.Map // timerID → timerID
+	conf       *conf.Room
+	all        sync.Map // map[playerID]*player.Player 所有机器人
+	free       sync.Map // map[playerID]*player.Player 空闲机器人（未进入桌子）
+	meta       sync.Map // map[playerID]*MetaData 机器人元数据
+	timerIDMap sync.Map // map[timerID]timerID 定时器ID管理
 }
 
+// NewManager 创建机器人管理器实例
 func NewManager(c *conf.Room, repo Repo) *Manager {
 	return &Manager{
-		c:    c,
+		conf: c,
 		repo: repo,
 	}
 }
 
+// Start 启动机器人管理器，开启定时任务加载、登录、释放机器人
 func (m *Manager) Start() error {
 	timer := m.repo.GetTimer()
 	loadID := timer.Forever(defaultLoadInterval, m.load)
@@ -63,59 +86,65 @@ func (m *Manager) Start() error {
 	return nil
 }
 
+// Stop 停止所有定时器
 func (m *Manager) Stop() {
 	timer := m.repo.GetTimer()
-	m.timerIDMap.Range(func(_, value any) bool {
-		if id, ok := value.(int64); ok && timer != nil {
+	m.timerIDMap.Range(func(_, val any) bool {
+		if id, ok := val.(int64); ok {
 			timer.Cancel(id)
 		}
 		return true
 	})
 }
 
+// load 批量加载机器人，保持机器人数量符合配置
 func (m *Manager) load() {
-	cfg := m.c.Robot
+	cfg := m.conf.Robot
 	if !cfg.Open || cfg.Num <= 0 {
 		return
 	}
 
-	// 计算加载的数量
-	count := min(cfg.Num-m.countAll(), defaultBatchLoadCnt)
-	if count <= 0 {
+	currentCount := m.countAll()
+	countToLoad := min(cfg.Num-currentCount, defaultBatchLoadCount)
+	if countToLoad <= 0 {
 		return
 	}
 
-	idBegin, idEnd := cfg.IdBegin, cfg.IdBegin+int64(cfg.Num*2) // [begin,begin*2]
-	for id := idBegin; id <= idEnd; id++ {
-		if _, ok := m.all.Load(id); ok {
+	idStart, idEnd := cfg.IdBegin, cfg.IdBegin+int64(cfg.Num*2)
+	for id := idStart; id <= idEnd && countToLoad > 0; id++ {
+		if _, exists := m.all.Load(id); exists {
 			continue
 		}
-		rob, err := m.repo.CreateRobot(&player.Raw{
-			ID:      id,
-			IsRobot: true,
-		})
-		if err != nil || rob == nil {
-			log.Errorf("create robot error: %v", err)
+		if _, err := m.initRobot(id); err != nil {
+			log.Errorf("robot init error, id=%d: %v", id, err)
 			continue
 		}
-		m.Reset(rob)
-		m.all.Store(id, rob)
-		m.free.Store(id, rob)
-		m.meta.Store(id, &robotMeta{lastUsed: time.Now()})
-		if count--; count <= 0 {
-			return
-		}
+		countToLoad--
 	}
 }
 
+// initRobot 初始化单个机器人，存储到管理器中
+func (m *Manager) initRobot(id int64) (*player.Player, error) {
+	rob, err := m.repo.CreateRobot(&player.Raw{ID: id, IsRobot: true})
+	if err != nil || rob == nil {
+		return nil, err
+	}
+	m.Reset(rob)
+	m.all.Store(id, rob)
+	m.free.Store(id, rob)
+	m.meta.Store(id, &MetaData{lastUsed: time.Now()})
+	return rob, nil
+}
+
+// release 批量释放空闲机器人，保持机器人数量符合配置限制
 func (m *Manager) release() {
 	limitNum := int32(0)
-	if cfg := m.c.Robot; cfg.Open {
+	if cfg := m.conf.Robot; cfg.Open {
 		limitNum = cfg.Num
 	}
-	// 计算释放数量
-	count := min(m.countAll()-limitNum, defaultBatchReleaseCnt)
-	if count <= 0 {
+	excess := m.countAll() - limitNum
+	countToRelease := min(excess, defaultBatchReleaseCount)
+	if countToRelease <= 0 {
 		return
 	}
 	m.free.Range(func(k, v any) bool {
@@ -127,50 +156,16 @@ func (m *Manager) release() {
 		m.all.Delete(uid)
 		m.free.Delete(uid)
 		m.meta.Delete(uid)
-		count--
-		return count > 0
+		countToRelease--
+		return countToRelease > 0
 	})
 }
 
-// func (m *Manager) login() {
-// 	if !m.c.Robot.Open {
-// 		return
-// 	}
-//
-// 	tables := m.repo.GetTableList()
-// 	if len(tables) == 0 {
-// 		return
-// 	}
-//
-// 	count := 0
-//
-// 	m.free.Range(func(_, val any) bool {
-// 		if count >= defaultBatchLoginCnt {
-// 			return false
-// 		}
-// 		p, ok := val.(*player.Player)
-// 		if !ok || p.GetTableID() > 0 {
-// 			return true
-// 		}
-// 		if err := table.CheckRoomLimit(p, m.c.Game); err != nil {
-// 			return true
-// 		}
-// 		for _, tb := range tables {
-// 			if m.Enter(p, tb) {
-// 				count++
-// 				m.free.Delete(p.GetPlayerID())
-// 				break
-// 			}
-// 		}
-// 		return true
-// 	})
-// }
-
+// login 批量登录空闲机器人，尝试进入桌子
 func (m *Manager) login() {
-	if !m.c.Robot.Open {
+	if !m.conf.Robot.Open {
 		return
 	}
-
 	tables := m.repo.GetTableList()
 	if len(tables) == 0 {
 		return
@@ -178,47 +173,28 @@ func (m *Manager) login() {
 
 	count := 0
 	m.free.Range(func(_, val any) bool {
-		if count >= defaultBatchLoginCnt {
+		if count >= defaultBatchLoginCount {
 			return false
 		}
 		p, ok := val.(*player.Player)
 		if !ok || p.GetTableID() > 0 {
 			return true
 		}
-		if err := table.CheckRoomLimit(p, m.c.Game); err != nil {
+		if err := table.CheckRoomLimit(p, m.conf.Game); err != nil {
 			return true
 		}
 
-		metaVal, _ := m.meta.LoadOrStore(p.GetPlayerID(), &robotMeta{})
-		meta := metaVal.(*robotMeta)
-
-		for _, tb := range tables {
-			if !meta.ShouldRetry(tb.ID) {
-				continue
-			}
-			if tb.IsFull() || !tb.CanEnterRobot(p) {
-				meta.MarkFail(tb.ID)
-				continue
-			}
-			if tb.ThrowInto(p) {
-				m.free.Delete(p.GetPlayerID())
-				meta.lastUsed = time.Now()
-				count++
-				break
-			}
-			meta.MarkFail(tb.ID)
+		metaVal, _ := m.meta.LoadOrStore(p.GetPlayerID(), &MetaData{})
+		meta := metaVal.(*MetaData)
+		if tb := meta.TryEnterTable(p, tables); tb != nil {
+			m.free.Delete(p.GetPlayerID())
+			count++
 		}
 		return true
 	})
 }
 
-func (m *Manager) Enter(p *player.Player, tb *table.Table) (entered bool) {
-	if p.GetTableID() > 0 || tb.IsFull() || !tb.CanEnterRobot(p) {
-		return false
-	}
-	return tb.ThrowInto(p)
-}
-
+// Leave 机器人离开桌子，放回空闲池
 func (m *Manager) Leave(uid int64) bool {
 	val, ok := m.all.Load(uid)
 	if !ok {
@@ -231,34 +207,37 @@ func (m *Manager) Leave(uid int64) bool {
 		m.meta.Delete(uid)
 		return false
 	}
+	// 已经在空闲池
 	if _, alreadyFree := m.free.Load(uid); alreadyFree {
 		return true
 	}
-	// 重置信息
+
 	m.Reset(p)
 	m.free.Store(uid, p)
-	// meta, _ := m.meta.LoadOrStore(uid, &robotMeta{})
-	// meta.(*robotMeta).lastUsed = time.Now()
 	return true
 }
 
+// Reset 重置机器人状态（比如金额）
 func (m *Manager) Reset(p *player.Player) {
 	m.updateMoney(p)
 }
 
+// updateMoney 根据配置更新机器人金额，保持金额在合理范围内
 func (m *Manager) updateMoney(p *player.Player) {
 	if p.GetTableID() > 0 {
 		return
 	}
-	minMoney := max(m.c.Robot.MinMoney, m.c.Game.MinMoney)
-	maxMoney := min(m.c.Robot.MaxMoney, m.c.Game.MaxMoney)
-	if money := p.GetBaseData().Money; money < minMoney || money > maxMoney {
+	minMoney := max(m.conf.Robot.MinMoney, m.conf.Game.MinMoney)
+	maxMoney := min(m.conf.Robot.MaxMoney, m.conf.Game.MaxMoney)
+	money := p.GetBaseData().Money
+	if money < minMoney || money > maxMoney {
 		p.GetBaseData().Money = float64(int64(ext.RandFloat(minMoney, maxMoney)))
 	}
 }
 
+// Counter 返回当前机器人总数、空闲数和游戏中数量
 func (m *Manager) Counter() (all, free, gaming int32) {
-	if !m.c.Robot.Open || m.c.Robot.Num <= 0 {
+	if !m.conf.Robot.Open || m.conf.Robot.Num <= 0 {
 		return
 	}
 	all = m.countAll()
@@ -267,7 +246,7 @@ func (m *Manager) Counter() (all, free, gaming int32) {
 }
 
 func (m *Manager) countAll() int32 {
-	count := int32(0)
+	var count int32
 	m.all.Range(func(_, _ any) bool {
 		count++
 		return true
@@ -276,7 +255,7 @@ func (m *Manager) countAll() int32 {
 }
 
 func (m *Manager) countFree() int32 {
-	count := int32(0)
+	var count int32
 	m.free.Range(func(_, _ any) bool {
 		count++
 		return true
