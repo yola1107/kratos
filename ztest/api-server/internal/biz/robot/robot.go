@@ -13,17 +13,17 @@ import (
 
 const (
 	defaultMaxBatchCnt   = 100
-	defaultInterval      = 5 * time.Second
-	defaultLoginInterval = 2 * time.Second
+	defaultLoadInterval  = 5 * time.Second
+	defaultLoginInterval = 5 * time.Second
 )
 
 type Manager struct {
-	repo    Repo
-	c       *conf.Room
-	all     sync.Map // key: playerID, value: *Player
-	free    sync.Map // key: playerID, value: *Player
-	nextID  int64
-	timerID int64 // 定时任务ID，用于取消
+	repo       Repo
+	c          *conf.Room
+	all        sync.Map // key: playerID, value: *Player
+	free       sync.Map // key: playerID, value: *Player
+	nextID     int64    //
+	timerIDMap sync.Map // map[any]int64
 }
 
 func NewManager(c *conf.Room, repo Repo) *Manager {
@@ -36,15 +36,25 @@ func NewManager(c *conf.Room, repo Repo) *Manager {
 
 func (m *Manager) Start() error {
 	timer := m.repo.GetTimer()
-	m.timerID = timer.Forever(defaultInterval, m.Load)
-	timer.Forever(defaultLoginInterval, m.Login)
+	loadID := timer.Forever(defaultLoadInterval, m.Load)
+	loginID := timer.Forever(defaultLoginInterval, m.Login)
+	m.timerIDMap.Store(loadID, loadID)
+	m.timerIDMap.Store(loginID, loginID)
 	return nil
 }
 
 func (m *Manager) Stop() {
-	if timer := m.repo.GetTimer(); timer != nil {
-		timer.Cancel(m.timerID)
-	}
+	timer := m.repo.GetTimer()
+	m.timerIDMap.Range(func(_, value any) bool {
+		id, ok := value.(int64)
+		if !ok {
+			return true
+		}
+		if timer != nil {
+			timer.Cancel(id)
+		}
+		return true
+	})
 }
 
 func (m *Manager) Load() {
@@ -56,7 +66,6 @@ func (m *Manager) Load() {
 	remain := cfg.Num - int32(m.countAll())
 	idEnd := cfg.IdBegin + int64(cfg.Num*2)
 	if remain <= 0 || m.nextID > idEnd {
-		m.repo.GetTimer().Cancel(m.timerID)
 		return
 	}
 

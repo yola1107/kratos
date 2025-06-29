@@ -27,12 +27,6 @@ type Stage struct {
 	Duration time.Duration
 }
 
-func (s *Stage) IsExpired() bool {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return time.Since(s.StartAt) > s.Duration
-}
-
 func (s *Stage) Remaining() time.Duration {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -80,12 +74,12 @@ func (s *Stage) Set(state StageID, duration time.Duration, timerID int64) {
 
 func (t *Table) OnTimer() {
 	state := t.stage.GetState()
-	timerID := t.stage.GetTimerID()
+	// timerID := t.stage.GetTimerID()
 	// log.Debugf("[Stage] OnTimer timeout. St:%v TimerID=%d", state, timerID)
 
 	switch state {
 	case StWait:
-		log.Debugf("StWait timeout. TimerID=%d", timerID)
+		log.Debugf("StWait timeout. tb:%v ", t.Desc())
 	case StReady:
 		t.onGameStart()
 	case StSendCard:
@@ -101,7 +95,7 @@ func (t *Table) OnTimer() {
 	case StEnd:
 		t.onEndTimeout()
 	default:
-		log.Errorf("unhandled stage timeout: %v TimerID=%d", state, timerID)
+		log.Errorf("unhandled stage timeout: %v ", state)
 	}
 }
 
