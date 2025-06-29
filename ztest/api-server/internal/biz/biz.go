@@ -63,8 +63,8 @@ func NewUsecase(repo DataRepo, logger log.Logger, c *conf.Room) (*Usecase, func(
 
 	cleanup := func() {
 		// log.Info("closing the Room resources")
-		// 	uc.tm.Close()
-		// 	uc.pm.Close()
+		uc.tm.Close()
+		uc.pm.Close()
 		uc.rm.Stop()
 		uc.timer.Stop()
 		uc.loop.Stop()
@@ -79,6 +79,8 @@ func (uc *Usecase) start() error {
 
 	err := errors.Join(
 		uc.loop.Start(),
+		uc.tm.Start(),
+		uc.pm.Start(),
 		uc.rm.Start(),
 	)
 	uc.timer.Forever(defaultStatusInterval, uc.post)

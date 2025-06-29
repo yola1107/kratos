@@ -12,6 +12,9 @@ func NewManager() *Manager {
 	return &Manager{}
 }
 
+func (m *Manager) Start() error { return nil }
+func (m *Manager) Close()       {}
+
 func (m *Manager) Add(p *Player) {
 	m.players.Store(p.GetPlayerID(), p)
 }
