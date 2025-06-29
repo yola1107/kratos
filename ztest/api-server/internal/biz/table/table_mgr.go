@@ -1,6 +1,8 @@
 package table
 
 import (
+	"sync"
+
 	"github.com/yola1107/kratos/v2/errors"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
@@ -8,32 +10,71 @@ import (
 	"github.com/yola1107/kratos/v2/ztest/api-server/pkg/codes"
 )
 
+type KindTableList int32
+
+const (
+	All KindTableList = iota
+	NoEmpty
+	NoFull
+)
+
 type Manager struct {
-	tableList []*Table
-	tableMap  map[int32]*Table
+	repo     Repo
+	tableMap sync.Map // map[int32]*Table
 }
 
 func NewManager(c *conf.Room, repo Repo) *Manager {
 	tc := c.Table
 	mgr := &Manager{
-		tableList: make([]*Table, tc.TableNum),
-		tableMap:  make(map[int32]*Table, tc.TableNum),
+		repo: repo,
 	}
 	for i := int32(1); i <= tc.TableNum; i++ {
 		tb := NewTable(i, Normal, c, repo)
-		mgr.tableMap[i] = tb
-		mgr.tableList[i-1] = tb
+		mgr.tableMap.Store(tb.ID, tb)
 	}
 	return mgr
 }
 
+func (m *Manager) Start() error {
+	return nil
+}
+
+func (m *Manager) Close() {
+	return
+}
+
 func (m *Manager) GetTableList() []*Table {
-	return m.tableList
+	return m.GetTableListWith(All)
+}
+
+func (m *Manager) GetTableListWith(kinds KindTableList) []*Table {
+	tc := m.repo.GetRoomConfig().GetTable()
+
+	tableList := make([]*Table, 0)
+	for i := int32(1); i <= tc.TableNum; i++ {
+		t := m.GetTable(i)
+		if t == nil {
+			continue
+		}
+		if kinds == NoEmpty && !t.Empty() {
+			tableList = append(tableList, t)
+		}
+		if kinds == NoFull && !t.IsFull() {
+			tableList = append(tableList, t)
+		}
+		if kinds == All {
+			tableList = append(tableList, t)
+		}
+	}
+	return tableList
 }
 
 // GetTable 根据桌子ID获取桌子
 func (m *Manager) GetTable(id int32) *Table {
-	return m.tableMap[id]
+	if table, ok := m.tableMap.Load(id); ok {
+		return table.(*Table)
+	}
+	return nil
 }
 
 // SwitchTable 玩家请求换桌
@@ -46,7 +87,7 @@ func (m *Manager) SwitchTable(p *player.Player, gameConf *conf.Room_Game) *error
 		return err
 	}
 
-	oldTable := m.tableMap[p.GetTableID()]
+	oldTable := m.GetTable(p.GetTableID())
 	if oldTable == nil {
 		return codes.ErrTableNotFound
 	}
@@ -90,7 +131,8 @@ func (m *Manager) selectBestTable(p *player.Player, isSwitch bool) *Table {
 	var best *Table
 	oldTableID := p.GetTableID()
 
-	for _, t := range m.tableList {
+	notFull := m.GetTableListWith(NoFull)
+	for _, t := range notFull {
 		if t == nil || t.IsFull() || !t.CanEnter(p) {
 			continue
 		}

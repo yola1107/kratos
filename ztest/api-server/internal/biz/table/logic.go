@@ -131,8 +131,7 @@ func (t *Table) checkCanStart() {
 		return
 	}
 
-	canStart, _, _ := t.checkReadyPlayer()
-	if !canStart {
+	if canStart := t.checkReadyPlayer(); !canStart {
 		return
 	}
 
@@ -142,7 +141,7 @@ func (t *Table) checkCanStart() {
 
 func (t *Table) onGameStart() {
 	// 再次检查是否可进行游戏; 兜底回退到StWait
-	can, seats, infos := t.checkReadyPlayer()
+	can, seats, infos := t.checkReadyInfos()
 	if !can || t.stage.GetState() != StReady {
 		t.updateStage(StWait)
 		return
@@ -165,7 +164,18 @@ func (t *Table) onGameStart() {
 }
 
 // 检查用户是否可以开局
-func (t *Table) checkReadyPlayer() (bool, []*player.Player, []string) {
+func (t *Table) checkReadyPlayer() bool {
+	okCnt := 0
+	for _, v := range t.seats {
+		if v == nil || !v.IsReady() || v.GetAllMoney() < t.curBet {
+			continue
+		}
+		okCnt++
+	}
+	return okCnt >= MinStartPlayerCnt
+}
+
+func (t *Table) checkReadyInfos() (bool, []*player.Player, []string) {
 	canGameInfo := []string(nil)
 	canGameSeats := []*player.Player(nil)
 	for _, v := range t.seats {
