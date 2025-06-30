@@ -22,14 +22,23 @@ const (
 
 type MetaData struct {
 	lastUsed      time.Time
+	lastEnterAt   sync.Map // map[tableID]int64
 	lastFailEnter sync.Map // map[tableID]int64, value is unix timestamp of last failure
 }
 
 // ShouldRetry 判断当前机器人是否可以重试进入指定的桌子
 func (md *MetaData) ShouldRetry(tableID int32) bool {
-	val, _ := md.lastFailEnter.LoadOrStore(tableID, int64(0))
-	lastFailUnix := val.(int64)
-	return time.Now().Unix()-lastFailUnix >= int64(failRetryInterval.Seconds())
+	lastFailUnix, _ := md.lastFailEnter.LoadOrStore(tableID, int64(0))
+	if time.Now().Unix()-lastFailUnix.(int64) < int64(failRetryInterval.Seconds()) {
+		return false
+	}
+
+	enterAt, _ := md.lastEnterAt.LoadOrStore(tableID, time.Now().Unix())
+	if time.Now().Unix()-enterAt.(int64) < int64(ext.RandFloat(3, 7)) {
+		return false
+	}
+
+	return true
 }
 
 // MarkFail 标记机器人进入桌子失败的时间戳
@@ -37,18 +46,24 @@ func (md *MetaData) MarkFail(tableID int32) {
 	md.lastFailEnter.Store(tableID, time.Now().Unix())
 }
 
+// MarkEnterAt 标记机器人进入桌子的时间戳
+func (md *MetaData) MarkEnterAt(tableID int32) {
+	md.lastEnterAt.Store(tableID, time.Now().Unix())
+}
+
 // TryEnterTable 让机器人尝试进入列表中的某个桌子，返回成功进入的桌子实例
 func (md *MetaData) TryEnterTable(p *player.Player, tables []*table.Table) *table.Table {
 	for _, tb := range tables {
-		// if !md.ShouldRetry(tb.ID) {
-		// 	continue
-		// }
+		if !md.ShouldRetry(tb.ID) {
+			continue
+		}
 		if tb.IsFull() || !tb.CanEnterRobot(p) {
 			md.MarkFail(tb.ID)
 			continue
 		}
 		if tb.ThrowInto(p) {
 			md.lastUsed = time.Now()
+			md.MarkEnterAt(tb.ID)
 			return tb
 		}
 		md.MarkFail(tb.ID)
