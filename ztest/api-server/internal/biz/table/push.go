@@ -61,9 +61,6 @@ func (t *Table) SendLoginRsp(p *player.Player, code int32, msg string) {
 		ChairID: p.GetChairID(),
 		ArenaID: int32(conf.ArenaID),
 	})
-
-	// 记录进桌时间
-	t.aiLogic.markEnterTime()
 }
 
 // 广播入座信息
@@ -113,9 +110,6 @@ func (t *Table) broadcastUserQuitPush(p *player.Player, isSwitchTable bool) {
 		UserID:  p.GetPlayerID(),
 		ChairID: p.GetChairID(),
 	}, p.GetPlayerID())
-
-	// 记录时间
-	t.aiLogic.markExitTime()
 }
 
 // ---------------------------------------------

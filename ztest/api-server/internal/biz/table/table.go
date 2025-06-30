@@ -117,6 +117,9 @@ func (t *Table) ThrowInto(p *player.Player) bool {
 		// 发送场景信息
 		t.SendSceneInfo(p)
 
+		// 记录进桌时间
+		t.aiLogic.markEnterNow()
+
 		// 日志记录
 		t.mLog.userEnter(p, t.sitCnt)
 		log.Infof("EnterTable. p:%+v sitCnt:%d", p.Desc(), t.sitCnt)
@@ -150,6 +153,9 @@ func (t *Table) ThrowOff(p *player.Player, isSwitchTable bool) bool {
 
 	// 广播玩家离桌
 	t.broadcastUserQuitPush(p, isSwitchTable)
+
+	// 记录时间
+	t.aiLogic.markExitNow()
 
 	// 添加离桌数据
 	t.addLogout(p)

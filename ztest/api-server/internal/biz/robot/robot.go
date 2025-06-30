@@ -102,18 +102,22 @@ func (m *Manager) login() {
 	if !m.conf.Robot.Open {
 		return
 	}
+
+	/*
+		空闲AI数量1000 桌子数量1000 全遍历1000*1000=1000000次计算
+		每张非满员桌子,最多尝试10次让AI加入 最大计算次数为 1000*10 = 10000
+	*/
+	const maxRetryPerTable = 10
 	tables := m.repo.GetTableList()
 
-	// 例如空闲AI数量1000 桌子数量1000 全遍历1000*1000=1000000次计算
-	// 每张非满员桌子,最多10个AI尝试加入 最大计算次数为 1000*10 = 10000
-	const maxRetryEnterCnt = 10
 	for _, tb := range tables {
 		if tb.IsFull() {
 			continue
 		}
-		pickCnt := 0
-		m.free.Range(func(k, v any) bool {
-			if pickCnt++; pickCnt >= maxRetryEnterCnt {
+
+		pickCount := 0
+		m.free.Range(func(_, v any) bool {
+			if pickCount++; pickCount >= maxRetryPerTable {
 				return false
 			}
 			p, ok := v.(*player.Player)
@@ -129,11 +133,11 @@ func (m *Manager) login() {
 			if !tb.ThrowInto(p) {
 				return true
 			}
+
 			m.free.Delete(p.GetPlayerID())
-			return false
+			return false // 成功进入后，跳过该桌子剩余空闲AI尝试
 		})
 	}
-
 }
 
 // Leave 机器人离开桌子，放回空闲池

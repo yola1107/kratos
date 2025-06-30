@@ -1,6 +1,7 @@
 package table
 
 import (
+	"sync/atomic"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -20,27 +21,31 @@ const (
 
 // RobotLogic 封装机器人在桌上的行为逻辑
 type RobotLogic struct {
-	mTable          *Table
-	lastEnterTicker time.Time
-	lastExitTicker  time.Time
+	mTable        *Table
+	lastEnterUnix atomic.Int64
+	lastExitUnix  atomic.Int64
 }
 
 func (r *RobotLogic) init(t *Table) {
 	r.mTable = t
 }
 
-func (r *RobotLogic) markEnterTime() {
-	r.lastEnterTicker = time.Now()
+func (r *RobotLogic) markEnterNow() {
+	r.lastEnterUnix.Store(time.Now().Unix())
 }
 
-func (r *RobotLogic) markExitTime() {
-	r.lastExitTicker = time.Now()
+func (r *RobotLogic) markExitNow() {
+	r.lastExitUnix.Store(time.Now().Unix())
 }
 
-// 判断间隔是否太短
-func (r *RobotLogic) intervalTooShort(last time.Time, minSec, maxSec int) bool {
-	randDur := time.Duration(ext.RandIntInclusive(minSec, maxSec)) * time.Second
-	return time.Since(last) < randDur
+func (r *RobotLogic) EnterTooShort() bool {
+	elapsedSec := time.Now().Unix() - r.lastEnterUnix.Load()
+	return elapsedSec < int64(ext.RandIntInclusive(EnterMinIntervalSec, EnterMaxIntervalSec))
+}
+
+func (r *RobotLogic) ExitTooShort() bool {
+	elapsedSec := time.Now().Unix() - r.lastExitUnix.Load()
+	return elapsedSec < int64(ext.RandIntInclusive(ExitMinIntervalSec, ExitMaxIntervalSec))
 }
 
 // CanEnter 判断机器人是否能进桌
@@ -51,8 +56,7 @@ func (r *RobotLogic) CanEnter(p *player.Player) bool {
 	}
 
 	// 控制进桌频率
-	if p == nil || r.mTable == nil || r.mTable.IsFull() ||
-		r.intervalTooShort(r.lastEnterTicker, EnterMinIntervalSec, EnterMaxIntervalSec) {
+	if p == nil || r.mTable == nil || r.mTable.IsFull() || r.EnterTooShort() {
 		return false
 	}
 
@@ -78,8 +82,7 @@ func (r *RobotLogic) CanEnter(p *player.Player) bool {
 // CanExit 判断机器人是否能离桌
 func (r *RobotLogic) CanExit(p *player.Player) bool {
 	cfg := r.mTable.repo.GetRoomConfig().Robot
-	if p == nil || r.mTable == nil ||
-		r.intervalTooShort(r.lastExitTicker, ExitMinIntervalSec, ExitMaxIntervalSec) {
+	if p == nil || r.mTable == nil || r.ExitTooShort() {
 		return false
 	}
 	userCnt, aiCnt, _, _ := r.mTable.Counter()
@@ -144,7 +147,7 @@ func (r *RobotLogic) onExit(p *player.Player, _ proto.Message) {
 	if !r.mTable.CanExitRobot(p) {
 		return
 	}
-	r.markExitTime() // 记录离桌时间
+	r.markExitNow() // 记录离桌时间
 	dur := time.Duration(ext.RandInt(ExitMinIntervalSec, ExitMaxIntervalSec)) * time.Second
 
 	r.mTable.repo.GetTimer().Once(dur, func() {
