@@ -38,7 +38,7 @@ func (m *Manager) Start() error {
 	timer := m.repo.GetTimer()
 	timer.Forever(5*time.Second, m.load)
 	timer.Forever(3*time.Second, m.login)
-	timer.Forever(60*time.Second, m.release)
+	timer.Forever(10*time.Second, m.release)
 	return nil
 }
 
