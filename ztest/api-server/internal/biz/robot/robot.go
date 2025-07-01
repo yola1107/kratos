@@ -97,47 +97,60 @@ func (m *Manager) release() {
 	})
 }
 
-// login 批量登录空闲机器人，尝试进入桌子
+// login 尝试进入桌子
 func (m *Manager) login() {
 	if !m.conf.Robot.Open {
 		return
 	}
 
-	/*
-		空闲AI数量1000 桌子数量1000 全遍历1000*1000=1000000次计算
-		每张非满员桌子,最多尝试10次让AI加入 最大计算次数为 1000*10 = 10000
-	*/
-	const maxRetryPerTable = 10
 	tables := m.repo.GetTableList()
+	if len(tables) == 0 {
+		return
+	}
 
-	for _, tb := range tables {
-		if tb.IsFull() {
-			continue
+	var index int
+	m.free.Range(func(_, val any) bool {
+		p, ok := val.(*player.Player)
+		if !ok || p.GetTableID() > 0 {
+			return true // 无效或已在桌上
+		}
+		if err := table.CheckRoomLimit(p, m.conf.Game); err != nil {
+			return true
 		}
 
-		pickCount := 0
-		m.free.Range(func(_, v any) bool {
-			if pickCount++; pickCount >= maxRetryPerTable {
-				return false
-			}
-			p, ok := v.(*player.Player)
-			if !ok || p.GetTableID() > 0 {
-				return true
-			}
-			if err := table.CheckRoomLimit(p, m.conf.Game); err != nil {
-				return true
-			}
-			if !tb.CanEnterRobot(p) {
-				return true
-			}
-			if !tb.ThrowInto(p) {
-				return true
-			}
+		// 遍历桌子寻找能加入的
+		for index < len(tables) {
+			tb := tables[index]
+			index++
 
-			m.free.Delete(p.GetPlayerID())
-			return false // 成功进入后，跳过该桌子剩余空闲AI尝试
-		})
+			if m.Enter(p, tb) {
+				m.free.Delete(p.GetPlayerID())
+				return true // 下一个 AI
+			}
+		}
+
+		return false // 桌子遍历完了，退出 Range
+	})
+}
+
+func (m *Manager) Enter(p *player.Player, tb *table.Table) (enter bool) {
+	if p == nil || tb == nil {
+		return false
 	}
+	if p.GetTableID() > 0 {
+		return true
+	}
+	if tb.IsFull() {
+		return
+	}
+	if !tb.CanEnterRobot(p) {
+		return
+	}
+	if !tb.ThrowInto(p) {
+		return
+	}
+
+	return true
 }
 
 // Leave 机器人离开桌子，放回空闲池

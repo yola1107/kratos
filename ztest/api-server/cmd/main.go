@@ -4,6 +4,8 @@ import (
 	"flag"
 	"math"
 	"math/rand"
+	xhttp "net/http"
+	_ "net/http/pprof"
 	"os"
 	"time"
 
@@ -44,6 +46,10 @@ func newApp(logger log.Logger, gs *grpc.Server, hs *http.Server, ws *websocket.S
 
 func main() {
 	flag.Parse()
+
+	go func() {
+		log.Fatal(xhttp.ListenAndServe(":6060", nil))
+	}()
 
 	c, bc, lc := conf.LoadConfig(flagconf)
 	defer c.Close()

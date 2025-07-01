@@ -76,7 +76,6 @@ func NewUsecase(repo DataRepo, logger log.Logger, c *conf.Room) (*Usecase, func(
 func (uc *Usecase) start() error {
 	log.Infof("start server:%q version:%q", conf.Name, conf.Version)
 	log.Infof("GameID=%d ArenaID=%d ServerID=%s", conf.GameID, conf.ArenaID, conf.ServerID)
-
 	err := errors.Join(
 		uc.loop.Start(),
 		uc.tm.Start(),
@@ -98,5 +97,4 @@ func (uc *Usecase) post() {
 	log.Infof("[Counter]<Loop> Capacity=%d, Running=%d, Free=%d ", loops.Capacity, loops.Running, loops.Free)
 	log.Infof("[Counter]<Player> Total=%d Offline=%d ", all, offline)
 	log.Infof("[Counter]<AI> MaxNum:%d Total=%d Free=%d Gaming=%d", uc.rc.Robot.Num, aiAll, aiFree, aiGaming)
-
 }
