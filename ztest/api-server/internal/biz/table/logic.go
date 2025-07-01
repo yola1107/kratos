@@ -79,7 +79,7 @@ func (t *Table) OnTimer() {
 
 	switch state {
 	case StWait:
-		log.Debugf("StWait timeout. tb:%v ", t.Desc())
+		// log.Debugf("StWait timeout. tb:%v ", t.Desc())
 	case StReady:
 		t.onGameStart()
 	case StSendCard:
@@ -117,7 +117,7 @@ func (t *Table) updateStageWith(state StageID, duration time.Duration) {
 
 	// 日志
 	t.mLog.stage(t.stage.Desc(), t.active)
-	log.Debugf("[Stage] ====> %v, timerID: %d->%d", t.stage.Desc(), currentTimerID, timerID)
+	// log.Debugf("[Stage] ====> %v, timerID: %d->%d", t.stage.Desc(), currentTimerID, timerID)
 }
 
 func (t *Table) checkCanStart() {
@@ -283,7 +283,7 @@ func (t *Table) gameEnd() {
 	// t.Broadcast(-1, packet)
 	// t.SendShowCard()
 	t.broadcastResult()
-	log.Debugf("gameEnd tb=%s winner=%+v", t.Desc(), winner.Desc())
+	// log.Debugf("gameEnd tb=%s winner=%+v", t.Desc(), winner.Desc())
 	t.mLog.settle(winner)
 	t.updateStage(StEnd)
 }

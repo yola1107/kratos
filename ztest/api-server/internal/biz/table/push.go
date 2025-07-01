@@ -126,14 +126,19 @@ func (t *Table) broadcastSetBankerRsp() {
 
 // 发牌推送
 func (t *Table) dispatchCardPush(canGameSeats []*player.Player) {
-	t.RangePlayer(func(k int32, p *player.Player) bool {
+	for _, p := range canGameSeats {
+		if p == nil {
+			continue
+		}
+		if !p.IsGaming() {
+			continue
+		}
 		t.SendPacketToClient(p, v1.GameCommand_OnSendCardPush, &v1.SendCardPush{
 			UserID:    p.GetPlayerID(),
 			Cards:     p.GetCards(),
 			CardsType: p.GetCardsType(),
 		})
-		return true
-	})
+	}
 }
 
 // SendSceneInfo 发送游戏场景信息
@@ -156,10 +161,12 @@ func (t *Table) SendSceneInfo(p *player.Player) {
 }
 
 func (t *Table) getPlayersScene() (players []*v1.PlayerScene) {
-	t.RangePlayer(func(k int32, p *player.Player) bool {
+	for _, p := range t.seats {
+		if p == nil {
+			continue
+		}
 		players = append(players, t.getScene(p))
-		return true
-	})
+	}
 	return
 }
 

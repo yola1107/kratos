@@ -370,12 +370,12 @@ func (t *Table) checkRound(active int32) {
 
 	// 自动操作看
 	if t.curRound >= t.repo.GetRoomConfig().Game.AutoSeeRound {
-		t.RangePlayer(func(k int32, p *player.Player) bool {
-			if p.IsGaming() {
-				t.OnActionReq(p, &v1.ActionReq{Action: v1.ACTION_SEE}, false)
+		for _, p := range t.seats {
+			if p == nil || !p.IsGaming() || p.Seen() {
+				continue
 			}
-			return true
-		})
+			t.OnActionReq(p, &v1.ActionReq{Action: v1.ACTION_SEE}, false)
+		}
 	}
 }
 

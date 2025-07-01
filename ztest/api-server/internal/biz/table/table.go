@@ -295,12 +295,12 @@ func (t *Table) GetPlayerByChair(chair int32) *player.Player {
 //  2. 没有弃牌 (未 Fold)
 //  3. 没有在比牌中落败
 func (t *Table) GetGamers() (seats []*player.Player) {
-	t.RangePlayer(func(k int32, p *player.Player) bool {
-		if p.IsGaming() {
-			seats = append(seats, p)
+	for _, p := range t.seats {
+		if p == nil || !p.IsGaming() {
+			continue
 		}
-		return true
-	})
+		seats = append(seats, p)
+	}
 	return seats
 }
 

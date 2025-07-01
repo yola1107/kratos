@@ -257,10 +257,11 @@ func (p *Player) GetCompareSeats() []int32 {
 // Settle 结算
 func (p *Player) Settle(totalBet float64) float64 {
 
-	totalWin := totalBet
-	profit := totalWin - p.gameData.bet
+	win := totalBet
+	bet := p.gameData.bet
+	profit := win - bet
 
-	log.Debugf("Settle. p:%+v totalWin:%.1f profit:%.1f", p.Desc(), totalWin, profit)
+	log.Debugf("Settle. p:%+v Win(%.1f) bet(%.1f) profit(%.1f)", p.Desc(), win, bet, profit)
 
 	return profit
 }
