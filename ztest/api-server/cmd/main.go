@@ -35,7 +35,7 @@ func newApp(logger log.Logger, gs *grpc.Server, hs *http.Server, ws *websocket.S
 		kratos.Name(Name),
 		kratos.Version(Version),
 		kratos.Metadata(map[string]string{}),
-		kratos.Logger(logger),
+		kratos.Logger(log.With(logger, "Version", "heap.v2")),
 		kratos.Server(
 			gs,
 			hs,
