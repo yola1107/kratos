@@ -7,38 +7,25 @@ import (
 	"time"
 
 	"github.com/panjf2000/ants/v2"
-
 	"github.com/yola1107/kratos/v2/log"
 )
 
-const defaultPendingNum = 100 // 默认100条任务池缓冲空间
+const defaultPendingNum = 100 // 默认任务池大小
 
-var resultChanPool = sync.Pool{
-	New: func() any {
-		return make(chan *asyncResult, 1)
-	},
-}
-
-var asyncResultPool = sync.Pool{
-	New: func() any {
-		return new(asyncResult)
-	},
-}
-
-// 定义结果类型
+// asyncResult封装任务结果
 type asyncResult struct {
 	data []byte
 	err  error
 }
 
-// LoopStatus 定义当前池状态结构体
+// LoopStatus 任务池当前状态
 type LoopStatus struct {
 	Capacity int // 池最大容量
-	Running  int // 当前运行中协程数
+	Running  int // 当前运行协程数
 	Free     int // 空闲协程数（Capacity - Running）
 }
 
-// ITaskLoop 协程池管理接口
+// ITaskLoop 定义协程池接口
 type ITaskLoop interface {
 	Start() error
 	Stop()
@@ -51,7 +38,7 @@ type ITaskLoop interface {
 
 type Option func(*antsLoop)
 
-// WithSize 通过 Option 设置池大小
+// WithSize 设置池大小
 func WithSize(size int) Option {
 	return func(l *antsLoop) {
 		if size > 0 {
@@ -82,7 +69,7 @@ type antsLoop struct {
 	poolOptions []ants.Option
 }
 
-// NewAntsLoop 创建协程池实例，size 从 Option 获取
+// NewAntsLoop 创建协程池实例，支持传入参数
 func NewAntsLoop(opts ...Option) ITaskLoop {
 	l := &antsLoop{
 		size: defaultPendingNum,
@@ -90,10 +77,10 @@ func NewAntsLoop(opts ...Option) ITaskLoop {
 			go safeRun(ctx, fn)
 		},
 		poolOptions: []ants.Option{
-			ants.WithExpiryDuration(60 * time.Second), // 每60s清理一次闲置 worker
-			// ants.WithPreAlloc(true),                   // 预分配容量，避免 runtime 扩容内存
-			// ants.WithNonblocking(false),               // false:默认阻塞模式 true:非阻塞提交，任务满时立即报错
-			// ants.WithMaxBlockingTasks(0),              // 最大阻塞任务数（非阻塞模式下可设为0）
+			ants.WithExpiryDuration(120 * time.Second), // 每120s清理一次闲置 worker
+			// ants.WithPreAlloc(true),                    // 预分配容量，避免 runtime 扩容内存
+			// ants.WithNonblocking(false),                // false:默认阻塞模式 true:非阻塞提交，任务满时立即报错
+			// ants.WithMaxBlockingTasks(0),               // 最大阻塞任务数（非阻塞模式下可设为0）
 		},
 	}
 	for _, opt := range opts {
@@ -102,6 +89,7 @@ func NewAntsLoop(opts ...Option) ITaskLoop {
 	return l
 }
 
+// Start 启动池，初始化 ants.Pool
 func (l *antsLoop) Start() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -111,7 +99,6 @@ func (l *antsLoop) Start() error {
 		return nil
 	}
 
-	// 创建协程池
 	pool, err := ants.NewPool(l.size, l.poolOptions...)
 	if err != nil {
 		return fmt.Errorf("pool init failed: %w", err)
@@ -122,6 +109,7 @@ func (l *antsLoop) Start() error {
 	return nil
 }
 
+// Stop 停止池，释放资源
 func (l *antsLoop) Stop() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -134,6 +122,7 @@ func (l *antsLoop) Stop() {
 	}
 }
 
+// Status 返回当前池状态
 func (l *antsLoop) Status() LoopStatus {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
@@ -156,63 +145,47 @@ func (l *antsLoop) Status() LoopStatus {
 	}
 }
 
+// Post 提交无返回任务，使用 background context
 func (l *antsLoop) Post(job func()) {
 	l.PostCtx(context.Background(), job)
 }
 
+// PostCtx 提交无返回任务，携带上下文
 func (l *antsLoop) PostCtx(ctx context.Context, job func()) {
 	if ctx.Err() == nil {
 		l.submit(ctx, job)
 	}
 }
 
+// PostAndWait 提交有返回结果任务，阻塞等待结果，使用 background context
 func (l *antsLoop) PostAndWait(job func() ([]byte, error)) ([]byte, error) {
 	return l.PostAndWaitCtx(context.Background(), job)
 }
 
+// PostAndWaitCtx 提交有返回结果任务，携带上下文，阻塞等待或超时取消
 func (l *antsLoop) PostAndWaitCtx(ctx context.Context, job func() ([]byte, error)) ([]byte, error) {
-	ch := resultChanPool.Get().(chan *asyncResult)
-
-	// 清理通道并归还池中
-	defer func() {
-		select {
-		case <-ch: // drain
-		default:
-		}
-		resultChanPool.Put(ch)
-	}()
+	ch := make(chan *asyncResult, 1)
 
 	l.submit(ctx, func() {
 		defer RecoverFromError(func(e any) {
-			res := asyncResultPool.Get().(*asyncResult)
-			res.data = nil
-			res.err = fmt.Errorf("panic: %v", e)
-
 			select {
-			case ch <- res:
+			case ch <- &asyncResult{nil, fmt.Errorf("panic: %v", e)}:
 			default:
 			}
 		})
-
 		data, err := job()
-		res := asyncResultPool.Get().(*asyncResult)
-		res.data = data
-		res.err = err
-
 		select {
-		case ch <- res:
+		case ch <- &asyncResult{data, err}:
 		case <-ctx.Done():
 		}
 	})
 
 	select {
 	case res := <-ch:
-		defer asyncResultPool.Put(res)
 		return res.data, res.err
 	case <-ctx.Done():
 		select {
 		case res := <-ch:
-			defer asyncResultPool.Put(res)
 			return res.data, res.err
 		default:
 			// 确保job被取消的信息能发送出去, 防止调用方一直阻塞等待接收job的返回结果
@@ -221,16 +194,18 @@ func (l *antsLoop) PostAndWaitCtx(ctx context.Context, job func() ([]byte, error
 	}
 }
 
+// submit 负责任务提交和fallback处理，保证安全调用
 func (l *antsLoop) submit(ctx context.Context, fn func()) {
 	l.mu.RLock()
-	defer l.mu.RUnlock()
+	pool := l.pool
+	l.mu.RUnlock()
 
-	if l.pool == nil || l.pool.IsClosed() {
+	if pool == nil || pool.IsClosed() {
 		l.triggerFallback(ctx, fn, "loop not started or loop is closed.")
 		return
 	}
 
-	if err := l.pool.Submit(func() { safeRun(ctx, fn) }); err != nil {
+	if err := pool.Submit(func() { safeRun(ctx, fn) }); err != nil {
 		l.triggerFallback(ctx, fn, err.Error())
 	}
 }
@@ -240,6 +215,7 @@ func (l *antsLoop) triggerFallback(ctx context.Context, fn func(), reason string
 	l.fallback(ctx, fn)
 }
 
+// safeRun 包装任务执行，捕获panic且只在ctx未取消时执行
 func safeRun(ctx context.Context, fn func()) {
 	defer RecoverFromError(nil)
 	if ctx.Err() == nil {

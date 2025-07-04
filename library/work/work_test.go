@@ -16,6 +16,30 @@ func init() {
 	log.SetLogger(log.NewStdLogger(os.Stdout))
 }
 
+// mockExecutor 直接在 goroutine 池中执行任务
+type mockExecutor struct {
+	pool chan struct{}
+}
+
+func newMockExecutor(ops ...int) *mockExecutor {
+	size := 100
+	if len(ops) > 0 && ops[0] > 0 {
+		size = ops[0]
+	}
+	return &mockExecutor{pool: make(chan struct{}, size)}
+
+}
+
+func (m *mockExecutor) Post(job func()) {
+	m.pool <- struct{}{}
+	go func() {
+		defer func() { <-m.pool }()
+		job()
+	}()
+}
+
+func (m *mockExecutor) Stop() {}
+
 func TestAntsLoop(t *testing.T) {
 	l := NewAntsLoop(WithSize(2))
 	err := l.Start()
@@ -122,7 +146,7 @@ func TestTaskScheduler_BasicOperations(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	executor := &mockExecutor{}
+	executor := newMockExecutor()
 	scheduler := NewTaskScheduler(WithExecutor(executor), WithContext(ctx))
 	defer scheduler.Stop()
 
@@ -181,7 +205,7 @@ func TestTaskScheduler_Cancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	executor := &mockExecutor{}
+	executor := newMockExecutor()
 	scheduler := NewTaskScheduler(WithExecutor(executor), WithContext(ctx))
 	defer scheduler.Stop()
 
@@ -213,7 +237,7 @@ func TestTaskScheduler_Stop(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	executor := &mockExecutor{}
+	executor := newMockExecutor()
 	scheduler := NewTaskScheduler(WithExecutor(executor), WithContext(ctx))
 
 	scheduler.Once(defaultTickPrecision, func() { t.Error("Once task executed after shutdown") })
@@ -233,7 +257,7 @@ func TestTaskScheduler_PanicRecovery(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	executor := &mockExecutor{}
+	executor := newMockExecutor()
 	scheduler := NewTaskScheduler(WithExecutor(executor), WithContext(ctx))
 	defer scheduler.Stop()
 
@@ -269,7 +293,7 @@ func TestTaskScheduler_PanicRecovery(t *testing.T) {
 
 func TestTaskScheduler_ContextCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	executor := &mockExecutor{}
+	executor := newMockExecutor()
 	scheduler := NewTaskScheduler(WithExecutor(executor), WithContext(ctx))
 	defer scheduler.Stop()
 
@@ -297,7 +321,7 @@ func TestTaskScheduler_TaskIDSequence_WithCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	executor := &mockExecutor{}
+	executor := newMockExecutor()
 	scheduler := NewTaskScheduler(WithExecutor(executor), WithContext(ctx))
 	defer scheduler.Stop()
 
@@ -384,7 +408,7 @@ func TestTaskScheduler_TaskIDSequence(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	executor := &mockExecutor{}
+	executor := newMockExecutor()
 	scheduler := NewTaskScheduler(WithExecutor(executor), WithContext(ctx))
 	defer scheduler.Stop()
 

@@ -202,7 +202,7 @@ func (s *Scheduler) schedule(delay time.Duration, repeated bool, f func()) int64
 	startAt := time.Now()
 
 	wrapped := func() {
-		triggerAt := time.Now()
+		wrappedAt := time.Now()
 		if entry.cancelled.Load() || !entry.executing.CompareAndSwap(false, true) {
 			return
 		}
@@ -218,7 +218,7 @@ func (s *Scheduler) schedule(delay time.Duration, repeated bool, f func()) int64
 				entry.executing.Store(false)
 				if !repeated {
 					s.removeTask(taskID)
-					s.lazy(taskID, delay, startAt, execAt, triggerAt)
+					s.lazy(taskID, delay, startAt, execAt, wrappedAt)
 				}
 			}()
 
@@ -253,12 +253,15 @@ func (s *Scheduler) executeAsync(f func()) {
 }
 
 // log debug
-func (s *Scheduler) lazy(taskID int64, delay time.Duration, startAt, execAt, triggerAt time.Time) {
-	if latency := time.Since(startAt) - delay; latency >= s.tick {
-		log.Errorf("[scheduler] taskID=%d lazy=%vms exec=%vms wait=%v",
-			taskID, latency.Milliseconds(),
-			time.Since(execAt).Milliseconds(),
-			time.Since(triggerAt).Milliseconds())
+func (s *Scheduler) lazy(taskID int64, delay time.Duration, startAt, execAt, wrappedAt time.Time) {
+	now := time.Now()
+	lazy := now.Sub(startAt)
+	latency := lazy - delay
+
+	if latency >= s.tick {
+		log.Errorf("[scheduler] taskID=%d delay=%v precision=%v lazy=%v latency=%v exec=%+v wrap=%+v",
+			taskID, delay, s.tick, lazy, latency, now.Sub(execAt), now.Sub(wrappedAt),
+		)
 	}
 }
 
