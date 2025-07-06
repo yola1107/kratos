@@ -46,7 +46,7 @@ func (uc *Usecase) OnLoginReq(ctx context.Context, in *v1.LoginReq) (*v1.LoginRs
 func (uc *Usecase) reconnect(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp, error) {
 	session := uc.GetSession(ctx)
 	if session == nil {
-		return nil, codes.ErrSessionNotFound
+		return &v1.LoginRsp{}, nil
 	}
 
 	uc.loop.Post(func() {
@@ -65,34 +65,35 @@ func (uc *Usecase) reconnect(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp
 func (uc *Usecase) enterRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp, error) {
 	session := uc.GetSession(ctx)
 	if session == nil {
-		return nil, codes.ErrSessionNotFound
+		return &v1.LoginRsp{}, nil
 	}
 
 	raw := &player.Raw{
-		ID:      in.UserID,
-		Session: session,
+		ID:       in.UserID,
+		Session:  session,
+		BaseData: &player.BaseData{UID: in.UserID},
 	}
 	p, err := uc.createPlayer(raw)
 	if err != nil {
-		log.Warnf("create player failed. uid=%d err=%+v", in.UserID, err)
-		return nil, err
+		log.Warnf("create player failed. uid=%d err=%q", in.UserID, err)
+		return &v1.LoginRsp{}, nil
 	}
 
-	if err := uc.tm.CanEnterRoom(p, in.Token, uc.rc.Game); err != nil {
-		log.Warnf("room limit. uid=%d err=%v", in.UserID, err)
-		uc.LogoutGame(p, err.Code, err.Message)
-		return nil, err
+	if code, msg := uc.tm.CanEnterRoom(p, in.Token, uc.rc.Game); code != codes.SUCCESS {
+		log.Warnf("room limit. uid=%d code=%d msg=%q", in.UserID, code, msg)
+		uc.LogoutGame(p, code, msg)
+		return &v1.LoginRsp{}, nil
 	}
 
 	uc.loop.Post(func() {
 		if tableID := p.GetTableID(); tableID > 0 {
 			uc.log.Warnf("enter failed. aleady in table. uid=%d tableID=%v", in.UserID, tableID)
-			uc.LogoutGame(p, codes.ErrPlayerAlreadyInTable.Code, "already in table")
+			uc.LogoutGame(p, codes.PLAYER_ALREADY_IN_TABLE, "PLAYER_ALREADY_IN_TABLE")
 			return
 		}
 		if ok := uc.tm.ThrowInto(p); !ok {
 			uc.log.Errorf("throw into failed. uid=%d ", in.UserID)
-			uc.LogoutGame(p, codes.ErrEnterTableFail.Code, "throw into table failed")
+			uc.LogoutGame(p, codes.ENTER_TABLE_FAIL, "throw into table failed")
 			return
 		}
 	})
@@ -102,10 +103,7 @@ func (uc *Usecase) enterRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp
 
 // OnSwitchTableReq .
 func (uc *Usecase) OnSwitchTableReq(info *SwapperInfo) {
-	code, msg := int32(0), ""
-	if e := uc.tm.SwitchTable(info.Player, uc.rc.Game); e != nil {
-		code, msg = e.Code, e.Message
-	}
+	code, msg := uc.tm.SwitchTable(info.Player, uc.rc.Game)
 	info.Player.SendSwitchTableRsp(code, msg)
 }
 
@@ -117,8 +115,8 @@ func (uc *Usecase) CreateRobot(raw *player.Raw) (*player.Player, error) {
 		UID:       raw.ID,
 		VIP:       0,
 		NickName:  fmt.Sprintf("robot_%d", raw.ID),
-		Avatar:    fmt.Sprintf("robot_avatar_%d", raw.ID),
-		AvatarUrl: fmt.Sprintf("robot_avatar_%d", raw.ID),
+		Avatar:    fmt.Sprintf("avatar_%d", raw.ID),
+		AvatarUrl: fmt.Sprintf("avatar_%d", raw.ID),
 		Money:     ext.RandFloat(uc.rc.Game.MinMoney, uc.rc.Game.MaxMoney),
 	}
 	// if err := uc.repo.SavePlayer(context.Background(), base); err != nil {
@@ -131,18 +129,32 @@ func (uc *Usecase) CreateRobot(raw *player.Raw) (*player.Player, error) {
 	// return uc.createPlayer(raw)
 }
 
+var _OpenTest = true
+
 func (uc *Usecase) createPlayer(raw *player.Raw) (*player.Player, error) {
-	// 获取数据库数据
-	base, err := uc.repo.LoadPlayer(context.Background(), raw.ID)
-	if err != nil {
-		return nil, err
-	}
-	if base == nil {
-		return nil, codes.ErrCreatePlayerFail
+	var (
+		err  error
+		base *player.BaseData
+		p    = player.New(raw)
+	)
+	if _OpenTest {
+		base = &player.BaseData{
+			UID:       raw.ID,
+			VIP:       0,
+			NickName:  fmt.Sprintf("user_%d", raw.ID),
+			Avatar:    fmt.Sprintf("avatar_%d", raw.ID%15),
+			AvatarUrl: fmt.Sprintf("avatar_%d", raw.ID%15),
+			Money:     float64(int64(ext.RandFloat(uc.rc.Game.MinMoney, uc.rc.Game.MaxMoney))),
+		}
+	} else {
+		// 获取数据库数据
+		if base, err = uc.repo.LoadPlayer(context.Background(), raw.ID); err != nil || base == nil {
+			p.SendLoginRsp(codes.CREATE_PLAYER_FAIL, fmt.Sprintf("err=%v", err))
+			return nil, err
+		}
 	}
 
-	raw.BaseData = base
-	p := player.New(raw)
+	p.SetBaseData(base)
 	if !raw.IsRobot {
 		uc.pm.Add(p)
 	}
@@ -157,12 +169,13 @@ func (uc *Usecase) Disconnect(session *websocket.Session) {
 
 	p := uc.pm.GetBySessionID(session.ID())
 	if p == nil {
+		session.Close(false) // ///
 		return
 	}
 
 	t := uc.tm.GetTable(p.GetTableID())
 	if t == nil {
-		uc.LogoutGame(p, codes.ErrTableNotFound.Code, fmt.Sprintf("disconnect. table is nil. pid:%d", p.GetPlayerID()))
+		uc.LogoutGame(p, codes.TABLE_NOT_FOUND, "disconnect by can not find table")
 		return
 	}
 

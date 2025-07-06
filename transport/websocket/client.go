@@ -78,6 +78,14 @@ func WithResponseHandler(responseHandler map[int32]ResponseHandler) ClientOption
 	return func(o *clientOptions) { o.responseHandler = responseHandler }
 }
 
+func WithRetryPolicy(b, m time.Duration, maxAttempt int32) ClientOption {
+	return func(o *clientOptions) {
+		o.retryPolicy.baseDelay = b
+		o.retryPolicy.maxDelay = m
+		o.retryPolicy.maxAttempt = maxAttempt
+	}
+}
+
 // func WithDiscovery(d registry.Discovery) ClientOption {
 //	return func(o *clientOptions) {
 //		o.discovery = d
@@ -150,7 +158,7 @@ func NewClient(ctx context.Context, opts ...ClientOption) (*Client, error) {
 		retryPolicy: &retryPolicy{
 			baseDelay:  3 * time.Second,
 			maxDelay:   15 * time.Second,
-			maxAttempt: 5,
+			maxAttempt: 0,
 		},
 	}
 	for _, o := range opts {
@@ -356,7 +364,7 @@ func (c *Client) Close() {
 	s.Close(true)
 	c.clearPendingRequests()
 	c.wg.Wait()
-	log.Info("client close complete.")
+	// log.Info("client close complete.")
 }
 
 func (c *Client) clearPendingRequests() {

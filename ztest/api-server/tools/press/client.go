@@ -27,7 +27,7 @@ type Runner struct {
 
 func NewRunner(conf *Bootstrap, logger *zap.Logger) *Runner {
 	ctx, cancel := context.WithCancel(context.Background())
-	loop := work.NewAntsLoop(work.WithSize(100))
+	loop := work.NewAntsLoop(work.WithSize(10000))
 	timer := work.NewTaskScheduler(
 		work.WithContext(ctx),
 		work.WithExecutor(loop),
@@ -64,9 +64,9 @@ func (r *Runner) Start() {
 		panic(err)
 	}
 	interval := time.Duration(r.conf.Press.Interval) * time.Millisecond
-	r.timer.Forever(10*time.Second, r.Status)
 	r.timer.Forever(interval, r.Load)
-	r.timer.Forever(interval, r.Release)
+	r.timer.Forever(60*time.Second, r.Release)
+	r.timer.Forever(15*time.Second, r.Status)
 	log.Infof("start client success. conf:%+v", r.conf.Press)
 }
 
@@ -79,7 +79,7 @@ func (r *Runner) Stop() {
 }
 
 func (r *Runner) Status() {
-	log.Infof("loop=%+v timer=%+v player={Num:%v curr:%v}",
+	log.Infof("[Status] ==> loop=%+v timer=%+v player={Num:%v curr:%v}",
 		r.loop.Status(), r.timer.Status(), r.conf.Press.Num, r.count.Load())
 }
 

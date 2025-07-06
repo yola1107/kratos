@@ -32,6 +32,10 @@ func New(raw *Raw) *Player {
 	return p
 }
 
+func (p *Player) SetBaseData(baseData *BaseData) {
+	p.baseData = baseData
+}
+
 func (p *Player) GetBaseData() *BaseData {
 	return p.baseData
 }
@@ -71,7 +75,7 @@ func (p *Player) LogoutGame(code int32, msg string) {
 		session = nil
 	}
 
-	// clear
+	// clean
 	p.session = nil
 	p.gameData = nil
 	p.baseData = nil

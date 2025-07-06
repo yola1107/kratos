@@ -54,7 +54,7 @@ func WatchConfig(c config.Config, bc *Bootstrap) error {
 			log.Infof("watch error: %v\n", err)
 			return
 		}
-		log.Infof("[Config Watch] %s changed to %v\n", key, newConfig)
+		log.Infof("[Config Watch] %s changed to %+v\n", key, newConfig)
 		bc.Press = newConfig
 
 	}); err != nil {
