@@ -2,7 +2,6 @@ package player
 
 import (
 	"github.com/golang/protobuf/proto"
-	"github.com/yola1107/kratos/v2/errors"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/transport/websocket"
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
@@ -65,6 +64,12 @@ func (p *Player) GetIP() string {
 func (p *Player) LogoutGame(code int32, msg string) {
 	// 通知客户端退出
 	p.SendLogout(code, msg)
+
+	if session := p.GetSession(); session != nil {
+		session.Close(true)
+		session = nil
+	}
+
 	// clear
 	p.session = nil
 	p.gameData = nil
@@ -86,13 +91,9 @@ func (p *Player) push(cmd v1.GameCommand, msg proto.Message) {
 	}
 }
 
-func (p *Player) SendSwitchTableRsp(e *errors.Error) {
+func (p *Player) SendSwitchTableRsp(code int32, msg string) {
 	if p == nil {
 		return
-	}
-	code, msg := int32(0), ""
-	if e != nil {
-		code, msg = e.Code, e.Message
 	}
 	p.push(v1.GameCommand_OnSwitchTableRsp, &v1.SwitchTableRsp{
 		Code:   code,

@@ -80,7 +80,7 @@ func (uc *Usecase) enterRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp
 	}
 
 	if code, msg := uc.tm.CanEnterRoom(p, in.Token, uc.rc.Game); code != codes.SUCCESS {
-		log.Warnf("EnterRoom failed. uid=%d code=%d msg=%v", in.UserID, code, msg)
+		log.Warnf("room limit. uid=%d code=%d msg=%v", in.UserID, code, msg)
 		uc.LogoutGame(p, code, msg)
 		return nil, errors.New("room Limit")
 	}
@@ -92,7 +92,7 @@ func (uc *Usecase) enterRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp
 			return
 		}
 		if ok := uc.tm.ThrowInto(p); !ok {
-			uc.log.Errorf("ThrowInto failed. uid=%d tableID=%v", in.UserID, p.GetTableID())
+			uc.log.Errorf("throw into failed. uid=%d ", in.UserID)
 			uc.LogoutGame(p, codes.ENTER_TABLE_FAIL, "throw into table failed")
 			return
 		}
