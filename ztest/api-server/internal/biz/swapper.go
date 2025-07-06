@@ -3,7 +3,6 @@ package biz
 import (
 	"context"
 
-	"github.com/yola1107/kratos/v2/errors"
 	"github.com/yola1107/kratos/v2/transport/websocket"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/table"
@@ -12,7 +11,8 @@ import (
 
 // SwapperInfo 玩家信息
 type SwapperInfo struct {
-	Error  *errors.Error
+	Code   int32
+	Msg    string
 	Player *player.Player
 	Table  *table.Table
 }
@@ -20,21 +20,22 @@ type SwapperInfo struct {
 func (uc *Usecase) Swapper(ctx context.Context) (r *SwapperInfo) {
 	session := uc.GetSession(ctx)
 	if session == nil {
-		return &SwapperInfo{Error: codes.ErrSessionNotFound}
+		return &SwapperInfo{Code: codes.SESSION_NOT_FOUND}
 	}
 
 	p := uc.pm.GetBySessionID(session.ID())
 	if p == nil {
-		return &SwapperInfo{Error: codes.ErrPlayerNotFound}
+		return &SwapperInfo{Code: codes.PLAYER_NOT_FOUND}
 	}
 
 	t := uc.tm.GetTable(p.GetTableID())
 	if t == nil {
-		return &SwapperInfo{Error: codes.ErrTableNotFound}
+		return &SwapperInfo{Code: codes.TABLE_NOT_FOUND}
 	}
 
 	return &SwapperInfo{
-		Error:  nil,
+		Code:   0,
+		Msg:    "",
 		Player: p,
 		Table:  t,
 	}
