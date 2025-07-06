@@ -18,8 +18,9 @@ const (
 )
 
 type ITaskScheduler interface {
-	Len() int       // 当前注册的任务数量
-	Running() int32 // 当前执行中的任务数
+	Len() int                // 当前注册的任务数量
+	Running() int32          // 当前执行中的任务数
+	Status() SchedulerStatus //
 	Once(delay time.Duration, f func()) int64
 	Forever(interval time.Duration, f func()) int64
 	ForeverNow(interval time.Duration, f func()) int64
@@ -31,6 +32,12 @@ type ITaskScheduler interface {
 // ITaskExecutor 自定义执行器接口，支持线程池等
 type ITaskExecutor interface {
 	Post(job func())
+}
+
+// SchedulerStatus 任务池当前状态
+type SchedulerStatus struct {
+	Len     int   // 当前注册的任务数量
+	Running int32 // 当前执行中的任务数
 }
 
 // preciseEvery 实现精准的周期性定时器，防止时间漂移
@@ -55,14 +62,6 @@ func (p *preciseEvery) Next(t time.Time) time.Time {
 	}
 	p.last.Store(next)
 	return next
-}
-
-type taskEntry struct {
-	timer     *timingwheel.Timer
-	cancelled atomic.Bool
-	repeated  bool
-	executing atomic.Bool
-	task      func()
 }
 
 type SchedulerOption func(*Scheduler)
@@ -100,6 +99,14 @@ type Scheduler struct {
 	once   sync.Once
 }
 
+type taskEntry struct {
+	timer     *timingwheel.Timer
+	cancelled atomic.Bool
+	repeated  bool
+	executing atomic.Bool
+	task      func()
+}
+
 func NewTaskScheduler(opts ...SchedulerOption) ITaskScheduler {
 	s := &Scheduler{
 		tick:      defaultTickPrecision,
@@ -131,6 +138,15 @@ func (s *Scheduler) Len() int {
 
 func (s *Scheduler) Running() int32 {
 	return s.running.Load()
+}
+
+func (s *Scheduler) Status() SchedulerStatus {
+	count := s.Len()
+	running := s.Running()
+	return SchedulerStatus{
+		Len:     count,
+		Running: running,
+	}
 }
 
 func (s *Scheduler) Once(delay time.Duration, f func()) int64 {
