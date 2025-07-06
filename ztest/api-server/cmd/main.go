@@ -57,7 +57,7 @@ func main() {
 	c, bc, lc := conf.LoadConfig(flagconf)
 	defer c.Close()
 
-	logger := zap.NewLogger(lc)
+	logger := zap.NewLogger(lc.Log)
 	log.SetLogger(logger)
 	defer logger.Close()
 
