@@ -9,59 +9,56 @@ import (
 	"github.com/yola1107/kratos/v2/log"
 )
 
-type Bootstrap struct {
-	Server struct {
-		HTTP struct {
-			Addr string `json:"addr"`
-		} `json:"http"`
-	} `json:"server"`
-}
+type (
+	Bootstrap struct {
+		Log   *zconf.Log
+		Press Press
+	}
+	Press struct {
+		Url      string
+		Open     bool
+		Num      int32
+		Batch    int32
+		Interval int32 // ms
+		StartID  int64
+		MinMoney float32
+		MAxMoney float32
+	}
+)
 
 // LoadConfig 加载配置
-func LoadConfig(flagconf string) (config.Config, *Bootstrap, *zconf.Bootstrap) {
+func LoadConfig(flagconf string) (config.Config, *Bootstrap) {
 	c := config.New(
 		config.WithSource(
 			file.NewSource(flagconf),
 		),
 	)
-
 	if err := c.Load(); err != nil {
 		panic(err)
 	}
 
-	var (
-		bc Bootstrap
-		lc zconf.Bootstrap
-	)
-
+	var bc Bootstrap
 	if err := c.Scan(&bc); err != nil {
 		panic(fmt.Errorf("bootstrap config invalid: %v", err))
 	}
-	if err := c.Scan(&lc); err != nil {
-		panic(fmt.Errorf("logger config invalid: %v", err))
-	}
-
 	if err := WatchConfig(c, &bc); err != nil {
 		panic(err)
 	}
-
-	return c, &bc, &lc
+	return c, &bc
 }
 
 func WatchConfig(c config.Config, bc *Bootstrap) error {
-	// 监听 http.addr 配置变化
-	if err := c.Watch("server.http.addr", func(key string, value config.Value) {
-		var newAddr string
-		if err := value.Scan(&newAddr); err != nil {
+	if err := c.Watch("press", func(key string, value config.Value) {
+		var newConfig Press
+		if err := value.Scan(&newConfig); err != nil {
 			log.Infof("watch error: %v\n", err)
 			return
 		}
-		log.Infof("[Config Watch] %s changed to %s\n", key, newAddr)
-		bc.Server.HTTP.Addr = newAddr
+		log.Infof("[Config Watch] %s changed to %v\n", key, newConfig)
+		bc.Press = newConfig
 
 	}); err != nil {
-		return fmt.Errorf("watch http addr failed: %w", err)
+		return fmt.Errorf("watch failed: %w", err)
 	}
-
 	return nil
 }

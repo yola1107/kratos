@@ -24,10 +24,10 @@ func init() {
 func main() {
 	flag.Parse()
 
-	c, bc, lc := press.LoadConfig(flagconf)
+	c, bc := press.LoadConfig(flagconf)
 	defer c.Close()
 
-	logger := zap.NewLogger(lc)
+	logger := zap.NewLogger(bc.Log)
 	defer logger.Close()
 
 	runner := press.NewRunner(bc, logger)

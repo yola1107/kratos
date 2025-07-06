@@ -62,7 +62,7 @@ room:
     speaker_card_type: 2
     high_strength_rate: 30
   robot:
-    open: true
+    open: false
     num: 5
     table_max_count: 4
     min_play_count: 3        # 预留n个AI自己玩游戏

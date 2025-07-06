@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/yola1107/kratos/v2/library/log/zap"
 	"github.com/yola1107/kratos/v2/library/work"
@@ -19,8 +20,9 @@ type Runner struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	users sync.Map
-	count atomic.Int32
+	users  sync.Map
+	count  atomic.Int32
+	nextID atomic.Int64
 }
 
 func NewRunner(conf *Bootstrap, logger *zap.Logger) *Runner {
@@ -30,7 +32,7 @@ func NewRunner(conf *Bootstrap, logger *zap.Logger) *Runner {
 		work.WithContext(ctx),
 		work.WithExecutor(loop),
 	)
-	return &Runner{
+	r := &Runner{
 		loop:   loop,
 		timer:  timer,
 		conf:   conf,
@@ -38,18 +40,66 @@ func NewRunner(conf *Bootstrap, logger *zap.Logger) *Runner {
 		ctx:    ctx,
 		cancel: cancel,
 	}
+	r.nextID.Store(conf.Press.StartID)
+	return r
 }
+
+func (r *Runner) GetTimer() work.ITaskScheduler { return r.timer }
+func (r *Runner) GetLoop() work.ITaskLoop       { return r.loop }
+func (r *Runner) GetContext() context.Context   { return r.ctx }
+func (r *Runner) GetUrl() string                { return r.conf.Press.Url }
 
 func (r *Runner) Start() {
 	if err := r.loop.Start(); err != nil {
 		panic(err)
 	}
-	log.Infof("start press runner, conf:%s", r.conf)
+	interval := time.Duration(r.conf.Press.Interval) * time.Millisecond
+	r.timer.Forever(10*time.Second, r.Status)
+	r.timer.Forever(interval, r.Load)
+	r.timer.Forever(interval, r.Release)
+	log.Infof("start client success. conf:%v", r.conf.Press)
 }
 
 func (r *Runner) Stop() {
 	r.cancel()
+	r.timer.CancelAll()
 	r.timer.Stop()
 	r.loop.Stop()
-	log.Infof("stop success")
+	log.Infof("stop client success")
+}
+
+func (r *Runner) Status() {
+	log.Infof("loop=%v timer=%v player={Num:%v curr:%v}",
+		r.loop.Status(), r.timer.Status(), r.conf.Press.Num, r.count.Load())
+}
+
+func (r *Runner) Load() {
+	conf := r.conf.Press
+	if !conf.Open {
+		return
+	}
+	toLoad := min(conf.Num-r.count.Load(), conf.Batch)
+	for i := int32(1); i <= toLoad; i++ {
+		id := r.nextID.Add(1)
+		user, err := NewUser(id, r)
+		if err != nil || user == nil {
+			log.Warnf("load user err:%v", err)
+			continue
+		}
+		r.users.Store(id, user)
+		r.count.Add(1)
+	}
+}
+
+func (r *Runner) Release() {
+	r.users.Range(func(key, value interface{}) bool {
+		user := value.(*User)
+		if !user.IsFree() {
+			return true
+		}
+		user.Release()
+		r.users.Delete(key)
+		r.count.Add(-1)
+		return true
+	})
 }
