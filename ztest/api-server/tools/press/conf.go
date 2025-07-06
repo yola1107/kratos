@@ -22,7 +22,7 @@ type (
 		Interval int32 // ms
 		StartID  int64
 		MinMoney float32
-		MAxMoney float32
+		MaxMoney float32
 	}
 )
 

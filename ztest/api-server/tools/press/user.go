@@ -47,7 +47,7 @@ func (u *User) Reset() {
 }
 
 func (u *User) IsFree() bool {
-	return time.Now().Unix()-u.activeAt.Load() >= 30 // 30s
+	return time.Now().Unix()-u.activeAt.Load() >= 60 // 30s
 }
 
 func (u *User) UpActiveAt() {
@@ -202,7 +202,7 @@ func (u *User) OnResultPush(data []byte) {
 	req := &v1.LogoutReq{
 		UserDBID: u.id,
 	}
-	u.repo.GetTimer().Once(time.Duration(ext.RandInt(1, 6))*time.Second, func() {
+	u.repo.GetTimer().Once(time.Duration(ext.RandInt(0, 5))*time.Second, func() {
 		u.Request(v1.GameCommand_OnLogoutRsp, req)
 	})
 }

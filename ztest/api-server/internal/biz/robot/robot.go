@@ -16,6 +16,11 @@ const (
 	defaultBatchReleaseCount = 100
 )
 
+type ManagerStatus struct {
+	Num   int32
+	Gamed int32
+	Free  int32
+}
 type Manager struct {
 	conf *conf.Room
 	repo Repo
@@ -185,13 +190,17 @@ func (m *Manager) reset(p *player.Player) {
 }
 
 // Counter 返回当前机器人总数、空闲数和游戏中数量
-func (m *Manager) Counter() (all, free, gaming int32) {
+func (m *Manager) Counter() ManagerStatus {
 	if !m.conf.Robot.Open || m.conf.Robot.Num <= 0 {
-		return
+		return ManagerStatus{}
 	}
-	all = m.countAll()
-	free = m.countFree()
-	return all, free, all - free
+	all := m.countAll()
+	free := m.countFree()
+	return ManagerStatus{
+		Num:   all,
+		Free:  free,
+		Gamed: all - free,
+	}
 }
 
 func (m *Manager) countAll() int32 {

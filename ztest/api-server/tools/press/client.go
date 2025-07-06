@@ -65,7 +65,7 @@ func (r *Runner) Start() {
 	}
 	interval := time.Duration(r.conf.Press.Interval) * time.Millisecond
 	r.timer.Forever(interval, r.Load)
-	r.timer.Forever(60*time.Second, r.Release)
+	r.timer.Forever(15*time.Second, r.Release)
 	r.timer.Forever(15*time.Second, r.Status)
 	log.Infof("start client success. conf:%+v", r.conf.Press)
 }
@@ -88,16 +88,35 @@ func (r *Runner) Load() {
 	if !conf.Open {
 		return
 	}
+
 	toLoad := min(conf.Num-r.count.Load(), conf.Batch)
-	for i := int32(1); i <= toLoad; i++ {
-		id := r.nextID.Add(1)
-		user, err := NewUser(id, r)
-		if err != nil || user == nil {
-			log.Warnf("load user err:%v", err)
+	if toLoad <= 0 {
+		return
+	}
+
+	startID := conf.StartID
+	idRange := int64(conf.Num * 2)
+	loaded := int32(0)
+	attempts := int32(0)
+
+	for loaded < toLoad && attempts < conf.Num {
+		attempts++
+
+		id := startID + (r.nextID.Add(1) % idRange) // ID ∈ [startID, startID + 2*Num)
+
+		if _, exists := r.users.Load(id); exists {
 			continue
 		}
+
+		user, err := NewUser(id, r)
+		if err != nil || user == nil {
+			log.Warnf("load user err: %v", err)
+			continue
+		}
+
 		r.users.Store(id, user)
 		r.count.Add(1)
+		loaded++
 	}
 }
 
@@ -110,6 +129,7 @@ func (r *Runner) Release() {
 		user.Release()
 		r.users.Delete(key)
 		r.count.Add(-1)
+
 		return true
 	})
 }

@@ -89,12 +89,44 @@ func (uc *Usecase) start() error {
 func (uc *Usecase) post() {
 	timers := uc.timer.Status()
 	loops := uc.loop.Status()
-	all, offline := uc.pm.Counter()
-	aiAll, aiFree, aiGaming := uc.rm.Counter()
+	ps := uc.pm.Counter()
+	ai := uc.rm.Counter()
 
-	log.Infof("[Counter]")
-	log.Infof("[Counter]<Timer> Count=%d Running=%d", timers.Len, timers.Running)
-	log.Infof("[Counter]<Loop> Capacity=%d, Running=%d, Free=%d ", loops.Capacity, loops.Running, loops.Free)
-	log.Infof("[Counter]<Player> Total=%d Offline=%d ", all, offline)
-	log.Infof("[Counter]<AI> MaxNum:%d Total=%d Free=%d Gaming=%d", uc.rc.Robot.Num, aiAll, aiFree, aiGaming)
+	log.Infof("[Counter] loop=%+v timer=%+v player=%+v AI=%+v", loops, timers, ps, ai)
+
+	// log.Infof("[Counter]")
+	// log.Infof("[Counter]<Timer> Count=%d Running=%d", timers.Len, timers.Running)
+	// log.Infof("[Counter]<Loop> Capacity=%d, Running=%d, Free=%d ", loops.Capacity, loops.Running, loops.Free)
+	// log.Infof("[Counter]<Player> Total=%d Offline=%d ", all, offline)
+	// log.Infof("[Counter]<AI> MaxNum:%d Total=%d Free=%d Gaming=%d", uc.rc.Robot.Num, aiAll, aiFree, aiGaming)
+
+	//
+	// #!/bin/bash
+	//
+	// ps aux | grep api
+	//
+	// pkill -ef api-server || true
+	// pkill -ef api-client || true
+	//
+	// sleep 2
+	//
+	// du -sh logs/
+	// 	rm -rf logs/
+	// 	chmod +x api-server
+	// chmod +x api-client
+	//
+	// nohup ./api-server -conf config.yaml > /dev/null 2>&1 &
+	// 	sleep 2
+	// nohup ./api-client -conf config_client.yaml > /dev/null 2>&1 &
+	//
+	//
+	// 	sleep 1
+	//
+	// ls logs/
+	// 	tree logs/
+	// 	ps aux | grep api
+	//
+	//
+	// #tail -F ~/ztest/logs/api-server.log
+	//
 }

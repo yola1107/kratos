@@ -137,18 +137,20 @@ func (uc *Usecase) createPlayer(raw *player.Raw) (*player.Player, error) {
 		base *player.BaseData
 		p    = player.New(raw)
 	)
-	if _OpenTest {
-		base = &player.BaseData{
-			UID:       raw.ID,
-			VIP:       0,
-			NickName:  fmt.Sprintf("user_%d", raw.ID),
-			Avatar:    fmt.Sprintf("avatar_%d", raw.ID%15),
-			AvatarUrl: fmt.Sprintf("avatar_%d", raw.ID%15),
-			Money:     float64(int64(ext.RandFloat(uc.rc.Game.MinMoney, uc.rc.Game.MaxMoney))),
-		}
-	} else {
-		// 获取数据库数据
-		if base, err = uc.repo.LoadPlayer(context.Background(), raw.ID); err != nil || base == nil {
+
+	// 获取数据库数据
+	if base, err = uc.repo.LoadPlayer(context.Background(), raw.ID); err != nil || base == nil {
+		if _OpenTest {
+			base = &player.BaseData{
+				UID:       raw.ID,
+				VIP:       0,
+				NickName:  fmt.Sprintf("user_%d", raw.ID),
+				Avatar:    fmt.Sprintf("avatar_%d", raw.ID%15),
+				AvatarUrl: fmt.Sprintf("avatar_%d", raw.ID%15),
+				Money:     float64(int64(ext.RandFloat(uc.rc.Game.MinMoney, uc.rc.Game.MaxMoney))),
+			}
+
+		} else {
 			p.SendLoginRsp(codes.CREATE_PLAYER_FAIL, fmt.Sprintf("err=%v", err))
 			return nil, err
 		}
