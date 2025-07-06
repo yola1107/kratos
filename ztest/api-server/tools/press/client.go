@@ -44,10 +44,20 @@ func NewRunner(conf *Bootstrap, logger *zap.Logger) *Runner {
 	return r
 }
 
-func (r *Runner) GetTimer() work.ITaskScheduler { return r.timer }
-func (r *Runner) GetLoop() work.ITaskLoop       { return r.loop }
-func (r *Runner) GetContext() context.Context   { return r.ctx }
-func (r *Runner) GetUrl() string                { return r.conf.Press.Url }
+func (r *Runner) GetTimer() work.ITaskScheduler {
+	return r.timer
+}
+
+func (r *Runner) GetLoop() work.ITaskLoop {
+	return r.loop
+}
+func (r *Runner) GetContext() context.Context {
+	return r.ctx
+}
+
+func (r *Runner) GetUrl() string {
+	return r.conf.Press.Url
+}
 
 func (r *Runner) Start() {
 	if err := r.loop.Start(); err != nil {
@@ -57,7 +67,7 @@ func (r *Runner) Start() {
 	r.timer.Forever(10*time.Second, r.Status)
 	r.timer.Forever(interval, r.Load)
 	r.timer.Forever(interval, r.Release)
-	log.Infof("start client success. conf:%v", r.conf.Press)
+	log.Infof("start client success. conf:%+v", r.conf.Press)
 }
 
 func (r *Runner) Stop() {
@@ -69,7 +79,7 @@ func (r *Runner) Stop() {
 }
 
 func (r *Runner) Status() {
-	log.Infof("loop=%v timer=%v player={Num:%v curr:%v}",
+	log.Infof("loop=%+v timer=%+v player={Num:%v curr:%v}",
 		r.loop.Status(), r.timer.Status(), r.conf.Press.Num, r.count.Load())
 }
 

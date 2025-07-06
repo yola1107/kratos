@@ -3,6 +3,7 @@ package table
 import (
 	"sync"
 
+	"github.com/yola1107/kratos/v2/errors"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
@@ -77,38 +78,38 @@ func (m *Manager) GetTable(id int32) *Table {
 }
 
 // SwitchTable 玩家请求换桌
-func (m *Manager) SwitchTable(p *player.Player, gameConf *conf.Room_Game) (int32, string) {
+func (m *Manager) SwitchTable(p *player.Player, gameConf *conf.Room_Game) *errors.Error {
 	if p == nil {
-		return codes.PLAYER_NOT_FOUND, ""
+		return codes.ErrPlayerNotFound
 	}
 
-	if code, msg := CheckRoomLimit(p, gameConf); code != 0 {
-		return code, msg
+	if err := CheckRoomLimit(p, gameConf); err != nil {
+		return err
 	}
 
 	oldTable := m.GetTable(p.GetTableID())
 	if oldTable == nil {
-		return codes.TABLE_NOT_FOUND, "TABLE_NOT_FOUND"
+		return codes.ErrTableNotFound
 	}
 
 	if !oldTable.CanSwitchTable(p) {
-		return codes.SWITCH_TABLE, "SWITCH_TABLE"
+		return codes.ErrSwitchTable
 	}
 
 	newTable := m.selectBestTable(p, true)
 	if newTable == nil {
-		return codes.NOT_ENOUGH_TABLE, "NOT_ENOUGH_TABLE"
+		return codes.ErrNotEnoughTable
 	}
 
 	if !oldTable.ThrowOff(p, true) {
-		return codes.EXIT_TABLE_FAIL, "EXIT_TABLE_FAIL"
+		return codes.ErrExitTableFail
 	}
 
 	if !newTable.ThrowInto(p) {
-		return codes.ENTER_TABLE_FAIL, "ENTER_TABLE_FAIL"
+		return codes.ErrEnterTableFail
 	}
 
-	return 0, ""
+	return nil
 }
 
 // ThrowInto 尝试将玩家放入合适桌子
@@ -153,34 +154,34 @@ func (m *Manager) selectBestTable(p *player.Player, isSwitch bool) *Table {
 }
 
 // CanEnterRoom 判断玩家是否满足进入房间条件
-func (m *Manager) CanEnterRoom(p *player.Player, token string, gameConf *conf.Room_Game) (int32, string) {
+func (m *Manager) CanEnterRoom(p *player.Player, token string, gameConf *conf.Room_Game) *errors.Error {
 	if p == nil {
-		return codes.PLAYER_NOT_FOUND, "PLAYER_NOT_FOUND"
+		return codes.ErrPlayerNotFound
 	}
 
 	if token == "" {
-		return codes.TOKEN_FAIL, "TOKEN_FAIL"
+		return codes.ErrTokenFail
 	}
 
 	return CheckRoomLimit(p, gameConf)
 }
 
 // CheckRoomLimit 校验玩家的金币、VIP等级是否符合房间限制
-func CheckRoomLimit(p *player.Player, gameConf *conf.Room_Game) (int32, string) {
+func CheckRoomLimit(p *player.Player, gameConf *conf.Room_Game) *errors.Error {
 	money := p.GetAllMoney()
 	vip := p.GetVipGrade()
 
 	if money < gameConf.MinMoney {
-		return codes.MONEY_BELOW_MIN_LIMIT, "MONEY_BELOW_MIN_LIMIT"
+		return codes.ErrMoneyBelowMinLimit
 	}
 	if gameConf.MaxMoney != -1 && money > gameConf.MaxMoney {
-		return codes.MONEY_OVER_MAX_LIMIT, "MONEY_OVER_MAX_LIMIT"
+		return codes.ErrMoneyOverMaxLimit
 	}
 	if money < gameConf.BaseMoney {
-		return codes.MONEY_BELOW_BASE_LIMIT, "MONEY_BELOW_BASE_LIMIT"
+		return codes.ErrMoneyBelowBaseLimit
 	}
 	if vip < gameConf.VipLimit {
-		return codes.VIP_LIMIT, "VIP_LIMIT"
+		return codes.ErrVipLimit
 	}
-	return codes.SUCCESS, ""
+	return nil
 }

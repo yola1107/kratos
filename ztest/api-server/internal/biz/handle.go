@@ -2,7 +2,6 @@ package biz
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/yola1107/kratos/v2/library/ext"
@@ -47,7 +46,7 @@ func (uc *Usecase) OnLoginReq(ctx context.Context, in *v1.LoginReq) (*v1.LoginRs
 func (uc *Usecase) reconnect(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp, error) {
 	session := uc.GetSession(ctx)
 	if session == nil {
-		return &v1.LoginRsp{Code: codes.SESSION_NOT_FOUND}, nil
+		return nil, codes.ErrSessionNotFound
 	}
 
 	uc.loop.Post(func() {
@@ -66,7 +65,7 @@ func (uc *Usecase) reconnect(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp
 func (uc *Usecase) enterRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp, error) {
 	session := uc.GetSession(ctx)
 	if session == nil {
-		return nil, errors.New("session not find")
+		return nil, codes.ErrSessionNotFound
 	}
 
 	raw := &player.Raw{
@@ -75,25 +74,25 @@ func (uc *Usecase) enterRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp
 	}
 	p, err := uc.createPlayer(raw)
 	if err != nil {
-		log.Warnf("create player failed. uid=%d err=%v", in.UserID, err)
+		log.Warnf("create player failed. uid=%d err=%+v", in.UserID, err)
 		return nil, err
 	}
 
-	if code, msg := uc.tm.CanEnterRoom(p, in.Token, uc.rc.Game); code != codes.SUCCESS {
-		log.Warnf("room limit. uid=%d code=%d msg=%v", in.UserID, code, msg)
-		uc.LogoutGame(p, code, msg)
-		return nil, errors.New("room Limit")
+	if err := uc.tm.CanEnterRoom(p, in.Token, uc.rc.Game); err != nil {
+		log.Warnf("room limit. uid=%d err=%v", in.UserID, err)
+		uc.LogoutGame(p, err.Code, err.Message)
+		return nil, err
 	}
 
 	uc.loop.Post(func() {
 		if tableID := p.GetTableID(); tableID > 0 {
 			uc.log.Warnf("enter failed. aleady in table. uid=%d tableID=%v", in.UserID, tableID)
-			uc.LogoutGame(p, codes.PLAYER_ALREADY_IN_TABLE, "PLAYER_ALREADY_IN_TABLE")
+			uc.LogoutGame(p, codes.ErrPlayerAlreadyInTable.Code, "already in table")
 			return
 		}
 		if ok := uc.tm.ThrowInto(p); !ok {
 			uc.log.Errorf("throw into failed. uid=%d ", in.UserID)
-			uc.LogoutGame(p, codes.ENTER_TABLE_FAIL, "throw into table failed")
+			uc.LogoutGame(p, codes.ErrEnterTableFail.Code, "throw into table failed")
 			return
 		}
 	})
@@ -103,7 +102,10 @@ func (uc *Usecase) enterRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp
 
 // OnSwitchTableReq .
 func (uc *Usecase) OnSwitchTableReq(info *SwapperInfo) {
-	code, msg := uc.tm.SwitchTable(info.Player, uc.rc.Game)
+	code, msg := int32(0), ""
+	if e := uc.tm.SwitchTable(info.Player, uc.rc.Game); e != nil {
+		code, msg = e.Code, e.Message
+	}
 	info.Player.SendSwitchTableRsp(code, msg)
 }
 
@@ -136,7 +138,7 @@ func (uc *Usecase) createPlayer(raw *player.Raw) (*player.Player, error) {
 		return nil, err
 	}
 	if base == nil {
-		return nil, errors.New("create player failed")
+		return nil, codes.ErrCreatePlayerFail
 	}
 
 	raw.BaseData = base
@@ -160,7 +162,7 @@ func (uc *Usecase) Disconnect(session *websocket.Session) {
 
 	t := uc.tm.GetTable(p.GetTableID())
 	if t == nil {
-		uc.LogoutGame(p, codes.TABLE_NOT_FOUND, fmt.Sprintf("disconnect. table is nil. pid:%d", p.GetPlayerID()))
+		uc.LogoutGame(p, codes.ErrTableNotFound.Code, fmt.Sprintf("disconnect. table is nil. pid:%d", p.GetPlayerID()))
 		return
 	}
 

@@ -47,6 +47,9 @@ func (u *User) Release() {
 	if u.client.Load() == nil {
 		return
 	}
+	u.Request(v1.GameCommand_OnLogoutReq, &v1.LogoutReq{
+		UserDBID: u.id,
+	})
 }
 
 func (u *User) Login() {

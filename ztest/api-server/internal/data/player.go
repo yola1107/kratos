@@ -2,16 +2,16 @@ package data
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
+	"github.com/yola1107/kratos/v2/errors"
 	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 	. "github.com/yola1107/kratos/v2/ztest/api-server/pkg/xredis"
 )
 
 var (
-	errRedisNil = errors.New("redis no exist player")
+	errRedisNil = errors.New(1, "", "redis no exist player")
 )
 
 var allBaseDataFields = []string{
@@ -67,7 +67,7 @@ func (r *dataRepo) LoadPlayer(ctx context.Context, uid int64) (*player.BaseData,
 
 	values, err := r.data.redis.HMGet(ctx, key, allBaseDataFields...).Result()
 	if err != nil {
-		return nil, err
+		return nil, errors.New(2, "Redis HMGet ERROR", err.Error())
 	}
 	if len(values) == 0 {
 		return nil, errRedisNil

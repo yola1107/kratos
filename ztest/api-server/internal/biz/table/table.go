@@ -3,6 +3,7 @@ package table
 import (
 	"fmt"
 
+	"github.com/yola1107/kratos/v2/errors"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
@@ -326,18 +327,18 @@ func (t *Table) checkKick() {
 		if p == nil {
 			continue
 		}
-		if code, msg := shouldKickPlayer(p, t.repo.GetRoomConfig().Game); code != 0 {
-			t.OnExitGame(p, code, msg)
+		if err, shouldKick := shouldKickPlayer(p, t.repo.GetRoomConfig().Game); shouldKick {
+			t.OnExitGame(p, err.Code, err.Message)
 		}
 	}
 }
 
-func shouldKickPlayer(p *player.Player, conf *conf.Room_Game) (int32, string) {
+func shouldKickPlayer(p *player.Player, conf *conf.Room_Game) (*errors.Error, bool) {
 	if p.IsOffline() {
-		return codes.KICK_BY_BROKE, "KICK_BY_BROKE"
+		return codes.ErrKickByBroke, true
 	}
-	if code, msg := CheckRoomLimit(p, conf); code != 0 {
-		return code, msg
+	if err := CheckRoomLimit(p, conf); err != nil {
+		return err, true
 	}
-	return 0, ""
+	return nil, false
 }

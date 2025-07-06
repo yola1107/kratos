@@ -5,6 +5,7 @@ import (
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/transport/websocket"
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
 )
 
 type Player struct {
@@ -89,6 +90,20 @@ func (p *Player) push(cmd v1.GameCommand, msg proto.Message) {
 	if err := p.session.Push(int32(cmd), msg); err != nil {
 		log.Warnf("send packet to client error: %v", err)
 	}
+}
+
+func (p *Player) SendLoginRsp(code int32, msg string) {
+	if p == nil {
+		return
+	}
+	p.push(v1.GameCommand_OnLoginRsp, &v1.LoginRsp{
+		Code:    code,
+		Msg:     msg,
+		UserID:  p.GetPlayerID(),
+		TableID: p.GetTableID(),
+		ChairID: p.GetChairID(),
+		ArenaID: int32(conf.ArenaID),
+	})
 }
 
 func (p *Player) SendSwitchTableRsp(code int32, msg string) {

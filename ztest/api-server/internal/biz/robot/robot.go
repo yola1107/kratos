@@ -114,7 +114,7 @@ func (m *Manager) login() {
 		if !ok || p.GetTableID() > 0 {
 			return true // 无效或已在桌上
 		}
-		if code, _ := table.CheckRoomLimit(p, m.conf.Game); code != 0 {
+		if err := table.CheckRoomLimit(p, m.conf.Game); err != nil {
 			return true
 		}
 

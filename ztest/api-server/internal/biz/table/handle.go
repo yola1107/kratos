@@ -41,7 +41,7 @@ func (t *Table) OnAutoCallReq(p *player.Player, autoCall bool) bool {
 func (t *Table) OnOffline(p *player.Player) bool {
 	t.mLog.offline(p)
 	if !p.IsGaming() {
-		t.OnExitGame(p, codes.KICK_BY_BROKE, "OnOffline kick by broke")
+		t.OnExitGame(p, codes.ErrKickByBroke.Code, "OnOffline kick by broke")
 		return true
 	}
 
