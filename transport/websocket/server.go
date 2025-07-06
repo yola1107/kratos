@@ -338,13 +338,13 @@ func (s *Server) unaryServerInterceptor() UnaryServerInterceptor {
 			if strings.HasPrefix(err.Error(), "panic:") ||
 				errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				e := kerrors.FromError(err) // st, _ := status.FromError(err)
-				log.Errorf("[websocket] unary method=[%s] unexpected err. st.Code=%d st.Message=%v", info.FullMethod, e.Code, e.Message)
+				log.Errorf("[websocket] [%s] unexpected err. st.Code=%d st.Message=%v", info.FullMethod, e.Code, e.Message)
 			}
 			return nil, err
 		}
 		data, ok := reply.([]byte)
 		if !ok {
-			return nil, fmt.Errorf("[websocket] unary method=[%s] must return []byte, got %T", info.FullMethod, reply)
+			return nil, fmt.Errorf("[websocket] [%s] must return []byte, got %T", info.FullMethod, reply)
 		}
 		return data, nil
 	}

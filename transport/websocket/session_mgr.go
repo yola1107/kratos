@@ -80,7 +80,7 @@ func (m *SessionManager) BroadcastAsync(data []byte) {
 		go func() {
 			if err := session.Send(data); err != nil {
 				log.Errorf("Broadcast failed: %v", err)
-				//s.Delete(session)
+				// s.Delete(session)
 			}
 		}()
 		return true
