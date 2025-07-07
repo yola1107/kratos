@@ -94,8 +94,10 @@ func main() {
 			int32(v1.GameCommand_SayHello2Rsp): func(data []byte) { log.Infof("PushHandler(1004). data=%v", unmarshalProtoMsg(data)) },
 		}),
 		websocket.WithResponseHandler(map[int32]websocket.ResponseHandler{
-			int32(v1.GameCommand_SayHelloReq):  func(data []byte, code int32) {},                                                                               // 空
-			int32(v1.GameCommand_SayHello2Req): func(data []byte, code int32) { log.Infof("respHanler(1003) code=%d data=%v", code, unmarshalProtoMsg(data)) }, // 空
+			int32(v1.GameCommand_SayHelloReq): func(data []byte, code int32) {}, // 空
+			int32(v1.GameCommand_SayHello2Req): func(data []byte, code int32) {
+				log.Infof("respHanler(1003) code=%d data=%v", code, unmarshalProtoMsg(data))
+			}, // 空
 		}),
 		websocket.WithConnectFunc(func(session *websocket.Session) { log.Infof("connect called. %q", session.ID()) }),
 		websocket.WithDisconnectFunc(func(session *websocket.Session) { log.Infof("disconnect called. %q", session.ID()) }),
@@ -106,8 +108,8 @@ func main() {
 	}
 	defer wsClient.Close()
 
-	can := wsClient.CanRetry()
-	for can {
+	// can := wsClient.CanRetry()
+	for wsClient.IsAlive() {
 		seed++
 		callHTTP(connHTTP)
 		callGRPC(connGRPC)

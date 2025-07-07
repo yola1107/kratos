@@ -21,10 +21,9 @@ import (
 )
 
 var (
-	errClosedRequest  = errors.New("client: session not established")
-	errRequestTimeout = errors.New("client: request timeout")
-	errMaxRetries     = errors.New("client: max retries reached")
-	errInvalidURL     = errors.New("client: invalid URL")
+	errClosedRequest = errors.New("client: session not established")
+	errMaxRetries    = errors.New("client: max retries reached")
+	errInvalidURL    = errors.New("client: invalid URL")
 )
 
 type PushHandler func(data []byte)
@@ -198,12 +197,29 @@ func parseUrl(endpoint string, insecure bool) (*url.URL, error) {
 	return url.Parse(endpoint)
 }
 
+func (c *Client) IsAlive() bool {
+	if c == nil {
+		return false
+	}
+	sess := c.session
+	return sess != nil && !sess.Closed()
+}
+
 func (c *Client) GetSession() *Session {
 	return c.session
 }
 
-func (c *Client) CanRetry() bool {
-	return c.retryCount.Load() == 0 || c.retryCount.Load() < c.opts.retryPolicy.maxAttempt
+func (c *Client) canRetry() bool {
+	maxAttempt := c.opts.retryPolicy.maxAttempt
+	curr := c.retryCount.Load()
+
+	if maxAttempt < 0 {
+		return true // 无限重试
+	}
+	if maxAttempt == 0 {
+		return false // 不允许重试
+	}
+	return curr < maxAttempt
 }
 
 func (c *Client) Reconnect() error {
@@ -214,7 +230,6 @@ func (c *Client) Reconnect() error {
 
 	c.Close() // 清理旧连接
 
-	var attempt int32
 	for {
 		select {
 		case <-c.opts.ctx.Done():
@@ -224,20 +239,18 @@ func (c *Client) Reconnect() error {
 
 		conn, _, err := dialer.DialContext(c.opts.ctx, c.url.String(), nil)
 		if err == nil {
-			c.retryCount.Store(0) // reset retry count on success
+			c.retryCount.Store(0)
 			c.session = NewSession(c, conn, c.opts.session)
-			// c.onOpen(c.session)
 			return nil
 		}
 
-		if attempt >= c.opts.retryPolicy.maxAttempt && attempt != 0 {
-			c.retryCount.Store(attempt)
-			return fmt.Errorf("%w: %d attempts", errMaxRetries, attempt)
+		curr := c.retryCount.Add(1)
+		if !c.canRetry() {
+			return fmt.Errorf("%w: %d attempts", errMaxRetries, curr)
 		}
 
-		// 计算退避时间
-		delay := c.calculateBackoff(atomic.AddInt32(&attempt, 1))
-		log.Warnf("reconnecting to %q. attempt=%d retrying in %v: %v", c.url, attempt, delay, err)
+		delay := c.calculateBackoff(curr)
+		log.Warnf("reconnecting to %q. attempt=%d retrying in %v: %v", c.url, curr, delay, err)
 
 		select {
 		case <-time.After(delay):
@@ -254,26 +267,6 @@ func (c *Client) calculateBackoff(attempt int32) time.Duration {
 	return time.Duration(backoff * (0.9 + 0.2*rand.Float64()))
 }
 
-func (c *Client) Request(command int32, msg gproto.Message) error {
-	if sess := c.session; sess == nil || sess.Closed() {
-		return errClosedRequest
-	}
-
-	seq := atomic.AddInt32(&c.seq, 1)
-	if seq >= math.MaxInt32-1 {
-		atomic.StoreInt32(&c.seq, 0)
-	}
-	data, err := buildPayload(proto.OpRequest, command, seq, msg)
-	if err != nil {
-		return err
-	}
-
-	// 存储消息序列号seq
-	c.reqPool.Store(seq, command)
-
-	return c.session.Send(data)
-}
-
 func (c *Client) OnSessionOpen(sess *Session) {
 	if c.opts.connectFunc != nil {
 		c.opts.connectFunc(sess)
@@ -285,9 +278,38 @@ func (c *Client) OnSessionClose(sess *Session) {
 		c.opts.disconnectFunc(sess)
 	}
 
-	if c.CanRetry() {
+	if c.canRetry() {
 		_ = c.Reconnect()
 	}
+}
+
+func (c *Client) Request(command int32, msg gproto.Message) error {
+	if !c.IsAlive() {
+		return errClosedRequest
+	}
+
+	seq := atomic.AddInt32(&c.seq, 1)
+	if seq >= math.MaxInt32-1 {
+		atomic.StoreInt32(&c.seq, 0)
+	}
+
+	data, err := gproto.Marshal(msg)
+	if err != nil {
+		return err
+	}
+	payload := proto.Payload{
+		Op:      proto.OpRequest,
+		Place:   proto.PlaceClient,
+		Seq:     seq,
+		Code:    0,
+		Command: command,
+		Body:    data,
+	}
+
+	// 存储消息序列号seq
+	c.reqPool.Store(seq, command)
+
+	return c.session.SendPayload(&payload)
 }
 
 // DispatchMessage 消息分发
@@ -350,21 +372,4 @@ func safeCall(fn func()) {
 	if fn != nil {
 		fn()
 	}
-}
-
-// buildPayload 构造协议消息
-func buildPayload(op, command, seq int32, msg gproto.Message) ([]byte, error) {
-	data, err := gproto.Marshal(msg)
-	if err != nil {
-		return nil, err
-	}
-	pl := proto.Payload{
-		Op:      op,
-		Place:   proto.PlaceClient,
-		Seq:     seq,
-		Code:    0,
-		Command: command,
-		Body:    data,
-	}
-	return gproto.Marshal(&pl)
 }
