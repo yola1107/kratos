@@ -94,8 +94,8 @@ func main() {
 			int32(v1.GameCommand_SayHello2Rsp): func(data []byte) { log.Infof("PushHandler(1004). data=%v", unmarshalProtoMsg(data)) },
 		}),
 		websocket.WithResponseHandler(map[int32]websocket.ResponseHandler{
-			int32(v1.GameCommand_SayHelloReq):  func(data []byte, code int32) {}, // 空
-			int32(v1.GameCommand_SayHello2Req): func(data []byte, code int32) {}, // 空
+			int32(v1.GameCommand_SayHelloReq):  func(data []byte, code int32) {},                                                                               // 空
+			int32(v1.GameCommand_SayHello2Req): func(data []byte, code int32) { log.Infof("respHanler(1003) code=%d data=%v", code, unmarshalProtoMsg(data)) }, // 空
 		}),
 		websocket.WithConnectFunc(func(session *websocket.Session) { log.Infof("connect called. %q", session.ID()) }),
 		websocket.WithDisconnectFunc(func(session *websocket.Session) { log.Infof("disconnect called. %q", session.ID()) }),
@@ -106,7 +106,8 @@ func main() {
 	}
 	defer wsClient.Close()
 
-	for wsClient.CanRetry() {
+	can := wsClient.CanRetry()
+	for can {
 		seed++
 		callHTTP(connHTTP)
 		callGRPC(connGRPC)
@@ -139,12 +140,16 @@ func callWebsocket(c *websocket.Client) {
 	if sess := c.GetSession(); sess == nil || sess.Closed() {
 		return
 	}
-	payload, err := c.Request(int32(v1.GameCommand_SayHello2Req), &v1.Hello2Request{Name: fmt.Sprintf("kratos_ws:%d", seed)})
-	if err != nil || payload == nil {
-		log.Errorf("err:%+v payload:%+v", err, descPayload(payload))
-	} else {
-		log.Infof("[ws] Request recv payload. %s", descPayload(payload))
+	if err := c.Request(int32(v1.GameCommand_SayHello2Req), &v1.Hello2Request{Name: fmt.Sprintf("kratos_ws:%d", seed)}); err != nil {
+		log.Errorf("err:%+v", err)
 	}
+
+	// payload, err := c.Request(int32(v1.GameCommand_SayHello2Req), &v1.Hello2Request{Name: fmt.Sprintf("kratos_ws:%d", seed)})
+	// if err != nil || payload == nil {
+	// 	log.Errorf("err:%+v payload:%+v", err, descPayload(payload))
+	// } else {
+	// 	log.Infof("[ws] Request recv payload. %s", descPayload(payload))
+	// }
 }
 
 func unmarshalProtoMsg(data []byte) string {

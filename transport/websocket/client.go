@@ -203,7 +203,7 @@ func (c *Client) GetSession() *Session {
 }
 
 func (c *Client) CanRetry() bool {
-	return c.retryCount.Load() < c.opts.retryPolicy.maxAttempt
+	return c.retryCount.Load() == 0 || c.retryCount.Load() < c.opts.retryPolicy.maxAttempt
 }
 
 func (c *Client) Reconnect() error {
@@ -230,7 +230,7 @@ func (c *Client) Reconnect() error {
 			return nil
 		}
 
-		if attempt >= c.opts.retryPolicy.maxAttempt {
+		if attempt >= c.opts.retryPolicy.maxAttempt && attempt != 0 {
 			c.retryCount.Store(attempt)
 			return fmt.Errorf("%w: %d attempts", errMaxRetries, attempt)
 		}
@@ -254,9 +254,9 @@ func (c *Client) calculateBackoff(attempt int32) time.Duration {
 	return time.Duration(backoff * (0.9 + 0.2*rand.Float64()))
 }
 
-func (c *Client) Request(command int32, msg gproto.Message) (*proto.Payload, error) {
-	if c.session == nil || c.session.Closed() {
-		return nil, errClosedRequest
+func (c *Client) Request(command int32, msg gproto.Message) error {
+	if sess := c.session; sess == nil || sess.Closed() {
+		return errClosedRequest
 	}
 
 	seq := atomic.AddInt32(&c.seq, 1)
@@ -265,34 +265,13 @@ func (c *Client) Request(command int32, msg gproto.Message) (*proto.Payload, err
 	}
 	data, err := buildPayload(proto.OpRequest, command, seq, msg)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	// 注册响应通道
-	respChan := make(chan *proto.Payload, 1)
-	c.reqPool.Store(seq, respChan)
-	defer c.reqPool.Delete(seq)
+	// 存储消息序列号seq
+	c.reqPool.Store(seq, command)
 
-	// 发送请求
-	if err := c.session.Send(data); err != nil {
-		return nil, err
-	}
-
-	// 等待响应
-	select {
-	case resp, ok := <-respChan:
-		if !ok {
-			return nil, errors.New("response channel closed")
-		}
-		if resp.Code != 0 {
-			return resp, fmt.Errorf("error code=%d", resp.Code)
-		}
-		return resp, nil
-	case <-c.opts.ctx.Done():
-		return nil, c.opts.ctx.Err()
-	case <-time.After(c.opts.session.WriteTimeout):
-		return nil, errRequestTimeout
-	}
+	return c.session.Send(data)
 }
 
 func (c *Client) OnSessionOpen(sess *Session) {
@@ -320,39 +299,15 @@ func (c *Client) DispatchMessage(sess *Session, data []byte) error {
 
 	switch p.Op {
 	case proto.OpResponse:
-		// v, ok := c.reqPool.LoadAndDelete(p.Seq)
-		// if !ok {
-		// 	return nil
-		// }
-		// if ch, ok := v.(chan *proto.Payload); ok {
-		// 	select {
-		// 	case ch <- &p:
-		// 		// 成功发送响应
-		// 	default:
-		// 		log.Warnf("response channel blocked or closed for seq %d", p.Seq)
-		// 		// 通道满了或已经无人在接收，可忽略
-		// 	}
-		// 	// 只由这里负责关闭 // 只会被一个 goroutine 关闭
-		// 	close(ch)
-		// }
-		// if handler, ok := c.opts.responseHandler[p.Command]; ok {
-		// 	safeCall(func() { handler(p.Body, p.Code) })
-		// } else {
-		// 	log.Warnf("no response handler for command: %d", p.Command)
-		// }
-
-		v, ok := c.reqPool.LoadAndDelete(p.Seq)
-		if !ok {
-			log.Warnf("response channel blocked or closed for seq %d", p.Seq)
+		if command, loaded := c.reqPool.LoadAndDelete(p.Seq); !loaded {
+			log.Error("reqPool seq %d is not exist. command:(%d %d)", p.Seq, p.Command, command)
 			return nil
 		}
-		ch, ok := v.(chan *proto.Payload)
-		if !ok {
-			return nil
+		if handler, ok := c.opts.responseHandler[p.Command]; ok {
+			safeCall(func() { handler(p.Body, p.Code) })
+		} else {
+			log.Warnf("no response handler for command: %d", p.Command)
 		}
-		// 只通过通道返回响应，不调用responseHandler
-		ch <- &p
-		close(ch)
 
 	case proto.OpPush:
 		if handler, ok := c.opts.pushHandler[p.Command]; ok {
@@ -382,23 +337,11 @@ func (c *Client) Close() {
 
 	c.session = nil
 	s.Close(true)
-	c.clearPendingRequests()
-	c.wg.Wait()
-	// log.Info("client close complete.")
-}
-
-func (c *Client) clearPendingRequests() {
-	c.reqPool.Range(func(key, value interface{}) bool {
-		if ch, ok := value.(chan *proto.Payload); ok {
-			select {
-			case <-ch: // 尝试消费残留数据
-			default:
-			}
-			close(ch)
-		}
+	c.reqPool.Range(func(key, value any) bool {
 		c.reqPool.Delete(key)
 		return true
 	})
+	c.wg.Wait()
 }
 
 // safeCall 安全执行回调

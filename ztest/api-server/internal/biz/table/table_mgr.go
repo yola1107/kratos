@@ -143,6 +143,10 @@ func (m *Manager) selectBestTable(p *player.Player, isSwitch bool) *Table {
 			continue
 		}
 		best = t
+
+		if best.sitCnt >= 3 {
+			break
+		}
 	}
 
 	if best == nil {

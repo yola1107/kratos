@@ -55,10 +55,12 @@ func (u *User) UpActiveAt() {
 }
 
 func (u *User) Release() {
-	if u.client.Load() == nil {
+	client := u.client.Load()
+	if client == nil {
 		return
 	}
-	u.client.Load().Close()
+	client.Close()
+	client = nil
 }
 
 func (u *User) Init() {
@@ -113,6 +115,15 @@ func (u *User) Init() {
 		return
 	}
 	u.client.Store(wsClient)
+
+	// login
+	dur := time.Duration(ext.RandInt(1, 10)) * time.Second
+	u.repo.GetTimer().Once(dur, func() {
+		u.Request(v1.GameCommand_OnLoginReq, &v1.LoginReq{
+			UserID: u.id,
+			Token:  "token",
+		})
+	})
 }
 
 func (u *User) OnEmptyPush(data []byte)                {}
@@ -121,12 +132,14 @@ func (u *User) OnEmptyRequest(data []byte, code int32) {}
 func (u *User) OnConnect(session *websocket.Session) {
 	log.Debugf("connect called. uid=%d %q ", u.id, session.ID())
 
-	u.repo.GetTimer().Once(time.Second, func() {
-		u.Request(v1.GameCommand_OnLoginReq, &v1.LoginReq{
-			UserID: u.id,
-			Token:  "token",
-		})
-	})
+	// // login
+	// dur := time.Duration(ext.RandInt(1, 10)) * time.Second
+	// u.repo.GetTimer().Once(dur, func() {
+	// 	u.Request(v1.GameCommand_OnLoginReq, &v1.LoginReq{
+	// 		UserID: u.id,
+	// 		Token:  "token",
+	// 	})
+	// })
 }
 
 func (u *User) OnDisconnect(session *websocket.Session) {
@@ -141,10 +154,10 @@ func (u *User) Request(cmd v1.GameCommand, msg gproto.Message) {
 		return
 	}
 	session := wsClient.GetSession()
-	if session == nil || session.ID() == "" {
+	if session == nil || session.Closed() {
 		return
 	}
-	if _, err := wsClient.Request(int32(cmd), msg); err != nil {
+	if err := wsClient.Request(int32(cmd), msg); err != nil {
 		log.Errorf("%v", err)
 		return
 	}

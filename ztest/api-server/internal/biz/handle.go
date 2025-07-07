@@ -3,6 +3,7 @@ package biz
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/library/work"
@@ -75,23 +76,42 @@ func (uc *Usecase) enterRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp
 	}
 	p, err := uc.createPlayer(raw)
 	if err != nil {
-		log.Warnf("create player failed. uid=%d err=%q", in.UserID, err)
+		log.Errorf("create player failed. uid=%d err=%q", in.UserID, err)
 		return &v1.LoginRsp{}, nil
 	}
 
 	if code, msg := uc.tm.CanEnterRoom(p, in.Token, uc.rc.Game); code != codes.SUCCESS {
-		log.Warnf("room limit. uid=%d code=%d msg=%q", in.UserID, code, msg)
+		log.Errorf("room limit. uid=%d code=%d msg=%q", in.UserID, code, msg)
 		uc.LogoutGame(p, code, msg)
 		return &v1.LoginRsp{}, nil
 	}
 
 	uc.loop.Post(func() {
 		if tableID := p.GetTableID(); tableID > 0 {
-			uc.log.Warnf("enter failed. aleady in table. uid=%d tableID=%v", in.UserID, tableID)
+			uc.log.Errorf("enter failed. aleady in table. uid=%d tableID=%v", in.UserID, tableID)
 			uc.LogoutGame(p, codes.PLAYER_ALREADY_IN_TABLE, "PLAYER_ALREADY_IN_TABLE")
 			return
 		}
-		if ok := uc.tm.ThrowInto(p); !ok {
+		// if ok := uc.tm.ThrowInto(p); !ok {
+		// 	uc.log.Errorf("throw into failed. uid=%d ", in.UserID)
+		// 	uc.LogoutGame(p, codes.ENTER_TABLE_FAIL, "throw into table failed")
+		// 	return
+		// }
+
+		const (
+			maxRetryCount = 10                    // 最大重试次数
+			retryInterval = 50 * time.Millisecond // 每次重试间隔
+		)
+
+		var success bool
+		for i := 0; i < maxRetryCount; i++ {
+			if ok := uc.tm.ThrowInto(p); ok {
+				success = true
+				break
+			}
+			time.Sleep(retryInterval)
+		}
+		if !success {
 			uc.log.Errorf("throw into failed. uid=%d ", in.UserID)
 			uc.LogoutGame(p, codes.ENTER_TABLE_FAIL, "throw into table failed")
 			return
@@ -154,6 +174,10 @@ func (uc *Usecase) createPlayer(raw *player.Raw) (*player.Player, error) {
 			p.SendLoginRsp(codes.CREATE_PLAYER_FAIL, fmt.Sprintf("err=%v", err))
 			return nil, err
 		}
+	}
+
+	if _OpenTest {
+		base.Money = float64(int64(ext.RandFloat(uc.rc.Game.MinMoney, uc.rc.Game.MaxMoney)))
 	}
 
 	p.SetBaseData(base)

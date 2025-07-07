@@ -79,7 +79,7 @@ func (r *Runner) Stop() {
 }
 
 func (r *Runner) Status() {
-	log.Infof("[Status] ==> loop=%+v timer=%+v player={Num:%v curr:%v}",
+	log.Infof("[Counter] ==> loop=%+v timer=%+v player={Num:%v curr:%v}",
 		r.loop.Status(), r.timer.Status(), r.conf.Press.Num, r.count.Load())
 }
 
