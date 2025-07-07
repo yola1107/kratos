@@ -11,6 +11,9 @@ import (
 
 type (
 	Bootstrap struct {
+		LoadTest *LoadTest
+	}
+	LoadTest struct {
 		Log   *zconf.Log
 		Press Press
 	}
@@ -48,14 +51,14 @@ func LoadConfig(flagconf string) (config.Config, *Bootstrap) {
 }
 
 func WatchConfig(c config.Config, bc *Bootstrap) error {
-	if err := c.Watch("press", func(key string, value config.Value) {
+	if err := c.Watch("loadTest.press", func(key string, value config.Value) {
 		var newConfig Press
 		if err := value.Scan(&newConfig); err != nil {
 			log.Infof("watch error: %v\n", err)
 			return
 		}
 		log.Infof("[Config Watch] %s changed to %+v\n", key, newConfig)
-		bc.Press = newConfig
+		bc.LoadTest.Press = newConfig
 
 	}); err != nil {
 		return fmt.Errorf("watch failed: %w", err)

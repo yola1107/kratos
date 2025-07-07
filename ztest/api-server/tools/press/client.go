@@ -12,7 +12,7 @@ import (
 )
 
 type Runner struct {
-	conf   *Bootstrap
+	conf   *LoadTest
 	logger *zap.Logger
 
 	loop   work.ITaskLoop      // 任务循环
@@ -25,7 +25,7 @@ type Runner struct {
 	nextID atomic.Int64
 }
 
-func NewRunner(conf *Bootstrap, logger *zap.Logger) *Runner {
+func NewRunner(conf *LoadTest, logger *zap.Logger) *Runner {
 	ctx, cancel := context.WithCancel(context.Background())
 	loop := work.NewAntsLoop(work.WithSize(10000))
 	timer := work.NewTaskScheduler(
@@ -79,7 +79,7 @@ func (r *Runner) Stop() {
 }
 
 func (r *Runner) Status() {
-	log.Infof("[Counter] ==> loop=%+v timer=%+v player={Num:%v curr:%v}",
+	log.Infof("[Counter] loop=%+v timer=%+v player={Num:%v curr:%v}",
 		r.loop.Status(), r.timer.Status(), r.conf.Press.Num, r.count.Load())
 }
 

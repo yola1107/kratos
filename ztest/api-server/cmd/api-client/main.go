@@ -27,10 +27,10 @@ func main() {
 	c, bc := press.LoadConfig(flagconf)
 	defer c.Close()
 
-	logger := zap.NewLogger(bc.Log)
+	logger := zap.NewLogger(bc.LoadTest.Log)
 	defer logger.Close()
 
-	runner := press.NewRunner(bc, logger)
+	runner := press.NewRunner(bc.LoadTest, logger)
 	runner.Start()
 	defer runner.Stop()
 

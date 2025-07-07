@@ -111,7 +111,7 @@ func (u *User) Init() {
 		websocket.WithDisconnectFunc(u.OnDisconnect),
 	)
 	if err != nil {
-		log.Errorf("err:%v", err)
+		log.Errorf("err=%q", err)
 		return
 	}
 	u.client.Store(wsClient)
@@ -131,15 +131,6 @@ func (u *User) OnEmptyRequest(data []byte, code int32) {}
 
 func (u *User) OnConnect(session *websocket.Session) {
 	log.Debugf("connect called. uid=%d %q ", u.id, session.ID())
-
-	// // login
-	// dur := time.Duration(ext.RandInt(1, 10)) * time.Second
-	// u.repo.GetTimer().Once(dur, func() {
-	// 	u.Request(v1.GameCommand_OnLoginReq, &v1.LoginReq{
-	// 		UserID: u.id,
-	// 		Token:  "token",
-	// 	})
-	// })
 }
 
 func (u *User) OnDisconnect(session *websocket.Session) {
