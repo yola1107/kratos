@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	errClosedRequest  = errors.New("client: closed request")
+	errClosedRequest  = errors.New("client: session not established")
 	errRequestTimeout = errors.New("client: request timeout")
 	errMaxRetries     = errors.New("client: max retries reached")
 	errInvalidURL     = errors.New("client: invalid URL")
@@ -271,11 +271,7 @@ func (c *Client) Request(command int32, msg gproto.Message) (*proto.Payload, err
 	// 注册响应通道
 	respChan := make(chan *proto.Payload, 1)
 	c.reqPool.Store(seq, respChan)
-	defer func() {
-		if _, loaded := c.reqPool.LoadAndDelete(seq); loaded {
-			close(respChan)
-		}
-	}()
+	defer c.reqPool.Delete(seq)
 
 	// 发送请求
 	if err := c.session.Send(data); err != nil {
@@ -284,7 +280,10 @@ func (c *Client) Request(command int32, msg gproto.Message) (*proto.Payload, err
 
 	// 等待响应
 	select {
-	case resp := <-respChan:
+	case resp, ok := <-respChan:
+		if !ok {
+			return nil, errors.New("response channel closed")
+		}
 		if resp.Code != 0 {
 			return resp, fmt.Errorf("error code=%d", resp.Code)
 		}
@@ -321,18 +320,39 @@ func (c *Client) DispatchMessage(sess *Session, data []byte) error {
 
 	switch p.Op {
 	case proto.OpResponse:
-		if ch, loaded := c.reqPool.LoadAndDelete(p.Seq); loaded {
-			select {
-			case ch.(chan *proto.Payload) <- &p:
-			default:
-				log.Warnf("response channel blocked or closed for seq %d", p.Seq)
-			}
+		// v, ok := c.reqPool.LoadAndDelete(p.Seq)
+		// if !ok {
+		// 	return nil
+		// }
+		// if ch, ok := v.(chan *proto.Payload); ok {
+		// 	select {
+		// 	case ch <- &p:
+		// 		// 成功发送响应
+		// 	default:
+		// 		log.Warnf("response channel blocked or closed for seq %d", p.Seq)
+		// 		// 通道满了或已经无人在接收，可忽略
+		// 	}
+		// 	// 只由这里负责关闭 // 只会被一个 goroutine 关闭
+		// 	close(ch)
+		// }
+		// if handler, ok := c.opts.responseHandler[p.Command]; ok {
+		// 	safeCall(func() { handler(p.Body, p.Code) })
+		// } else {
+		// 	log.Warnf("no response handler for command: %d", p.Command)
+		// }
+
+		v, ok := c.reqPool.LoadAndDelete(p.Seq)
+		if !ok {
+			log.Warnf("response channel blocked or closed for seq %d", p.Seq)
+			return nil
 		}
-		if handler, ok := c.opts.responseHandler[p.Command]; ok {
-			safeCall(func() { handler(p.Body, p.Code) })
-		} else {
-			log.Warnf("no response handler for command: %d", p.Command)
+		ch, ok := v.(chan *proto.Payload)
+		if !ok {
+			return nil
 		}
+		// 只通过通道返回响应，不调用responseHandler
+		ch <- &p
+		close(ch)
 
 	case proto.OpPush:
 		if handler, ok := c.opts.pushHandler[p.Command]; ok {
@@ -373,8 +393,8 @@ func (c *Client) clearPendingRequests() {
 			select {
 			case <-ch: // 尝试消费残留数据
 			default:
-				close(ch)
 			}
+			close(ch)
 		}
 		c.reqPool.Delete(key)
 		return true
