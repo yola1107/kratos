@@ -14,6 +14,10 @@ import (
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/table"
 )
 
+const (
+	statusLogout = int32(2)
+)
+
 type Repo interface {
 	GetTimer() work.ITaskScheduler
 	GetLoop() work.ITaskLoop
@@ -24,7 +28,7 @@ type Repo interface {
 type User struct {
 	repo     Repo
 	id       int64
-	login    atomic.Bool
+	status   atomic.Int32 // 0:free 1:Login 2:Logout
 	chair    atomic.Int32
 	activeAt atomic.Int64
 	client   atomic.Pointer[websocket.Client] // *websocket.Client
@@ -35,19 +39,20 @@ func NewUser(id int64, repo Repo) (*User, error) {
 		repo: repo,
 		id:   id,
 	}
+	u.status.Store(-1)
 	u.chair.Store(-1)
 	repo.GetLoop().Post(u.Init)
 	return u, nil
 }
 
 func (u *User) Reset() {
-	// u.login.Store(false)
+	u.status.Store(0)
 	u.chair.Store(-1)
 	u.activeAt.Store(0)
 }
 
 func (u *User) IsFree() bool {
-	return time.Now().Unix()-u.activeAt.Load() >= 60 // 30s
+	return time.Now().Unix()-u.activeAt.Load() >= 60 || u.status.Load() == statusLogout // 30s
 }
 
 func (u *User) UpActiveAt() {
@@ -61,13 +66,14 @@ func (u *User) Release() {
 	}
 	client.Close()
 	client = nil
+	u.client.Store(nil)
 }
 
 func (u *User) Init() {
 	pushHandler := map[int32]websocket.PushHandler{
 		int32(v1.GameCommand_SayHelloRsp):          u.OnEmptyPush,
 		int32(v1.GameCommand_OnLoginRsp):           u.OnLoginRsp,   // GameCommand = 1002
-		int32(v1.GameCommand_OnLogoutRsp):          u.OnEmptyPush,  // GameCommand = 1004
+		int32(v1.GameCommand_OnLogoutRsp):          u.OnLogoutRsp,  // GameCommand = 1004
 		int32(v1.GameCommand_OnReadyRsp):           u.OnEmptyPush,  // GameCommand = 1006
 		int32(v1.GameCommand_OnSwitchTableRsp):     u.OnEmptyPush,  // GameCommand = 1008
 		int32(v1.GameCommand_OnSceneRsp):           u.OnEmptyPush,  // GameCommand = 1010
@@ -115,6 +121,7 @@ func (u *User) Init() {
 		return
 	}
 	u.client.Store(wsClient)
+	u.status.Store(1)
 
 	// login
 	dur := time.Duration(ext.RandInt(0, 10000)) * time.Millisecond
@@ -164,7 +171,6 @@ func (u *User) OnLoginRsp(data []byte) {
 		log.Errorf("loginRsp. uid=%d code=%d msg=%q", u.id, rsp.Code, rsp.Msg)
 		return
 	}
-	u.login.Store(true)
 	u.chair.Store(rsp.ChairID)
 	u.UpActiveAt()
 }
@@ -210,4 +216,24 @@ func (u *User) OnResultPush(data []byte) {
 	u.repo.GetTimer().Once(dur, func() {
 		u.Request(v1.GameCommand_OnLogoutRsp, req)
 	})
+}
+
+func (u *User) OnLogoutRsp(data []byte) {
+	rsp := &v1.LogoutRsp{}
+	if err := gproto.Unmarshal(data, rsp); err != nil {
+		log.Errorf("%v", err)
+		return
+	}
+	if rsp.Code != 0 {
+		return
+	}
+	// 关闭连接 释放内存
+	client := u.client.Load()
+	if client == nil {
+		return
+	}
+	client.Close()
+	client = nil
+	u.client.Store(nil)
+	u.status.Store(statusLogout)
 }

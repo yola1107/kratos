@@ -32,8 +32,9 @@ var (
 )
 
 const (
-	CtxSessionKey   = "session"
-	CtxSessionIDKey = "sessionID"
+	CtxSessionKey    = "session"
+	CtxSessionIDKey  = "sessionID"
+	CtxSessionUIDKey = "userID"
 )
 
 // ServerOption is a Websocket server option.
@@ -245,6 +246,7 @@ func (s *Server) DispatchMessage(sess *Session, data []byte) error {
 	// 通过context传递给session等数据给调用方
 	ctx := context.WithValue(s.baseCtx, CtxSessionKey, sess)
 	ctx = context.WithValue(ctx, CtxSessionIDKey, sess.id)
+	ctx = context.WithValue(ctx, CtxSessionUIDKey, sess.UID())
 
 	switch p.Op {
 	case proto.OpPing:

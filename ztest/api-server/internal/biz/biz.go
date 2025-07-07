@@ -92,5 +92,5 @@ func (uc *Usecase) post() {
 	ps := uc.pm.Monitor()
 	ai := uc.rm.Monitor()
 
-	log.Infof("[monitor] <server> loop=%+v timer=%+v player=%+v AI=%+v", loops, timers, ps, ai)
+	log.Infof("[monitor] |server| loop=%+v timer=%+v player=%+v AI=%+v", loops, timers, ps, ai)
 }

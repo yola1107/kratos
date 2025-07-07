@@ -79,7 +79,7 @@ func (r *Runner) Stop() {
 }
 
 func (r *Runner) Monitor() {
-	log.Infof("[monitor] <client> loop=%+v timer=%+v player={Num:%v curr:%v}",
+	log.Infof("[monitor] |client| loop=%+v timer=%+v player={Num:%v curr:%v}",
 		r.loop.Monitor(), r.timer.Monitor(), r.conf.Press.Num, r.count.Load())
 }
 
