@@ -18,9 +18,9 @@ const (
 )
 
 type ITaskScheduler interface {
-	Len() int                // 当前注册的任务数量
-	Running() int32          // 当前执行中的任务数
-	Status() SchedulerStatus //
+	Len() int         // 当前注册的任务数量
+	Running() int32   // 当前执行中的任务数
+	Monitor() Monitor //
 	Once(delay time.Duration, f func()) int64
 	Forever(interval time.Duration, f func()) int64
 	ForeverNow(interval time.Duration, f func()) int64
@@ -34,8 +34,8 @@ type ITaskExecutor interface {
 	Post(job func())
 }
 
-// SchedulerStatus 任务池当前状态
-type SchedulerStatus struct {
+// Monitor 任务池当前状态
+type Monitor struct {
 	Len     int   // 当前注册的任务数量
 	Running int32 // 当前执行中的任务数
 }
@@ -140,10 +140,10 @@ func (s *Scheduler) Running() int32 {
 	return s.running.Load()
 }
 
-func (s *Scheduler) Status() SchedulerStatus {
+func (s *Scheduler) Monitor() Monitor {
 	count := s.Len()
 	running := s.Running()
-	return SchedulerStatus{
+	return Monitor{
 		Len:     count,
 		Running: running,
 	}

@@ -4,7 +4,7 @@ import (
 	"sync"
 )
 
-type ManagerStatus struct {
+type Monitor struct {
 	Num     int64
 	Offline int64
 }
@@ -73,7 +73,7 @@ func (m *Manager) Count() int {
 	return count
 }
 
-func (m *Manager) Counter() ManagerStatus {
+func (m *Manager) Monitor() Monitor {
 	var all, offline int64
 	m.players.Range(func(_, value interface{}) bool {
 		all++
@@ -83,7 +83,7 @@ func (m *Manager) Counter() ManagerStatus {
 		}
 		return true
 	})
-	return ManagerStatus{
+	return Monitor{
 		Num:     all,
 		Offline: offline,
 	}

@@ -16,6 +16,11 @@ import (
 	"github.com/yola1107/kratos/v2/ztest/api-server/pkg/codes"
 )
 
+const (
+	_maxRetryCount = 10                    // 最大重试次数
+	_retryInterval = 50 * time.Millisecond // 每次重试间隔
+)
+
 // GetLoop 获取任务队列
 func (uc *Usecase) GetLoop() work.ITaskLoop {
 	return uc.loop
@@ -92,35 +97,25 @@ func (uc *Usecase) enterRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp
 			uc.LogoutGame(p, codes.PLAYER_ALREADY_IN_TABLE, "PLAYER_ALREADY_IN_TABLE")
 			return
 		}
-		// if code, msg := uc.tm.ThrowInto(p); code != codes.SUCCESS {
-		// 	uc.log.Errorf("throw into failed. uid=%d code=%d msg=%v", in.UserID, code, msg)
-		// 	uc.LogoutGame(p, code, msg)
-		// 	return
-		// }
-
-		const (
-			maxRetryCount = 10                    // 最大重试次数
-			retryInterval = 50 * time.Millisecond // 每次重试间隔
-		)
-
-		var (
-			code int32
-			msg  string
-		)
-		for i := 0; i < maxRetryCount; i++ {
-			if code, msg = uc.tm.ThrowInto(p); code == codes.SUCCESS || code == codes.PLAYER_INVALID {
-				break
-			}
-			time.Sleep(retryInterval)
-		}
-		if code != codes.SUCCESS {
-			uc.log.Errorf("throw into failed. uid=%d code=%d msg=%q", in.UserID, code, msg)
+		if code, msg := uc.tryThrowInto(p, _maxRetryCount, _retryInterval); code != codes.SUCCESS {
+			uc.log.Errorf("throw into failed. uid=%d code=%d msg=%v", in.UserID, code, msg)
 			uc.LogoutGame(p, code, msg)
 			return
 		}
 	})
 
 	return &v1.LoginRsp{}, nil
+}
+
+func (uc *Usecase) tryThrowInto(p *player.Player, maxRetries int, interval time.Duration) (code int32, msg string) {
+	for i := 0; i <= maxRetries; i++ {
+		code, msg = uc.tm.ThrowInto(p)
+		if code == codes.SUCCESS || code == codes.PLAYER_INVALID {
+			break
+		}
+		time.Sleep(interval)
+	}
+	return code, msg
 }
 
 // OnSwitchTableReq .
@@ -197,7 +192,7 @@ func (uc *Usecase) Disconnect(session *websocket.Session) {
 
 	p := uc.pm.GetBySessionID(session.ID())
 	if p == nil {
-		session.Close(false) // ///
+		session.Close(false) //
 		return
 	}
 
@@ -239,18 +234,4 @@ func (uc *Usecase) LogoutGame(p *player.Player, code int32, msg string) {
 		// 通知并清理
 		p.LogoutGame(code, msg)
 	})
-
-	// // 异步释放玩家
-	// go func() {
-	// 	defer ext.RecoverFromError(nil)
-	//
-	// 	// 数据入库
-	// 	baseData := *(p.GetBaseData()) // 复制一份
-	// 	if err := uc.repo.SavePlayer(context.Background(), &baseData); err != nil {
-	// 		uc.log.Warnf("save player failed: %v", err)
-	// 	}
-	//
-	// 	// 通知并清理
-	// 	p.LogoutGame(code, msg)
-	// }()
 }

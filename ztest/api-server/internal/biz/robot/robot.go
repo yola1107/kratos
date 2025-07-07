@@ -16,7 +16,8 @@ const (
 	defaultBatchReleaseCount = 100
 )
 
-type ManagerStatus struct {
+type Monitor struct {
+	Max   int32
 	Num   int32
 	Gamed int32
 	Free  int32
@@ -82,7 +83,7 @@ func (m *Manager) load() {
 func (m *Manager) release() {
 	maxNum := int32(0)
 	if cfg := m.conf.Robot; cfg.Open {
-		maxNum = cfg.Num
+		maxNum = min(cfg.Num, cfg.MinPlayCount)
 	}
 	excess := m.countAll() - maxNum
 	toRelease := min(excess, defaultBatchReleaseCount)
@@ -189,14 +190,15 @@ func (m *Manager) reset(p *player.Player) {
 	}
 }
 
-// Counter 返回当前机器人总数、空闲数和游戏中数量
-func (m *Manager) Counter() ManagerStatus {
+// Monitor 返回当前机器人总数、空闲数和游戏中数量
+func (m *Manager) Monitor() Monitor {
 	if !m.conf.Robot.Open || m.conf.Robot.Num <= 0 {
-		return ManagerStatus{}
+		return Monitor{}
 	}
 	all := m.countAll()
 	free := m.countFree()
-	return ManagerStatus{
+	return Monitor{
+		Max:   m.conf.Robot.Num,
 		Num:   all,
 		Free:  free,
 		Gamed: all - free,

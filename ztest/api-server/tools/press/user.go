@@ -117,7 +117,7 @@ func (u *User) Init() {
 	u.client.Store(wsClient)
 
 	// login
-	dur := time.Duration(ext.RandInt(1000, 10000)) * time.Millisecond
+	dur := time.Duration(ext.RandInt(0, 10000)) * time.Millisecond
 	u.repo.GetTimer().Once(dur, func() {
 		u.Request(v1.GameCommand_OnLoginReq, &v1.LoginReq{
 			UserID: u.id,
@@ -184,7 +184,8 @@ func (u *User) OnActivePush(data []byte) {
 		Action:         op,
 		SideReplyAllow: ext.IsHitFloat(0.3),
 	}
-	u.repo.GetTimer().Once(time.Duration(ext.RandInt(1, 12))*time.Second, func() {
+	dur := time.Duration(ext.RandInt(0, 12000)) * time.Millisecond
+	u.repo.GetTimer().Once(dur, func() {
 		u.Request(v1.GameCommand_OnActionReq, req)
 	})
 }
@@ -205,7 +206,8 @@ func (u *User) OnResultPush(data []byte) {
 	req := &v1.LogoutReq{
 		UserDBID: u.id,
 	}
-	u.repo.GetTimer().Once(time.Duration(ext.RandInt(0, 5))*time.Second, func() {
+	dur := time.Duration(ext.RandInt(0, 5000)) * time.Millisecond
+	u.repo.GetTimer().Once(dur, func() {
 		u.Request(v1.GameCommand_OnLogoutRsp, req)
 	})
 }

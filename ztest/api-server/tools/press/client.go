@@ -66,7 +66,7 @@ func (r *Runner) Start() {
 	interval := time.Duration(r.conf.Press.Interval) * time.Millisecond
 	r.timer.Forever(interval, r.Load)
 	r.timer.Forever(15*time.Second, r.Release)
-	r.timer.Forever(15*time.Second, r.Status)
+	r.timer.Forever(15*time.Second, r.Monitor)
 	log.Infof("start client success. conf:%+v", r.conf.Press)
 }
 
@@ -78,9 +78,9 @@ func (r *Runner) Stop() {
 	log.Infof("stop client success")
 }
 
-func (r *Runner) Status() {
-	log.Infof("[Counter] loop=%+v timer=%+v player={Num:%v curr:%v}",
-		r.loop.Status(), r.timer.Status(), r.conf.Press.Num, r.count.Load())
+func (r *Runner) Monitor() {
+	log.Infof("[monitor] <client> loop=%+v timer=%+v player={Num:%v curr:%v}",
+		r.loop.Monitor(), r.timer.Monitor(), r.conf.Press.Num, r.count.Load())
 }
 
 func (r *Runner) Load() {

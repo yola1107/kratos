@@ -10,7 +10,7 @@ import (
 	"github.com/yola1107/kratos/v2/log"
 )
 
-const defaultPendingNum = 100 // 默认任务池大小
+const defaultPendingNum = 100 // 默认协程池大小
 
 // asyncResult封装任务结果
 type asyncResult struct {
@@ -18,8 +18,8 @@ type asyncResult struct {
 	err  error
 }
 
-// LoopStatus 任务池当前状态
-type LoopStatus struct {
+// LoopMonitor 协程池当前状态
+type LoopMonitor struct {
 	Capacity int // 池最大容量
 	Running  int // 当前运行协程数
 	Free     int // 空闲协程数（Capacity - Running）
@@ -29,7 +29,7 @@ type LoopStatus struct {
 type ITaskLoop interface {
 	Start() error
 	Stop()
-	Status() LoopStatus
+	Monitor() LoopMonitor
 	Post(job func())
 	PostCtx(ctx context.Context, job func())
 	PostAndWait(job func() ([]byte, error)) ([]byte, error)
@@ -122,13 +122,13 @@ func (l *antsLoop) Stop() {
 	}
 }
 
-// Status 返回当前池状态
-func (l *antsLoop) Status() LoopStatus {
+// Monitor 返回当前池状态
+func (l *antsLoop) Monitor() LoopMonitor {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 
 	if l.pool == nil {
-		return LoopStatus{}
+		return LoopMonitor{}
 	}
 
 	capacity := l.pool.Cap()
@@ -138,7 +138,7 @@ func (l *antsLoop) Status() LoopStatus {
 		free = 0
 	}
 
-	return LoopStatus{
+	return LoopMonitor{
 		Capacity: capacity,
 		Running:  running,
 		Free:     free,

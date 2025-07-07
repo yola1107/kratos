@@ -117,13 +117,13 @@ func (m *Manager) ThrowInto(p *player.Player) (int32, string) {
 		return codes.PLAYER_INVALID, "PLAYER_INVALID"
 	}
 
-	bestTable := m.selectBestTable(p, false)
-	if bestTable == nil {
+	tb := m.selectBestTable(p, false)
+	if tb == nil {
 		log.Warnf("No available table found for player ID: %d", p.GetPlayerID())
 		return codes.NOT_ENOUGH_TABLE, "NOT_ENOUGH_TABLE"
 	}
 
-	if !bestTable.ThrowInto(p) {
+	if !tb.ThrowInto(p) {
 		return codes.ENTER_TABLE_FAIL, "ENTER_TABLE_FAIL"
 	}
 
