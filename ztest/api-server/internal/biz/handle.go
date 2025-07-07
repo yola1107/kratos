@@ -92,9 +92,9 @@ func (uc *Usecase) enterRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp
 			uc.LogoutGame(p, codes.PLAYER_ALREADY_IN_TABLE, "PLAYER_ALREADY_IN_TABLE")
 			return
 		}
-		// if ok := uc.tm.ThrowInto(p); !ok {
-		// 	uc.log.Errorf("throw into failed. uid=%d ", in.UserID)
-		// 	uc.LogoutGame(p, codes.ENTER_TABLE_FAIL, "throw into table failed")
+		// if code, msg := uc.tm.ThrowInto(p); code != codes.SUCCESS {
+		// 	uc.log.Errorf("throw into failed. uid=%d code=%d msg=%v", in.UserID, code, msg)
+		// 	uc.LogoutGame(p, code, msg)
 		// 	return
 		// }
 
@@ -103,17 +103,19 @@ func (uc *Usecase) enterRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp
 			retryInterval = 50 * time.Millisecond // 每次重试间隔
 		)
 
-		var success bool
+		var (
+			code int32
+			msg  string
+		)
 		for i := 0; i < maxRetryCount; i++ {
-			if ok := uc.tm.ThrowInto(p); ok {
-				success = true
+			if code, msg = uc.tm.ThrowInto(p); code == codes.SUCCESS || code == codes.PLAYER_INVALID {
 				break
 			}
 			time.Sleep(retryInterval)
 		}
-		if !success {
-			uc.log.Errorf("throw into failed. uid=%d ", in.UserID)
-			uc.LogoutGame(p, codes.ENTER_TABLE_FAIL, "throw into table failed")
+		if code != codes.SUCCESS {
+			uc.log.Errorf("throw into failed. uid=%d code=%d msg=%q", in.UserID, code, msg)
+			uc.LogoutGame(p, code, msg)
 			return
 		}
 	})

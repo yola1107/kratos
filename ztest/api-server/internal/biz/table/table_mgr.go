@@ -79,7 +79,7 @@ func (m *Manager) GetTable(id int32) *Table {
 // SwitchTable 玩家请求换桌
 func (m *Manager) SwitchTable(p *player.Player, gameConf *conf.Room_Game) (int32, string) {
 	if p == nil {
-		return codes.PLAYER_NOT_FOUND, ""
+		return codes.PLAYER_INVALID, "PLAYER_INVALID"
 	}
 
 	if code, msg := CheckRoomLimit(p, gameConf); code != 0 {
@@ -112,45 +112,59 @@ func (m *Manager) SwitchTable(p *player.Player, gameConf *conf.Room_Game) (int32
 }
 
 // ThrowInto 尝试将玩家放入合适桌子
-func (m *Manager) ThrowInto(p *player.Player) bool {
+func (m *Manager) ThrowInto(p *player.Player) (int32, string) {
 	if p == nil {
-		return false
+		return codes.PLAYER_INVALID, "PLAYER_INVALID"
 	}
 
 	bestTable := m.selectBestTable(p, false)
 	if bestTable == nil {
-		return false
+		log.Warnf("No available table found for player ID: %d", p.GetPlayerID())
+		return codes.NOT_ENOUGH_TABLE, "NOT_ENOUGH_TABLE"
 	}
 
-	return bestTable.ThrowInto(p)
+	if !bestTable.ThrowInto(p) {
+		return codes.ENTER_TABLE_FAIL, "ENTER_TABLE_FAIL"
+	}
+
+	return 0, ""
 }
 
 // selectBestTable 获取最合适的桌子，isSwitch表示是否为换桌请求
 func (m *Manager) selectBestTable(p *player.Player, isSwitch bool) *Table {
+	tc := m.repo.GetRoomConfig().GetTable()
+
 	var best *Table
 	oldTableID := p.GetTableID()
 
-	notFull := m.GetTableListWith(NoFull)
-	for _, t := range notFull {
+	// 选座人数多的桌子（有玩家的桌子优先）
+	for i := int32(1); i <= tc.TableNum; i++ {
+		t := m.GetTable(i)
 		if t == nil || t.IsFull() || !t.CanEnter(p) {
 			continue
 		}
 		if isSwitch && t.ID == oldTableID {
 			continue
 		}
-		// 选座人数多的桌子（有玩家的桌子优先）
 		if best != nil && t.GetSitCnt() <= best.GetSitCnt() {
 			continue
 		}
 		best = t
-
-		if best.sitCnt >= 3 {
-			break
-		}
 	}
 
+	// 再找一次. 找未满座的
 	if best == nil {
-		log.Warnf("No available table found for player ID: %d", p.GetPlayerID())
+		for i := int32(1); i <= tc.TableNum; i++ {
+			t := m.GetTable(i)
+			if t == nil || t.IsFull() || !t.CanEnter(p) {
+				continue
+			}
+			if isSwitch && t.ID == oldTableID {
+				continue
+			}
+			best = t
+			break
+		}
 	}
 
 	return best

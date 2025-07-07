@@ -117,7 +117,7 @@ func (u *User) Init() {
 	u.client.Store(wsClient)
 
 	// login
-	dur := time.Duration(ext.RandInt(1, 10)) * time.Second
+	dur := time.Duration(ext.RandInt(1000, 10000)) * time.Millisecond
 	u.repo.GetTimer().Once(dur, func() {
 		u.Request(v1.GameCommand_OnLoginReq, &v1.LoginReq{
 			UserID: u.id,
@@ -153,8 +153,7 @@ func (u *User) Request(cmd v1.GameCommand, msg gproto.Message) {
 		log.Warnf("wsClient is nil")
 		return
 	}
-	session := wsClient.GetSession()
-	if session == nil || session.Closed() {
+	if !wsClient.IsAlive() {
 		return
 	}
 	if err := wsClient.Request(int32(cmd), msg); err != nil {
