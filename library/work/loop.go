@@ -77,7 +77,7 @@ func NewAntsLoop(opts ...Option) ITaskLoop {
 			go safeRun(ctx, fn)
 		},
 		poolOptions: []ants.Option{
-			ants.WithExpiryDuration(300 * time.Second), // 每300s清理一次闲置 worker
+			ants.WithExpiryDuration(120 * time.Second), // 每120s清理一次闲置 worker
 			// ants.WithPreAlloc(true),                    // 预分配容量，避免 runtime 扩容内存
 			// ants.WithNonblocking(false),                // false:默认阻塞模式 true:非阻塞提交，任务满时立即报错
 			// ants.WithMaxBlockingTasks(0),               // 最大阻塞任务数（非阻塞模式下可设为0）
