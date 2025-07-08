@@ -70,13 +70,6 @@ func (p *Player) LogoutGame(code int32, msg string) {
 	// 通知客户端退出
 	p.SendLogout(code, msg)
 
-	// log.Debugf("LogoutGame: uid=%d code=%d, msg=%s", p.GetPlayerID(), code, msg)
-
-	// if session := p.GetSession(); session != nil {
-	// 	session.Close(true)
-	// 	session = nil
-	// }
-
 	// clean
 	p.session = nil
 	p.gameData = nil

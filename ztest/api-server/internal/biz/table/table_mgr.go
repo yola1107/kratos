@@ -133,11 +133,9 @@ func (m *Manager) ThrowInto(p *player.Player) (int32, string) {
 // selectBestTable 获取最合适的桌子，isSwitch表示是否为换桌请求
 func (m *Manager) selectBestTable(p *player.Player, isSwitch bool) *Table {
 	tc := m.repo.GetRoomConfig().GetTable()
-
-	var best *Table
 	oldTableID := p.GetTableID()
 
-	// 选座人数多的桌子（有玩家的桌子优先）
+	// 选座人数多的桌子（可快速开局的桌子优先）
 	for i := int32(1); i <= tc.TableNum; i++ {
 		t := m.GetTable(i)
 		if t == nil || t.IsFull() || !t.CanEnter(p) {
@@ -146,28 +144,25 @@ func (m *Manager) selectBestTable(p *player.Player, isSwitch bool) *Table {
 		if isSwitch && t.ID == oldTableID {
 			continue
 		}
-		if best != nil && t.GetSitCnt() <= best.GetSitCnt() {
-			continue
+		switch t.sitCnt {
+		case 0, 1:
+			return t
 		}
-		best = t
 	}
 
 	// 再找一次. 找未满座的
-	if best == nil {
-		for i := int32(1); i <= tc.TableNum; i++ {
-			t := m.GetTable(i)
-			if t == nil || t.IsFull() || !t.CanEnter(p) {
-				continue
-			}
-			if isSwitch && t.ID == oldTableID {
-				continue
-			}
-			best = t
-			break
+	for i := int32(1); i <= tc.TableNum; i++ {
+		t := m.GetTable(i)
+		if t == nil || t.IsFull() || !t.CanEnter(p) {
+			continue
 		}
+		if isSwitch && t.ID == oldTableID {
+			continue
+		}
+		return t
 	}
 
-	return best
+	return nil
 }
 
 // CanEnterRoom 判断玩家是否满足进入房间条件

@@ -275,8 +275,9 @@ func (s *Scheduler) lazy(taskID int64, delay time.Duration, startAt, execAt, wra
 	latency := lazy - delay
 
 	if latency >= s.tick {
+		exec, wrapped := now.Sub(execAt), now.Sub(wrappedAt)
 		log.Errorf("[scheduler] taskID=%d delay=%v precision=%v lazy=%v latency=%v exec=%+v wrap=%+v",
-			taskID, delay, s.tick, lazy, latency, now.Sub(execAt), now.Sub(wrappedAt),
+			taskID, delay, s.tick, lazy, latency, exec, wrapped-exec,
 		)
 	}
 }

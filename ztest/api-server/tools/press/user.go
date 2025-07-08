@@ -22,12 +22,11 @@ type Repo interface {
 }
 
 type User struct {
-	repo     Repo
-	id       int64
-	logout   atomic.Bool
-	chair    atomic.Int32
-	activeAt atomic.Int64
-	client   atomic.Pointer[websocket.Client]
+	repo   Repo
+	id     int64
+	logout atomic.Bool
+	chair  atomic.Int32
+	client atomic.Pointer[websocket.Client]
 }
 
 func NewUser(id int64, repo Repo) (*User, error) {
@@ -40,15 +39,14 @@ func NewUser(id int64, repo Repo) (*User, error) {
 }
 
 func (u *User) IsFree() bool {
-	// // 模拟断线
-	// if time.Now().Unix()-u.activeAt.Load() > 75 {
-	// 	return true
-	// }
-	return u.logout.Load()
-}
-
-func (u *User) UpActiveAt() {
-	u.activeAt.Store(time.Now().Unix())
+	if u.logout.Load() {
+		return true
+	}
+	// 模拟断线
+	if ws := u.client.Load(); ws != nil && ext.IsHitFloat(0.05) {
+		ws.Close()
+	}
+	return false
 }
 
 func (u *User) Release() {
@@ -74,11 +72,10 @@ func (u *User) Init() {
 	)
 	if err != nil {
 		log.Errorf("User init err=%q", err)
-		// u.logout.Store(true)
+		u.logout.Store(true)
 		return
 	}
 
-	u.UpActiveAt()
 	u.chair.Store(-1)
 	u.client.Store(wsClient)
 
@@ -142,7 +139,7 @@ func (u *User) OnConnect(session *websocket.Session) {
 
 func (u *User) OnDisconnect(session *websocket.Session) {
 	log.Debugf("disconnect called. uid=%d %q ", u.id, session.ID())
-	// u.logout.Store(true)
+	u.logout.Store(true)
 }
 
 func (u *User) Request(cmd v1.GameCommand, msg gproto.Message) {
@@ -158,7 +155,6 @@ func (u *User) Request(cmd v1.GameCommand, msg gproto.Message) {
 		log.Errorf("%v", err)
 		return
 	}
-	u.UpActiveAt()
 }
 
 func (u *User) OnLoginRsp(data []byte) {
@@ -172,7 +168,6 @@ func (u *User) OnLoginRsp(data []byte) {
 		return
 	}
 	u.chair.Store(rsp.ChairID)
-	u.UpActiveAt()
 }
 
 func (u *User) OnActivePush(data []byte) {
@@ -227,7 +222,6 @@ func (u *User) OnResultPush(data []byte) {
 		u.sendLogoutReq()
 		return
 	}
-	u.UpActiveAt()
 	u.chair.Store(-1)
 }
 

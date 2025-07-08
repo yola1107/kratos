@@ -98,7 +98,7 @@ func (uc *Usecase) enterRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp
 			return
 		}
 		if code, msg := uc.tryThrowInto(p, _maxRetryCount, _retryInterval); code != codes.SUCCESS {
-			uc.log.Errorf("throw into failed. uid=%d code=%d msg=%v", in.UserID, code, msg)
+			uc.log.Errorf("throw into failed. uid=%d code=%d msg=%q", in.UserID, code, msg)
 			uc.LogoutGame(p, code, msg)
 			return
 		}
@@ -108,6 +108,9 @@ func (uc *Usecase) enterRoom(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp
 }
 
 func (uc *Usecase) tryThrowInto(p *player.Player, maxRetries int, interval time.Duration) (code int32, msg string) {
+	if maxRetries <= 0 || interval < 0 {
+		return -1, fmt.Sprintf("invalid thrown. maxReries=%d interval=%v", maxRetries, interval)
+	}
 	for i := 0; i <= maxRetries; i++ {
 		code, msg = uc.tm.ThrowInto(p)
 		if code == codes.SUCCESS || code == codes.PLAYER_INVALID {
@@ -192,13 +195,12 @@ func (uc *Usecase) Disconnect(session *websocket.Session) {
 
 	p := uc.pm.GetBySessionID(session.ID())
 	if p == nil {
-		// session.Close(false) //
 		return
 	}
 
 	t := uc.tm.GetTable(p.GetTableID())
 	if t == nil {
-		uc.LogoutGame(p, codes.TABLE_NOT_FOUND, "disconnect by can not find table")
+		uc.LogoutGame(p, codes.TABLE_NOT_FOUND, "disconnect by table not find ")
 		return
 	}
 
