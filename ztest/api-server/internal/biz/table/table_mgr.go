@@ -3,7 +3,6 @@ package table
 import (
 	"sync"
 
-	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
 	"github.com/yola1107/kratos/v2/ztest/api-server/pkg/codes"
@@ -119,7 +118,6 @@ func (m *Manager) ThrowInto(p *player.Player) (int32, string) {
 
 	tb := m.selectBestTable(p, false)
 	if tb == nil {
-		log.Warnf("No available table found for player ID: %d", p.GetPlayerID())
 		return codes.NOT_ENOUGH_TABLE, "NOT_ENOUGH_TABLE"
 	}
 
