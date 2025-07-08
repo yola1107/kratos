@@ -40,7 +40,11 @@ func NewUser(id int64, repo Repo) (*User, error) {
 }
 
 func (u *User) IsFree() bool {
-	return u.logout.Load() || time.Now().Unix()-u.activeAt.Load() > 75 // 75s
+	// 模拟断线
+	if ext.IsHitFloat(0.01) && time.Now().Unix()-u.activeAt.Load() > 75 {
+		return true
+	}
+	return u.logout.Load()
 }
 
 func (u *User) UpActiveAt() {
@@ -79,7 +83,7 @@ func (u *User) Init() {
 	u.client.Store(wsClient)
 
 	// login
-	dur := time.Duration(ext.RandInt(0, 10000)) * time.Millisecond
+	dur := time.Duration(ext.RandInt(0, 5000)) * time.Millisecond
 	u.repo.GetTimer().Once(dur, func() {
 		u.Request(v1.GameCommand_OnLoginReq, &v1.LoginReq{
 			UserID: u.id,
