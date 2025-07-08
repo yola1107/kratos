@@ -229,7 +229,7 @@ func (c *Client) Reconnect() error {
 
 		attempt := c.retryCount.Add(1)
 		if !c.canRetry() {
-			return fmt.Errorf("%q. attempts reached=%d", err, attempt)
+			return fmt.Errorf("%v. attempts reached=%d", err, attempt)
 		}
 
 		delay := c.calculateBackoff(attempt)
