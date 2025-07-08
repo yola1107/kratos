@@ -51,6 +51,7 @@ func (r *Runner) GetTimer() work.ITaskScheduler {
 func (r *Runner) GetLoop() work.ITaskLoop {
 	return r.loop
 }
+
 func (r *Runner) GetContext() context.Context {
 	return r.ctx
 }
@@ -79,7 +80,7 @@ func (r *Runner) Stop() {
 }
 
 func (r *Runner) Monitor() {
-	log.Infof("[monitor] |client| loop=%+v timer=%+v player={Num:%v curr:%v}",
+	log.Infof("[monitor] [client] loop=%+v timer=%+v player={Num:%v curr:%v}",
 		r.loop.Monitor(), r.timer.Monitor(), r.conf.Press.Num, r.count.Load())
 }
 
@@ -129,7 +130,6 @@ func (r *Runner) Release() {
 		user.Release()
 		r.users.Delete(key)
 		r.count.Add(-1)
-
 		return true
 	})
 }

@@ -192,11 +192,6 @@ func (uc *Usecase) Disconnect(session *websocket.Session) {
 
 	p := uc.pm.GetBySessionID(session.ID())
 	if p == nil {
-		sessionUID := session.UID()
-		p2 := uc.pm.GetByID(sessionUID)
-		if p2 != nil {
-			log.Errorf("泄漏. uid=%d sessionID=%q p2=%+v", sessionUID, session.ID(), p2.Desc())
-		}
 		session.Close(false) //
 		return
 	}

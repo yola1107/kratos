@@ -29,9 +29,6 @@ func New(raw *Raw) *Player {
 		gameData: &GameData{},
 		baseData: raw.BaseData,
 	}
-	if raw.Session != nil && !raw.IsRobot {
-		raw.Session.SetUID(raw.ID)
-	}
 	return p
 }
 

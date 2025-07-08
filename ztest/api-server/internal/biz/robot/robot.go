@@ -44,7 +44,7 @@ func (m *Manager) Start() error {
 	timer := m.repo.GetTimer()
 	timer.Forever(5*time.Second, m.load)
 	timer.Forever(3*time.Second, m.login)
-	timer.Forever(10*time.Second, m.release)
+	timer.Forever(5*time.Second, m.release)
 	return nil
 }
 
@@ -128,13 +128,11 @@ func (m *Manager) login() {
 		for index < len(tables) {
 			tb := tables[index]
 			index++
-
 			if m.Enter(p, tb) {
 				m.free.Delete(p.GetPlayerID())
 				return true // 下一个 AI
 			}
 		}
-
 		return false // 桌子遍历完了，退出 Range
 	})
 }
@@ -155,7 +153,6 @@ func (m *Manager) Enter(p *player.Player, tb *table.Table) (enter bool) {
 	if !tb.ThrowInto(p) {
 		return
 	}
-
 	return true
 }
 
@@ -192,9 +189,6 @@ func (m *Manager) reset(p *player.Player) {
 
 // Monitor 返回当前机器人总数、空闲数和游戏中数量
 func (m *Manager) Monitor() Monitor {
-	if !m.conf.Robot.Open || m.conf.Robot.Num <= 0 {
-		return Monitor{}
-	}
 	all := m.countAll()
 	free := m.countFree()
 	return Monitor{

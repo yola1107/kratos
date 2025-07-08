@@ -40,7 +40,6 @@ type SessionConfig struct {
 
 type Session struct {
 	id         string
-	uid        atomic.Int64
 	h          iHandler
 	connMu     sync.Mutex
 	conn       *websocket.Conn
@@ -69,7 +68,6 @@ func NewSession(h iHandler, conn *websocket.Conn, config *SessionConfig) *Sessio
 		ctx:      ctx,
 		cancel:   cancel,
 	}
-	s.uid.Store(int64(0))
 	s.lastActive.Store(time.Now())
 	s.h.OnSessionOpen(s)
 	go s.readPump()
@@ -80,14 +78,6 @@ func NewSession(h iHandler, conn *websocket.Conn, config *SessionConfig) *Sessio
 
 func (s *Session) ID() string {
 	return s.id
-}
-
-func (s *Session) SetUID(uid int64) {
-	s.uid.Store(uid)
-}
-
-func (s *Session) UID() int64 {
-	return s.uid.Load()
 }
 
 func (s *Session) GetRemoteIP() string {
