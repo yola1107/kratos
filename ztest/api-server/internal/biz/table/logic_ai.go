@@ -82,6 +82,9 @@ func (r *RobotLogic) CanEnter(p *player.Player) bool {
 // CanExit 判断机器人是否能离桌
 func (r *RobotLogic) CanExit(p *player.Player) bool {
 	cfg := r.mTable.repo.GetRoomConfig().Robot
+	if !cfg.Open {
+		return true
+	}
 	if p == nil || r.mTable == nil || r.ExitTooShort() {
 		return false
 	}

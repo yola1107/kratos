@@ -17,7 +17,6 @@ const (
 )
 
 type Monitor struct {
-	Max   int32
 	Num   int32
 	Gamed int32
 	Free  int32
@@ -83,7 +82,7 @@ func (m *Manager) load() {
 func (m *Manager) release() {
 	maxNum := int32(0)
 	if cfg := m.conf.Robot; cfg.Open {
-		maxNum = min(cfg.Num, cfg.MinPlayCount)
+		maxNum = cfg.Num
 	}
 	excess := m.countAll() - maxNum
 	toRelease := min(excess, defaultBatchReleaseCount)
@@ -106,6 +105,11 @@ func (m *Manager) release() {
 // login 尝试进入桌子
 func (m *Manager) login() {
 	if !m.conf.Robot.Open {
+		return
+	}
+
+	gamed := m.countAll() - m.countFree()
+	if gamed >= m.conf.Robot.MinPlayCount {
 		return
 	}
 
@@ -192,7 +196,6 @@ func (m *Manager) Monitor() Monitor {
 	all := m.countAll()
 	free := m.countFree()
 	return Monitor{
-		Max:   m.conf.Robot.Num,
 		Num:   all,
 		Free:  free,
 		Gamed: all - free,

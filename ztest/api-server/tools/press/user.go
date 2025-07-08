@@ -26,7 +26,7 @@ type User struct {
 	id       int64
 	chair    atomic.Int32
 	activeAt atomic.Int64
-	client   atomic.Pointer[websocket.Client] // *websocket.Client
+	client   atomic.Pointer[websocket.Client]
 }
 
 func NewUser(id int64, repo Repo) (*User, error) {
@@ -34,14 +34,8 @@ func NewUser(id int64, repo Repo) (*User, error) {
 		repo: repo,
 		id:   id,
 	}
-	u.chair.Store(-1)
 	repo.GetLoop().Post(u.Init)
 	return u, nil
-}
-
-func (u *User) Reset() {
-	u.chair.Store(-1)
-	u.activeAt.Store(0)
 }
 
 func (u *User) IsFree() bool {
@@ -63,6 +57,36 @@ func (u *User) Release() {
 }
 
 func (u *User) Init() {
+	pushHandler, rspHandler := u.getHandler()
+	wsClient, err := websocket.NewClient(
+		u.repo.GetContext(),
+		websocket.WithEndpoint(u.repo.GetUrl()),
+		websocket.WithToken(""),
+		websocket.WithPushHandler(pushHandler),
+		websocket.WithResponseHandler(rspHandler),
+		websocket.WithConnectFunc(u.OnConnect),
+		websocket.WithDisconnectFunc(u.OnDisconnect),
+	)
+	if err != nil {
+		log.Errorf("err=%q", err)
+		return
+	}
+
+	u.UpActiveAt()
+	u.chair.Store(-1)
+	u.client.Store(wsClient)
+
+	// login
+	dur := time.Duration(ext.RandInt(0, 10000)) * time.Millisecond
+	u.repo.GetTimer().Once(dur, func() {
+		u.Request(v1.GameCommand_OnLoginReq, &v1.LoginReq{
+			UserID: u.id,
+			Token:  "token",
+		})
+	})
+}
+
+func (u *User) getHandler() (map[int32]websocket.PushHandler, map[int32]websocket.ResponseHandler) {
 	pushHandler := map[int32]websocket.PushHandler{
 		int32(v1.GameCommand_SayHelloRsp):          u.OnEmptyPush,
 		int32(v1.GameCommand_OnLoginRsp):           u.OnLoginRsp,   // GameCommand = 1002
@@ -100,29 +124,7 @@ func (u *User) Init() {
 		int32(v1.GameCommand_OnActionReq):      u.OnEmptyRequest, // GameCommand = 1101 //玩家动作
 		int32(v1.GameCommand_OnAutoCallReq):    u.OnEmptyRequest, // GameCommand = 1103 //自动跟注
 	}
-	wsClient, err := websocket.NewClient(
-		u.repo.GetContext(),
-		websocket.WithEndpoint(u.repo.GetUrl()),
-		websocket.WithToken(""),
-		websocket.WithPushHandler(pushHandler),
-		websocket.WithResponseHandler(rspHandler),
-		websocket.WithConnectFunc(u.OnConnect),
-		websocket.WithDisconnectFunc(u.OnDisconnect),
-	)
-	if err != nil {
-		log.Errorf("err=%q", err)
-		return
-	}
-	u.client.Store(wsClient)
-
-	// login
-	dur := time.Duration(ext.RandInt(0, 10000)) * time.Millisecond
-	u.repo.GetTimer().Once(dur, func() {
-		u.Request(v1.GameCommand_OnLoginReq, &v1.LoginReq{
-			UserID: u.id,
-			Token:  "token",
-		})
-	})
+	return pushHandler, rspHandler
 }
 
 func (u *User) OnEmptyPush(data []byte)                {}
@@ -134,7 +136,6 @@ func (u *User) OnConnect(session *websocket.Session) {
 
 func (u *User) OnDisconnect(session *websocket.Session) {
 	log.Debugf("disconnect called. uid=%d %q ", u.id, session.ID())
-	u.Reset()
 }
 
 func (u *User) Request(cmd v1.GameCommand, msg gproto.Message) {
@@ -182,7 +183,7 @@ func (u *User) OnActivePush(data []byte) {
 		Action:         op,
 		SideReplyAllow: ext.IsHitFloat(0.3),
 	}
-	dur := time.Duration(ext.RandInt(0, 12000)) * time.Millisecond
+	dur := time.Duration(ext.RandInt(1000, 12000)) * time.Millisecond
 	u.repo.GetTimer().Once(dur, func() {
 		u.Request(v1.GameCommand_OnActionReq, req)
 	})
@@ -197,8 +198,10 @@ func (u *User) OnResultPush(data []byte) {
 	if rsp.UserID != u.id {
 		return
 	}
-	u.chair.Store(-1)
-	if ext.IsHitFloat(0.5) {
+	exitRate := 0.25
+	if !ext.IsHitFloat(exitRate) {
+		u.UpActiveAt()
+		u.chair.Store(-1)
 		return
 	}
 	req := &v1.LogoutReq{
