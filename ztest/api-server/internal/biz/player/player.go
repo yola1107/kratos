@@ -72,8 +72,8 @@ func (p *Player) LogoutGame(code int32, msg string) {
 
 	// clean
 	p.session = nil
-	p.gameData = nil
-	p.baseData = nil
+	p.gameData = &GameData{}
+	p.baseData = &BaseData{}
 }
 
 func (p *Player) push(cmd v1.GameCommand, msg proto.Message) {

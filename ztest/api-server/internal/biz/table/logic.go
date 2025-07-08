@@ -286,6 +286,8 @@ func (t *Table) gameEnd() {
 	t.mLog.settle(winner)
 	// log.Debugf("gameEnd tb=%s winner=%+v", t.Desc(), winner.Desc())
 
+	t.intoSit()
+
 	t.updateStage(StEnd)
 }
 
