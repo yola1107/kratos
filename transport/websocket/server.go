@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	gproto "github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
 	kerrors "github.com/yola1107/kratos/v2/errors"
 	ic "github.com/yola1107/kratos/v2/internal/context"
@@ -24,6 +23,7 @@ import (
 	"github.com/yola1107/kratos/v2/transport"
 	"github.com/yola1107/kratos/v2/transport/websocket/proto"
 	"google.golang.org/grpc/codes"
+	gproto "google.golang.org/protobuf/proto"
 )
 
 var (

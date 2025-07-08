@@ -5,13 +5,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	gproto "github.com/golang/protobuf/proto"
 	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/library/work"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/transport/websocket"
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/table"
+	gproto "google.golang.org/protobuf/proto"
 )
 
 type Repo interface {

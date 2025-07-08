@@ -13,11 +13,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	gproto "github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
 	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/transport/websocket/proto"
+	gproto "google.golang.org/protobuf/proto"
 )
 
 var (

@@ -1,11 +1,11 @@
 package player
 
 import (
-	"github.com/golang/protobuf/proto"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/transport/websocket"
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
+	"google.golang.org/protobuf/proto"
 )
 
 type Player struct {
