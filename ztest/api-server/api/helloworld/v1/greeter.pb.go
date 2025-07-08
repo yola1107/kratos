@@ -533,6 +533,7 @@ type LogoutRsp struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"` //错误码 0:成功
 	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`    //错误信息 主动/踢人
+	UserID        int64                  `protobuf:"varint,3,opt,name=UserID,proto3" json:"UserID,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -579,6 +580,13 @@ func (x *LogoutRsp) GetMsg() string {
 		return x.Msg
 	}
 	return ""
+}
+
+func (x *LogoutRsp) GetUserID() int64 {
+	if x != nil {
+		return x.UserID
+	}
+	return 0
 }
 
 // 准备
@@ -2475,10 +2483,11 @@ const file_helloworld_v1_greeter_proto_rawDesc = "" +
 	"\achairID\x18\x05 \x01(\x05R\achairID\x12\x18\n" +
 	"\aarenaID\x18\x06 \x01(\x05R\aarenaID\"'\n" +
 	"\tLogoutReq\x12\x1a\n" +
-	"\buserDBID\x18\x01 \x01(\x03R\buserDBID\"1\n" +
+	"\buserDBID\x18\x01 \x01(\x03R\buserDBID\"I\n" +
 	"\tLogoutRsp\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
-	"\x03msg\x18\x02 \x01(\tR\x03msg\"<\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x16\n" +
+	"\x06UserID\x18\x03 \x01(\x03R\x06UserID\"<\n" +
 	"\bReadyReq\x12\x16\n" +
 	"\x06userID\x18\x01 \x01(\x03R\x06userID\x12\x18\n" +
 	"\aisReady\x18\x02 \x01(\bR\aisReady\"<\n" +

@@ -125,7 +125,7 @@ func (p *Player) SendLogout(code int32, msg string) {
 	if p == nil {
 		return
 	}
-	p.push(v1.GameCommand_OnLogoutRsp, &v1.SwitchTableRsp{
+	p.push(v1.GameCommand_OnLogoutRsp, &v1.LogoutRsp{
 		Code:   code,
 		Msg:    msg,
 		UserID: p.GetPlayerID(),

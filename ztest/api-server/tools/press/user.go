@@ -24,6 +24,7 @@ type Repo interface {
 type User struct {
 	repo     Repo
 	id       int64
+	logout   atomic.Bool
 	chair    atomic.Int32
 	activeAt atomic.Int64
 	client   atomic.Pointer[websocket.Client]
@@ -39,7 +40,7 @@ func NewUser(id int64, repo Repo) (*User, error) {
 }
 
 func (u *User) IsFree() bool {
-	return time.Now().Unix()-u.activeAt.Load() > 75 // 75s
+	return u.logout.Load() || time.Now().Unix()-u.activeAt.Load() > 75 // 75s
 }
 
 func (u *User) UpActiveAt() {
@@ -74,6 +75,7 @@ func (u *User) Init() {
 
 	u.UpActiveAt()
 	u.chair.Store(-1)
+	u.logout.Store(false)
 	u.client.Store(wsClient)
 
 	// login
@@ -198,7 +200,7 @@ func (u *User) OnResultPush(data []byte) {
 	if rsp.UserID != u.id {
 		return
 	}
-	exitRate := 0.25
+	exitRate := 0.15
 	if !ext.IsHitFloat(exitRate) {
 		u.UpActiveAt()
 		u.chair.Store(-1)
@@ -219,9 +221,11 @@ func (u *User) OnLogoutRsp(data []byte) {
 		log.Errorf("%v", err)
 		return
 	}
-	if rsp.Code != 0 {
+	if rsp.UserID != u.id {
 		return
 	}
+	u.logout.Store(true)
+
 	// 关闭连接 释放内存
 	u.Release()
 }
