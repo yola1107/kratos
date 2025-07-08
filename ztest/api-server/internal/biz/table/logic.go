@@ -207,7 +207,7 @@ func (t *Table) checkAutoReadyAll() {
 // 扣钱 （或处理可以进行游戏的玩家状态等逻辑）
 func (t *Table) intoGaming(seats []*player.Player) {
 	for _, p := range seats {
-		p.SetGaming() //
+		p.SetGaming()
 		if !p.IntoGaming(t.curBet) {
 			log.Errorf("intoGaming error. p:%+v currBet=%.1f", p.Desc(), t.curBet)
 			// continue
@@ -283,9 +283,22 @@ func (t *Table) gameEnd() {
 	// t.Broadcast(-1, packet)
 	// t.SendShowCard()
 	t.broadcastResult()
-	// log.Debugf("gameEnd tb=%s winner=%+v", t.Desc(), winner.Desc())
 	t.mLog.settle(winner)
+	// log.Debugf("gameEnd tb=%s winner=%+v", t.Desc(), winner.Desc())
+
+	// 重置玩家游戏状态, 玩家收到result后可以自主退出游戏
+	t.intoSit()
+
 	t.updateStage(StEnd)
+}
+
+func (t *Table) intoSit() {
+	for _, v := range t.seats {
+		if v == nil {
+			continue
+		}
+		v.SetSit()
+	}
 }
 
 func (t *Table) onEndTimeout() {

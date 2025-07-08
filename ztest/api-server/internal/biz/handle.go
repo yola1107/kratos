@@ -192,7 +192,7 @@ func (uc *Usecase) Disconnect(session *websocket.Session) {
 
 	p := uc.pm.GetBySessionID(session.ID())
 	if p == nil {
-		session.Close(false) //
+		// session.Close(false) //
 		return
 	}
 

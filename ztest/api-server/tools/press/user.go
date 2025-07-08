@@ -40,10 +40,10 @@ func NewUser(id int64, repo Repo) (*User, error) {
 }
 
 func (u *User) IsFree() bool {
-	// 模拟断线
-	if ext.IsHitFloat(0.01) && time.Now().Unix()-u.activeAt.Load() > 75 {
-		return true
-	}
+	// // 模拟断线
+	// if time.Now().Unix()-u.activeAt.Load() > 75 {
+	// 	return true
+	// }
 	return u.logout.Load()
 }
 
@@ -73,13 +73,13 @@ func (u *User) Init() {
 		websocket.WithDisconnectFunc(u.OnDisconnect),
 	)
 	if err != nil {
-		log.Errorf("err=%q", err)
+		log.Errorf("User init err=%q", err)
+		// u.logout.Store(true)
 		return
 	}
 
 	u.UpActiveAt()
 	u.chair.Store(-1)
-	u.logout.Store(false)
 	u.client.Store(wsClient)
 
 	// login
@@ -103,7 +103,7 @@ func (u *User) getHandler() (map[int32]websocket.PushHandler, map[int32]websocke
 		int32(v1.GameCommand_OnChatRsp):            u.OnEmptyPush,  // GameCommand = 1012
 		int32(v1.GameCommand_OnHostingRsp):         u.OnEmptyPush,  // GameCommand = 1014
 		int32(v1.GameCommand_OnForwardRsp):         u.OnEmptyPush,  // GameCommand = 1016
-		int32(v1.GameCommand_OnActionRsp):          u.OnEmptyPush,  // GameCommand = 1102
+		int32(v1.GameCommand_OnActionRsp):          u.OnActionRsp,  // GameCommand = 1102
 		int32(v1.GameCommand_OnAutoCallRsp):        u.OnEmptyPush,  // GameCommand = 1104
 		int32(v1.GameCommand_OnUserInfoPush):       u.OnEmptyPush,  // GameCommand = 2001
 		int32(v1.GameCommand_OnEmojiConfigPush):    u.OnEmptyPush,  // GameCommand = 2002
@@ -142,6 +142,7 @@ func (u *User) OnConnect(session *websocket.Session) {
 
 func (u *User) OnDisconnect(session *websocket.Session) {
 	log.Debugf("disconnect called. uid=%d %q ", u.id, session.ID())
+	// u.logout.Store(true)
 }
 
 func (u *User) Request(cmd v1.GameCommand, msg gproto.Message) {
@@ -189,10 +190,28 @@ func (u *User) OnActivePush(data []byte) {
 		Action:         op,
 		SideReplyAllow: ext.IsHitFloat(0.3),
 	}
-	dur := time.Duration(ext.RandInt(1000, 12000)) * time.Millisecond
+	dur := time.Duration(ext.RandInt(0, 12000)) * time.Millisecond
 	u.repo.GetTimer().Once(dur, func() {
 		u.Request(v1.GameCommand_OnActionReq, req)
 	})
+}
+
+func (u *User) OnActionRsp(data []byte) {
+	rsp := &v1.ActionRsp{}
+	if err := gproto.Unmarshal(data, rsp); err != nil {
+		log.Errorf("%v", err)
+		return
+	}
+	if rsp.Code != 0 {
+		return
+	}
+	if rsp.UserID != u.id {
+		return
+	}
+	if rsp.Action == v1.ACTION_PACK && ext.IsHitFloat(0.5) {
+		u.sendLogoutReq()
+		return
+	}
 }
 
 func (u *User) OnResultPush(data []byte) {
@@ -204,16 +223,19 @@ func (u *User) OnResultPush(data []byte) {
 	if rsp.UserID != u.id {
 		return
 	}
-	exitRate := 0.15
-	if !ext.IsHitFloat(exitRate) {
-		u.UpActiveAt()
-		u.chair.Store(-1)
+	if ext.IsHitFloat(0.35) {
+		u.sendLogoutReq()
 		return
 	}
+	u.UpActiveAt()
+	u.chair.Store(-1)
+}
+
+func (u *User) sendLogoutReq() {
 	req := &v1.LogoutReq{
 		UserDBID: u.id,
 	}
-	dur := time.Duration(ext.RandInt(0, 5000)) * time.Millisecond
+	dur := time.Duration(ext.RandInt(0, 6000)) * time.Millisecond
 	u.repo.GetTimer().Once(dur, func() {
 		u.Request(v1.GameCommand_OnLogoutReq, req)
 	})
@@ -228,8 +250,6 @@ func (u *User) OnLogoutRsp(data []byte) {
 	if rsp.UserID != u.id {
 		return
 	}
+	u.chair.Store(-1)
 	u.logout.Store(true)
-
-	// 关闭连接 释放内存
-	u.Release()
 }
