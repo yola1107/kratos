@@ -17,16 +17,13 @@ import (
 )
 
 var (
-	errSessionClosed = errors.New("session: closed send")
-	errSendNilProto  = errors.New("session: send nil payload")
+	errSessionClosed = errors.New("session: closed")
+	errNilPayload    = errors.New("session: nil payload")
 )
 
 type iHandler interface {
-	// OnSessionOpen 会话建立后回调，例如注册 session、绑定用户等
 	OnSessionOpen(sess *Session)
-	// OnSessionClose 会话断开时回调，例如清理缓存、断开房间、注销 session 等
 	OnSessionClose(sess *Session)
-	// DispatchMessage 处理客户端发来的 protobuf 原始二进制数据
 	DispatchMessage(sess *Session, data []byte) error
 }
 
@@ -38,73 +35,62 @@ type SessionConfig struct {
 }
 
 type Session struct {
-	id         string
-	h          iHandler
-	connMu     sync.Mutex
-	conn       *websocket.Conn
-	config     *SessionConfig
-	sendChan   chan []byte
-	closed     atomic.Bool
-	closeOnce  sync.Once
-	lastActive atomic.Value // time.Time
-	ctx        context.Context
-	cancel     context.CancelFunc
-	sendMu     sync.Mutex
+	id        string
+	conn      *websocket.Conn
+	h         iHandler
+	config    *SessionConfig
+	ctx       context.Context
+	cancel    context.CancelFunc
+	sendChan  chan []byte
+	lastAct   atomic.Value
+	closed    atomic.Bool
+	closeOnce sync.Once
+	connMu    sync.Mutex
 }
 
-func NewSession(h iHandler, conn *websocket.Conn, config *SessionConfig) *Session {
+func NewSession(h iHandler, conn *websocket.Conn, cfg *SessionConfig) *Session {
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &Session{
-		id:       uuid.New().String(),
-		h:        h,
+		id:       uuid.NewString(),
 		conn:     conn,
-		config:   config,
-		sendChan: make(chan []byte, config.SendChanSize),
+		h:        h,
+		config:   cfg,
 		ctx:      ctx,
 		cancel:   cancel,
+		sendChan: make(chan []byte, cfg.SendChanSize),
 	}
-	s.lastActive.Store(time.Now())
-	s.h.OnSessionOpen(s)
-	go s.readPump()
-	go s.writePump()
+	s.lastAct.Store(time.Now())
+	h.OnSessionOpen(s)
+	go s.readLoop()
+	go s.writeLoop()
 	go s.heartbeat()
 	return s
 }
 
-func (s *Session) ID() string {
-	return s.id
-}
+func (s *Session) ID() string            { return s.id }
+func (s *Session) Closed() bool          { return s.closed.Load() }
+func (s *Session) LastActive() time.Time { return s.lastAct.Load().(time.Time) }
+func (s *Session) GetRemoteIP() string   { return s.conn.RemoteAddr().String() }
 
-func (s *Session) GetRemoteIP() string {
-	return s.conn.RemoteAddr().String()
-}
-
-func (s *Session) LastActive() time.Time {
-	return s.lastActive.Load().(time.Time)
-}
-
-func (s *Session) Closed() bool {
-	return s.closed.Load()
-}
-
-func (s *Session) Send(message []byte) error {
-	s.sendMu.Lock()
-	defer s.sendMu.Unlock()
-
+func (s *Session) Send(data []byte) error {
 	if s.Closed() {
 		return errSessionClosed
 	}
 	select {
-	case s.sendChan <- message:
+	case s.sendChan <- data:
 		return nil
 	case <-s.ctx.Done():
+		return errSessionClosed
+	default:
+		// 防止卡死或丢包时阻塞
+		log.Warnf("sessionID=%q sendChan full, dropping message", s.id)
 		return errSessionClosed
 	}
 }
 
 func (s *Session) SendPayload(payload *proto.Payload) error {
 	if payload == nil {
-		return errSendNilProto
+		return errNilPayload
 	}
 	data, err := gproto.Marshal(payload)
 	if err != nil {
@@ -113,57 +99,48 @@ func (s *Session) SendPayload(payload *proto.Payload) error {
 	return s.Send(data)
 }
 
-func (s *Session) Push(command int32, msg gproto.Message) error {
+func (s *Session) Push(cmd int32, msg gproto.Message) error {
+	if msg == nil {
+		return errNilPayload
+	}
 	body, err := gproto.Marshal(msg)
 	if err != nil {
 		return err
 	}
-	payload := &proto.Payload{
+	return s.SendPayload(&proto.Payload{
 		Op:      proto.OpPush,
 		Place:   proto.PlaceServer,
-		Command: command,
+		Command: cmd,
 		Body:    body,
-	}
-	return s.SendPayload(payload)
+	})
 }
 
-func (s *Session) readPump() {
+func (s *Session) readLoop() {
 	defer ext.RecoverFromError(nil)
 	defer s.Close(false)
 
 	for {
-		s.connMu.Lock()
-		conn := s.conn
-		s.connMu.Unlock()
-		if conn == nil || s.Closed() {
+		if s.Closed() {
 			return
 		}
-
-		if err := conn.SetReadDeadline(time.Now().Add(s.config.ReadDeadline)); err != nil {
-			if strings.Contains(err.Error(), "use of closed network connection") {
-				return
-			}
-			log.Errorf("sessionID=%q set read deadline error: %v", s.id, err)
-			return
-		}
-
-		msgType, data, err := conn.ReadMessage()
+		_ = s.conn.SetReadDeadline(time.Now().Add(s.config.ReadDeadline))
+		msgType, data, err := s.conn.ReadMessage()
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Warnf("sessionID=%q unexpected close: %v", s.id, err)
-			} else {
-				// log.Infof("sessionID=%q normal close: %v", s.id, err)
+			if !websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) &&
+				!isNetworkClosedError(err) {
+				log.Warnf("sessionID=%q read error: %v", s.id, err)
 			}
 			return
 		}
-
-		s.lastActive.Store(time.Now())
+		s.lastAct.Store(time.Now())
 
 		switch msgType {
 		case websocket.BinaryMessage:
-			_ = s.h.DispatchMessage(s, data)
+			if err := s.h.DispatchMessage(s, data); err != nil {
+				log.Warnf("sessionID=%q dispatch error: %v", s.id, err)
+			}
 		case websocket.PingMessage:
-			s.writeControl(websocket.PongMessage, data)
+			_ = s.writeControl(websocket.PongMessage, data)
 		case websocket.PongMessage:
 		case websocket.CloseMessage:
 			return
@@ -173,7 +150,7 @@ func (s *Session) readPump() {
 	}
 }
 
-func (s *Session) writePump() {
+func (s *Session) writeLoop() {
 	for {
 		select {
 		case <-s.ctx.Done():
@@ -182,11 +159,9 @@ func (s *Session) writePump() {
 			if !ok {
 				return
 			}
-			if err := s.writeBinaryMessage(msg); err != nil {
-				if isNetworkClosedError(err) {
-					log.Warnf("sessionID=%q connection closed", s.id)
-				} else {
-					log.Errorf("sessionID=%q write error: %v", s.id, err)
+			if err := s.writeMessage(websocket.BinaryMessage, msg); err != nil {
+				if !isNetworkClosedError(err) {
+					log.Warnf("sessionID=%q write error: %v", s.id, err)
 				}
 				s.Close(true)
 				return
@@ -195,28 +170,16 @@ func (s *Session) writePump() {
 	}
 }
 
-func isNetworkClosedError(err error) bool {
-	if err == nil {
-		return false
-	}
-	errStr := err.Error()
-	return errors.Is(err, errSessionClosed) ||
-		strings.Contains(errStr, "broken pipe") ||
-		strings.Contains(errStr, "connection reset") ||
-		strings.Contains(errStr, "closed network") ||
-		strings.Contains(errStr, "close sent") ||
-		strings.Contains(errStr, "use of closed network connection")
-}
-
 func (s *Session) heartbeat() {
 	ticker := time.NewTicker(s.config.PingInterval)
 	defer ticker.Stop()
+
+	pingData, _ := gproto.Marshal(&proto.Payload{Op: proto.OpPing})
 
 	for {
 		select {
 		case <-s.ctx.Done():
 			return
-
 		case <-ticker.C:
 			if s.Closed() {
 				return
@@ -226,10 +189,9 @@ func (s *Session) heartbeat() {
 				s.Close(true)
 				return
 			}
-			data, _ := gproto.Marshal(&proto.Payload{Op: proto.OpPing})
-			if err := s.writeBinaryMessage(data); err != nil {
+			if err := s.writeMessage(websocket.BinaryMessage, pingData); err != nil {
 				if !isNetworkClosedError(err) {
-					log.Errorf("sessionID=%q heartbeat write failed: %v", s.id, err)
+					log.Errorf("sessionID=%q heartbeat write error: %v", s.id, err)
 				}
 				s.Close(true)
 				return
@@ -238,57 +200,67 @@ func (s *Session) heartbeat() {
 	}
 }
 
-func (s *Session) Close(force bool) bool {
-	closed := false
-	s.closeOnce.Do(func() {
-		closed = true
-		s.closed.Store(true)
-
-		s.closeNotify(force)
-		s.cancel()
-
-		s.sendMu.Lock()
-		close(s.sendChan)
-		s.sendMu.Unlock()
-
-		s.connMu.Lock()
-		_ = s.conn.Close()
-		s.connMu.Unlock()
-
-		s.h.OnSessionClose(s)
-	})
-	return closed
-}
-
-func (s *Session) closeNotify(force bool) {
-	reason := "Normal Closure"
-	if force {
-		reason = "Force Closure"
-		if time.Since(s.LastActive()) > s.config.ReadDeadline {
-			reason = "Force Closure (Heartbeat timeout)"
-		}
-	}
-	message := websocket.FormatCloseMessage(websocket.CloseNormalClosure, reason)
-	s.writeControl(websocket.CloseMessage, message)
-}
-
-func (s *Session) writeControl(msgType int, data []byte) {
-	s.connMu.Lock()
-	defer s.connMu.Unlock()
-	_ = s.conn.WriteControl(msgType, data, time.Now().Add(s.config.WriteTimeout))
-}
-
-func (s *Session) writeBinaryMessage(data []byte) error {
+func (s *Session) writeMessage(msgType int, data []byte) error {
 	if s.Closed() {
 		return errSessionClosed
 	}
-
 	s.connMu.Lock()
 	defer s.connMu.Unlock()
 
 	if err := s.conn.SetWriteDeadline(time.Now().Add(s.config.WriteTimeout)); err != nil {
 		return err
 	}
+	return s.conn.WriteMessage(msgType, data)
+}
 
-	return s.conn.WriteMessage(websocket.BinaryMessage, data)
+func (s *Session) writeControl(msgType int, data []byte) error {
+	s.connMu.Lock()
+	defer s.connMu.Unlock()
+	return s.conn.WriteControl(msgType, data, time.Now().Add(s.config.WriteTimeout))
+}
+
+func (s *Session) Close(force bool) bool {
+	closed := false
+	s.closeOnce.Do(func() {
+		closed = true
+		s.closed.Store(true)
+
+		s.cancel()
+
+		_ = s.writeControl(websocket.CloseMessage,
+			websocket.FormatCloseMessage(websocket.CloseNormalClosure, closeReason(s, force)))
+
+		// 确保不再写入
+		s.connMu.Lock()
+		_ = s.conn.Close()
+		s.connMu.Unlock()
+
+		close(s.sendChan)
+		s.h.OnSessionClose(s)
+	})
+	return closed
+}
+
+func closeReason(s *Session, force bool) string {
+	if force {
+		if time.Since(s.LastActive()) > s.config.ReadDeadline {
+			return "Force Close: Heartbeat Timeout"
+		}
+		return "Force Close"
+	}
+	return "Normal Close"
+}
+
+func isNetworkClosedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return errors.Is(err, errSessionClosed) ||
+		strings.Contains(msg, "broken pipe") ||
+		strings.Contains(msg, "connection reset") ||
+		strings.Contains(msg, "use of closed network") ||
+		strings.Contains(msg, "connection closed") ||
+		strings.Contains(msg, "close sent") ||
+		strings.Contains(msg, "EOF")
 }

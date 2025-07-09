@@ -182,7 +182,7 @@ func main() {
 
 func loadLogger() *zap.Logger {
 	zapLogger := zap.NewLogger(conf.DefaultConfig(
-		// conf.WithProduction(),
+		conf.WithProduction(),
 		conf.WithAppName(Name),
 		conf.WithLevel("debug"),
 		conf.WithDirectory("./logs"),
