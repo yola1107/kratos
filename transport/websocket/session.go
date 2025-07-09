@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/matoous/go-nanoid/v2"
 	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/transport/websocket/proto"
@@ -53,15 +52,10 @@ type Session struct {
 	sendMu     sync.Mutex
 }
 
-func newNanoID() string {
-	shortID, _ := gonanoid.New(10)
-	return "NANO-" + shortID
-}
-
 func NewSession(h iHandler, conn *websocket.Conn, config *SessionConfig) *Session {
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &Session{
-		id:       uuid.New().String(), // newNanoID()
+		id:       uuid.New().String(),
 		h:        h,
 		conn:     conn,
 		config:   config,
@@ -189,8 +183,8 @@ func (s *Session) writePump() {
 				return
 			}
 			if err := s.writeBinaryMessage(msg); err != nil {
-				if errors.Is(err, errSessionClosed) || strings.Contains(err.Error(), "close sent") {
-					log.Infof("sessionID=%q write aborted, reason: %v", s.id, err)
+				if isNetworkClosedError(err) {
+					log.Warnf("sessionID=%q connection closed", s.id)
 				} else {
 					log.Errorf("sessionID=%q write error: %v", s.id, err)
 				}
@@ -199,6 +193,19 @@ func (s *Session) writePump() {
 			}
 		}
 	}
+}
+
+func isNetworkClosedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return errors.Is(err, errSessionClosed) ||
+		strings.Contains(errStr, "broken pipe") ||
+		strings.Contains(errStr, "connection reset") ||
+		strings.Contains(errStr, "closed network") ||
+		strings.Contains(errStr, "close sent") ||
+		strings.Contains(errStr, "use of closed network connection")
 }
 
 func (s *Session) heartbeat() {
@@ -220,7 +227,13 @@ func (s *Session) heartbeat() {
 				return
 			}
 			data, _ := gproto.Marshal(&proto.Payload{Op: proto.OpPing})
-			_ = s.writeBinaryMessage(data)
+			if err := s.writeBinaryMessage(data); err != nil {
+				if !isNetworkClosedError(err) {
+					log.Errorf("sessionID=%q heartbeat write failed: %v", s.id, err)
+				}
+				s.Close(true)
+				return
+			}
 		}
 	}
 }

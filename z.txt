@@ -71,6 +71,11 @@ go tool pprof -http=0.0.0.0:8081 http://localhost:6060/debug/pprof/block?debug=1
 go tool pprof -http=0.0.0.0:8082 http://localhost:6060/debug/pprof/goroutine
 http://127.0.0.1:8080/ui
 
+
+# race
+Environment:         GORACE=log_path=logs\race.log
+Go tool arguments:   -race
+
 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o app main.go
 nohup ./cmd -conf configs/ > /dev/null 2>&1 &
 nohup ./app -conf configs/ >> app.log 2>&1 &
