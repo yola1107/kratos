@@ -168,7 +168,7 @@ func (s *Session) writeLoop() {
 			}
 			if err := s.writeMessage(websocket.BinaryMessage, msg); err != nil {
 				if !isNetworkClosedError(err) {
-					log.Errorf("sessionID=%q write error: %v", s.id, err)
+					log.Warnf("sessionID=%q write error: %v", s.id, err)
 				}
 				return
 			}
@@ -238,7 +238,7 @@ func (s *Session) Close(force bool) bool {
 		s.sendMu.Lock()
 		close(s.sendChan)
 		s.sendMu.Unlock()
-		
+
 		reason := websocket.FormatCloseMessage(websocket.CloseNormalClosure, closeReason(s, force))
 
 		s.connMu.Lock()
