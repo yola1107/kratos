@@ -207,6 +207,9 @@ func (t *Table) checkAutoReadyAll() {
 // 扣钱 （或处理可以进行游戏的玩家状态等逻辑）
 func (t *Table) intoGaming(seats []*player.Player) {
 	for _, p := range seats {
+		if p == nil {
+			continue
+		}
 		p.SetGaming()
 		if !p.IntoGaming(t.curBet) {
 			log.Errorf("intoGaming error. p:%+v currBet=%.1f", p.Desc(), t.curBet)
@@ -263,6 +266,30 @@ func (t *Table) onSideShowAniTimeout() {
 
 /* 游戏结束 */
 func (t *Table) gameEnd() {
+
+	t.settle()
+
+	t.broadcastResult()
+
+	// 保存每一局记录 // todo
+
+	// 重置玩家状态
+	t.setSitStatus()
+
+	// 检查踢人
+	t.checkKick()
+
+	// 清理数据
+	t.Reset()
+
+	log.Debugf("结束清理完成。tb=%v \n", t.Desc())
+	t.mLog.end(fmt.Sprintf("结束清理完成。%s %s", t.Desc(), logPlayers(t.seats)))
+
+	// 状态转移
+	t.updateStage(StEnd)
+}
+
+func (t *Table) settle() {
 	// 胜利的玩家
 	var winner *player.Player
 	for _, seat := range t.seats {
@@ -273,25 +300,18 @@ func (t *Table) gameEnd() {
 	}
 
 	if winner == nil {
-		t.updateStage(StEnd)
-		log.Errorf("gameEnd err. tb=%+v", t.Desc())
+		log.Errorf("settle winner == nil. tb=%+v", t.Desc())
 		return
 	}
 
 	// 结算
 	winner.Settle(t.totalBet)
-	// t.Broadcast(-1, packet)
-	// t.SendShowCard()
-	t.broadcastResult()
+
 	t.mLog.settle(winner)
 	// log.Debugf("gameEnd tb=%s winner=%+v", t.Desc(), winner.Desc())
-
-	t.intoSit()
-
-	t.updateStage(StEnd)
 }
 
-func (t *Table) intoSit() {
+func (t *Table) setSitStatus() {
 	for _, v := range t.seats {
 		if v == nil {
 			continue
@@ -301,17 +321,11 @@ func (t *Table) intoSit() {
 }
 
 func (t *Table) onEndTimeout() {
-	// 游戏结束后踢人
-	t.checkKick()
-
-	// 重置数据
-	t.Reset()
-
-	log.Debugf("结束清理完成。tb=%v \n", t.Desc())
-	t.mLog.end(fmt.Sprintf("结束清理完成。%s %s", t.Desc(), logPlayers(t.seats)))
-
 	// 状态进入 StWait
 	t.updateStage(StWait)
+
+	// 再次检查踢人
+	t.checkKick()
 
 	// 是否自动准备
 	t.checkAutoReadyAll()

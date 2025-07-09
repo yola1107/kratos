@@ -326,18 +326,26 @@ func (t *Table) checkKick() {
 		if p == nil {
 			continue
 		}
-		if code, msg := shouldKickPlayer(p, t.repo.GetRoomConfig().Game); code != 0 {
+		if code, msg := t.checkKickPlayer(p, t.repo.GetRoomConfig().Game); code != 0 {
 			t.OnExitGame(p, code, msg)
 		}
 	}
 }
 
-func shouldKickPlayer(p *player.Player, conf *conf.Room_Game) (int32, string) {
-	if p.IsOffline() {
-		return codes.KICK_BY_BROKE, "KICK_BY_BROKE"
-	}
-	if code, msg := CheckRoomLimit(p, conf); code != 0 {
-		return code, msg
+func (t *Table) checkKickPlayer(p *player.Player, conf *conf.Room_Game) (int32, string) {
+	switch t.stage.GetState() {
+	case StWait:
+		if p.IsOffline() {
+			return codes.KICK_BY_BROKE, "KICK_BY_BROKE"
+		}
+		if code, msg := CheckRoomLimit(p, conf); code != 0 {
+			return code, msg
+		}
+	case StWaitEnd:
+		if p.IsOffline() {
+			return codes.KICK_BY_BROKE, "KICK_BY_BROKE"
+		}
+	default:
 	}
 	return 0, ""
 }

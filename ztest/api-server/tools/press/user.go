@@ -43,7 +43,7 @@ func (u *User) IsFree() bool {
 		return true
 	}
 	// 模拟断线
-	if ws := u.client.Load(); ws != nil && ext.IsHitFloat(0.05) {
+	if ws := u.client.Load(); ws != nil && ext.IsHitFloat(0.01) {
 		ws.Close()
 	}
 	return false
