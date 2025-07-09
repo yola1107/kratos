@@ -55,21 +55,11 @@ func (u *User) Release() {
 		return
 	}
 	client.Close()
-	client = nil
 	u.client.Store(nil)
 }
 
 func (u *User) Init() {
-	pushHandler, rspHandler := u.getHandler()
-	wsClient, err := websocket.NewClient(
-		u.repo.GetContext(),
-		websocket.WithEndpoint(u.repo.GetUrl()),
-		websocket.WithToken(""),
-		websocket.WithPushHandler(pushHandler),
-		websocket.WithResponseHandler(rspHandler),
-		websocket.WithConnectFunc(u.OnConnect),
-		websocket.WithDisconnectFunc(u.OnDisconnect),
-	)
+	wsClient, err := u.connect()
 	if err != nil {
 		log.Errorf("User init err=%q", err)
 		u.logout.Store(true)
@@ -89,7 +79,7 @@ func (u *User) Init() {
 	})
 }
 
-func (u *User) getHandler() (map[int32]websocket.PushHandler, map[int32]websocket.ResponseHandler) {
+func (u *User) connect() (*websocket.Client, error) {
 	pushHandler := map[int32]websocket.PushHandler{
 		int32(v1.GameCommand_SayHelloRsp):          u.OnEmptyPush,
 		int32(v1.GameCommand_OnLoginRsp):           u.OnLoginRsp,   // GameCommand = 1002
@@ -127,7 +117,15 @@ func (u *User) getHandler() (map[int32]websocket.PushHandler, map[int32]websocke
 		int32(v1.GameCommand_OnActionReq):      u.OnEmptyRequest, // GameCommand = 1101 //玩家动作
 		int32(v1.GameCommand_OnAutoCallReq):    u.OnEmptyRequest, // GameCommand = 1103 //自动跟注
 	}
-	return pushHandler, rspHandler
+	return websocket.NewClient(
+		u.repo.GetContext(),
+		websocket.WithEndpoint(u.repo.GetUrl()),
+		websocket.WithToken(""),
+		websocket.WithPushHandler(pushHandler),
+		websocket.WithResponseHandler(rspHandler),
+		websocket.WithConnectFunc(u.OnConnect),
+		websocket.WithDisconnectFunc(u.OnDisconnect),
+	)
 }
 
 func (u *User) OnEmptyPush(data []byte)                {}
@@ -149,10 +147,11 @@ func (u *User) Request(cmd v1.GameCommand, msg gproto.Message) {
 		return
 	}
 	if !wsClient.IsAlive() {
+		log.Warnf("wsClient is not alive")
 		return
 	}
 	if err := wsClient.Request(int32(cmd), msg); err != nil {
-		log.Errorf("%v", err)
+		log.Errorf("uid=%d request cmd=%d failed: %v", u.id, cmd, err)
 		return
 	}
 }
