@@ -46,6 +46,7 @@ type Session struct {
 	closed    atomic.Bool
 	closeOnce sync.Once
 	connMu    sync.Mutex
+	sendMu    sync.Mutex
 }
 
 func NewSession(h iHandler, conn *websocket.Conn, cfg *SessionConfig) *Session {
@@ -73,9 +74,13 @@ func (s *Session) LastActive() time.Time { return s.lastAct.Load().(time.Time) }
 func (s *Session) GetRemoteIP() string   { return s.conn.RemoteAddr().String() }
 
 func (s *Session) Send(data []byte) error {
+	s.sendMu.Lock()
+	defer s.sendMu.Unlock()
+
 	if s.Closed() {
 		return errSessionClosed
 	}
+
 	select {
 	case s.sendChan <- data:
 		return nil
@@ -142,8 +147,6 @@ func (s *Session) readLoop() {
 		case websocket.PingMessage:
 			_ = s.writeControl(websocket.PongMessage, data)
 		case websocket.PongMessage:
-			// 收到Pong消息时更新活动时间
-			s.lastAct.Store(time.Now())
 		case websocket.CloseMessage:
 			return
 		default:
@@ -153,7 +156,7 @@ func (s *Session) readLoop() {
 }
 
 func (s *Session) writeLoop() {
-	defer s.Close(false) // 确保写循环退出时清理资源
+	defer s.Close(false)
 
 	for {
 		select {
@@ -165,7 +168,7 @@ func (s *Session) writeLoop() {
 			}
 			if err := s.writeMessage(websocket.BinaryMessage, msg); err != nil {
 				if !isNetworkClosedError(err) {
-					log.Warnf("sessionID=%q write error: %v", s.id, err)
+					log.Errorf("sessionID=%q write error: %v", s.id, err)
 				}
 				return
 			}
@@ -217,6 +220,9 @@ func (s *Session) writeMessage(msgType int, data []byte) error {
 }
 
 func (s *Session) writeControl(msgType int, data []byte) error {
+	if s.Closed() {
+		return errSessionClosed
+	}
 	s.connMu.Lock()
 	defer s.connMu.Unlock()
 	return s.conn.WriteControl(msgType, data, time.Now().Add(s.config.WriteTimeout))
@@ -227,18 +233,19 @@ func (s *Session) Close(force bool) bool {
 	s.closeOnce.Do(func() {
 		closed = true
 		s.closed.Store(true)
-
 		s.cancel()
 
-		_ = s.writeControl(websocket.CloseMessage,
-			websocket.FormatCloseMessage(websocket.CloseNormalClosure, closeReason(s, force)))
+		s.sendMu.Lock()
+		close(s.sendChan)
+		s.sendMu.Unlock()
+		
+		reason := websocket.FormatCloseMessage(websocket.CloseNormalClosure, closeReason(s, force))
 
-		// 确保不再写入
 		s.connMu.Lock()
+		_ = s.conn.WriteControl(websocket.CloseMessage, reason, time.Now().Add(s.config.WriteTimeout))
 		_ = s.conn.Close()
 		s.connMu.Unlock()
 
-		close(s.sendChan)
 		s.h.OnSessionClose(s)
 	})
 	return closed
@@ -260,11 +267,14 @@ func isNetworkClosedError(err error) bool {
 	}
 	msg := err.Error()
 	return errors.Is(err, errSessionClosed) ||
-		websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure, websocket.CloseAbnormalClosure) ||
-		strings.Contains(msg, "broken pipe") || // 管道破裂
-		strings.Contains(msg, "connection reset") || // 连接重置
-		strings.Contains(msg, "use of closed network") || // 使用已关闭的网络连接
-		strings.Contains(msg, "connection closed") || // 连接已关闭
-		strings.Contains(msg, "close sent") || // 已发送关闭
-		strings.Contains(msg, "EOF") // 文件结束符
+		websocket.IsCloseError(err,
+			websocket.CloseGoingAway,
+			websocket.CloseNormalClosure,
+			websocket.CloseAbnormalClosure) ||
+		strings.Contains(msg, "broken pipe") ||
+		strings.Contains(msg, "connection reset") ||
+		strings.Contains(msg, "use of closed network") ||
+		strings.Contains(msg, "connection closed") ||
+		strings.Contains(msg, "close sent") ||
+		strings.Contains(msg, "EOF")
 }

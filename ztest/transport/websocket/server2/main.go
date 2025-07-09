@@ -73,6 +73,9 @@ func (s *server) TestPushDataByID(sessionID string) {
 	}
 
 	fn := func() {
+		if session == nil || session.Closed() {
+			return
+		}
 		if err = session.Push(int32(v1.GameCommand_SayHello2Rsp), &v1.Hello2Reply{Message: "from server push."}); err != nil {
 			log.Warnf("TestPushDataByID err:%v", err)
 		}
@@ -129,7 +132,7 @@ func main() {
 	wsSrv := websocket.NewServer(
 		websocket.Address(":3102"),
 		websocket.Timeout(time.Second*5),
-		websocket.SentChanSize(64),
+		websocket.SentChanSize(1024), // client3压测 是1000个消息
 
 		websocket.Middleware(
 			recovery.Recovery(),

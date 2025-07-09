@@ -72,7 +72,8 @@ func (m *Manager) ThrowInto(p *player.Player) (int32, string) {
 	if p == nil {
 		return codes.PLAYER_INVALID, "PLAYER_INVALID"
 	}
-	if m.tryFindAndEnter(p, false, true) || m.tryFindAndEnter(p, false, false) {
+	if m.tryFindAndEnter(p, false, true) ||
+		m.tryFindAndEnter(p, false, false) {
 		return codes.SUCCESS, ""
 	}
 	return codes.NOT_ENOUGH_TABLE, "NOT_ENOUGH_TABLE"
