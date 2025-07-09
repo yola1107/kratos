@@ -68,7 +68,7 @@ func (s *server) SayHello2Req(ctx context.Context, in *v1.Hello2Request) (*v1.He
 func (s *server) TestPushDataByID(sessionID string) {
 	session, err := s.GetSessionByID(sessionID)
 	if err != nil {
-		log.Errorf("TestPushDataByID err:%v", err)
+		log.Warnf("TestPushDataByID err:%v", err)
 		return
 	}
 

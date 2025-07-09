@@ -46,7 +46,6 @@ type Session struct {
 	closed    atomic.Bool
 	closeOnce sync.Once
 	connMu    sync.Mutex
-	sendMu    sync.Mutex
 }
 
 func NewSession(h iHandler, conn *websocket.Conn, cfg *SessionConfig) *Session {
@@ -74,9 +73,6 @@ func (s *Session) LastActive() time.Time { return s.lastAct.Load().(time.Time) }
 func (s *Session) GetRemoteIP() string   { return s.conn.RemoteAddr().String() }
 
 func (s *Session) Send(data []byte) error {
-	s.sendMu.Lock()
-	defer s.sendMu.Unlock()
-
 	if s.Closed() {
 		return errSessionClosed
 	}
@@ -131,8 +127,7 @@ func (s *Session) readLoop() {
 		_ = s.conn.SetReadDeadline(time.Now().Add(s.config.ReadDeadline))
 		msgType, data, err := s.conn.ReadMessage()
 		if err != nil {
-			if !websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) &&
-				!isNetworkClosedError(err) {
+			if !isNetworkClosedError(err) {
 				log.Warnf("sessionID=%q read error: %v", s.id, err)
 			}
 			return
@@ -235,9 +230,7 @@ func (s *Session) Close(force bool) bool {
 		s.closed.Store(true)
 		s.cancel()
 
-		s.sendMu.Lock()
-		close(s.sendChan)
-		s.sendMu.Unlock()
+		// close(s.sendChan) 	// 避免sendChan竞争 由ctx关闭
 
 		reason := websocket.FormatCloseMessage(websocket.CloseNormalClosure, closeReason(s, force))
 
@@ -261,20 +254,25 @@ func closeReason(s *Session, force bool) string {
 	return "Normal Close"
 }
 
+// 判断错误是否为连接已关闭或断开的错误。
 func isNetworkClosedError(err error) bool {
 	if err == nil {
 		return false
 	}
 	msg := err.Error()
-	return errors.Is(err, errSessionClosed) ||
+
+	return errors.Is(err, errSessionClosed) || // 自定义的 session 已关闭错误
+		// gorilla/websocket 标准的关闭错误码，表示连接关闭流程中的正常状态
 		websocket.IsCloseError(err,
-			websocket.CloseGoingAway,
-			websocket.CloseNormalClosure,
-			websocket.CloseAbnormalClosure) ||
-		strings.Contains(msg, "broken pipe") ||
-		strings.Contains(msg, "connection reset") ||
-		strings.Contains(msg, "use of closed network") ||
-		strings.Contains(msg, "connection closed") ||
-		strings.Contains(msg, "close sent") ||
-		strings.Contains(msg, "EOF")
+			websocket.CloseGoingAway,       // 对端关闭连接，例如浏览器关闭页面
+			websocket.CloseNormalClosure,   // 正常关闭
+			websocket.CloseAbnormalClosure, // 异常关闭，但属于关闭流程
+		) ||
+		// 低层网络错误，通常为写操作时对端关闭连接导致
+		strings.Contains(msg, "broken pipe") || // 断开的管道，写时连接断开
+		strings.Contains(msg, "connection reset") || // 连接被重置，通常对端关闭
+		strings.Contains(msg, "use of closed network") || // 使用已关闭的连接
+		strings.Contains(msg, "connection closed") || // 连接关闭
+		strings.Contains(msg, "close sent") || // 已发送关闭帧
+		strings.Contains(msg, "EOF") // 读到文件末尾，连接关闭
 }
