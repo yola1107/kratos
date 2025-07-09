@@ -142,6 +142,8 @@ func (s *Session) readLoop() {
 		case websocket.PingMessage:
 			_ = s.writeControl(websocket.PongMessage, data)
 		case websocket.PongMessage:
+			// 收到Pong消息时更新活动时间
+			s.lastAct.Store(time.Now())
 		case websocket.CloseMessage:
 			return
 		default:
@@ -151,6 +153,8 @@ func (s *Session) readLoop() {
 }
 
 func (s *Session) writeLoop() {
+	defer s.Close(false) // 确保写循环退出时清理资源
+
 	for {
 		select {
 		case <-s.ctx.Done():
@@ -163,7 +167,6 @@ func (s *Session) writeLoop() {
 				if !isNetworkClosedError(err) {
 					log.Warnf("sessionID=%q write error: %v", s.id, err)
 				}
-				s.Close(true)
 				return
 			}
 		}
@@ -257,10 +260,11 @@ func isNetworkClosedError(err error) bool {
 	}
 	msg := err.Error()
 	return errors.Is(err, errSessionClosed) ||
-		strings.Contains(msg, "broken pipe") ||
-		strings.Contains(msg, "connection reset") ||
-		strings.Contains(msg, "use of closed network") ||
-		strings.Contains(msg, "connection closed") ||
-		strings.Contains(msg, "close sent") ||
-		strings.Contains(msg, "EOF")
+		websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure, websocket.CloseAbnormalClosure) ||
+		strings.Contains(msg, "broken pipe") || // 管道破裂
+		strings.Contains(msg, "connection reset") || // 连接重置
+		strings.Contains(msg, "use of closed network") || // 使用已关闭的网络连接
+		strings.Contains(msg, "connection closed") || // 连接已关闭
+		strings.Contains(msg, "close sent") || // 已发送关闭
+		strings.Contains(msg, "EOF") // 文件结束符
 }
