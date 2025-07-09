@@ -91,12 +91,13 @@ func main() {
 		websocket.WithToken(""),
 		websocket.WithPushHandler(map[int32]websocket.PushHandler{
 			int32(v1.GameCommand_SayHelloRsp):  func(data []byte) { log.Infof("PushHandler(1002). data=%v", data) },
-			int32(v1.GameCommand_SayHello2Rsp): func(data []byte) { log.Infof("PushHandler(1004). data=%v", unmarshalProtoMsg(data)) },
+			int32(v1.GameCommand_SayHello2Rsp): func(data []byte) { log.Infof("[ws] Push recv. cmd=1004 data=%v", unmarshalProtoMsg(data)) },
 		}),
 		websocket.WithResponseHandler(map[int32]websocket.ResponseHandler{
 			int32(v1.GameCommand_SayHelloReq): func(data []byte, code int32) {}, // 空
 			int32(v1.GameCommand_SayHello2Req): func(data []byte, code int32) {
-				log.Infof("respHanler(1003) code=%d data=%v", code, unmarshalProtoMsg(data))
+				log.Infof("[ws] Request recv. cmd=1003 code=%d. data=%v", code, unmarshalProtoMsg(data))
+				// log.Infof("respHanler(1003) code=%d data=%v", code, unmarshalProtoMsg(data))
 			}, // 空
 		}),
 		websocket.WithConnectFunc(func(session *websocket.Session) { log.Infof("connect called. %q", session.ID()) }),

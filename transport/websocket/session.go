@@ -46,6 +46,7 @@ type Session struct {
 	config     *SessionConfig
 	sendChan   chan []byte
 	closed     atomic.Bool
+	closeOnce  sync.Once
 	lastActive atomic.Value // time.Time
 	ctx        context.Context
 	cancel     context.CancelFunc
@@ -137,12 +138,22 @@ func (s *Session) readPump() {
 	defer s.Close(false)
 
 	for {
-		if err := s.conn.SetReadDeadline(time.Now().Add(s.config.ReadDeadline)); err != nil {
+		s.connMu.Lock()
+		conn := s.conn
+		s.connMu.Unlock()
+		if conn == nil || s.Closed() {
+			return
+		}
+
+		if err := conn.SetReadDeadline(time.Now().Add(s.config.ReadDeadline)); err != nil {
+			if strings.Contains(err.Error(), "use of closed network connection") {
+				return
+			}
 			log.Errorf("sessionID=%q set read deadline error: %v", s.id, err)
 			return
 		}
 
-		msgType, data, err := s.conn.ReadMessage()
+		msgType, data, err := conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Warnf("sessionID=%q unexpected close: %v", s.id, err)
@@ -215,24 +226,25 @@ func (s *Session) heartbeat() {
 }
 
 func (s *Session) Close(force bool) bool {
-	if !s.closed.CompareAndSwap(false, true) {
-		return false
-	}
+	closed := false
+	s.closeOnce.Do(func() {
+		closed = true
+		s.closed.Store(true)
 
-	s.closeNotify(force)
+		s.closeNotify(force)
+		s.cancel()
 
-	s.cancel()
+		s.sendMu.Lock()
+		close(s.sendChan)
+		s.sendMu.Unlock()
 
-	s.sendMu.Lock()
-	close(s.sendChan)
-	s.sendMu.Unlock()
+		s.connMu.Lock()
+		_ = s.conn.Close()
+		s.connMu.Unlock()
 
-	s.connMu.Lock()
-	_ = s.conn.Close()
-	s.connMu.Unlock()
-
-	s.h.OnSessionClose(s) // 回调处理器
-	return true
+		s.h.OnSessionClose(s)
+	})
+	return closed
 }
 
 func (s *Session) closeNotify(force bool) {
@@ -262,5 +274,26 @@ func (s *Session) writeBinaryMessage(data []byte) error {
 	if err := s.conn.SetWriteDeadline(time.Now().Add(s.config.WriteTimeout)); err != nil {
 		return err
 	}
+
+	// err := s.conn.WriteMessage(websocket.BinaryMessage, data)
+	// if err != nil {
+	// 	s.Close(true) // 自动关闭会话以避免重复写
+	// }
+	// return err
+
 	return s.conn.WriteMessage(websocket.BinaryMessage, data)
+}
+
+func (s *Session) SafeWrite(msg []byte) error {
+	if s.Closed() {
+		return errSessionClosed
+	}
+
+	s.connMu.Lock()
+	defer s.connMu.Unlock()
+	err := s.conn.WriteMessage(websocket.BinaryMessage, msg)
+	if err != nil {
+		s.Close(true)
+	}
+	return err
 }
