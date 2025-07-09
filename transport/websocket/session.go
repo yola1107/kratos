@@ -266,34 +266,16 @@ func (s *Session) writeControl(msgType int, data []byte) {
 }
 
 func (s *Session) writeBinaryMessage(data []byte) error {
-	s.connMu.Lock()
-	defer s.connMu.Unlock()
 	if s.Closed() {
 		return errSessionClosed
 	}
+
+	s.connMu.Lock()
+	defer s.connMu.Unlock()
+
 	if err := s.conn.SetWriteDeadline(time.Now().Add(s.config.WriteTimeout)); err != nil {
 		return err
 	}
 
-	// err := s.conn.WriteMessage(websocket.BinaryMessage, data)
-	// if err != nil {
-	// 	s.Close(true) // 自动关闭会话以避免重复写
-	// }
-	// return err
-
 	return s.conn.WriteMessage(websocket.BinaryMessage, data)
-}
-
-func (s *Session) SafeWrite(msg []byte) error {
-	if s.Closed() {
-		return errSessionClosed
-	}
-
-	s.connMu.Lock()
-	defer s.connMu.Unlock()
-	err := s.conn.WriteMessage(websocket.BinaryMessage, msg)
-	if err != nil {
-		s.Close(true)
-	}
-	return err
 }
