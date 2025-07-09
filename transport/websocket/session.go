@@ -128,7 +128,7 @@ func (s *Session) readLoop() {
 		msgType, data, err := s.conn.ReadMessage()
 		if err != nil {
 			if !isNetworkClosedError(err) {
-				log.Warnf("sessionID=%q read error: %v", s.id, err)
+				log.Warnf("sessionID=%q, %v", s.id, err)
 			}
 			return
 		}
@@ -163,7 +163,7 @@ func (s *Session) writeLoop() {
 			}
 			if err := s.writeMessage(websocket.BinaryMessage, msg); err != nil {
 				if !isNetworkClosedError(err) {
-					log.Warnf("sessionID=%q write error: %v", s.id, err)
+					log.Warnf("sessionID=%q, %v", s.id, err)
 				}
 				return
 			}
@@ -187,14 +187,14 @@ func (s *Session) heartbeat() {
 			}
 			if time.Since(s.LastActive()) > s.config.ReadDeadline {
 				log.Warnf("sessionID=%q heartbeat timeout", s.id)
-				s.Close(true)
+				s.Close(true, "Heartbeat Timeout")
 				return
 			}
 			if err := s.writeMessage(websocket.BinaryMessage, pingData); err != nil {
 				if !isNetworkClosedError(err) {
 					log.Errorf("sessionID=%q heartbeat write error: %v", s.id, err)
 				}
-				s.Close(true)
+				s.Close(false)
 				return
 			}
 		}
@@ -223,16 +223,17 @@ func (s *Session) writeControl(msgType int, data []byte) error {
 	return s.conn.WriteControl(msgType, data, time.Now().Add(s.config.WriteTimeout))
 }
 
-func (s *Session) Close(force bool) bool {
+func (s *Session) Close(force bool, msg ...string) bool {
 	closed := false
 	s.closeOnce.Do(func() {
 		closed = true
 		s.closed.Store(true)
 		s.cancel()
 
-		// close(s.sendChan) 	// 避免sendChan竞争 由ctx关闭
+		// 避免sendChan竞争 由ctx关闭send调用
+		// close(s.sendChan)
 
-		reason := websocket.FormatCloseMessage(websocket.CloseNormalClosure, closeReason(s, force))
+		reason := websocket.FormatCloseMessage(websocket.CloseNormalClosure, closeReason(s, force, msg...))
 
 		s.connMu.Lock()
 		_ = s.conn.WriteControl(websocket.CloseMessage, reason, time.Now().Add(s.config.WriteTimeout))
@@ -244,14 +245,15 @@ func (s *Session) Close(force bool) bool {
 	return closed
 }
 
-func closeReason(s *Session, force bool) string {
+func closeReason(s *Session, force bool, msg ...string) string {
+	reason := "Normal Close"
 	if force {
-		if time.Since(s.LastActive()) > s.config.ReadDeadline {
-			return "Force Close: Heartbeat Timeout"
-		}
-		return "Force Close"
+		reason = "Force Close"
 	}
-	return "Normal Close"
+	if len(msg) > 0 {
+		return reason + ": " + strings.Join(msg, "; ")
+	}
+	return reason
 }
 
 // 判断错误是否为连接已关闭或断开的错误。

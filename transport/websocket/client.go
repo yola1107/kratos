@@ -355,14 +355,18 @@ func (c *Client) DispatchMessage(sess *Session, data []byte) error {
 }
 
 // Close 关闭客户端及其底层连接，清理请求池
-func (c *Client) Close() {
+func (c *Client) Close(msg ...string) {
 	s := c.session
 	if s == nil {
 		return
 	}
 
+	reason := ""
+	if len(msg) > 0 {
+		reason = "client closed: " + strings.Join(msg, "; ")
+	}
 	c.session = nil
-	s.Close(true)
+	s.Close(true, reason)
 	c.reqPool.Range(func(key, value any) bool {
 		c.reqPool.Delete(key)
 		return true
