@@ -21,7 +21,7 @@ type (
 		Url      string
 		Open     bool
 		Num      int32
-		Batch    int32
+		Batch    []int32
 		Interval int32 // ms
 		StartID  int64
 		MinMoney float32

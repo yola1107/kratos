@@ -43,7 +43,7 @@ func (u *User) IsFree() bool {
 		return true
 	}
 	// 模拟断线
-	if ws := u.client.Load(); ws != nil && ext.IsHitFloat(0.2) {
+	if ws := u.client.Load(); ws != nil && ext.IsHitFloat(0.05) {
 		ws.Close()
 	}
 	return false
@@ -204,7 +204,7 @@ func (u *User) OnActionRsp(data []byte) {
 	if rsp.UserID != u.id {
 		return
 	}
-	if rsp.Action == v1.ACTION_PACK && ext.IsHitFloat(0.5) {
+	if rsp.Action == v1.ACTION_PACK && ext.IsHitFloat(0.25) {
 		u.sendLogoutReq()
 		return
 	}
@@ -219,7 +219,7 @@ func (u *User) OnResultPush(data []byte) {
 	if rsp.UserID != u.id {
 		return
 	}
-	if ext.IsHitFloat(0.5) {
+	if ext.IsHitFloat(0.15) {
 		u.sendLogoutReq()
 		return
 	}

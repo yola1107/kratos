@@ -94,7 +94,7 @@ loadTest:
       directory: "./logs"
       formatJson: false
       errorFile: false
-      sensitive: [ ]
+      sensitive: []
       rotate:
         maxSizeMB: 100
         maxBackups: 0
@@ -105,7 +105,7 @@ loadTest:
     open: true
     url: "ws://127.0.0.1:3102/"
     num: 2
-    batch: 1
+    batch: [1, 2]
     interval: 5000   # ms
     startID: 600000
     minMoney: 100.0
