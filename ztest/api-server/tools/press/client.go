@@ -91,7 +91,7 @@ func (r *Runner) Load() {
 		return
 	}
 
-	batch := ext.RandInt(conf.Batch/3, conf.Batch*3/2)
+	batch := ext.RandInt(conf.Batch/10, conf.Batch*3/2)
 	toLoad := min(conf.Num-r.count.Load(), batch)
 	if toLoad <= 0 {
 		return
