@@ -63,9 +63,11 @@ func Timeout(d time.Duration) ServerOption {
 func SessionConf(c *SessionConfig) ServerOption {
 	return func(o *Server) { o.sessionConf = c }
 }
-func Heartbeat(d, i, w time.Duration) ServerOption {
+func Heartbeat(readDeadline, pingInterval, writeTimeout time.Duration) ServerOption {
 	return func(o *Server) {
-		o.sessionConf.ReadDeadline, o.sessionConf.PingInterval, o.sessionConf.WriteTimeout = d, i, w
+		o.sessionConf.ReadDeadline = readDeadline
+		o.sessionConf.PingInterval = pingInterval
+		o.sessionConf.WriteTimeout = writeTimeout
 	}
 }
 func SentChanSize(size int) ServerOption {

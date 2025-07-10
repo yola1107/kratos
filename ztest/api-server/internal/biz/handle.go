@@ -200,7 +200,7 @@ func (uc *Usecase) Disconnect(session *websocket.Session) {
 
 	t := uc.tm.GetTable(p.GetTableID())
 	if t == nil {
-		uc.LogoutGame(p, codes.TABLE_NOT_FOUND, "disconnect by table not find ")
+		uc.LogoutGame(p, codes.TABLE_NOT_FOUND, "logout by table not find ")
 		return
 	}
 

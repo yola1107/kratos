@@ -43,7 +43,7 @@ func (u *User) IsFree() bool {
 		return true
 	}
 	// 模拟断线
-	if ws := u.client.Load(); ws != nil && ext.IsHitFloat(0.01) {
+	if ws := u.client.Load(); ws != nil && ext.IsHitFloat(0.03) {
 		ws.Close()
 	}
 	return false
@@ -55,6 +55,7 @@ func (u *User) Release() {
 		return
 	}
 	client.Close()
+	client = nil
 	u.client.Store(nil)
 }
 
@@ -138,6 +139,7 @@ func (u *User) OnConnect(session *websocket.Session) {
 func (u *User) OnDisconnect(session *websocket.Session) {
 	log.Debugf("disconnect called. uid=%d %q ", u.id, session.ID())
 	u.logout.Store(true)
+	u.Release()
 }
 
 func (u *User) Request(cmd v1.GameCommand, msg gproto.Message) {
@@ -245,4 +247,5 @@ func (u *User) OnLogoutRsp(data []byte) {
 	}
 	u.chair.Store(-1)
 	u.logout.Store(true)
+	u.Release()
 }

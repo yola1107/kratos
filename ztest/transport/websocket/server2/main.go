@@ -48,7 +48,13 @@ func (s *server) OnSessionOpen(session *websocket.Session) {
 // OnSessionClose 连接关闭回调
 func (s *server) OnSessionClose(session *websocket.Session) {
 	// log.Infof("[ws] DisConnectFunc callback. key=%q", session.ID())
-	s.sessionsMap.Delete(session.ID())
+	if session != nil {
+		if !session.Closed() {
+			session.Close(true)
+			log.Debugf("close session %s.", session.ID())
+		}
+		s.sessionsMap.Delete(session.ID())
+	}
 }
 
 func (s *server) SayHelloReq(ctx context.Context, in *v1.HelloRequest) (*v1.HelloReply, error) {

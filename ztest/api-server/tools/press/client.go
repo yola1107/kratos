@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/library/log/zap"
 	"github.com/yola1107/kratos/v2/library/work"
 	"github.com/yola1107/kratos/v2/log"
@@ -90,7 +91,8 @@ func (r *Runner) Load() {
 		return
 	}
 
-	toLoad := min(conf.Num-r.count.Load(), conf.Batch)
+	batch := ext.RandInt(conf.Batch/3, conf.Batch*3/2)
+	toLoad := min(conf.Num-r.count.Load(), batch)
 	if toLoad <= 0 {
 		return
 	}
