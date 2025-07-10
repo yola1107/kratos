@@ -18,14 +18,16 @@ type (
 		Press Press
 	}
 	Press struct {
-		Url      string
-		Open     bool
-		Num      int32
-		Batch    []int32
-		Interval int32 // ms
-		StartID  int64
-		MinMoney float32
-		MaxMoney float32
+		Url         string
+		Open        bool
+		Num         int32
+		Batch       []int32
+		Interval    int32 // ms
+		StartID     int64
+		MinMoney    float64
+		MaxMoney    float64
+		LogoutRate  float64
+		OfflineRate float64
 	}
 )
 

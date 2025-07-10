@@ -18,6 +18,7 @@ type Repo interface {
 	GetTimer() work.ITaskScheduler
 	GetLoop() work.ITaskLoop
 	GetContext() context.Context
+	GetConfig() Press
 	GetUrl() string
 }
 
@@ -43,7 +44,7 @@ func (u *User) IsFree() bool {
 		return true
 	}
 	// 模拟断线
-	if ws := u.client.Load(); ws != nil && ext.IsHitFloat(0.05) {
+	if ws := u.client.Load(); ws != nil && ext.IsHitFloat(u.repo.GetConfig().OfflineRate) {
 		ws.Close()
 	}
 	return false
@@ -204,7 +205,7 @@ func (u *User) OnActionRsp(data []byte) {
 	if rsp.UserID != u.id {
 		return
 	}
-	if rsp.Action == v1.ACTION_PACK && ext.IsHitFloat(0.25) {
+	if rsp.Action == v1.ACTION_PACK && ext.IsHitFloat(u.repo.GetConfig().LogoutRate) {
 		u.sendLogoutReq()
 		return
 	}
@@ -219,7 +220,7 @@ func (u *User) OnResultPush(data []byte) {
 	if rsp.UserID != u.id {
 		return
 	}
-	if ext.IsHitFloat(0.15) {
+	if ext.IsHitFloat(u.repo.GetConfig().LogoutRate) {
 		u.sendLogoutReq()
 		return
 	}

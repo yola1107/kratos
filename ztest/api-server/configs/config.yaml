@@ -110,3 +110,6 @@ loadTest:
     startID: 600000
     minMoney: 100.0
     maxMoney: 10000.0
+    logoutRate: 0.15
+    offlineRate: 0.05
+

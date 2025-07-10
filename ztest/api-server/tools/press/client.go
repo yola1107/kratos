@@ -61,6 +61,10 @@ func (r *Runner) GetUrl() string {
 	return r.conf.Press.Url
 }
 
+func (r *Runner) GetConfig() Press {
+	return r.conf.Press
+}
+
 func (r *Runner) Start() {
 	if err := r.loop.Start(); err != nil {
 		panic(err)
