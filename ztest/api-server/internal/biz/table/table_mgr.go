@@ -3,8 +3,6 @@ package table
 import (
 	"sync"
 
-	"github.com/yola1107/kratos/v2/errors"
-	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
 	"github.com/yola1107/kratos/v2/ztest/api-server/pkg/codes"
@@ -24,164 +22,163 @@ type Manager struct {
 }
 
 func NewManager(c *conf.Room, repo Repo) *Manager {
-	tc := c.Table
-	mgr := &Manager{
-		repo: repo,
+	m := &Manager{repo: repo}
+	for i := int32(1); i <= c.Table.TableNum; i++ {
+		m.tableMap.Store(i, NewTable(i, Normal, c, repo))
 	}
-	for i := int32(1); i <= tc.TableNum; i++ {
-		tb := NewTable(i, Normal, c, repo)
-		mgr.tableMap.Store(tb.ID, tb)
-	}
-	return mgr
+	return m
 }
 
-func (m *Manager) Start() error {
+func (m *Manager) Start() error { return nil }
+func (m *Manager) Close()       {}
+
+func (m *Manager) GetTable(id int32) *Table {
+	if v, ok := m.tableMap.Load(id); ok {
+		return v.(*Table)
+	}
 	return nil
-}
-
-func (m *Manager) Close() {
-	return
 }
 
 func (m *Manager) GetTableList() []*Table {
 	return m.GetTableListWith(All)
 }
 
-func (m *Manager) GetTableListWith(kinds KindTableList) []*Table {
+func (m *Manager) GetTableListWith(kind KindTableList) []*Table {
 	tc := m.repo.GetRoomConfig().GetTable()
-
-	tableList := make([]*Table, 0)
+	tables := make([]*Table, 0, tc.TableNum)
 	for i := int32(1); i <= tc.TableNum; i++ {
 		t := m.GetTable(i)
 		if t == nil {
 			continue
 		}
-		if kinds == NoEmpty && !t.Empty() {
-			tableList = append(tableList, t)
+		switch kind {
+		case NoEmpty:
+			if !t.Empty() {
+				tables = append(tables, t)
+			}
+		case NoFull:
+			if !t.IsFull() {
+				tables = append(tables, t)
+			}
+		case All:
+			tables = append(tables, t)
 		}
-		if kinds == NoFull && !t.IsFull() {
-			tableList = append(tableList, t)
-		}
-		if kinds == All {
-			tableList = append(tableList, t)
-		}
 	}
-	return tableList
-}
-
-// GetTable 根据桌子ID获取桌子
-func (m *Manager) GetTable(id int32) *Table {
-	if table, ok := m.tableMap.Load(id); ok {
-		return table.(*Table)
-	}
-	return nil
-}
-
-// SwitchTable 玩家请求换桌
-func (m *Manager) SwitchTable(p *player.Player, gameConf *conf.Room_Game) *errors.Error {
-	if p == nil {
-		return codes.ErrPlayerNotFound
-	}
-
-	if err := CheckRoomLimit(p, gameConf); err != nil {
-		return err
-	}
-
-	oldTable := m.GetTable(p.GetTableID())
-	if oldTable == nil {
-		return codes.ErrTableNotFound
-	}
-
-	if !oldTable.CanSwitchTable(p) {
-		return codes.ErrSwitchTable
-	}
-
-	newTable := m.selectBestTable(p, true)
-	if newTable == nil {
-		return codes.ErrNotEnoughTable
-	}
-
-	if !oldTable.ThrowOff(p, true) {
-		return codes.ErrExitTableFail
-	}
-
-	if !newTable.ThrowInto(p) {
-		return codes.ErrEnterTableFail
-	}
-
-	return nil
+	return tables
 }
 
 // ThrowInto 尝试将玩家放入合适桌子
-func (m *Manager) ThrowInto(p *player.Player) bool {
+func (m *Manager) ThrowInto(p *player.Player) (int32, string) {
 	if p == nil {
-		return false
+		return codes.PLAYER_INVALID, "PLAYER_INVALID"
 	}
-
-	bestTable := m.selectBestTable(p, false)
-	if bestTable == nil {
-		return false
+	if m.tryFindAndEnter(p, false, true) ||
+		m.tryFindAndEnter(p, false, false) {
+		return codes.SUCCESS, ""
 	}
-
-	return bestTable.ThrowInto(p)
+	return codes.NOT_ENOUGH_TABLE, "NOT_ENOUGH_TABLE"
 }
 
-// selectBestTable 获取最合适的桌子，isSwitch表示是否为换桌请求
-func (m *Manager) selectBestTable(p *player.Player, isSwitch bool) *Table {
-	var best *Table
-	oldTableID := p.GetTableID()
-
-	notFull := m.GetTableListWith(NoFull)
-	for _, t := range notFull {
-		if t == nil || t.IsFull() || !t.CanEnter(p) {
-			continue
-		}
-		if isSwitch && t.ID == oldTableID {
-			continue
-		}
-		// 选座人数多的桌子（有玩家的桌子优先）
-		if best != nil && t.GetSitCnt() <= best.GetSitCnt() {
-			continue
-		}
-		best = t
+// SwitchTable 玩家请求换桌
+func (m *Manager) SwitchTable(p *player.Player, conf *conf.Room_Game) (int32, string) {
+	if p == nil {
+		return codes.PLAYER_INVALID, "PLAYER_INVALID"
 	}
 
-	if best == nil {
-		log.Warnf("No available table found for player ID: %d", p.GetPlayerID())
+	if code, msg := CheckRoomLimit(p, conf); code != codes.SUCCESS {
+		return code, msg
 	}
 
-	return best
+	old := m.GetTable(p.GetTableID())
+	if old == nil {
+		return codes.TABLE_NOT_FOUND, "TABLE_NOT_FOUND"
+	}
+	if !old.CanSwitchTable(p) {
+		return codes.SWITCH_TABLE, "SWITCH_TABLE"
+	}
+	if !old.ThrowOff(p, true) {
+		return codes.EXIT_TABLE_FAIL, "EXIT_TABLE_FAIL"
+	}
+
+	if m.tryFindAndEnter(p, true, true) ||
+		m.tryFindAndEnter(p, true, false) {
+		return codes.SUCCESS, ""
+	}
+
+	return codes.ENTER_TABLE_FAIL, "ENTER_TABLE_FAIL"
 }
 
 // CanEnterRoom 判断玩家是否满足进入房间条件
-func (m *Manager) CanEnterRoom(p *player.Player, token string, gameConf *conf.Room_Game) *errors.Error {
+func (m *Manager) CanEnterRoom(p *player.Player, token string, conf *conf.Room_Game) (int32, string) {
 	if p == nil {
-		return codes.ErrPlayerNotFound
+		return codes.PLAYER_NOT_FOUND, "PLAYER_NOT_FOUND"
 	}
-
 	if token == "" {
-		return codes.ErrTokenFail
+		return codes.TOKEN_FAIL, "TOKEN_FAIL"
 	}
-
-	return CheckRoomLimit(p, gameConf)
+	return CheckRoomLimit(p, conf)
 }
 
-// CheckRoomLimit 校验玩家的金币、VIP等级是否符合房间限制
-func CheckRoomLimit(p *player.Player, gameConf *conf.Room_Game) *errors.Error {
-	money := p.GetAllMoney()
-	vip := p.GetVipGrade()
-
-	if money < gameConf.MinMoney {
-		return codes.ErrMoneyBelowMinLimit
+// CheckRoomLimit 校验金币/VIP是否符合房间限制
+func CheckRoomLimit(p *player.Player, conf *conf.Room_Game) (int32, string) {
+	money, vip := p.GetAllMoney(), p.GetVipGrade()
+	if money < conf.MinMoney {
+		return codes.MONEY_BELOW_MIN_LIMIT, "MONEY_BELOW_MIN_LIMIT"
 	}
-	if gameConf.MaxMoney != -1 && money > gameConf.MaxMoney {
-		return codes.ErrMoneyOverMaxLimit
+	if conf.MaxMoney != -1 && money > conf.MaxMoney {
+		return codes.MONEY_OVER_MAX_LIMIT, "MONEY_OVER_MAX_LIMIT"
 	}
-	if money < gameConf.BaseMoney {
-		return codes.ErrMoneyBelowBaseLimit
+	if money < conf.BaseMoney {
+		return codes.MONEY_BELOW_BASE_LIMIT, "MONEY_BELOW_BASE_LIMIT"
 	}
-	if vip < gameConf.VipLimit {
-		return codes.ErrVipLimit
+	if vip < conf.VipLimit {
+		return codes.VIP_LIMIT, "VIP_LIMIT"
 	}
-	return nil
+	return codes.SUCCESS, ""
 }
+
+func (m *Manager) tryFindAndEnter(p *player.Player, isSwitch, preferFew bool) bool {
+	oldID := p.GetTableID()
+	tc := m.repo.GetRoomConfig().GetTable()
+	for i := int32(1); i <= tc.TableNum; i++ {
+		t := m.GetTable(i)
+		if t == nil || t.IsFull() || !t.CanEnter(p) || (isSwitch && t.ID == oldID) {
+			continue
+		}
+		if preferFew && t.sitCnt > 1 {
+			continue
+		}
+		if t.ThrowInto(p) {
+			return true
+		}
+	}
+	return false
+}
+
+// // 遍历桌子尝试进入，成功返回 true
+// func (m *Manager) tryFindAndEnter(p *player.Player, isSwitch, preferFew bool) bool {
+// 	oldID := p.GetTableID()
+// 	found := false
+// 	m.rangeTables(func(t *Table) {
+// 		if found || t.IsFull() || !t.CanEnter(p) || (isSwitch && t.ID == oldID) {
+// 			return
+// 		}
+// 		if preferFew && t.sitCnt > 1 {
+// 			return
+// 		}
+// 		if t.ThrowInto(p) {
+// 			found = true
+// 		}
+// 	})
+// 	return found
+// }
+//
+// // 遍历桌子执行操作
+// func (m *Manager) rangeTables(f func(t *Table)) {
+// 	tc := m.repo.GetRoomConfig().GetTable()
+// 	for i := int32(1); i <= tc.TableNum; i++ {
+// 		if t := m.GetTable(i); t != nil {
+// 			f(t)
+// 		}
+// 	}
+// }

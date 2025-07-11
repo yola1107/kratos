@@ -1,6 +1,8 @@
 package data
 
 import (
+	"context"
+
 	"github.com/google/wire"
 	"github.com/redis/go-redis/v9"
 	kredis "github.com/yola1107/kratos/v2/library/db/redis"
@@ -49,9 +51,9 @@ func NewRedis(c *conf.Data) *redis.Client {
 		kredis.WithPassword(c.Redis.Password),
 		kredis.WithDB(int(c.Redis.Db)),
 	)
-	// // 测试连接
-	// if err := rdb.Ping(context.Background()).Err(); err != nil {
-	// 	panic("failed to connect to Redis: " + err.Error())
-	// }
+	// 测试连接
+	if err := rdb.Ping(context.Background()).Err(); err != nil {
+		panic("failed to connect to Redis: " + err.Error())
+	}
 	return rdb
 }

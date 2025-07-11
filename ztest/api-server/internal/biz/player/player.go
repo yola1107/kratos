@@ -1,11 +1,11 @@
 package player
 
 import (
-	"github.com/golang/protobuf/proto"
-	"github.com/yola1107/kratos/v2/errors"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/transport/websocket"
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
+	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
+	"google.golang.org/protobuf/proto"
 )
 
 type Player struct {
@@ -30,6 +30,10 @@ func New(raw *Raw) *Player {
 		baseData: raw.BaseData,
 	}
 	return p
+}
+
+func (p *Player) SetBaseData(baseData *BaseData) {
+	p.baseData = baseData
 }
 
 func (p *Player) GetBaseData() *BaseData {
@@ -65,10 +69,16 @@ func (p *Player) GetIP() string {
 func (p *Player) LogoutGame(code int32, msg string) {
 	// 通知客户端退出
 	p.SendLogout(code, msg)
-	// clear
+
+	// clean
+	// session := p.session
+	// if session != nil && !session.Closed() {
+	// 	session.Close(true)
+	// 	session = nil
+	// }
 	p.session = nil
-	p.gameData = nil
-	p.baseData = nil
+	p.gameData = &GameData{}
+	p.baseData = &BaseData{}
 }
 
 func (p *Player) push(cmd v1.GameCommand, msg proto.Message) {
@@ -86,13 +96,23 @@ func (p *Player) push(cmd v1.GameCommand, msg proto.Message) {
 	}
 }
 
-func (p *Player) SendSwitchTableRsp(e *errors.Error) {
+func (p *Player) SendLoginRsp(code int32, msg string) {
 	if p == nil {
 		return
 	}
-	code, msg := int32(0), ""
-	if e != nil {
-		code, msg = e.Code, e.Message
+	p.push(v1.GameCommand_OnLoginRsp, &v1.LoginRsp{
+		Code:    code,
+		Msg:     msg,
+		UserID:  p.GetPlayerID(),
+		TableID: p.GetTableID(),
+		ChairID: p.GetChairID(),
+		ArenaID: int32(conf.ArenaID),
+	})
+}
+
+func (p *Player) SendSwitchTableRsp(code int32, msg string) {
+	if p == nil {
+		return
 	}
 	p.push(v1.GameCommand_OnSwitchTableRsp, &v1.SwitchTableRsp{
 		Code:   code,
@@ -105,7 +125,7 @@ func (p *Player) SendLogout(code int32, msg string) {
 	if p == nil {
 		return
 	}
-	p.push(v1.GameCommand_OnLogoutRsp, &v1.SwitchTableRsp{
+	p.push(v1.GameCommand_OnLogoutRsp, &v1.LogoutRsp{
 		Code:   code,
 		Msg:    msg,
 		UserID: p.GetPlayerID(),

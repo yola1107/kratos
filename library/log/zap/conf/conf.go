@@ -9,7 +9,7 @@ const (
 	TelegramChatIDKey = "LOG_TG_CHAT_ID"
 )
 
-func DefaultConfig(opts ...Option) *Bootstrap {
+func DefaultConfig(opts ...Option) *Log {
 	c := &Log{
 		Logger: &Logger{
 			Mode:       MODE_DEV,
@@ -42,9 +42,7 @@ func DefaultConfig(opts ...Option) *Bootstrap {
 		opt(c)
 	}
 
-	return &Bootstrap{
-		Log: c,
-	}
+	return c
 }
 
 type Option func(*Log)

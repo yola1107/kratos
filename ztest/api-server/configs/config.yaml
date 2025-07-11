@@ -19,6 +19,7 @@ data:
 #    addr: 192.168.131.137:6379
     addr: 127.0.0.1:6379
     password: ""
+    db: 0
 
 log:
   telegram:
@@ -62,7 +63,7 @@ room:
     speaker_card_type: 2
     high_strength_rate: 30
   robot:
-    open: true
+    open: false
     num: 5
     table_max_count: 4
     min_play_count: 3        # 预留n个AI自己玩游戏
@@ -73,4 +74,42 @@ room:
     stand_max_money: 8000.0
     reserveN: 1                # 预留N桌AI自己玩游戏  (废弃)
   logCache:
+    open: false
+
+
+# 客户端压测配置
+loadTest:
+  log:
+    telegram:
+      chatID: "-4672893880"
+      token: "7945687310:AAHA9tkUPV1ELEsVSLoDZe_Cc76wp7YdDVI"
+    alerter:
+      enabled: true
+      prefix: "api-client"                   # 告警消息前缀，用于标识服务名
+      format: html                           # 默认html格式，可选json格式
+    logger:
+      mode: 1                                # 0:dev 1:prod
+      level: debug                           # 日志级别 "debug", "info", "warn", "error"
+      appName: "api-client"
+      directory: "./logs"
+      formatJson: false
+      errorFile: false
+      sensitive: []
+      rotate:
+        maxSizeMB: 100
+        maxBackups: 0
+        maxAgeDays: 7
+        compress: true
+        localTime: true
+  press:
     open: true
+    url: "ws://127.0.0.1:3102/"
+    num: 2
+    batch: [1, 2]
+    interval: 5000   # ms
+    startID: 600000
+    minMoney: 100.0
+    maxMoney: 10000.0
+    logoutRate: 0.15
+    offlineRate: 0.05
+

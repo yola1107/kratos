@@ -850,7 +850,7 @@ type Room_Robot struct {
 	MinMoney      float64                `protobuf:"fixed64,6,opt,name=min_money,json=minMoney,proto3" json:"min_money,omitempty"`
 	MaxMoney      float64                `protobuf:"fixed64,7,opt,name=max_money,json=maxMoney,proto3" json:"max_money,omitempty"`
 	StandMinMoney float64                `protobuf:"fixed64,8,opt,name=stand_min_money,json=standMinMoney,proto3" json:"stand_min_money,omitempty"`
-	StandMaxMoney float64                `protobuf:"fixed64,9,opt,name=stand_max_money,json=standMaxMoney,proto3" json:"stand_max_money,omitempty"` //        int32 reserveN         = 10;  // 预留N桌AI自己玩游戏 (废弃)
+	StandMaxMoney float64                `protobuf:"fixed64,9,opt,name=stand_max_money,json=standMaxMoney,proto3" json:"stand_max_money,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/yola1107/kratos/v2/library/work"
-	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/transport/websocket"
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
 )
@@ -16,12 +15,12 @@ func (s *Service) GetLoop() work.ITaskLoop {
 
 // OnSessionOpen 连接建立回调
 func (s *Service) OnSessionOpen(sess *websocket.Session) {
-	log.Infof("OnOpenFunc: %q", sess.ID())
+	// log.Debugf("OnOpenFunc: %q", sess.ID())
 }
 
 // OnSessionClose 连接关闭回调
 func (s *Service) OnSessionClose(sess *websocket.Session) {
-	log.Infof("OnCloseFunc: %q", sess.ID())
+	// log.Debugf("OnCloseFunc: %q", sess.ID())
 	s.uc.Disconnect(sess)
 }
 
@@ -43,8 +42,8 @@ func (s *Service) OnLoginReq(ctx context.Context, in *v1.LoginReq) (*v1.LoginRsp
 
 func (s *Service) OnLogoutReq(ctx context.Context, in *v1.LogoutReq) (*v1.LogoutRsp, error) {
 	rs := s.uc.Swapper(ctx)
-	if rs.Error != nil {
-		return nil, rs.Error
+	if rs.Code != 0 {
+		return nil, nil
 	}
 
 	rs.Table.OnExitGame(rs.Player, 0, "success")
@@ -53,8 +52,8 @@ func (s *Service) OnLogoutReq(ctx context.Context, in *v1.LogoutReq) (*v1.Logout
 
 func (s *Service) OnReadyReq(ctx context.Context, in *v1.ReadyReq) (*v1.ReadyRsp, error) {
 	rs := s.uc.Swapper(ctx)
-	if rs.Error != nil {
-		return nil, rs.Error
+	if rs.Code != 0 {
+		return nil, nil
 	}
 	rs.Table.OnReadyReq(rs.Player, in.IsReady)
 	return &v1.ReadyRsp{}, nil
@@ -62,8 +61,8 @@ func (s *Service) OnReadyReq(ctx context.Context, in *v1.ReadyReq) (*v1.ReadyRsp
 
 func (s *Service) OnSwitchTableReq(ctx context.Context, in *v1.SwitchTableReq) (*v1.SwitchTableRsp, error) {
 	rs := s.uc.Swapper(ctx)
-	if rs.Error != nil {
-		return nil, rs.Error
+	if rs.Code != 0 {
+		return nil, nil
 	}
 
 	s.uc.OnSwitchTableReq(rs)
@@ -72,8 +71,8 @@ func (s *Service) OnSwitchTableReq(ctx context.Context, in *v1.SwitchTableReq) (
 
 func (s *Service) OnSceneReq(ctx context.Context, in *v1.SceneReq) (*v1.SceneRsp, error) {
 	rs := s.uc.Swapper(ctx)
-	if rs.Error != nil {
-		return nil, rs.Error
+	if rs.Code != 0 {
+		return nil, nil
 	}
 
 	rs.Table.OnSceneReq(rs.Player, true)
@@ -82,8 +81,8 @@ func (s *Service) OnSceneReq(ctx context.Context, in *v1.SceneReq) (*v1.SceneRsp
 
 func (s *Service) OnChatReq(ctx context.Context, in *v1.ChatReq) (*v1.ChatRsp, error) {
 	rs := s.uc.Swapper(ctx)
-	if rs.Error != nil {
-		return nil, rs.Error
+	if rs.Code != 0 {
+		return nil, nil
 	}
 	rs.Table.OnChatReq(rs.Player, in)
 	return &v1.ChatRsp{}, nil
@@ -91,8 +90,8 @@ func (s *Service) OnChatReq(ctx context.Context, in *v1.ChatReq) (*v1.ChatRsp, e
 
 func (s *Service) OnHostingReq(ctx context.Context, in *v1.HostingReq) (*v1.HostingRsp, error) {
 	rs := s.uc.Swapper(ctx)
-	if rs.Error != nil {
-		return nil, rs.Error
+	if rs.Code != 0 {
+		return nil, nil
 	}
 	rs.Table.OnHosting(rs.Player, in.IsHosting)
 	return &v1.HostingRsp{}, nil
@@ -100,8 +99,8 @@ func (s *Service) OnHostingReq(ctx context.Context, in *v1.HostingReq) (*v1.Host
 
 func (s *Service) OnForwardReq(ctx context.Context, in *v1.ForwardReq) (*v1.ForwardRsp, error) {
 	rs := s.uc.Swapper(ctx)
-	if rs.Error != nil {
-		return nil, rs.Error
+	if rs.Code != 0 {
+		return nil, nil
 	}
 
 	rs.Table.BroadcastForwardRsp(in.Type, in.Msg)
@@ -110,8 +109,8 @@ func (s *Service) OnForwardReq(ctx context.Context, in *v1.ForwardReq) (*v1.Forw
 
 func (s *Service) OnActionReq(ctx context.Context, in *v1.ActionReq) (*v1.ActionRsp, error) {
 	rs := s.uc.Swapper(ctx)
-	if rs.Error != nil {
-		return nil, rs.Error
+	if rs.Code != 0 {
+		return nil, nil
 	}
 	rs.Table.OnActionReq(rs.Player, in, false)
 	return &v1.ActionRsp{}, nil
@@ -119,8 +118,8 @@ func (s *Service) OnActionReq(ctx context.Context, in *v1.ActionReq) (*v1.Action
 
 func (s *Service) OnAutoCallReq(ctx context.Context, in *v1.AutoCallReq) (*v1.AutoCallRsp, error) {
 	rs := s.uc.Swapper(ctx)
-	if rs.Error != nil {
-		return nil, rs.Error
+	if rs.Code != 0 {
+		return nil, nil
 	}
 
 	rs.Table.OnAutoCallReq(rs.Player, in.AutoCall)

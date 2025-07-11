@@ -4,6 +4,10 @@ import (
 	"sync"
 )
 
+type Monitor struct {
+	Num     int64
+	Offline int64
+}
 type Manager struct {
 	players sync.Map // key: playerID, value: *Player
 }
@@ -69,15 +73,18 @@ func (m *Manager) Count() int {
 	return count
 }
 
-func (m *Manager) Counter() (all, offline int64) {
+func (m *Manager) Monitor() Monitor {
+	var all, offline int64
 	m.players.Range(func(_, value interface{}) bool {
 		all++
 		p := value.(*Player)
 		if p != nil && p.gameData != nil && p.gameData.isOffline {
 			offline++
 		}
-
 		return true
 	})
-	return
+	return Monitor{
+		Num:     all,
+		Offline: offline,
+	}
 }

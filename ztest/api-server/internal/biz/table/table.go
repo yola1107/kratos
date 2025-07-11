@@ -3,7 +3,6 @@ package table
 import (
 	"fmt"
 
-	"github.com/yola1107/kratos/v2/errors"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
@@ -327,21 +326,26 @@ func (t *Table) checkKick() {
 		if p == nil {
 			continue
 		}
-		if err, shouldKick := shouldKickPlayer(p, t.repo.GetRoomConfig().Game); shouldKick {
-			t.OnExitGame(p, err.Code, err.Message)
+		if code, msg := t.checkKickPlayer(p, t.repo.GetRoomConfig().Game); code != 0 {
+			t.OnExitGame(p, code, msg)
 		}
 	}
 }
 
-func shouldKickPlayer(p *player.Player, conf *conf.Room_Game) (*errors.Error, bool) {
-	if p.IsRobot() {
-		return nil, false
+func (t *Table) checkKickPlayer(p *player.Player, conf *conf.Room_Game) (int32, string) {
+	switch t.stage.GetState() {
+	case StWait:
+		if p.IsOffline() {
+			return codes.KICK_BY_BROKE, "KICK_BY_BROKE"
+		}
+		if code, msg := CheckRoomLimit(p, conf); code != 0 {
+			return code, msg
+		}
+	case StWaitEnd:
+		if p.IsOffline() {
+			return codes.KICK_BY_BROKE, "KICK_BY_BROKE"
+		}
+	default:
 	}
-	if p.IsOffline() {
-		return codes.ErrKickByBroke, true
-	}
-	if err := CheckRoomLimit(p, conf); err != nil {
-		return err, true
-	}
-	return nil, false
+	return 0, ""
 }

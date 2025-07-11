@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	gproto "github.com/golang/protobuf/proto"
 	"github.com/yola1107/kratos/v2/internal/endpoint"
 	"github.com/yola1107/kratos/v2/internal/host"
 	"github.com/yola1107/kratos/v2/internal/matcher"
@@ -27,6 +26,7 @@ import (
 	"github.com/zhenjl/cityhash"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	gproto "google.golang.org/protobuf/proto"
 )
 
 var (

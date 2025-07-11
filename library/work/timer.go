@@ -18,8 +18,9 @@ const (
 )
 
 type ITaskScheduler interface {
-	Len() int       // 当前注册的任务数量
-	Running() int32 // 当前执行中的任务数
+	Len() int         // 当前注册的任务数量
+	Running() int32   // 当前执行中的任务数
+	Monitor() Monitor //
 	Once(delay time.Duration, f func()) int64
 	Forever(interval time.Duration, f func()) int64
 	ForeverNow(interval time.Duration, f func()) int64
@@ -31,6 +32,12 @@ type ITaskScheduler interface {
 // ITaskExecutor 自定义执行器接口，支持线程池等
 type ITaskExecutor interface {
 	Post(job func())
+}
+
+// Monitor 任务池当前状态
+type Monitor struct {
+	Len     int   // 当前注册的任务数量
+	Running int32 // 当前执行中的任务数
 }
 
 // preciseEvery 实现精准的周期性定时器，防止时间漂移
@@ -55,14 +62,6 @@ func (p *preciseEvery) Next(t time.Time) time.Time {
 	}
 	p.last.Store(next)
 	return next
-}
-
-type taskEntry struct {
-	timer     *timingwheel.Timer
-	cancelled atomic.Bool
-	repeated  bool
-	executing atomic.Bool
-	task      func()
 }
 
 type SchedulerOption func(*Scheduler)
@@ -100,6 +99,14 @@ type Scheduler struct {
 	once   sync.Once
 }
 
+type taskEntry struct {
+	timer     *timingwheel.Timer
+	cancelled atomic.Bool
+	repeated  bool
+	executing atomic.Bool
+	task      func()
+}
+
 func NewTaskScheduler(opts ...SchedulerOption) ITaskScheduler {
 	s := &Scheduler{
 		tick:      defaultTickPrecision,
@@ -131,6 +138,15 @@ func (s *Scheduler) Len() int {
 
 func (s *Scheduler) Running() int32 {
 	return s.running.Load()
+}
+
+func (s *Scheduler) Monitor() Monitor {
+	count := s.Len()
+	running := s.Running()
+	return Monitor{
+		Len:     count,
+		Running: running,
+	}
 }
 
 func (s *Scheduler) Once(delay time.Duration, f func()) int64 {
@@ -259,8 +275,9 @@ func (s *Scheduler) lazy(taskID int64, delay time.Duration, startAt, execAt, wra
 	latency := lazy - delay
 
 	if latency >= s.tick {
+		exec, wrapped := now.Sub(execAt), now.Sub(wrappedAt)
 		log.Errorf("[scheduler] taskID=%d delay=%v precision=%v lazy=%v latency=%v exec=%+v wrap=%+v",
-			taskID, delay, s.tick, lazy, latency, now.Sub(execAt), now.Sub(wrappedAt),
+			taskID, delay, s.tick, lazy, latency, exec, wrapped-exec,
 		)
 	}
 }

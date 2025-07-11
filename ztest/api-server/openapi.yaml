@@ -405,6 +405,8 @@ components:
                     format: int32
                 msg:
                     type: string
+                UserID:
+                    type: string
         helloworld.v1.PlayerScene:
             type: object
             properties:

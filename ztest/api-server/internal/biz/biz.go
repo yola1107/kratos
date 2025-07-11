@@ -26,7 +26,7 @@ var _ robot.Repo = (*Usecase)(nil)
 // 任务线程池容量
 var defaultPendingNum = 10000
 
-var defaultStatusInterval = 30 * time.Second
+var defaultStatusInterval = 15 * time.Second
 
 // DataRepo is a data repo.
 type DataRepo interface {
@@ -87,14 +87,10 @@ func (uc *Usecase) start() error {
 }
 
 func (uc *Usecase) post() {
-	timers, running := uc.timer.Len(), uc.timer.Running()
-	loops := uc.loop.Status()
-	all, offline := uc.pm.Counter()
-	aiAll, aiFree, aiGaming := uc.rm.Counter()
+	timers := uc.timer.Monitor()
+	loops := uc.loop.Monitor()
+	ps := uc.pm.Monitor()
+	ai := uc.rm.Monitor()
 
-	log.Infof("[Counter]")
-	log.Infof("[Counter]<Timer> Count=%d Running=%d", timers, running)
-	log.Infof("[Counter]<Loop> Capacity=%d, Running=%d, Free=%d ", loops.Capacity, loops.Running, loops.Free)
-	log.Infof("[Counter]<Player> Total=%d Offline=%d ", all, offline)
-	log.Infof("[Counter]<AI> MaxNum:%d Total=%d Free=%d Gaming=%d", uc.rc.Robot.Num, aiAll, aiFree, aiGaming)
+	log.Infof("[monitor] [server] loop=%+v timer=%+v player=%+v AI=%+v", loops, timers, ps, ai)
 }

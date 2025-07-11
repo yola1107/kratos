@@ -22,6 +22,9 @@ var (
 	batch    = flag.Int("b", 100, "Connections per batch")
 )
 
+// GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o client main.go
+// ./client -url "ws://127.0.0.1:3102/" -c 10000 -n 1000 -b 100
+
 func main() {
 	flag.Parse()
 

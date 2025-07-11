@@ -9,7 +9,7 @@ import (
 )
 
 // wireLogger init kratos logger application.
-func wireLogger(c *conf.Bootstrap) *Logger {
+func wireLogger(c *conf.Log) *Logger {
 	panic(wire.Build(providerSet, serviceSet))
 }
 
@@ -19,6 +19,6 @@ var serviceSet = wire.NewSet(NewTelegram, NewAlert, newZapWrap, initLogger, wire
 // providerSet provides configuration from *conf.Builder.
 var providerSet = wire.NewSet(provideLoggerConf, provideTelegramConf, provideAlerterConf)
 
-func provideLoggerConf(c *conf.Bootstrap) *conf.Logger     { return c.Log.Logger }
-func provideAlerterConf(c *conf.Bootstrap) *conf.Alerter   { return c.Log.Alerter }
-func provideTelegramConf(c *conf.Bootstrap) *conf.Telegram { return c.Log.Telegram }
+func provideLoggerConf(c *conf.Log) *conf.Logger     { return c.Logger }
+func provideAlerterConf(c *conf.Log) *conf.Alerter   { return c.Alerter }
+func provideTelegramConf(c *conf.Log) *conf.Telegram { return c.Telegram }

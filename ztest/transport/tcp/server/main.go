@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	gproto "github.com/golang/protobuf/proto"
 	"github.com/yola1107/kratos/v2/library/log/zap"
 	"github.com/yola1107/kratos/v2/library/log/zap/conf"
 	"github.com/yola1107/kratos/v2/library/work"
@@ -12,6 +11,7 @@ import (
 	"github.com/yola1107/kratos/v2/middleware"
 	"github.com/yola1107/kratos/v2/middleware/ratelimit"
 	v2 "github.com/yola1107/kratos/v2/ztest/transport/api/helloworld/v1"
+	gproto "google.golang.org/protobuf/proto"
 
 	"github.com/yola1107/kratos/v2"
 	"github.com/yola1107/kratos/v2/log"

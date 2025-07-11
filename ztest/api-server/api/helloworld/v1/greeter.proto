@@ -173,8 +173,9 @@ message LogoutReq {
 }
 
 message LogoutRsp {
-    int32 code = 1;  //错误码 0:成功
-    string msg = 2;  //错误信息 主动/踢人
+    int32 code   = 1;  //错误码 0:成功
+    string msg   = 2;  //错误信息 主动/踢人
+    int64 UserID = 3;
 }
 
 // 准备

@@ -80,7 +80,7 @@ func (m *SessionManager) BroadcastAsync(data []byte) {
 		go func() {
 			if err := session.Send(data); err != nil {
 				log.Errorf("Broadcast failed: %v", err)
-				//s.Delete(session)
+				// s.Delete(session)
 			}
 		}()
 		return true
@@ -90,7 +90,7 @@ func (m *SessionManager) BroadcastAsync(data []byte) {
 func (m *SessionManager) CloseAllSessions() {
 	m.sessions.Range(func(_, v interface{}) bool {
 		if session, ok := v.(*Session); ok {
-			session.Close(true)
+			session.Close(true, "server closed")
 		}
 		return true
 	})

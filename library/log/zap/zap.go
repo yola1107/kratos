@@ -25,7 +25,7 @@ type Logger struct {
 	mu         sync.RWMutex
 }
 
-func NewLogger(c *conf.Bootstrap) *Logger {
+func NewLogger(c *conf.Log) *Logger {
 	if c == nil {
 		c = conf.DefaultConfig()
 	}

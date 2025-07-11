@@ -2,13 +2,10 @@ package main
 
 import (
 	"flag"
-	"math"
-	"math/rand"
 	xhttp "net/http"
 	_ "net/http/pprof"
 	"os"
 	"runtime"
-	"time"
 
 	"github.com/yola1107/kratos/v2"
 	"github.com/yola1107/kratos/v2/library/log/zap"
@@ -57,16 +54,13 @@ func main() {
 	c, bc, lc := conf.LoadConfig(flagconf)
 	defer c.Close()
 
-	logger := zap.NewLogger(lc)
+	logger := zap.NewLogger(lc.Log)
 	log.SetLogger(logger)
 	defer logger.Close()
 
 	if err := conf.WatchConfig(c, bc, lc, logger); err != nil {
 		panic(err)
 	}
-
-	// test...
-	go testLog(logger)
 
 	app, cleanup, err := wireApp(bc.Server, bc.Data, bc.Room, logger)
 	if err != nil {
@@ -77,31 +71,5 @@ func main() {
 	// start and wait for stop signal
 	if err := app.Run(); err != nil {
 		panic(err)
-	}
-}
-
-// 测试日志（可用于压测日志模块）
-func testLog(logger *zap.Logger) {
-	if true {
-		return
-	}
-
-	for i := 0; i < 5; i++ {
-		go func(group int) {
-			incr := int64(0)
-			for {
-				log.Debugf("GroupID=%d Debugf: %d", group, incr)
-				log.Infof("GroupID=%d Infof: %d", group, incr)
-				log.Warnf("GroupID=%d Warnf: %d", group, incr)
-				// log.Errorf("GroupID=%d Errorf: %d", group,incr)
-
-				if incr%5e6 == 0 {
-					log.Errorf("GroupID=%d Errorf: %d", group, incr)
-				}
-
-				incr = (incr + 1) % math.MaxInt64
-				time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
-			}
-		}(i)
 	}
 }

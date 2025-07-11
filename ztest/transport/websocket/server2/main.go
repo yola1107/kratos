@@ -48,7 +48,13 @@ func (s *server) OnSessionOpen(session *websocket.Session) {
 // OnSessionClose 连接关闭回调
 func (s *server) OnSessionClose(session *websocket.Session) {
 	// log.Infof("[ws] DisConnectFunc callback. key=%q", session.ID())
-	s.sessionsMap.Delete(session.ID())
+	if session != nil {
+		if !session.Closed() {
+			session.Close(true)
+			log.Debugf("close session %s.", session.ID())
+		}
+		s.sessionsMap.Delete(session.ID())
+	}
 }
 
 func (s *server) SayHelloReq(ctx context.Context, in *v1.HelloRequest) (*v1.HelloReply, error) {
@@ -57,22 +63,25 @@ func (s *server) SayHelloReq(ctx context.Context, in *v1.HelloRequest) (*v1.Hell
 
 func (s *server) SayHello2Req(ctx context.Context, in *v1.Hello2Request) (*v1.Hello2Reply, error) {
 	s.TestPushDataByID(ctx.Value("sessionID").(string)) // 测试push功能
-	// panic("websocket server panic test")                      // 测试loop捕获panic
-	// time.Sleep(6 * time.Second)                               // 测试context.DeadLine
+	// panic("websocket server panic test")                // 测试loop捕获panic
+	// time.Sleep(6 * time.Second) // 测试context.DeadLine
 	// return nil, nil                                           // 测试返回值为nil是否发送消息
 	// return nil, fmt.Errorf("ws test handler return an error") // 测试返回值为err能否捕获到 error.code和error.msg
-	// return nil, kerrors.New(201, "test", "test")// 测试返回值为err能否捕获到 error.code和error.msg
+	// return nil, kerrors.New(201, "test", "test") // 测试返回值为err能否捕获到 error.code和error.msg
 	return &v1.Hello2Reply{Message: fmt.Sprintf("ws server say hello. %s", in.Name)}, nil
 }
 
 func (s *server) TestPushDataByID(sessionID string) {
 	session, err := s.GetSessionByID(sessionID)
 	if err != nil {
-		log.Errorf("TestPushDataByID err:%v", err)
+		log.Warnf("TestPushDataByID err:%v", err)
 		return
 	}
 
 	fn := func() {
+		if session == nil || session.Closed() {
+			return
+		}
 		if err = session.Push(int32(v1.GameCommand_SayHello2Rsp), &v1.Hello2Reply{Message: "from server push."}); err != nil {
 			log.Warnf("TestPushDataByID err:%v", err)
 		}
@@ -129,7 +138,7 @@ func main() {
 	wsSrv := websocket.NewServer(
 		websocket.Address(":3102"),
 		websocket.Timeout(time.Second*5),
-		websocket.SentChanSize(64),
+		websocket.SentChanSize(1024), // client3压测 是1000个消息
 
 		websocket.Middleware(
 			recovery.Recovery(),
@@ -182,7 +191,7 @@ func main() {
 
 func loadLogger() *zap.Logger {
 	zapLogger := zap.NewLogger(conf.DefaultConfig(
-		// conf.WithProduction(),
+		conf.WithProduction(),
 		conf.WithAppName(Name),
 		conf.WithLevel("debug"),
 		conf.WithDirectory("./logs"),

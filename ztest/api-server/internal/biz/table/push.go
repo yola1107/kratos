@@ -1,11 +1,11 @@
 package table
 
 import (
-	"github.com/golang/protobuf/proto"
 	"github.com/yola1107/kratos/v2/log"
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/conf"
+	"google.golang.org/protobuf/proto"
 )
 
 func (t *Table) SendPacketToClient(p *player.Player, cmd v1.GameCommand, msg proto.Message) {
@@ -342,8 +342,13 @@ func (t *Table) getCanOp(p *player.Player) (actions []v1.ACTION) {
 }
 
 func (t *Table) broadcastResult() {
-	t.SendPacketToAll(v1.GameCommand_OnResultPush, &v1.ResultPush{
-		UserID:  0,
-		ChairID: 0,
-	})
+	for _, v := range t.seats {
+		if v == nil {
+			continue
+		}
+		t.SendPacketToClient(v, v1.GameCommand_OnResultPush, &v1.ResultPush{
+			UserID:  v.GetPlayerID(),
+			ChairID: v.GetChairID(),
+		})
+	}
 }
