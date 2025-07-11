@@ -71,6 +71,11 @@ func (p *Player) LogoutGame(code int32, msg string) {
 	p.SendLogout(code, msg)
 
 	// clean
+	// session := p.session
+	// if session != nil && !session.Closed() {
+	// 	session.Close(true)
+	// 	session = nil
+	// }
 	p.session = nil
 	p.gameData = &GameData{}
 	p.baseData = &BaseData{}
