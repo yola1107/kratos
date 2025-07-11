@@ -46,18 +46,6 @@ enum GameCommand {
     OnResultPush    = 2200;  //结算通知
 }
 
-// 玩家动作类型
-enum ACTION {
-    UNKNOWN    = 0;
-    CALL       = 1;  // 跟注
-    RAISE      = 2;  // 加注
-    SEE        = 3;  // 看牌
-    PACK       = 4;  // 弃牌
-    SHOW       = 5;  // 比牌
-    SIDE       = 6;  // 提前比牌
-    SIDE_REPLY = 7;  // 提前比牌回应
-}
-
 // The whot service definition.
 service Whot {
     // Sends a greeting
@@ -262,87 +250,112 @@ message UserInfoPush {
 	  游戏协议
 */
 
-//
+enum Action {
+    UNKNOWN = 0;  // 未知动作
+    PLAY    = 1;  // 出牌
+    DRAW    = 2;  // 摸牌
+    COUNTER = 3;  // 反击特殊效果
+}
+
+enum Effect {
+    NONE     = 0;  // 无特效
+    HOLD_ON  = 1;  // 1牌特效：立即再次出牌
+    PICK_TWO = 2;  // 2牌特效：下家抽两张牌并跳过回合
+    SUSPEND  = 3;  // 8牌特效：跳过下家
+    MARKET   = 4;  // 14牌特效：所有其他玩家各抽一张
+    WHOT     = 5;  // 20牌特效：万能牌
+}
+
+// 设置庄家推送
 message SetBankerPush {
-    int32 chairId = 1;  //庄家chairId
+    int32 chairId = 1;  // 庄家chairId
 }
 
-//
+// 发牌推送
 message SendCardPush {
-    int64 userID          = 1;
-    repeated int32 cards  = 2;
-    repeated int32 bottom = 3;  //底牌
-    int32 leftNum         = 4;  //剩余牌
-    int32 timeOutCard     = 5;  //超时出哪张牌
+    int64 userId          = 1;  // 用户ID
+    repeated int32 cards  = 2;  // 发给玩家的牌（格式：花色*100 + 牌值）
+    repeated int32 bottom = 3;  // 底牌
+    int32 leftNum         = 4;  // 剩余牌数
+    int32 timeOutCard     = 5;  // 超时出哪张牌
 }
 
-// 场景信息
+// 场景请求
 message SceneReq {
-    int64 userID = 1;
+    int64 userId = 1;  // 用户ID
 }
 
+// 场景响应
 message SceneRsp {
-    //配置信息
-    double baseScore = 1;  //
-    //游戏状态
-    int32 stage    = 2;  //游戏的状态
-    int64 timeout  = 3;  //剩余时间 s
-    int32 active   = 4;  //当前操作位置
-    int32 banker   = 5;  //庄家位置
-    int32 lastCard = 6;  //
-    //玩家信息
-    repeated PlayerScene players = 11;
+    double baseScore             = 1;   // 基础分
+    int32 stage                  = 2;   // 游戏状态值
+    int64 timeout                = 3;   // 剩余时间(秒)
+    int32 active                 = 4;   // 当前操作位置
+    int32 banker                 = 5;   // 庄家位置
+    int32 lastCard               = 6;   // 最后出的牌（格式：花色*100 + 牌值）
+    repeated PlayerScene players = 11;  // 玩家列表
+    int32 currentSuit            = 12;  // 当前花色
+    PendingAction actionPending  = 13;  // 待处理动作
+    int32 deckCount              = 14;  // 剩余牌数
 }
 
+// 玩家场景信息
 message PlayerScene {
-    int64 userID         = 1;  //玩家ID
-    int32 chairId        = 2;  //玩家座位号
-    int32 status         = 3;  //玩家状态
-    bool hosting         = 4;  //是否托管
-    bool offline         = 5;  //是否断线
-    int32 lastOp         = 6;  //最后操作
-    repeated int32 cards = 8;  //
+    int64 userId         = 1;  // 用户ID
+    int32 chairId        = 2;  // 椅子号
+    int32 status         = 3;  // 玩家状态
+    bool hosting         = 4;  // 是否托管
+    bool offline         = 5;  // 是否断线
+    int32 lastOp         = 6;  // 最后操作
+    repeated int32 cards = 8;  // 手牌列表（格式：花色*100 + 牌值）
+    bool lastCard        = 9;  // 是否宣告最后一张牌
 }
 
 //
 message ActivePush {
-    int32 stage   = 1;  //游戏的状态
-    int64 timeout = 2;  //剩余时间 s
-    int32 active  = 3;  //当前操作位置
-    int32 leftNum = 4;  //剩余牌
-    bool yourTurn = 5; //
-   repeated int32 canOp =6; //
+    int32 stage                 = 1;  // 游戏状态值
+    int64 timeout               = 2;  // 剩余时间
+    int32 active                = 3;  // 当前操作位置
+    int32 leftNum               = 4;  // 剩余牌数
+    bool yourTurn               = 5;  // 是否轮到当前玩家
+    repeated Action canOp       = 6;  // 允许的操作类型
+    PendingAction actionPending = 7;  // 待处理动作
 }
 
 //
-message ResultPush {
-    int64 userID  = 1;  //用户ID
-    int32 chairID = 2;  //椅子号
-}
-
 message PlayCardReq {
-    int64 userID  = 1;
-    int32 action  = 2;  //请求动作
-    int32 outCard = 3;  //出的牌
+    int64 userId      = 1;  // 用户ID
+    Action action     = 2;  // 请求动作类型
+    int32 outCard     = 3;  // 出的牌（格式：花色*100 + 牌值）
+    int32 declareSuit = 4;  // 声明的花色
 }
 
+// 出牌响应
 message PlayCardRsp {
-    int32 code                  = 1;   // 校验错误码
-    string msg                  = 2;   // 校验错误信息
-    int64 userID                = 3;   //
-    int32 chairID               = 4;   //
-    int32 action                = 5;   // 请求的动作
+    int32 code                  = 1;   // 返回码
+    string msg                  = 2;   // 错误信息
+    int64 userId                = 3;   // 用户ID
+    int32 chairId               = 4;   // 椅子号
+    Action action               = 5;   // 请求的动作
     int32 outCard               = 6;   // 出的牌
-    int32 effectPending         = 7;   // 触发的特效类型
-    ActionPending actionPending = 8;   // 下回合必须处理的动作及玩家
+    Effect effectPending        = 7;   // 触发的特效类型
+    PendingAction actionPending = 8;   // 待处理动作
     int32 leftNum               = 9;   // 剩余牌数量
     bool isClient               = 10;  // 是否是客户端请求
-    int32 finishType            = 11;  // 结束类型 0:未结束 1:玩家出完手牌 2:牌堆为空
+    int32 finishType            = 11;  // 结束类型
+    int32 newSuit               = 12;  // 新花色
 }
 
-message ActionPending {
-    int32 ActionType = 1;  // 动作类型：DRAW_TWO, SKIP
-    int32 Target     = 2;  // 目标玩家索引
-    int32 Quantity   = 3;  // 数量（例如需要摸的牌数，用于2牌连锁）
-    int32 Initiator  = 4;  // 发起者索引（可选，用于记录）
+// 结果推送
+message ResultPush {
+    int64 userId  = 1;  // 用户ID
+    int32 chairId = 2;  // 椅子号
+}
+
+// 待处理动作
+message PendingAction {
+    Effect effect   = 1;  // 特效类型
+    int32 target    = 2;  // 目标玩家索引
+    int32 quantity  = 3;  // 数量（用于2/5牌连锁）
+    int32 initiator = 4;  // 发起者索引
 }
