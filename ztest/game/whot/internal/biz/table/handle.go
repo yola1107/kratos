@@ -138,18 +138,18 @@ func (t *Table) updatePending(p *player.Player, card int32) {
 	}
 
 	switch Number(card) {
-	case 1:
+	case 1: // Hold On
 		t.pending.Effect = v1.CARD_EFFECT_HOLD_ON
-	case 2:
+	case 2: // Pick Two
 		t.pending.Effect = v1.CARD_EFFECT_PICK_TWO
 		t.pending.Target = nextChair
 		t.pending.Quantity = 2
-	case 8:
+	case 8: // Suspend
 		t.pending.Effect = v1.CARD_EFFECT_SUSPEND
 		t.pending.Target = nextChair
-	case 14:
+	case 14: // Market
 		t.pending.Effect = v1.CARD_EFFECT_MARKET
-	case 20:
+	case 20: // WHOT（需要声明花色）
 		t.pending.Effect = v1.CARD_EFFECT_WHOT
 	}
 }

@@ -2,7 +2,6 @@ package table
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/yola1107/kratos/v2/library/ext"
@@ -16,60 +15,6 @@ import (
 
 // MinStartPlayerCnt 最小开局人数
 const MinStartPlayerCnt = 2
-
-type Stage struct {
-	mu       sync.RWMutex
-	State    StageID
-	Prev     StageID
-	TimerID  int64
-	StartAt  time.Time
-	Duration time.Duration
-}
-
-func (s *Stage) Remaining() time.Duration {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	elapsed := time.Since(s.StartAt)
-	if elapsed > s.Duration {
-		return 0
-	}
-	return s.Duration - elapsed
-}
-
-func (s *Stage) GetState() StageID {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.State
-}
-
-func (s *Stage) GetTimerID() int64 {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.TimerID
-}
-
-func (s *Stage) Snap() (StageID, StageID, time.Duration, time.Time, int64) {
-	s.mu.RLock()
-	prev, state, dur, at, timerID := s.Prev, s.State, s.Duration, s.StartAt, s.TimerID
-	s.mu.RUnlock()
-	return prev, state, dur, at, timerID
-}
-
-func (s *Stage) Desc() string {
-	prev, state, duration, _, _ := s.Snap()
-	return fmt.Sprintf("[%v->%+v, %+v -> %v, dur=%v]",
-		int32(prev), int32(state), prev, state, duration)
-}
-
-func (s *Stage) Set(state StageID, duration time.Duration, timerID int64) {
-	s.mu.Lock() // 写锁
-	defer s.mu.Unlock()
-	s.Prev = s.State
-	s.State = state
-	s.StartAt = time.Now()
-	s.Duration = duration
-	s.TimerID = timerID
-}
 
 func (t *Table) OnTimer() {
 	state := t.stage.GetState()

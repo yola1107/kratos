@@ -4,18 +4,10 @@ import (
 	"github.com/yola1107/kratos/v2/library/ext"
 )
 
-func init() {
-	for _, v := range oneDeck {
-		deckMap[v] = struct{}{}
-	}
-}
-
 const (
 	SuitMask = 100
 	WhotCard = 620
 )
-
-var deckMap = map[int32]struct{}{}
 
 // 生成一副牌 54张
 var oneDeck = []int32{
@@ -32,7 +24,7 @@ func NewCard(suit, number int32) int32 {
 	return suit*SuitMask + number
 }
 
-// NewDeclareWhot 创建牌declareSuit whotCard修改suit
+// NewDeclareWhot 修改 Whot 牌花色
 func NewDeclareWhot(suit int32, card int32) int32 {
 	return suit*SuitMask + Number(card)
 }
@@ -45,11 +37,6 @@ func Suit(card int32) int32 {
 // Number 返回点数
 func Number(card int32) int32 {
 	return card % SuitMask
-}
-
-func IsValidCard(card int32) bool {
-	_, ok := deckMap[card]
-	return ok
 }
 
 // ValidBottom 合法的底牌 非功能牌
@@ -106,13 +93,10 @@ func (g *GameCards) IsEmpty() bool {
 	return g.index >= len(g.cards)
 }
 
-// SetBottom 设置底牌
+// SetBottom 设置底牌：从未发的牌中找第一张合法底牌
 func (g *GameCards) SetBottom() []int32 {
-	if !ValidBottom(g.cards[g.index]) {
-		for i := g.index + 1; i < len(g.cards); i++ {
-			if !ValidBottom(g.cards[i]) {
-				continue
-			}
+	for i := g.index; i < len(g.cards); i++ {
+		if ValidBottom(g.cards[i]) {
 			g.cards[g.index], g.cards[i] = g.cards[i], g.cards[g.index]
 			break
 		}
