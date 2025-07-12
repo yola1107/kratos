@@ -17,24 +17,12 @@ func (t *Table) OnExitGame(p *player.Player, code int32, msg string) bool {
 
 func (t *Table) OnSceneReq(p *player.Player, isClient bool) {
 	t.SendSceneInfo(p)
-	return
 }
 
-func (t *Table) OnReadyReq(p *player.Player, isReady bool) bool {
-	return true
-}
-
-func (t *Table) OnChatReq(p *player.Player, in *v1.ChatReq) bool {
-	return true
-}
-
-func (t *Table) OnHosting(p *player.Player, isHosting bool) bool {
-	return true
-}
-
-func (t *Table) OnAutoCallReq(p *player.Player, autoCall bool) bool {
-	return true
-}
+func (t *Table) OnReadyReq(p *player.Player, isReady bool) bool     { return true }
+func (t *Table) OnChatReq(p *player.Player, in *v1.ChatReq) bool    { return true }
+func (t *Table) OnHosting(p *player.Player, isHosting bool) bool    { return true }
+func (t *Table) OnAutoCallReq(p *player.Player, autoCall bool) bool { return true }
 
 func (t *Table) OnOffline(p *player.Player) bool {
 	t.mLog.offline(p)
@@ -48,12 +36,13 @@ func (t *Table) OnOffline(p *player.Player) bool {
 	return true
 }
 
-// OnPlayerActionReq 处理客户端请求的操作
 func (t *Table) OnPlayerActionReq(p *player.Player, in *v1.PlayerActionReq, timeout bool) (ok bool) {
 	if p == nil || !p.IsGaming() || len(t.GetGamers()) <= 1 || p.GetChairID() != t.active {
 		return
 	}
-	if s := t.stage.GetState(); s == StWait || s == StReady || s == StWaitEnd || s == StEnd {
+
+	s := t.stage.GetState()
+	if s == StWait || s == StReady || s == StWaitEnd || s == StEnd {
 		return
 	}
 
@@ -101,42 +90,31 @@ func (t *Table) OnPlayerActionReq(p *player.Player, in *v1.PlayerActionReq, time
 	return true
 }
 
-// 处理出牌逻辑
 func (t *Table) onPlayCard(p *player.Player, card int32) {
-	// 从手牌中移除
 	p.RemoveCard(card)
-
-	// 更新当前牌堆顶
 	t.currCard = card
 	t.declareSuit = v1.SUIT_INVALID
-
-	// 清除 pending 或设置新效果
 	t.updatePending(p, card)
-
-	// 广播出牌
 	t.broadcastPlayerAction(p, v1.ACTION_PLAY_CARD, []int32{card}, 0)
 
-	// 判断是否出完了
 	if len(p.GetCards()) == 0 {
-		t.updateStage(StWaitEnd) // 等待结束
+		t.updateStage(StWaitEnd)
 		return
 	}
 
 	// 14牌：所有其他玩家各抽一张 MARKET, 发牌不够了游戏结束
 	if t.pending != nil && t.pending.Effect == v1.CARD_EFFECT_MARKET && Number(card) == 14 {
-		if end := t.broadDrawCardByMarket(); end {
+		if t.broadDrawCardByMarket() {
 			t.updateStage(StWaitEnd)
 			return
 		}
 	}
 
-	log.Debugf("==> playCard. p:%s currCard:%v pending:%v", p.Desc(), t.currCard, t.pending)
-
-	// 通知下个玩家操作
-	t.active = t.getNextActiveChair()
+	next := t.getNextActiveChair()
 	if t.pending != nil {
-		t.active = t.pending.Target // 绑定玩家为活动玩家
+		next = t.pending.Target
 	}
+	t.active = next
 	t.updateStage(StPlaying)
 	t.broadcastActivePlayerPush()
 }
@@ -152,31 +130,27 @@ func (t *Table) updatePending(p *player.Player, card int32) {
 		nextChair = next.GetChairID()
 	}
 
-	target := p.GetChairID()
-	quantity := int32(1)
-	effect := v1.CARD_EFFECT_NORMAL
+	t.pending = &v1.Pending{
+		Initiator: p.GetChairID(),
+		Target:    p.GetChairID(),
+		Effect:    v1.CARD_EFFECT_NORMAL,
+		Quantity:  1,
+	}
 
 	switch Number(card) {
 	case 1:
-		effect = v1.CARD_EFFECT_HOLD_ON
+		t.pending.Effect = v1.CARD_EFFECT_HOLD_ON
 	case 2:
-		effect = v1.CARD_EFFECT_PICK_TWO
-		target = nextChair
-		quantity = 2
+		t.pending.Effect = v1.CARD_EFFECT_PICK_TWO
+		t.pending.Target = nextChair
+		t.pending.Quantity = 2
 	case 8:
-		effect = v1.CARD_EFFECT_SUSPEND
-		target = nextChair
+		t.pending.Effect = v1.CARD_EFFECT_SUSPEND
+		t.pending.Target = nextChair
 	case 14:
-		effect = v1.CARD_EFFECT_MARKET
+		t.pending.Effect = v1.CARD_EFFECT_MARKET
 	case 20:
-		effect = v1.CARD_EFFECT_WHOT
-	}
-
-	t.pending = &v1.Pending{
-		Initiator: p.GetChairID(),
-		Target:    target,
-		Effect:    effect,
-		Quantity:  quantity,
+		t.pending.Effect = v1.CARD_EFFECT_WHOT
 	}
 }
 
@@ -194,7 +168,6 @@ func (t *Table) broadDrawCardByMarket() (end bool) {
 	return false
 }
 
-// 处理摸牌逻辑
 func (t *Table) onDrawCard(p *player.Player) {
 	count := int32(1)
 	if t.pending != nil && t.pending.Quantity > 0 {
@@ -208,7 +181,6 @@ func (t *Table) onDrawCard(p *player.Player) {
 		return
 	}
 
-	// 处理pending状态
 	if t.pending != nil && t.pending.Target == p.GetChairID() {
 		log.Debugf("drawCard. p=%v 响应了 pending，清除: %+v", p.Desc(), t.pending)
 		t.pending = nil
@@ -223,11 +195,9 @@ func (t *Table) onDrawCard(p *player.Player) {
 	t.broadcastActivePlayerPush()
 }
 
-// 处理跳过逻辑
 func (t *Table) onSkipTurn(p *player.Player) {
 	log.Debugf("skipTurn. p=%v 清除:%+v", p.Desc(), t.pending)
 	t.pending = nil
-
 	t.broadcastPlayerAction(p, v1.ACTION_SKIP_TURN, nil, 0)
 
 	// 通知下个玩家操作
@@ -236,12 +206,11 @@ func (t *Table) onSkipTurn(p *player.Player) {
 	t.broadcastActivePlayerPush()
 }
 
-// 处理声明花色逻辑
 func (t *Table) onDeclareSuit(p *player.Player, suit v1.SUIT) {
 	log.Debugf("declareSuit. p=%v suit=%v pending=%+v", p.Desc(), suit, t.pending)
 	t.currCard = NewDeclareWhot(int32(suit), t.currCard) // 修改当前牌的花色
 	t.declareSuit = suit
-	t.pending = nil // 声明后 pending 清除
+	t.pending = nil
 	t.broadcastPlayerAction(p, v1.ACTION_DECLARE_SUIT, nil, suit)
 
 	// 通知当前玩家操作
@@ -250,10 +219,8 @@ func (t *Table) onDeclareSuit(p *player.Player, suit v1.SUIT) {
 	t.broadcastActivePlayerPush()
 }
 
-// 判断给出的牌是否可以合法出牌
 func (t *Table) canOutCard(curr int32, hand []int32, card int32) bool {
-	canOuts := calcCanOut(curr, hand)
-	for _, c := range canOuts {
+	for _, c := range calcCanOut(curr, hand) {
 		if c == card {
 			return true
 		}
@@ -261,19 +228,17 @@ func (t *Table) canOutCard(curr int32, hand []int32, card int32) bool {
 	return false
 }
 
-// 判断是否可以摸牌（根据当前pending效果）
 func (t *Table) canDrawCard(p *player.Player) bool {
-	pending := t.pending
+	if t.pending == nil {
+		return true
+	}
 
-	if pending != nil && pending.Target != p.GetChairID() {
+	if t.pending != nil && t.pending.Target != p.GetChairID() {
 		log.Errorf("drawCard err: 非目标玩家尝试摸牌: %v", p.Desc())
 		return false
 	}
 
-	if pending == nil {
-		return true
-	}
-	switch pending.Effect {
+	switch t.pending.Effect {
 	case v1.CARD_EFFECT_NORMAL, v1.CARD_EFFECT_HOLD_ON, v1.CARD_EFFECT_PICK_TWO:
 		return true
 	default:

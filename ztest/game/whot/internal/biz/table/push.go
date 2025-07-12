@@ -77,7 +77,7 @@ func (t *Table) broadcastUserInfo(p *player.Player) {
 func (t *Table) sendUserInfoToAnother(src *player.Player, dst *player.Player) {
 	t.SendPacketToClient(dst, v1.GameCommand_OnUserInfoPush, &v1.UserInfoPush{
 		UserID:    src.GetPlayerID(),
-		ChairId:   src.GetChairID(),
+		ChairID:   src.GetChairID(),
 		UserName:  src.GetNickName(),
 		Money:     src.GetAllMoney(),
 		Avatar:    src.GetAvatar(),
@@ -117,15 +117,8 @@ func (t *Table) broadcastUserQuitPush(p *player.Player, isSwitchTable bool) {
 	游戏协议
 */
 
-// 设置庄家推送
-func (t *Table) broadcastSetBankerRsp() {
-	t.SendPacketToAll(v1.GameCommand_OnSetBankerPush, &v1.SetBankerPush{
-		ChairId: t.banker,
-	})
-}
-
 // 发牌推送
-func (t *Table) dispatchCardPush(canGameSeats []*player.Player) {
+func (t *Table) dispatchCardPush(canGameSeats []*player.Player, bottom []int32, leftNum int32) {
 	for _, p := range canGameSeats {
 		if p == nil {
 			continue
@@ -134,9 +127,10 @@ func (t *Table) dispatchCardPush(canGameSeats []*player.Player) {
 			continue
 		}
 		t.SendPacketToClient(p, v1.GameCommand_OnSendCardPush, &v1.SendCardPush{
-			UserID:    p.GetPlayerID(),
-			Cards:     p.GetCards(),
-			CardsType: p.GetCardsType(),
+			UserID:  p.GetPlayerID(),
+			Cards:   p.GetCards(),
+			Bottom:  bottom,
+			LeftNum: leftNum,
 		})
 	}
 }
@@ -145,22 +139,21 @@ func (t *Table) dispatchCardPush(canGameSeats []*player.Player) {
 func (t *Table) SendSceneInfo(p *player.Player) {
 	c := t.repo.GetRoomConfig()
 	rsp := &v1.SceneRsp{
-		BaseScore:    c.Game.BaseMoney,
-		ChLimit:      c.Game.ChLimit,
-		PotLimit:     c.Game.PotLimit,
-		AutoSeeRound: c.Game.AutoSeeRound,
-		Stage:        int32(t.stage.GetState()),
-		Timeout:      int64(t.stage.Remaining().Seconds()),
-		Active:       t.active,
-		Banker:       t.banker,
-		CurRound:     t.curRound,
-		TotalBet:     t.totalBet,
-		Players:      t.getPlayersScene(),
+		BaseScore:   c.Game.BaseMoney,
+		Stage:       int32(t.stage.GetState()),
+		Timeout:     int64(t.stage.Remaining().Seconds()),
+		Active:      t.active,
+		FirstChair:  t.first,
+		CurrCard:    t.currCard,
+		DeclareSuit: t.declareSuit,
+		LeftNum:     t.cards.GetCardNum(),
+		Pending:     t.pending,
+		Players:     t.getPlayersScene(),
 	}
 	t.SendPacketToClient(p, v1.GameCommand_OnSceneRsp, rsp)
 }
 
-func (t *Table) getPlayersScene() (players []*v1.PlayerScene) {
+func (t *Table) getPlayersScene() (players []*v1.PlayerInfo) {
 	for _, p := range t.seats {
 		if p == nil {
 			continue
@@ -170,175 +163,174 @@ func (t *Table) getPlayersScene() (players []*v1.PlayerScene) {
 	return
 }
 
-func (t *Table) getScene(p *player.Player) *v1.PlayerScene {
+func (t *Table) getScene(p *player.Player) *v1.PlayerInfo {
 	if p == nil {
 		return nil
 	}
-	info := &v1.PlayerScene{
-		UserID:     p.GetPlayerID(),
-		ChairId:    p.GetChairID(),
-		Status:     int32(p.GetStatus()),
-		Hosting:    p.GetTimeoutCnt() > 0,
-		Offline:    p.IsOffline(),
-		LastOp:     p.GetLastOp(),
-		CurBet:     t.curBet, //
-		TotalBet:   p.GetBet(),
-		Seen:       p.Seen(),
-		Cards:      p.GetCards(),
-		CardsType:  p.GetCardsType(),
-		IsAutoCall: p.IsAutoCall(),
-		IsPaying:   p.IsPaying(),
-		CanOp:      t.getCanOp(p),
-	}
-	if p.Seen() {
-		info.CurBet = t.curBet * 2
+	info := &v1.PlayerInfo{
+		UserId:  p.GetPlayerID(),
+		ChairId: p.GetChairID(),
+		Status:  int32(p.GetStatus()),
+		Hosting: p.GetTimeoutCnt() > 0,
+		Offline: p.IsOffline(),
+		Cards:   p.GetCards(),
+		CanOp:   t.getCanOp(p),
 	}
 	return info
 }
 
 // 当前活动玩家推送
 func (t *Table) broadcastActivePlayerPush() {
-
-	playerCnt := len(t.GetGamers())
-	if playerCnt <= 1 {
-		return
-	}
-
 	for _, p := range t.seats {
 		if p == nil {
 			continue
 		}
 		rsp := &v1.ActivePush{
-			Stage:    int32(t.stage.GetState()),
-			Timeout:  int64(t.stage.Remaining().Seconds()),
-			Active:   t.active,
-			CurRound: t.curRound,
-			CurBet:   t.curBet,
-			TotalBet: t.totalBet,
-			RaiseBet: t.curBet * 2,
+			Stage:   int32(t.stage.GetState()),
+			Timeout: int64(t.stage.Remaining().Seconds()),
+			Active:  t.active,
+			LeftNum: t.cards.GetCardNum(),
+			Pending: t.pending,
+			CanOp:   t.getCanOp(p),
 		}
 		if p.GetChairID() == t.active && p.IsGaming() {
-			rsp.CanOp = t.getCanOp(p)
-			t.mLog.activePush(p, t.first, t.curRound, rsp.CanOp, playerCnt)
-			if len(rsp.CanOp) == 0 {
-				log.Errorf("ActivePush empty. tb:%v, p:%v", t.Desc(), p.Desc())
-			}
-			// log.Debugf("ActivePush ok. %v", ext.ToJSON(rsp))
-			// log.Debugf("ActivePush. p:%v CanOp=%v, tb:%v ", p.Desc(), rsp.CanOp, t.Desc())
 		}
 		t.SendPacketToClient(p, v1.GameCommand_OnActivePush, rsp)
 	}
 }
 
-func (t *Table) sendActiveButtonInfoNtf() {
-	active := t.GetActivePlayer()
-	if active == nil {
-		return
-	}
-	canShow := t.canShowCard(active).Code == ErrOK
-	canSideShow := t.canSideShowCard(active).Code == ErrOK
-	if canShow || canSideShow {
-		t.SendPacketToClient(active, v1.GameCommand_OnAfterSeeButtonPush, &v1.AfterSeeButtonPush{
-			UserID:      active.GetPlayerID(),
-			CanShow:     canShow,
-			CanSideShow: canSideShow,
-		})
-	}
-}
+// func (t *Table) sendActionRsp(p *player.Player, rsp *v1.PlayerActionRsp) {
+// 	if rsp == nil {
+// 		return
+// 	}
+// 	t.SendPacketToClient(p, v1.GameCommand_OnPlayerActionRsp, rsp)
+// }
 
-func (t *Table) sendActionRsp(p *player.Player, rsp *v1.ActionRsp) {
-	t.SendPacketToClient(p, v1.GameCommand_OnActionRsp, rsp)
-}
+func (t *Table) broadcastPlayerAction(p *player.Player, action v1.ACTION, cs []int32, declaredSuit v1.SUIT) {
 
-func (t *Table) broadcastActionRsp(p *player.Player, action v1.ACTION, playerBet float64, target *player.Player, allow bool) {
-	rsp := &v1.ActionRsp{
-		Code:        0,
-		Msg:         "",
-		UserID:      p.GetPlayerID(),
-		ChairID:     p.GetChairID(),
-		Action:      action,
-		SeeCards:    nil,
-		BetInfo:     nil,
-		CompareInfo: nil,
-	}
-	// 看牌
-	if action == v1.ACTION_SEE {
-		t.SendPacketToAllExcept(v1.GameCommand_OnActionRsp, rsp, p.GetPlayerID())
-		rsp.SeeCards = &v1.SeeCards{
-			Cards:     p.GetCards(),
-			CardsType: p.GetCardsType(),
+	for _, v := range t.seats {
+		if v == nil {
+			continue
 		}
-		t.SendPacketToClient(p, v1.GameCommand_OnActionRsp, rsp)
-		return
-	}
-	// 下注
-	rsp.BetInfo = &v1.BetInfo{
-		CurBet:    t.curBet,
-		TotalBet:  t.totalBet,
-		PlayerBet: playerBet,
-	}
-	// 比牌
-	if target != nil && (action == v1.ACTION_SHOW || action == v1.ACTION_SIDE || action == v1.ACTION_SIDE_REPLY) {
-		rsp.CompareInfo = &v1.CompareInfo{
-			TargetUid:      target.GetPlayerID(),
-			TargetChairID:  target.GetChairID(),
-			TargetStatus:   int32(target.GetStatus()),
-			SideReplyAllow: allow,
+
+		self := v.GetPlayerID() == p.GetPlayerID()
+
+		rsp := &v1.PlayerActionRsp{
+			Code:    0,
+			Message: "",
+			UserId:  p.GetPlayerID(),
+			ChairId: p.GetChairID(),
+			Action:  action,
+			LeftNum: t.cards.GetCardNum(),
+			Effect:  t.pending,
+			PlayResult: &v1.PlayCardResult{
+				Card:        0,
+				DeclareSuit: declaredSuit,
+				Cards:       nil,
+			},
+			DrawResult: &v1.DrawCardResult{
+				DrawNum:    0,
+				TotalCards: int32(len(p.GetCards())),
+				Cards:      nil,
+			},
 		}
+
+		switch action {
+		case v1.ACTION_PLAY_CARD:
+			if len(cs) == 1 {
+				rsp.PlayResult.Card = cs[0]
+			}
+			if self {
+				rsp.PlayResult.Cards = p.GetCards()
+			}
+		case v1.ACTION_DRAW_CARD:
+			rsp.DrawResult.DrawNum = int32(len(cs))
+			if self {
+				rsp.PlayResult.Cards = p.GetCards()
+			}
+		}
+
+		t.SendPacketToClient(v, v1.GameCommand_OnPlayerActionRsp, rsp)
 	}
-	t.SendPacketToAll(v1.GameCommand_OnActionRsp, rsp)
 }
 
-func (t *Table) getCanOp(p *player.Player) (actions []v1.ACTION) {
-	if p == nil {
+func (t *Table) getCanOp(p *player.Player) *v1.CanOpInfo {
+	if p == nil || !p.IsGaming() || len(t.GetGamers()) <= 1 || p.GetChairID() != t.active {
+		return nil
+	}
+	if s := t.stage.GetState(); s == StWait || s == StReady || s == StWaitEnd || s == StEnd {
 		return nil
 	}
 
-	if !p.IsGaming() || len(t.GetGamers()) <= 1 {
-		return
+	curr := t.currCard
+	canOuts := calcCanOut(curr, p.GetCards())
+	ops := make([]*v1.ActionOption, 0, 3)
+	pending := t.pending
+
+	// 特殊效果牌处理
+	switch {
+	case pending == nil || pending.Effect == v1.CARD_EFFECT_NORMAL:
+		ops = append(ops, newDrawOption(1))
+
+	case pending.Effect == v1.CARD_EFFECT_HOLD_ON:
+		ops = append(ops, newDrawOption(1))
+
+	case pending.Effect == v1.CARD_EFFECT_PICK_TWO:
+		ops = append(ops, newDrawOption(pending.Quantity))
+
+	case pending.Effect == v1.CARD_EFFECT_SUSPEND:
+		ops = append(ops, &v1.ActionOption{Action: v1.ACTION_SKIP_TURN})
+
+	case pending.Effect == v1.CARD_EFFECT_MARKET:
+		// MARKET 等其他特殊效果可按需扩展
+
+	case pending.Effect == v1.CARD_EFFECT_WHOT:
+		return &v1.CanOpInfo{Options: []*v1.ActionOption{
+			{
+				Action: v1.ACTION_DECLARE_SUIT,
+				Suits:  []int32{1, 2, 3, 4, 5},
+			},
+		}}
 	}
 
-	stage := t.stage.GetState()
-	if stage == StWait || stage == StReady || stage == StWaitEnd || stage == StEnd {
-		return
+	if len(canOuts) > 0 {
+		ops = append(ops, &v1.ActionOption{Action: v1.ACTION_PLAY_CARD, Cards: canOuts})
 	}
 
-	// 能否弃牌
-	if t.canPack(p).Code == ErrOK {
-		actions = append(actions, v1.ACTION_PACK)
-	}
+	return &v1.CanOpInfo{Options: ops}
+}
 
-	// 能否看牌
-	if t.canSeeCard(p).Code == ErrOK {
-		actions = append(actions, v1.ACTION_SEE)
-	}
+func newDrawOption(n int32) *v1.ActionOption {
+	return &v1.ActionOption{Action: v1.ACTION_DRAW_CARD, DrawCount: n}
+}
 
-	// 能否主动跟注 call
-	if t.canCallCard(p, false).Code == ErrOK {
-		actions = append(actions, v1.ACTION_CALL)
-	}
+func calcCanOut(card int32, hand []int32) []int32 {
+	special := IsSpecialCard(card)
+	suit, number := Suit(card), Number(card)
 
-	// 能否主动加注 Raise
-	if t.canCallCard(p, true).Code == ErrOK {
-		actions = append(actions, v1.ACTION_RAISE)
-	}
+	var outList []int32
+	for _, c := range hand {
+		s, n := Suit(c), Number(c)
 
-	// 能否主动发起比牌 show
-	if t.canShowCard(p).Code == ErrOK {
-		actions = append(actions, v1.ACTION_SHOW)
+		if s == int32(v1.SUIT_SUIT_WHOT) {
+			outList = append(outList, c)
+		} else if !special && (s == suit || n == number) {
+			outList = append(outList, c)
+		} else if special && n == number {
+			outList = append(outList, c)
+		}
 	}
+	return outList
+}
 
-	// 能否主动发起提前比牌 side
-	if t.canSideShowCard(p).Code == ErrOK {
-		actions = append(actions, v1.ACTION_SIDE)
-	}
-
-	// 能否 同意/拒绝提前比牌 side_reply
-	if t.canSideShowReply(p).Code == ErrOK {
-		actions = append(actions, v1.ACTION_SIDE_REPLY)
-	}
-
-	return actions
+func (t *Table) sendDrawCardPush(p *player.Player, draw []int32) {
+	t.SendPacketToClient(p, v1.GameCommand_OnDrawCardPush, &v1.DrawCardPush{
+		UserID:  p.GetPlayerID(),
+		ChairID: p.GetChairID(),
+		Draw:    draw,
+		Cards:   p.GetCards(),
+		LeftNum: t.cards.GetCardNum(),
+	})
 }
 
 func (t *Table) broadcastResult() {
@@ -347,8 +339,8 @@ func (t *Table) broadcastResult() {
 			continue
 		}
 		t.SendPacketToClient(v, v1.GameCommand_OnResultPush, &v1.ResultPush{
-			UserID:  v.GetPlayerID(),
-			ChairID: v.GetChairID(),
+			FinishType: 0,
+			Results:    nil,
 		})
 	}
 }
