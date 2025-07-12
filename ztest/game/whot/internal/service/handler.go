@@ -107,21 +107,11 @@ func (s *Service) OnForwardReq(ctx context.Context, in *v1.ForwardReq) (*v1.Forw
 	return &v1.ForwardRsp{}, nil
 }
 
-func (s *Service) OnActionReq(ctx context.Context, in *v1.ActionReq) (*v1.ActionRsp, error) {
+func (s *Service) OnPlayerActionReq(ctx context.Context, in *v1.PlayerActionReq) (*v1.PlayerActionRsp, error) {
 	rs := s.uc.Swapper(ctx)
 	if rs.Code != 0 {
 		return nil, nil
 	}
-	rs.Table.OnActionReq(rs.Player, in, false)
-	return &v1.ActionRsp{}, nil
-}
-
-func (s *Service) OnAutoCallReq(ctx context.Context, in *v1.AutoCallReq) (*v1.AutoCallRsp, error) {
-	rs := s.uc.Swapper(ctx)
-	if rs.Code != 0 {
-		return nil, nil
-	}
-
-	rs.Table.OnAutoCallReq(rs.Player, in.AutoCall)
-	return &v1.AutoCallRsp{}, nil
+	rs.Table.OnPlayerActionReq(rs.Player, in, false)
+	return &v1.PlayerActionRsp{}, nil
 }

@@ -19,27 +19,25 @@ var _ = binding.EncodeURL
 
 const _ = http.SupportPackageIsVersion1
 
-const OperationGreeterOnActionReq = "/whot.v1.Greeter/OnActionReq"
-const OperationGreeterOnAutoCallReq = "/whot.v1.Greeter/OnAutoCallReq"
-const OperationGreeterOnChatReq = "/whot.v1.Greeter/OnChatReq"
-const OperationGreeterOnForwardReq = "/whot.v1.Greeter/OnForwardReq"
-const OperationGreeterOnHostingReq = "/whot.v1.Greeter/OnHostingReq"
-const OperationGreeterOnLoginReq = "/whot.v1.Greeter/OnLoginReq"
-const OperationGreeterOnLogoutReq = "/whot.v1.Greeter/OnLogoutReq"
-const OperationGreeterOnReadyReq = "/whot.v1.Greeter/OnReadyReq"
-const OperationGreeterOnSceneReq = "/whot.v1.Greeter/OnSceneReq"
-const OperationGreeterOnSwitchTableReq = "/whot.v1.Greeter/OnSwitchTableReq"
-const OperationGreeterSayHelloReq = "/whot.v1.Greeter/SayHelloReq"
+const OperationWhotOnChatReq = "/whot.v1.Whot/OnChatReq"
+const OperationWhotOnForwardReq = "/whot.v1.Whot/OnForwardReq"
+const OperationWhotOnHostingReq = "/whot.v1.Whot/OnHostingReq"
+const OperationWhotOnLoginReq = "/whot.v1.Whot/OnLoginReq"
+const OperationWhotOnLogoutReq = "/whot.v1.Whot/OnLogoutReq"
+const OperationWhotOnPlayerActionReq = "/whot.v1.Whot/OnPlayerActionReq"
+const OperationWhotOnReadyReq = "/whot.v1.Whot/OnReadyReq"
+const OperationWhotOnSceneReq = "/whot.v1.Whot/OnSceneReq"
+const OperationWhotOnSwitchTableReq = "/whot.v1.Whot/OnSwitchTableReq"
+const OperationWhotSayHelloReq = "/whot.v1.Whot/SayHelloReq"
 
-type GreeterHTTPServer interface {
-	// OnActionReq game request
-	OnActionReq(context.Context, *ActionReq) (*ActionRsp, error)
-	OnAutoCallReq(context.Context, *AutoCallReq) (*AutoCallRsp, error)
+type WhotHTTPServer interface {
 	OnChatReq(context.Context, *ChatReq) (*ChatRsp, error)
 	OnForwardReq(context.Context, *ForwardReq) (*ForwardRsp, error)
 	OnHostingReq(context.Context, *HostingReq) (*HostingRsp, error)
 	OnLoginReq(context.Context, *LoginReq) (*LoginRsp, error)
 	OnLogoutReq(context.Context, *LogoutReq) (*LogoutRsp, error)
+	// OnPlayerActionReq game request
+	OnPlayerActionReq(context.Context, *PlayerActionReq) (*PlayerActionRsp, error)
 	OnReadyReq(context.Context, *ReadyReq) (*ReadyRsp, error)
 	OnSceneReq(context.Context, *SceneReq) (*SceneRsp, error)
 	OnSwitchTableReq(context.Context, *SwitchTableReq) (*SwitchTableRsp, error)
@@ -47,22 +45,21 @@ type GreeterHTTPServer interface {
 	SayHelloReq(context.Context, *HelloRequest) (*HelloReply, error)
 }
 
-func RegisterGreeterHTTPServer(s *http.Server, srv GreeterHTTPServer) {
+func RegisterWhotHTTPServer(s *http.Server, srv WhotHTTPServer) {
 	r := s.Route("/")
-	r.GET("/helloworld/{name}", _Greeter_SayHelloReq0_HTTP_Handler(srv))
-	r.POST("/greeter/OnLoginReq", _Greeter_OnLoginReq0_HTTP_Handler(srv))
-	r.POST("/greeter/OnLogoutReq", _Greeter_OnLogoutReq0_HTTP_Handler(srv))
-	r.POST("/greeter/OnReadyReq", _Greeter_OnReadyReq0_HTTP_Handler(srv))
-	r.POST("/greeter/OnSwitchTableReq", _Greeter_OnSwitchTableReq0_HTTP_Handler(srv))
-	r.POST("/greeter/OnSceneReq", _Greeter_OnSceneReq0_HTTP_Handler(srv))
-	r.POST("/greeter/OnChatOrFaceReq", _Greeter_OnChatReq0_HTTP_Handler(srv))
-	r.POST("/greeter/OnHostingReq", _Greeter_OnHostingReq0_HTTP_Handler(srv))
-	r.POST("/greeter/OnForwardReq", _Greeter_OnForwardReq0_HTTP_Handler(srv))
-	r.POST("/greeter/OnActionReq", _Greeter_OnActionReq0_HTTP_Handler(srv))
-	r.POST("/greeter/OnAutoCallReq", _Greeter_OnAutoCallReq0_HTTP_Handler(srv))
+	r.GET("/whot/{name}", _Whot_SayHelloReq0_HTTP_Handler(srv))
+	r.POST("/whot/OnLoginReq", _Whot_OnLoginReq0_HTTP_Handler(srv))
+	r.POST("/whot/OnLogoutReq", _Whot_OnLogoutReq0_HTTP_Handler(srv))
+	r.POST("/whot/OnReadyReq", _Whot_OnReadyReq0_HTTP_Handler(srv))
+	r.POST("/whot/OnSwitchTableReq", _Whot_OnSwitchTableReq0_HTTP_Handler(srv))
+	r.POST("/whot/OnSceneReq", _Whot_OnSceneReq0_HTTP_Handler(srv))
+	r.POST("/whot/OnChatOrFaceReq", _Whot_OnChatReq0_HTTP_Handler(srv))
+	r.POST("/whot/OnHostingReq", _Whot_OnHostingReq0_HTTP_Handler(srv))
+	r.POST("/whot/OnForwardReq", _Whot_OnForwardReq0_HTTP_Handler(srv))
+	r.POST("/whot/OnPlayCardReq", _Whot_OnPlayerActionReq0_HTTP_Handler(srv))
 }
 
-func _Greeter_SayHelloReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Context) error {
+func _Whot_SayHelloReq0_HTTP_Handler(srv WhotHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in HelloRequest
 		if err := ctx.BindQuery(&in); err != nil {
@@ -71,7 +68,7 @@ func _Greeter_SayHelloReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Con
 		if err := ctx.BindVars(&in); err != nil {
 			return err
 		}
-		http.SetOperation(ctx, OperationGreeterSayHelloReq)
+		http.SetOperation(ctx, OperationWhotSayHelloReq)
 		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
 			return srv.SayHelloReq(ctx, req.(*HelloRequest))
 		})
@@ -84,7 +81,7 @@ func _Greeter_SayHelloReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Con
 	}
 }
 
-func _Greeter_OnLoginReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Context) error {
+func _Whot_OnLoginReq0_HTTP_Handler(srv WhotHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in LoginReq
 		if err := ctx.Bind(&in); err != nil {
@@ -93,7 +90,7 @@ func _Greeter_OnLoginReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Cont
 		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
-		http.SetOperation(ctx, OperationGreeterOnLoginReq)
+		http.SetOperation(ctx, OperationWhotOnLoginReq)
 		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
 			return srv.OnLoginReq(ctx, req.(*LoginReq))
 		})
@@ -106,7 +103,7 @@ func _Greeter_OnLoginReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Cont
 	}
 }
 
-func _Greeter_OnLogoutReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Context) error {
+func _Whot_OnLogoutReq0_HTTP_Handler(srv WhotHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in LogoutReq
 		if err := ctx.Bind(&in); err != nil {
@@ -115,7 +112,7 @@ func _Greeter_OnLogoutReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Con
 		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
-		http.SetOperation(ctx, OperationGreeterOnLogoutReq)
+		http.SetOperation(ctx, OperationWhotOnLogoutReq)
 		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
 			return srv.OnLogoutReq(ctx, req.(*LogoutReq))
 		})
@@ -128,7 +125,7 @@ func _Greeter_OnLogoutReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Con
 	}
 }
 
-func _Greeter_OnReadyReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Context) error {
+func _Whot_OnReadyReq0_HTTP_Handler(srv WhotHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in ReadyReq
 		if err := ctx.Bind(&in); err != nil {
@@ -137,7 +134,7 @@ func _Greeter_OnReadyReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Cont
 		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
-		http.SetOperation(ctx, OperationGreeterOnReadyReq)
+		http.SetOperation(ctx, OperationWhotOnReadyReq)
 		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
 			return srv.OnReadyReq(ctx, req.(*ReadyReq))
 		})
@@ -150,7 +147,7 @@ func _Greeter_OnReadyReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Cont
 	}
 }
 
-func _Greeter_OnSwitchTableReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Context) error {
+func _Whot_OnSwitchTableReq0_HTTP_Handler(srv WhotHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in SwitchTableReq
 		if err := ctx.Bind(&in); err != nil {
@@ -159,7 +156,7 @@ func _Greeter_OnSwitchTableReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx htt
 		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
-		http.SetOperation(ctx, OperationGreeterOnSwitchTableReq)
+		http.SetOperation(ctx, OperationWhotOnSwitchTableReq)
 		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
 			return srv.OnSwitchTableReq(ctx, req.(*SwitchTableReq))
 		})
@@ -172,7 +169,7 @@ func _Greeter_OnSwitchTableReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx htt
 	}
 }
 
-func _Greeter_OnSceneReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Context) error {
+func _Whot_OnSceneReq0_HTTP_Handler(srv WhotHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in SceneReq
 		if err := ctx.Bind(&in); err != nil {
@@ -181,7 +178,7 @@ func _Greeter_OnSceneReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Cont
 		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
-		http.SetOperation(ctx, OperationGreeterOnSceneReq)
+		http.SetOperation(ctx, OperationWhotOnSceneReq)
 		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
 			return srv.OnSceneReq(ctx, req.(*SceneReq))
 		})
@@ -194,7 +191,7 @@ func _Greeter_OnSceneReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Cont
 	}
 }
 
-func _Greeter_OnChatReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Context) error {
+func _Whot_OnChatReq0_HTTP_Handler(srv WhotHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in ChatReq
 		if err := ctx.Bind(&in); err != nil {
@@ -203,7 +200,7 @@ func _Greeter_OnChatReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Conte
 		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
-		http.SetOperation(ctx, OperationGreeterOnChatReq)
+		http.SetOperation(ctx, OperationWhotOnChatReq)
 		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
 			return srv.OnChatReq(ctx, req.(*ChatReq))
 		})
@@ -216,7 +213,7 @@ func _Greeter_OnChatReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Conte
 	}
 }
 
-func _Greeter_OnHostingReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Context) error {
+func _Whot_OnHostingReq0_HTTP_Handler(srv WhotHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in HostingReq
 		if err := ctx.Bind(&in); err != nil {
@@ -225,7 +222,7 @@ func _Greeter_OnHostingReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Co
 		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
-		http.SetOperation(ctx, OperationGreeterOnHostingReq)
+		http.SetOperation(ctx, OperationWhotOnHostingReq)
 		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
 			return srv.OnHostingReq(ctx, req.(*HostingReq))
 		})
@@ -238,7 +235,7 @@ func _Greeter_OnHostingReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Co
 	}
 }
 
-func _Greeter_OnForwardReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Context) error {
+func _Whot_OnForwardReq0_HTTP_Handler(srv WhotHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in ForwardReq
 		if err := ctx.Bind(&in); err != nil {
@@ -247,7 +244,7 @@ func _Greeter_OnForwardReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Co
 		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
-		http.SetOperation(ctx, OperationGreeterOnForwardReq)
+		http.SetOperation(ctx, OperationWhotOnForwardReq)
 		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
 			return srv.OnForwardReq(ctx, req.(*ForwardReq))
 		})
@@ -260,103 +257,54 @@ func _Greeter_OnForwardReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Co
 	}
 }
 
-func _Greeter_OnActionReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Context) error {
+func _Whot_OnPlayerActionReq0_HTTP_Handler(srv WhotHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
-		var in ActionReq
+		var in PlayerActionReq
 		if err := ctx.Bind(&in); err != nil {
 			return err
 		}
 		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
-		http.SetOperation(ctx, OperationGreeterOnActionReq)
+		http.SetOperation(ctx, OperationWhotOnPlayerActionReq)
 		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
-			return srv.OnActionReq(ctx, req.(*ActionReq))
+			return srv.OnPlayerActionReq(ctx, req.(*PlayerActionReq))
 		})
 		out, err := h(ctx, &in)
 		if err != nil {
 			return err
 		}
-		reply := out.(*ActionRsp)
+		reply := out.(*PlayerActionRsp)
 		return ctx.Result(200, reply)
 	}
 }
 
-func _Greeter_OnAutoCallReq0_HTTP_Handler(srv GreeterHTTPServer) func(ctx http.Context) error {
-	return func(ctx http.Context) error {
-		var in AutoCallReq
-		if err := ctx.Bind(&in); err != nil {
-			return err
-		}
-		if err := ctx.BindQuery(&in); err != nil {
-			return err
-		}
-		http.SetOperation(ctx, OperationGreeterOnAutoCallReq)
-		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
-			return srv.OnAutoCallReq(ctx, req.(*AutoCallReq))
-		})
-		out, err := h(ctx, &in)
-		if err != nil {
-			return err
-		}
-		reply := out.(*AutoCallRsp)
-		return ctx.Result(200, reply)
-	}
-}
-
-type GreeterHTTPClient interface {
-	OnActionReq(ctx context.Context, req *ActionReq, opts ...http.CallOption) (rsp *ActionRsp, err error)
-	OnAutoCallReq(ctx context.Context, req *AutoCallReq, opts ...http.CallOption) (rsp *AutoCallRsp, err error)
+type WhotHTTPClient interface {
 	OnChatReq(ctx context.Context, req *ChatReq, opts ...http.CallOption) (rsp *ChatRsp, err error)
 	OnForwardReq(ctx context.Context, req *ForwardReq, opts ...http.CallOption) (rsp *ForwardRsp, err error)
 	OnHostingReq(ctx context.Context, req *HostingReq, opts ...http.CallOption) (rsp *HostingRsp, err error)
 	OnLoginReq(ctx context.Context, req *LoginReq, opts ...http.CallOption) (rsp *LoginRsp, err error)
 	OnLogoutReq(ctx context.Context, req *LogoutReq, opts ...http.CallOption) (rsp *LogoutRsp, err error)
+	OnPlayerActionReq(ctx context.Context, req *PlayerActionReq, opts ...http.CallOption) (rsp *PlayerActionRsp, err error)
 	OnReadyReq(ctx context.Context, req *ReadyReq, opts ...http.CallOption) (rsp *ReadyRsp, err error)
 	OnSceneReq(ctx context.Context, req *SceneReq, opts ...http.CallOption) (rsp *SceneRsp, err error)
 	OnSwitchTableReq(ctx context.Context, req *SwitchTableReq, opts ...http.CallOption) (rsp *SwitchTableRsp, err error)
 	SayHelloReq(ctx context.Context, req *HelloRequest, opts ...http.CallOption) (rsp *HelloReply, err error)
 }
 
-type GreeterHTTPClientImpl struct {
+type WhotHTTPClientImpl struct {
 	cc *http.Client
 }
 
-func NewGreeterHTTPClient(client *http.Client) GreeterHTTPClient {
-	return &GreeterHTTPClientImpl{client}
+func NewWhotHTTPClient(client *http.Client) WhotHTTPClient {
+	return &WhotHTTPClientImpl{client}
 }
 
-func (c *GreeterHTTPClientImpl) OnActionReq(ctx context.Context, in *ActionReq, opts ...http.CallOption) (*ActionRsp, error) {
-	var out ActionRsp
-	pattern := "/greeter/OnActionReq"
-	path := binding.EncodeURL(pattern, in, false)
-	opts = append(opts, http.Operation(OperationGreeterOnActionReq))
-	opts = append(opts, http.PathTemplate(pattern))
-	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return &out, nil
-}
-
-func (c *GreeterHTTPClientImpl) OnAutoCallReq(ctx context.Context, in *AutoCallReq, opts ...http.CallOption) (*AutoCallRsp, error) {
-	var out AutoCallRsp
-	pattern := "/greeter/OnAutoCallReq"
-	path := binding.EncodeURL(pattern, in, false)
-	opts = append(opts, http.Operation(OperationGreeterOnAutoCallReq))
-	opts = append(opts, http.PathTemplate(pattern))
-	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return &out, nil
-}
-
-func (c *GreeterHTTPClientImpl) OnChatReq(ctx context.Context, in *ChatReq, opts ...http.CallOption) (*ChatRsp, error) {
+func (c *WhotHTTPClientImpl) OnChatReq(ctx context.Context, in *ChatReq, opts ...http.CallOption) (*ChatRsp, error) {
 	var out ChatRsp
-	pattern := "/greeter/OnChatOrFaceReq"
+	pattern := "/whot/OnChatOrFaceReq"
 	path := binding.EncodeURL(pattern, in, false)
-	opts = append(opts, http.Operation(OperationGreeterOnChatReq))
+	opts = append(opts, http.Operation(OperationWhotOnChatReq))
 	opts = append(opts, http.PathTemplate(pattern))
 	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
 	if err != nil {
@@ -365,11 +313,11 @@ func (c *GreeterHTTPClientImpl) OnChatReq(ctx context.Context, in *ChatReq, opts
 	return &out, nil
 }
 
-func (c *GreeterHTTPClientImpl) OnForwardReq(ctx context.Context, in *ForwardReq, opts ...http.CallOption) (*ForwardRsp, error) {
+func (c *WhotHTTPClientImpl) OnForwardReq(ctx context.Context, in *ForwardReq, opts ...http.CallOption) (*ForwardRsp, error) {
 	var out ForwardRsp
-	pattern := "/greeter/OnForwardReq"
+	pattern := "/whot/OnForwardReq"
 	path := binding.EncodeURL(pattern, in, false)
-	opts = append(opts, http.Operation(OperationGreeterOnForwardReq))
+	opts = append(opts, http.Operation(OperationWhotOnForwardReq))
 	opts = append(opts, http.PathTemplate(pattern))
 	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
 	if err != nil {
@@ -378,11 +326,11 @@ func (c *GreeterHTTPClientImpl) OnForwardReq(ctx context.Context, in *ForwardReq
 	return &out, nil
 }
 
-func (c *GreeterHTTPClientImpl) OnHostingReq(ctx context.Context, in *HostingReq, opts ...http.CallOption) (*HostingRsp, error) {
+func (c *WhotHTTPClientImpl) OnHostingReq(ctx context.Context, in *HostingReq, opts ...http.CallOption) (*HostingRsp, error) {
 	var out HostingRsp
-	pattern := "/greeter/OnHostingReq"
+	pattern := "/whot/OnHostingReq"
 	path := binding.EncodeURL(pattern, in, false)
-	opts = append(opts, http.Operation(OperationGreeterOnHostingReq))
+	opts = append(opts, http.Operation(OperationWhotOnHostingReq))
 	opts = append(opts, http.PathTemplate(pattern))
 	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
 	if err != nil {
@@ -391,11 +339,11 @@ func (c *GreeterHTTPClientImpl) OnHostingReq(ctx context.Context, in *HostingReq
 	return &out, nil
 }
 
-func (c *GreeterHTTPClientImpl) OnLoginReq(ctx context.Context, in *LoginReq, opts ...http.CallOption) (*LoginRsp, error) {
+func (c *WhotHTTPClientImpl) OnLoginReq(ctx context.Context, in *LoginReq, opts ...http.CallOption) (*LoginRsp, error) {
 	var out LoginRsp
-	pattern := "/greeter/OnLoginReq"
+	pattern := "/whot/OnLoginReq"
 	path := binding.EncodeURL(pattern, in, false)
-	opts = append(opts, http.Operation(OperationGreeterOnLoginReq))
+	opts = append(opts, http.Operation(OperationWhotOnLoginReq))
 	opts = append(opts, http.PathTemplate(pattern))
 	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
 	if err != nil {
@@ -404,11 +352,11 @@ func (c *GreeterHTTPClientImpl) OnLoginReq(ctx context.Context, in *LoginReq, op
 	return &out, nil
 }
 
-func (c *GreeterHTTPClientImpl) OnLogoutReq(ctx context.Context, in *LogoutReq, opts ...http.CallOption) (*LogoutRsp, error) {
+func (c *WhotHTTPClientImpl) OnLogoutReq(ctx context.Context, in *LogoutReq, opts ...http.CallOption) (*LogoutRsp, error) {
 	var out LogoutRsp
-	pattern := "/greeter/OnLogoutReq"
+	pattern := "/whot/OnLogoutReq"
 	path := binding.EncodeURL(pattern, in, false)
-	opts = append(opts, http.Operation(OperationGreeterOnLogoutReq))
+	opts = append(opts, http.Operation(OperationWhotOnLogoutReq))
 	opts = append(opts, http.PathTemplate(pattern))
 	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
 	if err != nil {
@@ -417,11 +365,24 @@ func (c *GreeterHTTPClientImpl) OnLogoutReq(ctx context.Context, in *LogoutReq, 
 	return &out, nil
 }
 
-func (c *GreeterHTTPClientImpl) OnReadyReq(ctx context.Context, in *ReadyReq, opts ...http.CallOption) (*ReadyRsp, error) {
+func (c *WhotHTTPClientImpl) OnPlayerActionReq(ctx context.Context, in *PlayerActionReq, opts ...http.CallOption) (*PlayerActionRsp, error) {
+	var out PlayerActionRsp
+	pattern := "/whot/OnPlayCardReq"
+	path := binding.EncodeURL(pattern, in, false)
+	opts = append(opts, http.Operation(OperationWhotOnPlayerActionReq))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *WhotHTTPClientImpl) OnReadyReq(ctx context.Context, in *ReadyReq, opts ...http.CallOption) (*ReadyRsp, error) {
 	var out ReadyRsp
-	pattern := "/greeter/OnReadyReq"
+	pattern := "/whot/OnReadyReq"
 	path := binding.EncodeURL(pattern, in, false)
-	opts = append(opts, http.Operation(OperationGreeterOnReadyReq))
+	opts = append(opts, http.Operation(OperationWhotOnReadyReq))
 	opts = append(opts, http.PathTemplate(pattern))
 	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
 	if err != nil {
@@ -430,11 +391,11 @@ func (c *GreeterHTTPClientImpl) OnReadyReq(ctx context.Context, in *ReadyReq, op
 	return &out, nil
 }
 
-func (c *GreeterHTTPClientImpl) OnSceneReq(ctx context.Context, in *SceneReq, opts ...http.CallOption) (*SceneRsp, error) {
+func (c *WhotHTTPClientImpl) OnSceneReq(ctx context.Context, in *SceneReq, opts ...http.CallOption) (*SceneRsp, error) {
 	var out SceneRsp
-	pattern := "/greeter/OnSceneReq"
+	pattern := "/whot/OnSceneReq"
 	path := binding.EncodeURL(pattern, in, false)
-	opts = append(opts, http.Operation(OperationGreeterOnSceneReq))
+	opts = append(opts, http.Operation(OperationWhotOnSceneReq))
 	opts = append(opts, http.PathTemplate(pattern))
 	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
 	if err != nil {
@@ -443,11 +404,11 @@ func (c *GreeterHTTPClientImpl) OnSceneReq(ctx context.Context, in *SceneReq, op
 	return &out, nil
 }
 
-func (c *GreeterHTTPClientImpl) OnSwitchTableReq(ctx context.Context, in *SwitchTableReq, opts ...http.CallOption) (*SwitchTableRsp, error) {
+func (c *WhotHTTPClientImpl) OnSwitchTableReq(ctx context.Context, in *SwitchTableReq, opts ...http.CallOption) (*SwitchTableRsp, error) {
 	var out SwitchTableRsp
-	pattern := "/greeter/OnSwitchTableReq"
+	pattern := "/whot/OnSwitchTableReq"
 	path := binding.EncodeURL(pattern, in, false)
-	opts = append(opts, http.Operation(OperationGreeterOnSwitchTableReq))
+	opts = append(opts, http.Operation(OperationWhotOnSwitchTableReq))
 	opts = append(opts, http.PathTemplate(pattern))
 	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
 	if err != nil {
@@ -456,11 +417,11 @@ func (c *GreeterHTTPClientImpl) OnSwitchTableReq(ctx context.Context, in *Switch
 	return &out, nil
 }
 
-func (c *GreeterHTTPClientImpl) SayHelloReq(ctx context.Context, in *HelloRequest, opts ...http.CallOption) (*HelloReply, error) {
+func (c *WhotHTTPClientImpl) SayHelloReq(ctx context.Context, in *HelloRequest, opts ...http.CallOption) (*HelloReply, error) {
 	var out HelloReply
-	pattern := "/helloworld/{name}"
+	pattern := "/whot/{name}"
 	path := binding.EncodeURL(pattern, in, true)
-	opts = append(opts, http.Operation(OperationGreeterSayHelloReq))
+	opts = append(opts, http.Operation(OperationWhotSayHelloReq))
 	opts = append(opts, http.PathTemplate(pattern))
 	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
 	if err != nil {

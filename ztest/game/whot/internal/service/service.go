@@ -12,7 +12,7 @@ var ProviderSet = wire.NewSet(NewService)
 
 // Service is a service.
 type Service struct {
-	v1.UnimplementedGreeterServer
+	v1.UnimplementedWhotServer
 
 	logger log.Logger
 	uc     *biz.Usecase

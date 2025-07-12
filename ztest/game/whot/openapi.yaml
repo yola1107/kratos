@@ -3,52 +3,15 @@
 
 openapi: 3.0.3
 info:
-    title: Greeter API
-    description: The greeting service definition.
+    title: Whot API
+    description: The whot service definition.
     version: 0.0.1
 paths:
-    /greeter/OnActionReq:
+    /whot/OnChatOrFaceReq:
         post:
             tags:
-                - Greeter
-            description: game request
-            operationId: Greeter_OnActionReq
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            $ref: '#/components/schemas/whot.v1.ActionReq'
-                required: true
-            responses:
-                "200":
-                    description: OK
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/whot.v1.ActionRsp'
-    /greeter/OnAutoCallReq:
-        post:
-            tags:
-                - Greeter
-            operationId: Greeter_OnAutoCallReq
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            $ref: '#/components/schemas/whot.v1.AutoCallReq'
-                required: true
-            responses:
-                "200":
-                    description: OK
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/whot.v1.AutoCallRsp'
-    /greeter/OnChatOrFaceReq:
-        post:
-            tags:
-                - Greeter
-            operationId: Greeter_OnChatReq
+                - Whot
+            operationId: Whot_OnChatReq
             requestBody:
                 content:
                     application/json:
@@ -62,11 +25,11 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/whot.v1.ChatRsp'
-    /greeter/OnForwardReq:
+    /whot/OnForwardReq:
         post:
             tags:
-                - Greeter
-            operationId: Greeter_OnForwardReq
+                - Whot
+            operationId: Whot_OnForwardReq
             requestBody:
                 content:
                     application/json:
@@ -80,11 +43,11 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/whot.v1.ForwardRsp'
-    /greeter/OnHostingReq:
+    /whot/OnHostingReq:
         post:
             tags:
-                - Greeter
-            operationId: Greeter_OnHostingReq
+                - Whot
+            operationId: Whot_OnHostingReq
             requestBody:
                 content:
                     application/json:
@@ -98,11 +61,11 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/whot.v1.HostingRsp'
-    /greeter/OnLoginReq:
+    /whot/OnLoginReq:
         post:
             tags:
-                - Greeter
-            operationId: Greeter_OnLoginReq
+                - Whot
+            operationId: Whot_OnLoginReq
             requestBody:
                 content:
                     application/json:
@@ -116,11 +79,11 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/whot.v1.LoginRsp'
-    /greeter/OnLogoutReq:
+    /whot/OnLogoutReq:
         post:
             tags:
-                - Greeter
-            operationId: Greeter_OnLogoutReq
+                - Whot
+            operationId: Whot_OnLogoutReq
             requestBody:
                 content:
                     application/json:
@@ -134,11 +97,30 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/whot.v1.LogoutRsp'
-    /greeter/OnReadyReq:
+    /whot/OnPlayCardReq:
         post:
             tags:
-                - Greeter
-            operationId: Greeter_OnReadyReq
+                - Whot
+            description: game request
+            operationId: Whot_OnPlayerActionReq
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/whot.v1.PlayerActionReq'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/whot.v1.PlayerActionRsp'
+    /whot/OnReadyReq:
+        post:
+            tags:
+                - Whot
+            operationId: Whot_OnReadyReq
             requestBody:
                 content:
                     application/json:
@@ -152,11 +134,11 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/whot.v1.ReadyRsp'
-    /greeter/OnSceneReq:
+    /whot/OnSceneReq:
         post:
             tags:
-                - Greeter
-            operationId: Greeter_OnSceneReq
+                - Whot
+            operationId: Whot_OnSceneReq
             requestBody:
                 content:
                     application/json:
@@ -170,11 +152,11 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/whot.v1.SceneRsp'
-    /greeter/OnSwitchTableReq:
+    /whot/OnSwitchTableReq:
         post:
             tags:
-                - Greeter
-            operationId: Greeter_OnSwitchTableReq
+                - Whot
+            operationId: Whot_OnSwitchTableReq
             requestBody:
                 content:
                     application/json:
@@ -188,12 +170,12 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/whot.v1.SwitchTableRsp'
-    /helloworld/{name}:
+    /whot/{name}:
         get:
             tags:
-                - Greeter
+                - Whot
             description: Sends a greeting
-            operationId: Greeter_SayHelloReq
+            operationId: Whot_SayHelloReq
             parameters:
                 - name: name
                   in: path
@@ -209,65 +191,34 @@ paths:
                                 $ref: '#/components/schemas/whot.v1.HelloReply'
 components:
     schemas:
-        whot.v1.ActionReq:
+        whot.v1.ActionOption:
             type: object
             properties:
-                userID:
-                    type: string
                 action:
                     type: integer
                     format: enum
-                sideReplyAllow:
-                    type: boolean
-        whot.v1.ActionRsp:
-            type: object
-            properties:
-                code:
+                cards:
+                    type: array
+                    items:
+                        type: integer
+                        format: int32
+                drawCount:
                     type: integer
                     format: int32
-                msg:
-                    type: string
-                userID:
-                    type: string
-                chairID:
-                    type: integer
-                    format: int32
-                action:
-                    type: integer
-                    format: enum
-                seeCards:
-                    $ref: '#/components/schemas/whot.v1.SeeCards'
-                betInfo:
-                    $ref: '#/components/schemas/whot.v1.BetInfo'
-                compareInfo:
-                    $ref: '#/components/schemas/whot.v1.CompareInfo'
-        whot.v1.AutoCallReq:
+                suits:
+                    type: array
+                    items:
+                        type: integer
+                        format: int32
+            description: 单个动作以及其附属信息（如：出哪些牌、声明哪种花色）
+        whot.v1.CanOpInfo:
             type: object
             properties:
-                userID:
-                    type: string
-                autoCall:
-                    type: boolean
-        whot.v1.AutoCallRsp:
-            type: object
-            properties:
-                userID:
-                    type: string
-                autoCall:
-                    type: boolean
-        whot.v1.BetInfo:
-            type: object
-            properties:
-                curBet:
-                    type: number
-                    format: double
-                totalBet:
-                    type: number
-                    format: double
-                playerBet:
-                    type: number
-                    format: double
-            description: 下注信息 触发下注动作
+                options:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/whot.v1.ActionOption'
+            description: 允许操作及对应信息（客户端据此构建操作界面）
         whot.v1.ChatReq:
             type: object
             properties:
@@ -297,20 +248,21 @@ components:
                     format: int32
                 msg:
                     type: string
-        whot.v1.CompareInfo:
+        whot.v1.DrawCardResult:
             type: object
             properties:
-                targetUid:
-                    type: string
-                targetChairID:
+                drawNum:
                     type: integer
                     format: int32
-                targetStatus:
+                totalCards:
                     type: integer
                     format: int32
-                sideReplyAllow:
-                    type: boolean
-            description: 比牌信息 触发比牌动作
+                cards:
+                    type: array
+                    items:
+                        type: integer
+                        format: int32
+            description: 摸牌结果
         whot.v1.ForwardReq:
             type: object
             properties:
@@ -333,7 +285,6 @@ components:
             properties:
                 message:
                     type: string
-            description: The response message containing the greetings
         whot.v1.HostingReq:
             type: object
             properties:
@@ -343,7 +294,7 @@ components:
         whot.v1.HostingRsp:
             type: object
             properties:
-                chairId:
+                chairID:
                     type: integer
                     format: int32
                 status:
@@ -407,10 +358,84 @@ components:
                     type: string
                 UserID:
                     type: string
-        whot.v1.PlayerScene:
+        whot.v1.Pending:
             type: object
             properties:
-                userID:
+                effect:
+                    type: integer
+                    format: enum
+                initiator:
+                    type: integer
+                    format: int32
+                target:
+                    type: integer
+                    format: int32
+                quantity:
+                    type: integer
+                    format: int32
+            description: 当前待处理动作响应; 如等待反击,等待声明花色等操作
+        whot.v1.PlayCardResult:
+            type: object
+            properties:
+                card:
+                    type: integer
+                    format: int32
+                declareSuit:
+                    type: integer
+                    format: enum
+                cards:
+                    type: array
+                    items:
+                        type: integer
+                        format: int32
+            description: 出牌结果
+        whot.v1.PlayerActionReq:
+            type: object
+            properties:
+                userId:
+                    type: string
+                action:
+                    type: integer
+                    format: enum
+                outCard:
+                    type: integer
+                    format: int32
+                declareSuit:
+                    type: integer
+                    format: enum
+            description: 玩家操作请求
+        whot.v1.PlayerActionRsp:
+            type: object
+            properties:
+                code:
+                    type: integer
+                    format: int32
+                message:
+                    type: string
+                userId:
+                    type: string
+                chairId:
+                    type: integer
+                    format: int32
+                action:
+                    type: integer
+                    format: enum
+                leftNum:
+                    type: integer
+                    format: int32
+                effect:
+                    $ref: '#/components/schemas/whot.v1.Pending'
+                playResult:
+                    allOf:
+                        - $ref: '#/components/schemas/whot.v1.PlayCardResult'
+                    description: 执行结果
+                drawResult:
+                    $ref: '#/components/schemas/whot.v1.DrawCardResult'
+            description: 玩家操作响应
+        whot.v1.PlayerInfo:
+            type: object
+            properties:
+                userId:
                     type: string
                 chairId:
                     type: integer
@@ -422,34 +447,14 @@ components:
                     type: boolean
                 offline:
                     type: boolean
-                lastOp:
-                    type: integer
-                    format: enum
-                curBet:
-                    type: number
-                    format: double
-                totalBet:
-                    type: number
-                    format: double
-                seen:
-                    type: boolean
-                isAutoCall:
-                    type: boolean
-                isPaying:
-                    type: boolean
                 cards:
                     type: array
                     items:
                         type: integer
                         format: int32
-                cardsType:
-                    type: integer
-                    format: int32
                 canOp:
-                    type: array
-                    items:
-                        type: integer
-                        format: enum
+                    $ref: '#/components/schemas/whot.v1.CanOpInfo'
+            description: 玩家基础信息
         whot.v1.ReadyReq:
             type: object
             properties:
@@ -470,64 +475,46 @@ components:
             properties:
                 userID:
                     type: string
-            description: 场景信息
+            description: 场景请求/响应
         whot.v1.SceneRsp:
             type: object
             properties:
                 baseScore:
                     type: number
-                    description: 配置信息
                     format: double
-                chLimit:
-                    type: number
-                    format: double
-                potLimit:
-                    type: number
-                    format: double
-                autoSeeRound:
-                    type: integer
-                    format: int32
                 stage:
                     type: integer
-                    description: 游戏状态
                     format: int32
                 timeout:
                     type: string
                 active:
                     type: integer
                     format: int32
-                banker:
+                firstChair:
                     type: integer
                     format: int32
-                curRound:
+                currCard:
                     type: integer
                     format: int32
-                totalBet:
-                    type: number
-                    format: double
+                declareSuit:
+                    type: integer
+                    format: enum
+                leftNum:
+                    type: integer
+                    format: int32
+                pending:
+                    $ref: '#/components/schemas/whot.v1.Pending'
                 players:
                     type: array
                     items:
-                        $ref: '#/components/schemas/whot.v1.PlayerScene'
-                    description: 玩家信息
-        whot.v1.SeeCards:
-            type: object
-            properties:
-                cards:
-                    type: array
-                    items:
-                        type: integer
-                        format: int32
-                cardsType:
-                    type: integer
-                    format: int32
-            description: 看牌信息  触发看牌动作
+                        $ref: '#/components/schemas/whot.v1.PlayerInfo'
+            description: 场景响应，包含当前游戏状态和玩家信息
         whot.v1.SwitchTableReq:
             type: object
             properties:
                 userID:
                     type: string
-                chairId:
+                chairID:
                     type: integer
                     format: int32
             description: 换桌
@@ -542,4 +529,4 @@ components:
                 userID:
                     type: string
 tags:
-    - name: Greeter
+    - name: Whot

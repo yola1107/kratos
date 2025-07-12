@@ -19,25 +19,24 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Greeter_SayHelloReq_FullMethodName      = "/whot.v1.Greeter/SayHelloReq"
-	Greeter_OnLoginReq_FullMethodName       = "/whot.v1.Greeter/OnLoginReq"
-	Greeter_OnLogoutReq_FullMethodName      = "/whot.v1.Greeter/OnLogoutReq"
-	Greeter_OnReadyReq_FullMethodName       = "/whot.v1.Greeter/OnReadyReq"
-	Greeter_OnSwitchTableReq_FullMethodName = "/whot.v1.Greeter/OnSwitchTableReq"
-	Greeter_OnSceneReq_FullMethodName       = "/whot.v1.Greeter/OnSceneReq"
-	Greeter_OnChatReq_FullMethodName        = "/whot.v1.Greeter/OnChatReq"
-	Greeter_OnHostingReq_FullMethodName     = "/whot.v1.Greeter/OnHostingReq"
-	Greeter_OnForwardReq_FullMethodName     = "/whot.v1.Greeter/OnForwardReq"
-	Greeter_OnActionReq_FullMethodName      = "/whot.v1.Greeter/OnActionReq"
-	Greeter_OnAutoCallReq_FullMethodName    = "/whot.v1.Greeter/OnAutoCallReq"
+	Whot_SayHelloReq_FullMethodName       = "/whot.v1.Whot/SayHelloReq"
+	Whot_OnLoginReq_FullMethodName        = "/whot.v1.Whot/OnLoginReq"
+	Whot_OnLogoutReq_FullMethodName       = "/whot.v1.Whot/OnLogoutReq"
+	Whot_OnReadyReq_FullMethodName        = "/whot.v1.Whot/OnReadyReq"
+	Whot_OnSwitchTableReq_FullMethodName  = "/whot.v1.Whot/OnSwitchTableReq"
+	Whot_OnSceneReq_FullMethodName        = "/whot.v1.Whot/OnSceneReq"
+	Whot_OnChatReq_FullMethodName         = "/whot.v1.Whot/OnChatReq"
+	Whot_OnHostingReq_FullMethodName      = "/whot.v1.Whot/OnHostingReq"
+	Whot_OnForwardReq_FullMethodName      = "/whot.v1.Whot/OnForwardReq"
+	Whot_OnPlayerActionReq_FullMethodName = "/whot.v1.Whot/OnPlayerActionReq"
 )
 
-// GreeterClient is the client API for Greeter service.
+// WhotClient is the client API for Whot service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// The greeting service definition.
-type GreeterClient interface {
+// The whot service definition.
+type WhotClient interface {
 	// Sends a greeting
 	SayHelloReq(ctx context.Context, in *HelloRequest, opts ...grpc.CallOption) (*HelloReply, error)
 	OnLoginReq(ctx context.Context, in *LoginReq, opts ...grpc.CallOption) (*LoginRsp, error)
@@ -49,134 +48,123 @@ type GreeterClient interface {
 	OnHostingReq(ctx context.Context, in *HostingReq, opts ...grpc.CallOption) (*HostingRsp, error)
 	OnForwardReq(ctx context.Context, in *ForwardReq, opts ...grpc.CallOption) (*ForwardRsp, error)
 	// game request
-	OnActionReq(ctx context.Context, in *ActionReq, opts ...grpc.CallOption) (*ActionRsp, error)
-	OnAutoCallReq(ctx context.Context, in *AutoCallReq, opts ...grpc.CallOption) (*AutoCallRsp, error)
+	OnPlayerActionReq(ctx context.Context, in *PlayerActionReq, opts ...grpc.CallOption) (*PlayerActionRsp, error)
 }
 
-type greeterClient struct {
+type whotClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewGreeterClient(cc grpc.ClientConnInterface) GreeterClient {
-	return &greeterClient{cc}
+func NewWhotClient(cc grpc.ClientConnInterface) WhotClient {
+	return &whotClient{cc}
 }
 
-func (c *greeterClient) SayHelloReq(ctx context.Context, in *HelloRequest, opts ...grpc.CallOption) (*HelloReply, error) {
+func (c *whotClient) SayHelloReq(ctx context.Context, in *HelloRequest, opts ...grpc.CallOption) (*HelloReply, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(HelloReply)
-	err := c.cc.Invoke(ctx, Greeter_SayHelloReq_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Whot_SayHelloReq_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *greeterClient) OnLoginReq(ctx context.Context, in *LoginReq, opts ...grpc.CallOption) (*LoginRsp, error) {
+func (c *whotClient) OnLoginReq(ctx context.Context, in *LoginReq, opts ...grpc.CallOption) (*LoginRsp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(LoginRsp)
-	err := c.cc.Invoke(ctx, Greeter_OnLoginReq_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Whot_OnLoginReq_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *greeterClient) OnLogoutReq(ctx context.Context, in *LogoutReq, opts ...grpc.CallOption) (*LogoutRsp, error) {
+func (c *whotClient) OnLogoutReq(ctx context.Context, in *LogoutReq, opts ...grpc.CallOption) (*LogoutRsp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(LogoutRsp)
-	err := c.cc.Invoke(ctx, Greeter_OnLogoutReq_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Whot_OnLogoutReq_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *greeterClient) OnReadyReq(ctx context.Context, in *ReadyReq, opts ...grpc.CallOption) (*ReadyRsp, error) {
+func (c *whotClient) OnReadyReq(ctx context.Context, in *ReadyReq, opts ...grpc.CallOption) (*ReadyRsp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ReadyRsp)
-	err := c.cc.Invoke(ctx, Greeter_OnReadyReq_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Whot_OnReadyReq_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *greeterClient) OnSwitchTableReq(ctx context.Context, in *SwitchTableReq, opts ...grpc.CallOption) (*SwitchTableRsp, error) {
+func (c *whotClient) OnSwitchTableReq(ctx context.Context, in *SwitchTableReq, opts ...grpc.CallOption) (*SwitchTableRsp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SwitchTableRsp)
-	err := c.cc.Invoke(ctx, Greeter_OnSwitchTableReq_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Whot_OnSwitchTableReq_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *greeterClient) OnSceneReq(ctx context.Context, in *SceneReq, opts ...grpc.CallOption) (*SceneRsp, error) {
+func (c *whotClient) OnSceneReq(ctx context.Context, in *SceneReq, opts ...grpc.CallOption) (*SceneRsp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SceneRsp)
-	err := c.cc.Invoke(ctx, Greeter_OnSceneReq_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Whot_OnSceneReq_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *greeterClient) OnChatReq(ctx context.Context, in *ChatReq, opts ...grpc.CallOption) (*ChatRsp, error) {
+func (c *whotClient) OnChatReq(ctx context.Context, in *ChatReq, opts ...grpc.CallOption) (*ChatRsp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ChatRsp)
-	err := c.cc.Invoke(ctx, Greeter_OnChatReq_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Whot_OnChatReq_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *greeterClient) OnHostingReq(ctx context.Context, in *HostingReq, opts ...grpc.CallOption) (*HostingRsp, error) {
+func (c *whotClient) OnHostingReq(ctx context.Context, in *HostingReq, opts ...grpc.CallOption) (*HostingRsp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(HostingRsp)
-	err := c.cc.Invoke(ctx, Greeter_OnHostingReq_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Whot_OnHostingReq_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *greeterClient) OnForwardReq(ctx context.Context, in *ForwardReq, opts ...grpc.CallOption) (*ForwardRsp, error) {
+func (c *whotClient) OnForwardReq(ctx context.Context, in *ForwardReq, opts ...grpc.CallOption) (*ForwardRsp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ForwardRsp)
-	err := c.cc.Invoke(ctx, Greeter_OnForwardReq_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Whot_OnForwardReq_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *greeterClient) OnActionReq(ctx context.Context, in *ActionReq, opts ...grpc.CallOption) (*ActionRsp, error) {
+func (c *whotClient) OnPlayerActionReq(ctx context.Context, in *PlayerActionReq, opts ...grpc.CallOption) (*PlayerActionRsp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ActionRsp)
-	err := c.cc.Invoke(ctx, Greeter_OnActionReq_FullMethodName, in, out, cOpts...)
+	out := new(PlayerActionRsp)
+	err := c.cc.Invoke(ctx, Whot_OnPlayerActionReq_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *greeterClient) OnAutoCallReq(ctx context.Context, in *AutoCallReq, opts ...grpc.CallOption) (*AutoCallRsp, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(AutoCallRsp)
-	err := c.cc.Invoke(ctx, Greeter_OnAutoCallReq_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// GreeterServer is the server API for Greeter service.
-// All implementations must embed UnimplementedGreeterServer
+// WhotServer is the server API for Whot service.
+// All implementations must embed UnimplementedWhotServer
 // for forward compatibility.
 //
-// The greeting service definition.
-type GreeterServer interface {
+// The whot service definition.
+type WhotServer interface {
 	// Sends a greeting
 	SayHelloReq(context.Context, *HelloRequest) (*HelloReply, error)
 	OnLoginReq(context.Context, *LoginReq) (*LoginRsp, error)
@@ -188,320 +176,294 @@ type GreeterServer interface {
 	OnHostingReq(context.Context, *HostingReq) (*HostingRsp, error)
 	OnForwardReq(context.Context, *ForwardReq) (*ForwardRsp, error)
 	// game request
-	OnActionReq(context.Context, *ActionReq) (*ActionRsp, error)
-	OnAutoCallReq(context.Context, *AutoCallReq) (*AutoCallRsp, error)
-	mustEmbedUnimplementedGreeterServer()
+	OnPlayerActionReq(context.Context, *PlayerActionReq) (*PlayerActionRsp, error)
+	mustEmbedUnimplementedWhotServer()
 }
 
-// UnimplementedGreeterServer must be embedded to have
+// UnimplementedWhotServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedGreeterServer struct{}
+type UnimplementedWhotServer struct{}
 
-func (UnimplementedGreeterServer) SayHelloReq(context.Context, *HelloRequest) (*HelloReply, error) {
+func (UnimplementedWhotServer) SayHelloReq(context.Context, *HelloRequest) (*HelloReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SayHelloReq not implemented")
 }
-func (UnimplementedGreeterServer) OnLoginReq(context.Context, *LoginReq) (*LoginRsp, error) {
+func (UnimplementedWhotServer) OnLoginReq(context.Context, *LoginReq) (*LoginRsp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method OnLoginReq not implemented")
 }
-func (UnimplementedGreeterServer) OnLogoutReq(context.Context, *LogoutReq) (*LogoutRsp, error) {
+func (UnimplementedWhotServer) OnLogoutReq(context.Context, *LogoutReq) (*LogoutRsp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method OnLogoutReq not implemented")
 }
-func (UnimplementedGreeterServer) OnReadyReq(context.Context, *ReadyReq) (*ReadyRsp, error) {
+func (UnimplementedWhotServer) OnReadyReq(context.Context, *ReadyReq) (*ReadyRsp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method OnReadyReq not implemented")
 }
-func (UnimplementedGreeterServer) OnSwitchTableReq(context.Context, *SwitchTableReq) (*SwitchTableRsp, error) {
+func (UnimplementedWhotServer) OnSwitchTableReq(context.Context, *SwitchTableReq) (*SwitchTableRsp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method OnSwitchTableReq not implemented")
 }
-func (UnimplementedGreeterServer) OnSceneReq(context.Context, *SceneReq) (*SceneRsp, error) {
+func (UnimplementedWhotServer) OnSceneReq(context.Context, *SceneReq) (*SceneRsp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method OnSceneReq not implemented")
 }
-func (UnimplementedGreeterServer) OnChatReq(context.Context, *ChatReq) (*ChatRsp, error) {
+func (UnimplementedWhotServer) OnChatReq(context.Context, *ChatReq) (*ChatRsp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method OnChatReq not implemented")
 }
-func (UnimplementedGreeterServer) OnHostingReq(context.Context, *HostingReq) (*HostingRsp, error) {
+func (UnimplementedWhotServer) OnHostingReq(context.Context, *HostingReq) (*HostingRsp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method OnHostingReq not implemented")
 }
-func (UnimplementedGreeterServer) OnForwardReq(context.Context, *ForwardReq) (*ForwardRsp, error) {
+func (UnimplementedWhotServer) OnForwardReq(context.Context, *ForwardReq) (*ForwardRsp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method OnForwardReq not implemented")
 }
-func (UnimplementedGreeterServer) OnActionReq(context.Context, *ActionReq) (*ActionRsp, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method OnActionReq not implemented")
+func (UnimplementedWhotServer) OnPlayerActionReq(context.Context, *PlayerActionReq) (*PlayerActionRsp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method OnPlayerActionReq not implemented")
 }
-func (UnimplementedGreeterServer) OnAutoCallReq(context.Context, *AutoCallReq) (*AutoCallRsp, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method OnAutoCallReq not implemented")
-}
-func (UnimplementedGreeterServer) mustEmbedUnimplementedGreeterServer() {}
-func (UnimplementedGreeterServer) testEmbeddedByValue()                 {}
+func (UnimplementedWhotServer) mustEmbedUnimplementedWhotServer() {}
+func (UnimplementedWhotServer) testEmbeddedByValue()              {}
 
-// UnsafeGreeterServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to GreeterServer will
+// UnsafeWhotServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to WhotServer will
 // result in compilation errors.
-type UnsafeGreeterServer interface {
-	mustEmbedUnimplementedGreeterServer()
+type UnsafeWhotServer interface {
+	mustEmbedUnimplementedWhotServer()
 }
 
-func RegisterGreeterServer(s grpc.ServiceRegistrar, srv GreeterServer) {
-	// If the following call pancis, it indicates UnimplementedGreeterServer was
+func RegisterWhotServer(s grpc.ServiceRegistrar, srv WhotServer) {
+	// If the following call pancis, it indicates UnimplementedWhotServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&Greeter_ServiceDesc, srv)
+	s.RegisterService(&Whot_ServiceDesc, srv)
 }
 
-func _Greeter_SayHelloReq_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Whot_SayHelloReq_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(HelloRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GreeterServer).SayHelloReq(ctx, in)
+		return srv.(WhotServer).SayHelloReq(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Greeter_SayHelloReq_FullMethodName,
+		FullMethod: Whot_SayHelloReq_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GreeterServer).SayHelloReq(ctx, req.(*HelloRequest))
+		return srv.(WhotServer).SayHelloReq(ctx, req.(*HelloRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Greeter_OnLoginReq_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Whot_OnLoginReq_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(LoginReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GreeterServer).OnLoginReq(ctx, in)
+		return srv.(WhotServer).OnLoginReq(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Greeter_OnLoginReq_FullMethodName,
+		FullMethod: Whot_OnLoginReq_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GreeterServer).OnLoginReq(ctx, req.(*LoginReq))
+		return srv.(WhotServer).OnLoginReq(ctx, req.(*LoginReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Greeter_OnLogoutReq_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Whot_OnLogoutReq_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(LogoutReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GreeterServer).OnLogoutReq(ctx, in)
+		return srv.(WhotServer).OnLogoutReq(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Greeter_OnLogoutReq_FullMethodName,
+		FullMethod: Whot_OnLogoutReq_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GreeterServer).OnLogoutReq(ctx, req.(*LogoutReq))
+		return srv.(WhotServer).OnLogoutReq(ctx, req.(*LogoutReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Greeter_OnReadyReq_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Whot_OnReadyReq_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ReadyReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GreeterServer).OnReadyReq(ctx, in)
+		return srv.(WhotServer).OnReadyReq(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Greeter_OnReadyReq_FullMethodName,
+		FullMethod: Whot_OnReadyReq_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GreeterServer).OnReadyReq(ctx, req.(*ReadyReq))
+		return srv.(WhotServer).OnReadyReq(ctx, req.(*ReadyReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Greeter_OnSwitchTableReq_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Whot_OnSwitchTableReq_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SwitchTableReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GreeterServer).OnSwitchTableReq(ctx, in)
+		return srv.(WhotServer).OnSwitchTableReq(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Greeter_OnSwitchTableReq_FullMethodName,
+		FullMethod: Whot_OnSwitchTableReq_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GreeterServer).OnSwitchTableReq(ctx, req.(*SwitchTableReq))
+		return srv.(WhotServer).OnSwitchTableReq(ctx, req.(*SwitchTableReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Greeter_OnSceneReq_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Whot_OnSceneReq_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SceneReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GreeterServer).OnSceneReq(ctx, in)
+		return srv.(WhotServer).OnSceneReq(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Greeter_OnSceneReq_FullMethodName,
+		FullMethod: Whot_OnSceneReq_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GreeterServer).OnSceneReq(ctx, req.(*SceneReq))
+		return srv.(WhotServer).OnSceneReq(ctx, req.(*SceneReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Greeter_OnChatReq_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Whot_OnChatReq_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ChatReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GreeterServer).OnChatReq(ctx, in)
+		return srv.(WhotServer).OnChatReq(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Greeter_OnChatReq_FullMethodName,
+		FullMethod: Whot_OnChatReq_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GreeterServer).OnChatReq(ctx, req.(*ChatReq))
+		return srv.(WhotServer).OnChatReq(ctx, req.(*ChatReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Greeter_OnHostingReq_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Whot_OnHostingReq_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(HostingReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GreeterServer).OnHostingReq(ctx, in)
+		return srv.(WhotServer).OnHostingReq(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Greeter_OnHostingReq_FullMethodName,
+		FullMethod: Whot_OnHostingReq_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GreeterServer).OnHostingReq(ctx, req.(*HostingReq))
+		return srv.(WhotServer).OnHostingReq(ctx, req.(*HostingReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Greeter_OnForwardReq_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Whot_OnForwardReq_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ForwardReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GreeterServer).OnForwardReq(ctx, in)
+		return srv.(WhotServer).OnForwardReq(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Greeter_OnForwardReq_FullMethodName,
+		FullMethod: Whot_OnForwardReq_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GreeterServer).OnForwardReq(ctx, req.(*ForwardReq))
+		return srv.(WhotServer).OnForwardReq(ctx, req.(*ForwardReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Greeter_OnActionReq_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ActionReq)
+func _Whot_OnPlayerActionReq_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PlayerActionReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GreeterServer).OnActionReq(ctx, in)
+		return srv.(WhotServer).OnPlayerActionReq(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Greeter_OnActionReq_FullMethodName,
+		FullMethod: Whot_OnPlayerActionReq_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GreeterServer).OnActionReq(ctx, req.(*ActionReq))
+		return srv.(WhotServer).OnPlayerActionReq(ctx, req.(*PlayerActionReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Greeter_OnAutoCallReq_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AutoCallReq)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(GreeterServer).OnAutoCallReq(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Greeter_OnAutoCallReq_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GreeterServer).OnAutoCallReq(ctx, req.(*AutoCallReq))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-// Greeter_ServiceDesc is the grpc.ServiceDesc for Greeter service.
+// Whot_ServiceDesc is the grpc.ServiceDesc for Whot service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var Greeter_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "whot.v1.Greeter",
-	HandlerType: (*GreeterServer)(nil),
+var Whot_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "whot.v1.Whot",
+	HandlerType: (*WhotServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "SayHelloReq",
-			Handler:    _Greeter_SayHelloReq_Handler,
+			Handler:    _Whot_SayHelloReq_Handler,
 		},
 		{
 			MethodName: "OnLoginReq",
-			Handler:    _Greeter_OnLoginReq_Handler,
+			Handler:    _Whot_OnLoginReq_Handler,
 		},
 		{
 			MethodName: "OnLogoutReq",
-			Handler:    _Greeter_OnLogoutReq_Handler,
+			Handler:    _Whot_OnLogoutReq_Handler,
 		},
 		{
 			MethodName: "OnReadyReq",
-			Handler:    _Greeter_OnReadyReq_Handler,
+			Handler:    _Whot_OnReadyReq_Handler,
 		},
 		{
 			MethodName: "OnSwitchTableReq",
-			Handler:    _Greeter_OnSwitchTableReq_Handler,
+			Handler:    _Whot_OnSwitchTableReq_Handler,
 		},
 		{
 			MethodName: "OnSceneReq",
-			Handler:    _Greeter_OnSceneReq_Handler,
+			Handler:    _Whot_OnSceneReq_Handler,
 		},
 		{
 			MethodName: "OnChatReq",
-			Handler:    _Greeter_OnChatReq_Handler,
+			Handler:    _Whot_OnChatReq_Handler,
 		},
 		{
 			MethodName: "OnHostingReq",
-			Handler:    _Greeter_OnHostingReq_Handler,
+			Handler:    _Whot_OnHostingReq_Handler,
 		},
 		{
 			MethodName: "OnForwardReq",
-			Handler:    _Greeter_OnForwardReq_Handler,
+			Handler:    _Whot_OnForwardReq_Handler,
 		},
 		{
-			MethodName: "OnActionReq",
-			Handler:    _Greeter_OnActionReq_Handler,
-		},
-		{
-			MethodName: "OnAutoCallReq",
-			Handler:    _Greeter_OnAutoCallReq_Handler,
+			MethodName: "OnPlayerActionReq",
+			Handler:    _Whot_OnPlayerActionReq_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

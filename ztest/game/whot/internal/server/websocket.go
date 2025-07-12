@@ -27,6 +27,6 @@ func NewWebsocketServer(c *conf.Server, greeter *service.Service, logger log.Log
 		opts = append(opts, websocket.Timeout(c.Websocket.Timeout.AsDuration()))
 	}
 	srv := websocket.NewServer(opts...)
-	v1.RegisterGreeterWebsocketServer(srv, greeter)
+	v1.RegisterWhotWebsocketServer(srv, greeter)
 	return srv
 }

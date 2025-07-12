@@ -7,7 +7,6 @@ import (
 
 	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/log"
-	v1 "github.com/yola1107/kratos/v2/ztest/game/whot/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/game/whot/internal/biz/player"
 )
 
@@ -84,12 +83,8 @@ func (t *Table) OnTimer() {
 		t.onGameStart()
 	case StSendCard:
 		t.onSendCardTimeout()
-	case StAction:
+	case StPlaying:
 		t.onActionTimeout()
-	case StSideShow:
-		t.onSideShowTimeout()
-	case StSideShowAni:
-		t.onSideShowAniTimeout()
 	case StWaitEnd:
 		t.gameEnd()
 	case StEnd:
@@ -154,14 +149,14 @@ func (t *Table) onGameStart() {
 	t.updateStage(StSendCard)
 
 	log.Debugf("******** <游戏开始> %s GamerInfo=%+v all=%v", t.Desc(), infos, logPlayers(t.seats))
-	t.mLog.begin(t.Desc(), t.curBet, t.seats, infos)
+	t.mLog.begin(t.Desc(), t.repo.GetRoomConfig().Game.BaseMoney, t.seats, infos)
 }
 
 // 检查用户是否可以开局
 func (t *Table) checkReadyPlayer() bool {
 	okCnt := 0
 	for _, v := range t.seats {
-		if v == nil || !v.IsReady() || v.GetAllMoney() < t.curBet {
+		if v == nil || !v.IsReady() || v.GetAllMoney() < t.repo.GetRoomConfig().Game.BaseMoney {
 			continue
 		}
 		okCnt++
@@ -173,7 +168,7 @@ func (t *Table) checkReadyInfos() (bool, []*player.Player, []string) {
 	canGameInfo := []string(nil)
 	canGameSeats := []*player.Player(nil)
 	for _, v := range t.seats {
-		if v == nil || v.GetAllMoney() < t.curBet || !v.IsReady() {
+		if v == nil || v.GetAllMoney() < t.repo.GetRoomConfig().Game.BaseMoney || !v.IsReady() {
 			continue
 		}
 		canGameSeats = append(canGameSeats, v)
@@ -188,7 +183,7 @@ func (t *Table) checkAutoReady(p *player.Player) {
 	if !t.repo.GetRoomConfig().Game.AutoReady {
 		return
 	}
-	if p != nil && !p.IsReady() && p.GetAllMoney() >= t.curBet {
+	if p != nil && !p.IsReady() && p.GetAllMoney() >= t.repo.GetRoomConfig().Game.BaseMoney {
 		p.SetReady()
 	}
 }
@@ -198,7 +193,7 @@ func (t *Table) checkAutoReadyAll() {
 		return
 	}
 	for _, p := range t.seats {
-		if p != nil && !p.IsReady() && p.GetAllMoney() >= t.curBet {
+		if p != nil && !p.IsReady() && p.GetAllMoney() >= t.repo.GetRoomConfig().Game.BaseMoney {
 			p.SetReady()
 		}
 	}
@@ -211,23 +206,17 @@ func (t *Table) intoGaming(seats []*player.Player) {
 			continue
 		}
 		p.SetGaming()
-		if !p.IntoGaming(t.curBet) {
-			log.Errorf("intoGaming error. p:%+v currBet=%.1f", p.Desc(), t.curBet)
-			// continue
-		} else {
-			t.totalBet += t.curBet
+		if !p.IntoGaming(t.repo.GetRoomConfig().Game.BaseMoney) {
+			log.Errorf("intoGaming error. p:%+v currBet=%.1f", p.Desc(), t.repo.GetRoomConfig().Game.BaseMoney)
 		}
 	}
 }
 
-// 计算庄家位置
+// 计算庄家/首家位置
 func (t *Table) calcBanker(seats []*player.Player) {
 	idx := ext.RandInt(0, len(seats))
-	t.banker = seats[int32(idx)].GetChairID()
-	t.curRound = 1
-	t.active = t.banker
+	t.active = seats[int32(idx)].GetChairID()
 	t.first = t.active
-	t.broadcastSetBankerRsp()
 }
 
 // 发牌
@@ -237,31 +226,27 @@ func (t *Table) dispatchCard(seats []*player.Player) {
 
 	// 发牌
 	for _, p := range seats {
-		p.AddCards(t.cards.DispatchCards(3))
+		p.AddCards(t.cards.DispatchCards(5))
 	}
 
+	// 设置底牌
+	bottom := t.cards.SetBottom()
+	leftNum := t.cards.GetCardNum()
+
+	// 设置桌面操作的牌
+	t.currCard = bottom[0]
+
 	// 发牌广播
-	t.dispatchCardPush(seats)
+	t.dispatchCardPush(seats, bottom, leftNum)
 }
 
 func (t *Table) onSendCardTimeout() {
-	t.updateStage(StAction)
+	t.updateStage(StPlaying)
 	t.broadcastActivePlayerPush()
 }
 
 func (t *Table) onActionTimeout() {
-	t.OnActionReq(t.GetActivePlayer(), &v1.ActionReq{Action: v1.ACTION_PACK}, true)
-}
 
-func (t *Table) onSideShowTimeout() {
-	t.OnActionReq(t.GetActivePlayer(), &v1.ActionReq{Action: v1.ACTION_SIDE_REPLY, SideReplyAllow: false}, true)
-}
-
-// 比牌赢家操作
-func (t *Table) onSideShowAniTimeout() {
-	t.updateStage(StAction)
-	t.broadcastActivePlayerPush()
-	t.checkRound(t.active)
 }
 
 /* 游戏结束 */
@@ -305,7 +290,7 @@ func (t *Table) settle() {
 	}
 
 	// 结算
-	winner.Settle(t.totalBet)
+	// winner.Settle(t.totalBet)
 
 	t.mLog.settle(winner)
 	// log.Debugf("gameEnd tb=%s winner=%+v", t.Desc(), winner.Desc())

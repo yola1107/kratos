@@ -3,9 +3,8 @@ package player
 import (
 	"fmt"
 
+	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/log"
-	v1 "github.com/yola1107/kratos/v2/ztest/game/whot/api/helloworld/v1"
-	"github.com/yola1107/kratos/v2/ztest/game/whot/internal/biz/calc"
 )
 
 var (
@@ -39,39 +38,26 @@ func (s Status) String() string {
 }
 
 type GameData struct {
-	TableID      int32         // 桌子ID
-	ChairID      int32         // 椅子ID
-	status       Status        // 0 StFree 1 StSit 2 StReady 3 StGaming
-	isOffline    bool          // 是否离线
-	bet          float64       // 投注
-	lastOp       v1.ACTION     // 上一次操作
-	seen         bool          // 是否看牌
-	cards        calc.HandCard // 手牌
-	playCount    int32         // 玩的回合数
-	seeRound     int32         // 看牌回合数
-	startMoney   float64       // 局数开始时的金币
-	idleCount    int32         // 超时/托管次数
-	compareSeats []int32       // 比牌椅子号
-	isAllCompare bool          // 是否参与所有比牌
-	isAutoCall   bool          // 是否自动跟注 0：未开启自动跟注 1：开启了自动跟注
-	isPaying     bool          // 支付中
+	TableID    int32   // 桌子ID
+	ChairID    int32   // 椅子ID
+	status     Status  // 0 StFree 1 StSit 2 StReady 3 StGaming
+	startMoney float64 // 局数开始时的金币
+	idleCount  int32   // 超时/托管次数
+	isOffline  bool    // 是否离线
+	bet        float64 // 投注
+	lastOp     int32   // 上一次操作
+	cards      []int32 // 手牌
+
 }
 
 func (p *Player) Reset() {
 	p.gameData.status = 0
+	p.gameData.startMoney = 0
+	p.gameData.idleCount = 0
 	p.gameData.isOffline = false
 	p.gameData.bet = 0
 	p.gameData.lastOp = 0
-	p.gameData.seen = false
-	p.gameData.cards = calc.HandCard{}
-	p.gameData.playCount = 0
-	p.gameData.seeRound = 0
-	p.gameData.startMoney = 0
-	p.gameData.idleCount = 0
-	p.gameData.compareSeats = nil
-	p.gameData.isAllCompare = false
-	p.gameData.isAutoCall = false
-	p.gameData.isPaying = false
+	p.gameData.cards = nil
 }
 
 func (p *Player) ExitReset() {
@@ -92,8 +78,8 @@ func (p *Player) Desc() string {
 		}
 		return 0
 	}
-	return fmt.Sprintf("(%d %d T:%d M:%.1f B:%.1f St:%v Se:%d ai:%d offline:%v)", p.GetPlayerID(), p.GetChairID(), p.GetTableID(),
-		p.GetAllMoney(), p.GetBet(), p.GetStatus(), bool2Int(p.gameData.seen), bool2Int(p.isRobot), bool2Int(p.IsOffline()))
+	return fmt.Sprintf("(%d %d T:%d M:%.1f B:%.1f St:%v ai:%d offline:%v)", p.GetPlayerID(), p.GetChairID(), p.GetTableID(),
+		p.GetAllMoney(), p.GetBet(), p.GetStatus(), bool2Int(p.isRobot), bool2Int(p.IsOffline()))
 }
 
 func (p *Player) SetTableID(tableID int32) {
@@ -180,12 +166,12 @@ func (p *Player) IsLost() bool {
 	return p.gameData.status == StGameLost
 }
 
-func (p *Player) SetLastOp(op v1.ACTION) {
-	p.gameData.lastOp = op
-}
-func (p *Player) GetLastOp() v1.ACTION {
-	return p.gameData.lastOp
-}
+// func (p *Player) SetLastOp(op v1.ACTION) {
+// 	p.gameData.lastOp = op
+// }
+// func (p *Player) GetLastOp() v1.ACTION {
+// 	return p.gameData.lastOp
+// }
 
 func (p *Player) AddBet(bet float64) {
 	if bet <= 0 {
@@ -197,36 +183,16 @@ func (p *Player) GetBet() float64 {
 	return p.gameData.bet
 }
 
-func (p *Player) SetSeen() {
-	p.gameData.seen = true
-}
-
-func (p *Player) Seen() bool {
-	return p.gameData.seen
-}
-
-func (p *Player) IsAutoCall() bool {
-	return p.gameData.isAutoCall
-}
-
-func (p *Player) IsPaying() bool {
-	return p.gameData.isPaying
-}
-
-func (p *Player) GetHand() calc.HandCard {
+func (p *Player) GetCards() []int32 {
 	return p.gameData.cards
 }
 
-func (p *Player) GetCards() []int32 {
-	return p.gameData.cards.Cards
-}
-
-func (p *Player) GetCardsType() int32 {
-	return int32(p.gameData.cards.Type)
-}
-
 func (p *Player) AddCards(cs []int32) {
-	p.gameData.cards.Set(cs)
+	p.gameData.cards = append(p.gameData.cards, cs...)
+}
+
+func (p *Player) RemoveCard(card int32) {
+	p.gameData.cards = ext.SliceDel(p.gameData.cards, card)
 }
 
 func (p *Player) IntoGaming(bet float64) bool {
@@ -236,22 +202,6 @@ func (p *Player) IntoGaming(bet float64) bool {
 	}
 	p.gameData.bet += bet
 	return true
-}
-
-func (p *Player) IncrPlayCnt() {
-	p.gameData.playCount++
-}
-
-func (p *Player) GetPlayCnt() int32 {
-	return p.gameData.playCount
-}
-
-func (p *Player) SetCompareSeats(chairs []int32) {
-	p.gameData.compareSeats = chairs
-}
-
-func (p *Player) GetCompareSeats() []int32 {
-	return p.gameData.compareSeats
 }
 
 // Settle 结算

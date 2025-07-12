@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/yola1107/kratos/v2/log"
+	v1 "github.com/yola1107/kratos/v2/ztest/game/whot/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/game/whot/internal/biz/player"
 	"github.com/yola1107/kratos/v2/ztest/game/whot/internal/conf"
 	"github.com/yola1107/kratos/v2/ztest/game/whot/pkg/codes"
@@ -23,34 +24,32 @@ type Table struct {
 	seats []*player.Player // 玩家列表
 
 	// 游戏逻辑变量
-	sitCnt   int16        // 入座玩家数量
-	banker   int32        // 庄家位置
-	active   int32        // 当前操作玩家
-	first    int32        // 第一个操作玩家
-	curRound int32        // 当前回合数
-	curBet   float64      // 当前需投注
-	totalBet float64      // 桌子总投注
-	aiLogic  RobotLogic   // 机器人逻辑
-	logout   []LogoutInfo // 离桌信息
+	sitCnt  int16      // 入座玩家数量
+	active  int32      // 当前操作玩家
+	first   int32      // 第一个操作玩家
+	aiLogic RobotLogic // 机器人逻辑
+
+	currCard    int32       // 当前操作的牌 (whot牌指定的花色时,将牌值*-1 花色为指定的花色 特殊处理)
+	declareSuit v1.SUIT     // whot牌指定的花色
+	pending     *v1.Pending // 玩家执行的动作 例如出牌,摸牌,声明花色等信息
 }
 
 func NewTable(id int32, typ TYPE, c *conf.Room, repo Repo) *Table {
 	t := &Table{
-		ID:       id,
-		Type:     typ,
-		MaxCnt:   int16(c.Table.ChairNum),
-		repo:     repo,
-		stage:    &Stage{},
-		sitCnt:   0,
-		banker:   -1,
-		active:   -1,
-		first:    -1,
-		curRound: 0,
-		curBet:   c.Game.BaseMoney,
-		totalBet: 0,
-		mLog:     NewTableLog(id, c.LogCache),
-		seats:    make([]*player.Player, c.Table.ChairNum),
-		cards:    NewGameCards(),
+		ID:          id,
+		Type:        typ,
+		MaxCnt:      int16(c.Table.ChairNum),
+		repo:        repo,
+		stage:       &Stage{},
+		sitCnt:      0,
+		active:      -1,
+		first:       -1,
+		currCard:    -1,
+		declareSuit: -1,
+		pending:     nil,
+		cards:       NewGameCards(),
+		mLog:        NewTableLog(id, c.LogCache),
+		seats:       make([]*player.Player, c.Table.ChairNum),
 	}
 	t.aiLogic.init(t)
 	return t
@@ -59,10 +58,6 @@ func NewTable(id int32, typ TYPE, c *conf.Room, repo Repo) *Table {
 func (t *Table) Reset() {
 	t.active = -1
 	t.first = -1
-	t.curRound = 1
-	t.curBet = t.repo.GetRoomConfig().Game.BaseMoney
-	t.totalBet = 0
-	t.logout = nil
 	for _, seat := range t.seats {
 		if seat == nil {
 			continue
@@ -72,8 +67,13 @@ func (t *Table) Reset() {
 }
 
 func (t *Table) Desc() string {
-	str := fmt.Sprintf("(TableID:%d Banker:%d First:%d CurrBet:%.1f SitCnt:%d Gamers:%d St:%+v active:%d)",
-		t.ID, t.banker, t.first, t.curBet, t.sitCnt, len(t.GetGamers()), t.stage.GetState(), t.active)
+	pending := ""
+	if t.pending != nil {
+		pending = fmt.Sprintf("{%+v->%v %v %v} ",
+			t.pending.Initiator, t.pending.Target, t.pending.Effect, t.pending.Quantity)
+	}
+	str := fmt.Sprintf("(TableID:%d SitCnt:%d Gamers:%d St:%+v Pend=%s active:%d)",
+		t.ID, t.sitCnt, len(t.GetGamers()), t.stage.GetState(), pending, t.active)
 	return str
 }
 
@@ -156,9 +156,6 @@ func (t *Table) ThrowOff(p *player.Player, isSwitchTable bool) bool {
 	// 记录时间
 	t.aiLogic.markExitNow()
 
-	// 添加离桌数据
-	t.addLogout(p)
-
 	// 重置玩家信息
 	p.ExitReset()
 
@@ -185,12 +182,6 @@ func (t *Table) ReEnter(p *player.Player) {
 
 	t.mLog.userReEnter(p, t.sitCnt)
 	log.Infof("ReEnterTable. p:%+v sitCnt:%d", p.Desc(), t.sitCnt)
-}
-
-func (t *Table) addLogout(p *player.Player) {
-	if p.GetBet() > 0 && p.IsGaming() {
-		t.logout = append(t.logout, newLogoutInfo(p))
-	}
 }
 
 func (t *Table) CanEnter(p *player.Player) bool {
@@ -242,21 +233,6 @@ func (t *Table) NextPlayer(chair int32) *player.Player {
 
 	return nil
 }
-
-// // RangePlayer 遍历玩家
-// func (t *Table) RangePlayer(cb func(k int32, p *player.Player) bool) {
-// 	if cb == nil {
-// 		return
-// 	}
-// 	for k, p := range t.seats {
-// 		if p == nil {
-// 			continue
-// 		}
-// 		if !cb(int32(k), p) {
-// 			break
-// 		}
-// 	}
-// }
 
 func (t *Table) GetActivePlayer() *player.Player {
 	active := t.active

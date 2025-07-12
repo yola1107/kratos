@@ -19,8 +19,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// GreeterTCPServer is the server API for Greeter service.
-type GreeterTCPServer interface {
+// WhotTCPServer is the server API for Whot service.
+type WhotTCPServer interface {
 	GetTCPLoop() work.ITaskLoop
 	SetCometChan(cl *tcp.ChanList, cs *tcp.Server)
 	SayHelloReq(context.Context, *HelloRequest) (*HelloReply, error)
@@ -32,29 +32,28 @@ type GreeterTCPServer interface {
 	OnChatReq(context.Context, *ChatReq) (*ChatRsp, error)
 	OnHostingReq(context.Context, *HostingReq) (*HostingRsp, error)
 	OnForwardReq(context.Context, *ForwardReq) (*ForwardRsp, error)
-	OnActionReq(context.Context, *ActionReq) (*ActionRsp, error)
-	OnAutoCallReq(context.Context, *AutoCallReq) (*AutoCallRsp, error)
+	OnPlayerActionReq(context.Context, *PlayerActionReq) (*PlayerActionRsp, error)
 }
 
-func RegisterGreeterTCPServer(s *tcp.Server, srv GreeterTCPServer) {
-	chanList := s.RegisterService(&Greeter_TCP_ServiceDesc, srv)
+func RegisterWhotTCPServer(s *tcp.Server, srv WhotTCPServer) {
+	chanList := s.RegisterService(&Whot_TCP_ServiceDesc, srv)
 	srv.SetCometChan(chanList, s)
 }
 
-func _Greeter_SayHelloReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
+func _Whot_SayHelloReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
 	in := new(HelloRequest)
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
 	doFunc := func(ctx context.Context, req *HelloRequest) ([]byte, error) {
 		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterTCPServer).SayHelloReq(ctx, req)
+			resp, err := srv.(WhotTCPServer).SayHelloReq(ctx, req)
 			if err != nil || resp == nil {
 				return nil, err
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(GreeterTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(WhotTCPServer).GetTCPLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -64,7 +63,7 @@ func _Greeter_SayHelloReq_TCP_Handler(srv interface{}, ctx context.Context, data
 	}
 	info := &tcp.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/whot.v1.Greeter/SayHelloReq",
+		FullMethod: "/whot.v1.Whot/SayHelloReq",
 	}
 	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*HelloRequest)
@@ -76,20 +75,20 @@ func _Greeter_SayHelloReq_TCP_Handler(srv interface{}, ctx context.Context, data
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Greeter_OnLoginReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
+func _Whot_OnLoginReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
 	in := new(LoginReq)
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
 	doFunc := func(ctx context.Context, req *LoginReq) ([]byte, error) {
 		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterTCPServer).OnLoginReq(ctx, req)
+			resp, err := srv.(WhotTCPServer).OnLoginReq(ctx, req)
 			if err != nil || resp == nil {
 				return nil, err
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(GreeterTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(WhotTCPServer).GetTCPLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -99,7 +98,7 @@ func _Greeter_OnLoginReq_TCP_Handler(srv interface{}, ctx context.Context, data 
 	}
 	info := &tcp.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/whot.v1.Greeter/OnLoginReq",
+		FullMethod: "/whot.v1.Whot/OnLoginReq",
 	}
 	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*LoginReq)
@@ -111,20 +110,20 @@ func _Greeter_OnLoginReq_TCP_Handler(srv interface{}, ctx context.Context, data 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Greeter_OnLogoutReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
+func _Whot_OnLogoutReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
 	in := new(LogoutReq)
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
 	doFunc := func(ctx context.Context, req *LogoutReq) ([]byte, error) {
 		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterTCPServer).OnLogoutReq(ctx, req)
+			resp, err := srv.(WhotTCPServer).OnLogoutReq(ctx, req)
 			if err != nil || resp == nil {
 				return nil, err
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(GreeterTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(WhotTCPServer).GetTCPLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -134,7 +133,7 @@ func _Greeter_OnLogoutReq_TCP_Handler(srv interface{}, ctx context.Context, data
 	}
 	info := &tcp.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/whot.v1.Greeter/OnLogoutReq",
+		FullMethod: "/whot.v1.Whot/OnLogoutReq",
 	}
 	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*LogoutReq)
@@ -146,20 +145,20 @@ func _Greeter_OnLogoutReq_TCP_Handler(srv interface{}, ctx context.Context, data
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Greeter_OnReadyReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
+func _Whot_OnReadyReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
 	in := new(ReadyReq)
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
 	doFunc := func(ctx context.Context, req *ReadyReq) ([]byte, error) {
 		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterTCPServer).OnReadyReq(ctx, req)
+			resp, err := srv.(WhotTCPServer).OnReadyReq(ctx, req)
 			if err != nil || resp == nil {
 				return nil, err
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(GreeterTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(WhotTCPServer).GetTCPLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -169,7 +168,7 @@ func _Greeter_OnReadyReq_TCP_Handler(srv interface{}, ctx context.Context, data 
 	}
 	info := &tcp.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/whot.v1.Greeter/OnReadyReq",
+		FullMethod: "/whot.v1.Whot/OnReadyReq",
 	}
 	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*ReadyReq)
@@ -181,20 +180,20 @@ func _Greeter_OnReadyReq_TCP_Handler(srv interface{}, ctx context.Context, data 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Greeter_OnSwitchTableReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
+func _Whot_OnSwitchTableReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
 	in := new(SwitchTableReq)
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
 	doFunc := func(ctx context.Context, req *SwitchTableReq) ([]byte, error) {
 		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterTCPServer).OnSwitchTableReq(ctx, req)
+			resp, err := srv.(WhotTCPServer).OnSwitchTableReq(ctx, req)
 			if err != nil || resp == nil {
 				return nil, err
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(GreeterTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(WhotTCPServer).GetTCPLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -204,7 +203,7 @@ func _Greeter_OnSwitchTableReq_TCP_Handler(srv interface{}, ctx context.Context,
 	}
 	info := &tcp.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/whot.v1.Greeter/OnSwitchTableReq",
+		FullMethod: "/whot.v1.Whot/OnSwitchTableReq",
 	}
 	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*SwitchTableReq)
@@ -216,20 +215,20 @@ func _Greeter_OnSwitchTableReq_TCP_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Greeter_OnSceneReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
+func _Whot_OnSceneReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
 	in := new(SceneReq)
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
 	doFunc := func(ctx context.Context, req *SceneReq) ([]byte, error) {
 		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterTCPServer).OnSceneReq(ctx, req)
+			resp, err := srv.(WhotTCPServer).OnSceneReq(ctx, req)
 			if err != nil || resp == nil {
 				return nil, err
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(GreeterTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(WhotTCPServer).GetTCPLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -239,7 +238,7 @@ func _Greeter_OnSceneReq_TCP_Handler(srv interface{}, ctx context.Context, data 
 	}
 	info := &tcp.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/whot.v1.Greeter/OnSceneReq",
+		FullMethod: "/whot.v1.Whot/OnSceneReq",
 	}
 	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*SceneReq)
@@ -251,20 +250,20 @@ func _Greeter_OnSceneReq_TCP_Handler(srv interface{}, ctx context.Context, data 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Greeter_OnChatReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
+func _Whot_OnChatReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
 	in := new(ChatReq)
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
 	doFunc := func(ctx context.Context, req *ChatReq) ([]byte, error) {
 		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterTCPServer).OnChatReq(ctx, req)
+			resp, err := srv.(WhotTCPServer).OnChatReq(ctx, req)
 			if err != nil || resp == nil {
 				return nil, err
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(GreeterTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(WhotTCPServer).GetTCPLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -274,7 +273,7 @@ func _Greeter_OnChatReq_TCP_Handler(srv interface{}, ctx context.Context, data [
 	}
 	info := &tcp.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/whot.v1.Greeter/OnChatReq",
+		FullMethod: "/whot.v1.Whot/OnChatReq",
 	}
 	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*ChatReq)
@@ -286,20 +285,20 @@ func _Greeter_OnChatReq_TCP_Handler(srv interface{}, ctx context.Context, data [
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Greeter_OnHostingReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
+func _Whot_OnHostingReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
 	in := new(HostingReq)
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
 	doFunc := func(ctx context.Context, req *HostingReq) ([]byte, error) {
 		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterTCPServer).OnHostingReq(ctx, req)
+			resp, err := srv.(WhotTCPServer).OnHostingReq(ctx, req)
 			if err != nil || resp == nil {
 				return nil, err
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(GreeterTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(WhotTCPServer).GetTCPLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -309,7 +308,7 @@ func _Greeter_OnHostingReq_TCP_Handler(srv interface{}, ctx context.Context, dat
 	}
 	info := &tcp.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/whot.v1.Greeter/OnHostingReq",
+		FullMethod: "/whot.v1.Whot/OnHostingReq",
 	}
 	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*HostingReq)
@@ -321,20 +320,20 @@ func _Greeter_OnHostingReq_TCP_Handler(srv interface{}, ctx context.Context, dat
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Greeter_OnForwardReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
+func _Whot_OnForwardReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
 	in := new(ForwardReq)
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
 	doFunc := func(ctx context.Context, req *ForwardReq) ([]byte, error) {
 		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterTCPServer).OnForwardReq(ctx, req)
+			resp, err := srv.(WhotTCPServer).OnForwardReq(ctx, req)
 			if err != nil || resp == nil {
 				return nil, err
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(GreeterTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(WhotTCPServer).GetTCPLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -344,7 +343,7 @@ func _Greeter_OnForwardReq_TCP_Handler(srv interface{}, ctx context.Context, dat
 	}
 	info := &tcp.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/whot.v1.Greeter/OnForwardReq",
+		FullMethod: "/whot.v1.Whot/OnForwardReq",
 	}
 	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*ForwardReq)
@@ -356,20 +355,20 @@ func _Greeter_OnForwardReq_TCP_Handler(srv interface{}, ctx context.Context, dat
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Greeter_OnActionReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
-	in := new(ActionReq)
+func _Whot_OnPlayerActionReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
+	in := new(PlayerActionReq)
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *ActionReq) ([]byte, error) {
+	doFunc := func(ctx context.Context, req *PlayerActionReq) ([]byte, error) {
 		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterTCPServer).OnActionReq(ctx, req)
+			resp, err := srv.(WhotTCPServer).OnPlayerActionReq(ctx, req)
 			if err != nil || resp == nil {
 				return nil, err
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(GreeterTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(WhotTCPServer).GetTCPLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -379,111 +378,71 @@ func _Greeter_OnActionReq_TCP_Handler(srv interface{}, ctx context.Context, data
 	}
 	info := &tcp.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/whot.v1.Greeter/OnActionReq",
+		FullMethod: "/whot.v1.Whot/OnPlayerActionReq",
 	}
 	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
-		r, ok := req.(*ActionReq)
+		r, ok := req.(*PlayerActionReq)
 		if !ok {
-			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *ActionReq, Not: %T", req)
+			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *PlayerActionReq, Not: %T", req)
 		}
 		return doFunc(ctx, r)
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Greeter_OnAutoCallReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
-	in := new(AutoCallReq)
-	if err := proto.Unmarshal(data, in); err != nil {
-		return nil, err
-	}
-	doFunc := func(ctx context.Context, req *AutoCallReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterTCPServer).OnAutoCallReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
-		}
-		if loop := srv.(GreeterTCPServer).GetTCPLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
-		}
-		return doRequest()
-	}
-	if interceptor == nil {
-		return doFunc(ctx, in)
-	}
-	info := &tcp.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/whot.v1.Greeter/OnAutoCallReq",
-	}
-	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
-		r, ok := req.(*AutoCallReq)
-		if !ok {
-			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *AutoCallReq, Not: %T", req)
-		}
-		return doFunc(ctx, r)
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-var Greeter_TCP_ServiceDesc = tcp.ServiceDesc{
-	ServiceName: "whot.v1.Greeter",
-	HandlerType: (*GreeterTCPServer)(nil),
+var Whot_TCP_ServiceDesc = tcp.ServiceDesc{
+	ServiceName: "whot.v1.Whot",
+	HandlerType: (*WhotTCPServer)(nil),
 	Methods: []tcp.MethodDesc{
 		{
 			MethodName: "SayHelloReq",
-			Handler:    _Greeter_SayHelloReq_TCP_Handler,
+			Handler:    _Whot_SayHelloReq_TCP_Handler,
 			Ops:        1,
 		},
 		{
 			MethodName: "OnLoginReq",
-			Handler:    _Greeter_OnLoginReq_TCP_Handler,
+			Handler:    _Whot_OnLoginReq_TCP_Handler,
 			Ops:        1001,
 		},
 		{
 			MethodName: "OnLogoutReq",
-			Handler:    _Greeter_OnLogoutReq_TCP_Handler,
+			Handler:    _Whot_OnLogoutReq_TCP_Handler,
 			Ops:        1003,
 		},
 		{
 			MethodName: "OnReadyReq",
-			Handler:    _Greeter_OnReadyReq_TCP_Handler,
+			Handler:    _Whot_OnReadyReq_TCP_Handler,
 			Ops:        1005,
 		},
 		{
 			MethodName: "OnSwitchTableReq",
-			Handler:    _Greeter_OnSwitchTableReq_TCP_Handler,
+			Handler:    _Whot_OnSwitchTableReq_TCP_Handler,
 			Ops:        1007,
 		},
 		{
 			MethodName: "OnSceneReq",
-			Handler:    _Greeter_OnSceneReq_TCP_Handler,
+			Handler:    _Whot_OnSceneReq_TCP_Handler,
 			Ops:        1009,
 		},
 		{
 			MethodName: "OnChatReq",
-			Handler:    _Greeter_OnChatReq_TCP_Handler,
+			Handler:    _Whot_OnChatReq_TCP_Handler,
 			Ops:        1011,
 		},
 		{
 			MethodName: "OnHostingReq",
-			Handler:    _Greeter_OnHostingReq_TCP_Handler,
+			Handler:    _Whot_OnHostingReq_TCP_Handler,
 			Ops:        1013,
 		},
 		{
 			MethodName: "OnForwardReq",
-			Handler:    _Greeter_OnForwardReq_TCP_Handler,
+			Handler:    _Whot_OnForwardReq_TCP_Handler,
 			Ops:        1015,
 		},
 		{
-			MethodName: "OnActionReq",
-			Handler:    _Greeter_OnActionReq_TCP_Handler,
+			MethodName: "OnPlayerActionReq",
+			Handler:    _Whot_OnPlayerActionReq_TCP_Handler,
 			Ops:        1101,
-		},
-		{
-			MethodName: "OnAutoCallReq",
-			Handler:    _Greeter_OnAutoCallReq_TCP_Handler,
-			Ops:        1103,
 		},
 	},
 }

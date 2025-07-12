@@ -47,7 +47,7 @@ log:
 room:
   table:
     tableNum: 1000
-    chairNum: 5
+    chairNum: 4
   game:
     vid: 1002
     min_money: 100.0
