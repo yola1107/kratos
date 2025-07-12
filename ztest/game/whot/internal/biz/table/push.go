@@ -13,7 +13,6 @@ func (t *Table) SendPacketToClient(p *player.Player, cmd v1.GameCommand, msg pro
 		return
 	}
 	if p.IsRobot() {
-		// tb.GetRbLogic().RecvMsg(p, cmd, msg)
 		t.aiLogic.OnMessage(p, cmd, msg)
 		return
 	}
@@ -258,21 +257,18 @@ func (t *Table) getCanOp(p *player.Player) *v1.CanOpInfo {
 	if p == nil || !p.IsGaming() || len(t.GetGamers()) <= 1 || p.GetChairID() != t.active {
 		return nil
 	}
-	if s := t.stage.GetState(); s == StWait || s == StReady || s == StWaitEnd || s == StEnd {
+	switch t.stage.GetState() {
+	case StWait, StReady, StWaitEnd, StEnd:
 		return nil
 	}
 
-	curr := t.currCard
-	canOuts := calcCanOut(curr, p.GetCards())
-	ops := make([]*v1.ActionOption, 0, 3)
+	canOuts := calcCanOut(t.currCard, p.GetCards())
 	pending := t.pending
+	var ops []*v1.ActionOption
 
-	// 特殊效果牌处理
 	switch {
-	case pending == nil || pending.Effect == v1.CARD_EFFECT_NORMAL:
-		ops = append(ops, newDrawOption(1))
-
-	case pending.Effect == v1.CARD_EFFECT_HOLD_ON:
+	case pending == nil || pending.Effect == v1.CARD_EFFECT_NORMAL,
+		pending.Effect == v1.CARD_EFFECT_HOLD_ON:
 		ops = append(ops, newDrawOption(1))
 
 	case pending.Effect == v1.CARD_EFFECT_PICK_TWO:
@@ -281,22 +277,15 @@ func (t *Table) getCanOp(p *player.Player) *v1.CanOpInfo {
 	case pending.Effect == v1.CARD_EFFECT_SUSPEND:
 		ops = append(ops, &v1.ActionOption{Action: v1.ACTION_SKIP_TURN})
 
-	case pending.Effect == v1.CARD_EFFECT_MARKET:
-		// MARKET 等其他特殊效果可按需扩展
-
 	case pending.Effect == v1.CARD_EFFECT_WHOT:
 		return &v1.CanOpInfo{Options: []*v1.ActionOption{
-			{
-				Action: v1.ACTION_DECLARE_SUIT,
-				Suits:  []int32{1, 2, 3, 4, 5},
-			},
+			{Action: v1.ACTION_DECLARE_SUIT, Suits: []int32{1, 2, 3, 4, 5}},
 		}}
 	}
 
 	if len(canOuts) > 0 {
 		ops = append(ops, &v1.ActionOption{Action: v1.ACTION_PLAY_CARD, Cards: canOuts})
 	}
-
 	return &v1.CanOpInfo{Options: ops}
 }
 
@@ -343,4 +332,18 @@ func (t *Table) broadcastResult() {
 			Results:    nil,
 		})
 	}
+}
+
+func ifThen[T any](cond bool, a, b T) T {
+	if cond {
+		return a
+	}
+	return b
+}
+
+func ifThenInt32(cond bool, a, b int32) int32 {
+	if cond {
+		return a
+	}
+	return b
 }
