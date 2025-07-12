@@ -57,74 +57,64 @@ service Whot {
 
     rpc OnLoginReq(LoginReq) returns (LoginRsp) {
         option (google.api.http) = {
-            post: "/whot/OnLoginReq"
+            post: "/whot/OnLoginReq",
             body: "*"
         };
     }
     rpc OnLogoutReq(LogoutReq) returns (LogoutRsp) {
         option (google.api.http) = {
-            post: "/whot/OnLogoutReq"
+            post: "/whot/OnLogoutReq",
             body: "*"
         };
     }
     rpc OnReadyReq(ReadyReq) returns (ReadyRsp) {
         option (google.api.http) = {
-            post: "/whot/OnReadyReq"
+            post: "/whot/OnReadyReq",
             body: "*"
         };
     }
     rpc OnSwitchTableReq(SwitchTableReq) returns (SwitchTableRsp) {
         option (google.api.http) = {
-            post: "/whot/OnSwitchTableReq"
+            post: "/whot/OnSwitchTableReq",
             body: "*"
         };
     }
     rpc OnSceneReq(SceneReq) returns (SceneRsp) {
         option (google.api.http) = {
-            post: "/whot/OnSceneReq"
+            post: "/whot/OnSceneReq",
             body: "*"
         };
     }
     rpc OnChatReq(ChatReq) returns (ChatRsp) {
         option (google.api.http) = {
-            post: "/whot/OnChatOrFaceReq"
+            post: "/whot/OnChatOrFaceReq",
             body: "*"
         };
     }
     rpc OnHostingReq(HostingReq) returns (HostingRsp) {
         option (google.api.http) = {
-            post: "/whot/OnHostingReq"
+            post: "/whot/OnHostingReq",
             body: "*"
         };
     }
     rpc OnForwardReq(ForwardReq) returns (ForwardRsp) {
         option (google.api.http) = {
-            post: "/whot/OnForwardReq"
+            post: "/whot/OnForwardReq",
             body: "*"
         };
     }
-
     // game request
-    //    rpc OnGetCardReq(GetCardReq) returns (GetCardRsp) {
-    //        option (google.api.http) = {
-    //            post: "/whot/OnGetCardReq"
-    //            body: "*"
-    //        };
-    //    }
     rpc OnPlayCardReq(PlayCardReq) returns (PlayCardRsp) {
         option (google.api.http) = {
-            post: "/whot/OnPlayCardReq"
+            post: "/whot/OnPlayCardReq",
             body: "*"
         };
     }
 }
 
-// The request message containing the user's name.
 message HelloRequest {
     string name = 1;
 }
-
-// The response message containing the greetings
 message HelloReply {
     string message = 1;
 }
@@ -172,7 +162,7 @@ message ReadyRsp {
 // 换桌
 message SwitchTableReq {
     int64 userID  = 1;
-    int32 chairId = 2;
+    int32 chairID = 2;
 }
 
 message SwitchTableRsp {
@@ -213,28 +203,16 @@ message HostingReq {
 }
 
 message HostingRsp {
-    int32 chairId   = 1;  //座位号
+    int32 chairID   = 1;  //座位号
     int32 status    = 2;  //1:正常  2:托管
     int32 aiNum     = 3;  //玩家（非断线）超时引起的当前局的托管次数
     int32 playTimes = 4;  //操作时间
 }
 
-//离桌通知
-message PlayerQuitPush {
-    int64 userID  = 1;  //玩家ID
-    int32 chairID = 2;  //椅子号
-}
-
-//用户断线通知
-message UserOfflinePush {
-    int64 userID   = 1;  //用户ID
-    bool isOffline = 2;  //用户离线状态
-}
-
-//
+// 玩家信息推送
 message UserInfoPush {
     int64 userID     = 1;  //用户ID
-    int32 chairId    = 2;  //椅子号
+    int32 chairID    = 2;  //椅子号
     string userName  = 3;  //用户名字
     double money     = 4;  //玩家金币
     string avatar    = 5;  // 头像
@@ -244,6 +222,18 @@ message UserInfoPush {
     string ip        = 9;  //ip地址
 }
 
+// 玩家退出推送
+message PlayerQuitPush {
+    int64 userID  = 1;  //玩家ID
+    int32 chairID = 2;  //椅子号
+}
+
+// 用户断线推送
+message UserOfflinePush {
+    int64 userID   = 1;  //用户ID
+    bool isOffline = 2;  //用户离线状态
+}
+
 // ---------------------------------------------
 /*
 
@@ -251,10 +241,11 @@ message UserInfoPush {
 */
 
 enum Action {
-    UNKNOWN = 0;  // 未知动作
-    PLAY    = 1;  // 出牌
-    DRAW    = 2;  // 摸牌
-    COUNTER = 3;  // 反击特殊效果
+    UNKNOWN          = 0;  // 未知动作
+    PLAY             = 1;  // 出牌
+    DRAW             = 2;  // 摸牌
+    COUNTER_PICK_TWO = 3;  // 反击2牌
+    COUNTER_SUSPEND  = 4;  // 反击8牌
 }
 
 enum Effect {
@@ -266,29 +257,41 @@ enum Effect {
     WHOT     = 5;  // 20牌特效：万能牌
 }
 
-// 设置庄家推送
+//enum GameStage {
+//    STAGE_INIT      = 0;  // 初始化
+//    STAGE_DEAL      = 1;  // 发牌阶段
+//    STAGE_PLAYING   = 2;  // 游戏进行中
+//    STAGE_PENDING   = 3;  // 待处理动作阶段（等待反击）
+//    STAGE_GAME_OVER = 4;  // 游戏结束
+//}
+
+enum FinishType {
+    FINISH_NONE   = 0;  // 未结束
+    FINISH_NORMAL = 1;  // 玩家出完牌
+    FINISH_DECK   = 2;  // 牌堆剩余牌为0
+}
+
+// 庄家推送
 message SetBankerPush {
-    int32 chairId = 1;  // 庄家chairId
+    int32 chairID = 1;  // 庄家chairID
 }
 
 // 发牌推送
 message SendCardPush {
-    int64 userId          = 1;  // 用户ID
+    int64 userID          = 1;  // 用户ID
     repeated int32 cards  = 2;  // 发给玩家的牌（格式：花色*100 + 牌值）
     repeated int32 bottom = 3;  // 底牌
     int32 leftNum         = 4;  // 剩余牌数
-    int32 timeOutCard     = 5;  // 超时出哪张牌
 }
 
-// 场景请求
+// 场景请求/响应
 message SceneReq {
-    int64 userId = 1;  // 用户ID
+    int64 userID = 1;  // 用户ID
 }
 
-// 场景响应
 message SceneRsp {
     double baseScore             = 1;   // 基础分
-    int32 stage                  = 2;   // 游戏状态值
+    int32 stage                  = 2;   // 游戏状态
     int64 timeout                = 3;   // 剩余时间(秒)
     int32 active                 = 4;   // 当前操作位置
     int32 banker                 = 5;   // 庄家位置
@@ -296,60 +299,68 @@ message SceneRsp {
     repeated PlayerScene players = 11;  // 玩家列表
     int32 currentSuit            = 12;  // 当前花色
     PendingAction actionPending  = 13;  // 待处理动作
-    int32 deckCount              = 14;  // 剩余牌数
+    int32 leftNum                = 14;  // 剩余牌数
 }
 
 // 玩家场景信息
 message PlayerScene {
-    int64 userId         = 1;  // 用户ID
-    int32 chairId        = 2;  // 椅子号
-    int32 status         = 3;  // 玩家状态
-    bool hosting         = 4;  // 是否托管
-    bool offline         = 5;  // 是否断线
-    int32 lastOp         = 6;  // 最后操作
-    repeated int32 cards = 8;  // 手牌列表（格式：花色*100 + 牌值）
-    bool lastCard        = 9;  // 是否宣告最后一张牌
+    int64 userID         = 1;   // 用户ID
+    int32 chairID        = 2;   // 椅子号
+    int32 status         = 3;   // 玩家状态
+    bool hosting         = 4;   // 是否托管
+    bool offline         = 5;   // 是否断线
+    int32 lastOp         = 6;   // 最后操作
+    repeated int32 cards = 8;   // 手牌列表（格式：花色*100 + 牌值）
+    bool lastCard        = 9;   // 是否宣告最后一张牌
+    bool suspended       = 10;  // 当前回合是否被跳过
 }
 
-//
+// 激活推送
 message ActivePush {
-    int32 stage                 = 1;  // 游戏状态值
+    int32 stage                 = 1;  // 游戏状态
     int64 timeout               = 2;  // 剩余时间
     int32 active                = 3;  // 当前操作位置
     int32 leftNum               = 4;  // 剩余牌数
     bool yourTurn               = 5;  // 是否轮到当前玩家
     repeated Action canOp       = 6;  // 允许的操作类型
     PendingAction actionPending = 7;  // 待处理动作
+    bool requireCounter         = 8;  // 当前是否需要反击
 }
 
-//
+// 出牌请求/响应
 message PlayCardReq {
-    int64 userId      = 1;  // 用户ID
+    int64 userID      = 1;  // 用户ID
     Action action     = 2;  // 请求动作类型
     int32 outCard     = 3;  // 出的牌（格式：花色*100 + 牌值）
     int32 declareSuit = 4;  // 声明的花色
 }
 
-// 出牌响应
 message PlayCardRsp {
     int32 code                  = 1;   // 返回码
     string msg                  = 2;   // 错误信息
-    int64 userId                = 3;   // 用户ID
-    int32 chairId               = 4;   // 椅子号
+    int64 userID                = 3;   // 用户ID
+    int32 chairID               = 4;   // 椅子号
     Action action               = 5;   // 请求的动作
     int32 outCard               = 6;   // 出的牌
     Effect effectPending        = 7;   // 触发的特效类型
     PendingAction actionPending = 8;   // 待处理动作
-    int32 leftNum               = 9;   // 剩余牌数量
-    bool isClient               = 10;  // 是否是客户端请求
-    int32 finishType            = 11;  // 结束类型
-    int32 newSuit               = 12;  // 新花色
+    int32 leftNum               = 9;   // 剩余牌数
+    FinishType finishType       = 10;  // 结束类型
+    int32 newSuit               = 11;  // 新花色
 }
 
 // 结果推送
 message ResultPush {
-    int64 userId  = 1;  // 用户ID
-    int32 chairId = 2;  // 椅子号
+    FinishType finishType         = 1;  // 结束类型
+    repeated PlayerResult results = 2;  // 所有玩家结果
+}
+
+message PlayerResult {
+    int64 userID         = 1;  // 用户ID
+    int32 chairID        = 2;  // 椅子号
+    bool isWinner        = 3;  // 是否获胜
+    int32 score          = 4;  // 玩家得分
+    repeated int32 cards = 5;  // 剩余手牌数
 }
 
 // 待处理动作
@@ -358,4 +369,14 @@ message PendingAction {
     int32 target    = 2;  // 目标玩家索引
     int32 quantity  = 3;  // 数量（用于2/5牌连锁）
     int32 initiator = 4;  // 发起者索引
+    int32 cardValue = 5;  // 触发特效的牌值（用于反击验证）
+    int32 suit      = 6;  // 当前花色（WHOT牌后必需）
+}
+
+// 摸牌推送
+message DrawCardPush {
+    int64 userID         = 1;  // 用户ID
+    int32 chairID        = 2;  // 椅子号
+    repeated int32 cards = 3;  // 摸到的牌
+    int32 leftNum        = 4;  // 剩余牌数
 }
