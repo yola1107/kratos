@@ -1721,7 +1721,7 @@ type SceneRsp struct {
 	FirstChair    int32                  `protobuf:"varint,5,opt,name=firstChair,proto3" json:"firstChair,omitempty"`                     // 首家椅子号
 	CurrCard      int32                  `protobuf:"varint,6,opt,name=currCard,proto3" json:"currCard,omitempty"`                         // 最后出牌（花色*100 + 牌值）
 	DeclareSuit   SUIT                   `protobuf:"varint,7,opt,name=declareSuit,proto3,enum=whot.v1.SUIT" json:"declareSuit,omitempty"` // 当前申明的花色
-	LeftNum       int32                  `protobuf:"varint,8,opt,name=leftNum,proto3" json:"leftNum,omitempty"`                           // 剩余牌数
+	LeftNum       int32                  `protobuf:"varint,8,opt,name=leftNum,proto3" json:"leftNum,omitempty"`                           // 剩余牌堆牌数
 	Pending       *Pending               `protobuf:"bytes,9,opt,name=pending,proto3" json:"pending,omitempty"`                            // 当前待处理动作响应（如等待反击,等待声明花色）
 	Players       []*PlayerInfo          `protobuf:"bytes,10,rep,name=players,proto3" json:"players,omitempty"`                           // 玩家列表
 	unknownFields protoimpl.UnknownFields
@@ -2111,9 +2111,9 @@ func (x *PlayerActionRsp) GetDeclareResult() *DeclareSuitResult {
 // 出牌结果
 type PlayCardResult struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Card          int32                  `protobuf:"varint,1,opt,name=card,proto3" json:"card,omitempty"`             // 出牌玩家出的牌
-	TotalCards    int32                  `protobuf:"varint,2,opt,name=totalCards,proto3" json:"totalCards,omitempty"` // 出牌玩家总牌数 (最后一张牌宣告)
-	Cards         []int32                `protobuf:"varint,3,rep,packed,name=cards,proto3" json:"cards,omitempty"`    // 出牌玩家自己的手牌 (只发送给出牌玩家)
+	Card          int32                  `protobuf:"varint,1,opt,name=card,proto3" json:"card,omitempty"`          // 出牌玩家出的牌
+	CardsNum      int32                  `protobuf:"varint,2,opt,name=cardsNum,proto3" json:"cardsNum,omitempty"`  // 出牌玩家手牌数
+	Cards         []int32                `protobuf:"varint,3,rep,packed,name=cards,proto3" json:"cards,omitempty"` // 出牌玩家自己的手牌 (只发送给出牌玩家)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2155,9 +2155,9 @@ func (x *PlayCardResult) GetCard() int32 {
 	return 0
 }
 
-func (x *PlayCardResult) GetTotalCards() int32 {
+func (x *PlayCardResult) GetCardsNum() int32 {
 	if x != nil {
-		return x.TotalCards
+		return x.CardsNum
 	}
 	return 0
 }
@@ -2172,10 +2172,10 @@ func (x *PlayCardResult) GetCards() []int32 {
 // 摸牌结果
 type DrawCardResult struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	DrawNum       int32                  `protobuf:"varint,1,opt,name=drawNum,proto3" json:"drawNum,omitempty"`       // 摸牌数量
-	TotalCards    int32                  `protobuf:"varint,2,opt,name=totalCards,proto3" json:"totalCards,omitempty"` // 玩家总牌数
-	Drawn         []int32                `protobuf:"varint,3,rep,packed,name=drawn,proto3" json:"drawn,omitempty"`    // 摸到的牌 (只发送给摸牌玩家)
-	Cards         []int32                `protobuf:"varint,4,rep,packed,name=cards,proto3" json:"cards,omitempty"`    // 摸牌玩家自己的手牌 (只发送给摸牌玩家)
+	DrawNum       int32                  `protobuf:"varint,1,opt,name=drawNum,proto3" json:"drawNum,omitempty"`    // 摸牌数量
+	CardsNum      int32                  `protobuf:"varint,2,opt,name=cardsNum,proto3" json:"cardsNum,omitempty"`  // 玩家手牌数
+	Drawn         []int32                `protobuf:"varint,3,rep,packed,name=drawn,proto3" json:"drawn,omitempty"` // 摸到的牌 (只发送给摸牌玩家)
+	Cards         []int32                `protobuf:"varint,4,rep,packed,name=cards,proto3" json:"cards,omitempty"` // 摸牌玩家自己的手牌 (只发送给摸牌玩家)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2217,9 +2217,9 @@ func (x *DrawCardResult) GetDrawNum() int32 {
 	return 0
 }
 
-func (x *DrawCardResult) GetTotalCards() int32 {
+func (x *DrawCardResult) GetCardsNum() int32 {
 	if x != nil {
-		return x.TotalCards
+		return x.CardsNum
 	}
 	return 0
 }
@@ -2286,12 +2286,13 @@ func (x *DeclareSuitResult) GetSuit() SUIT {
 // 活动玩家操作推送（轮到玩家操作）
 type ActivePush struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Stage         int32                  `protobuf:"varint,1,opt,name=stage,proto3" json:"stage,omitempty"`     // 游戏阶段
-	Timeout       int64                  `protobuf:"varint,2,opt,name=timeout,proto3" json:"timeout,omitempty"` // 剩余时间
-	Active        int32                  `protobuf:"varint,3,opt,name=active,proto3" json:"active,omitempty"`   // 当前操作玩家
-	LeftNum       int32                  `protobuf:"varint,4,opt,name=leftNum,proto3" json:"leftNum,omitempty"` // 剩余牌数
-	Pending       *Pending               `protobuf:"bytes,5,opt,name=pending,proto3" json:"pending,omitempty"`  // 当前待处理动作响应（如等待反击,等待声明花色）
-	CanOp         []*ActionOption        `protobuf:"bytes,6,rep,name=canOp,proto3" json:"canOp,omitempty"`      // 当前允许的操作及牌
+	Stage         int32                  `protobuf:"varint,1,opt,name=stage,proto3" json:"stage,omitempty"`       // 游戏阶段
+	Timeout       int64                  `protobuf:"varint,2,opt,name=timeout,proto3" json:"timeout,omitempty"`   // 剩余时间
+	Active        int32                  `protobuf:"varint,3,opt,name=active,proto3" json:"active,omitempty"`     // 当前操作玩家
+	CardsNum      int32                  `protobuf:"varint,4,opt,name=cardsNum,proto3" json:"cardsNum,omitempty"` // 玩家手牌数
+	LeftNum       int32                  `protobuf:"varint,5,opt,name=leftNum,proto3" json:"leftNum,omitempty"`   // 剩余牌数
+	Pending       *Pending               `protobuf:"bytes,6,opt,name=pending,proto3" json:"pending,omitempty"`    // 当前待处理动作响应（如等待反击,等待声明花色）
+	CanOp         []*ActionOption        `protobuf:"bytes,7,rep,name=canOp,proto3" json:"canOp,omitempty"`        // 当前允许的操作及牌
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2343,6 +2344,13 @@ func (x *ActivePush) GetTimeout() int64 {
 func (x *ActivePush) GetActive() int32 {
 	if x != nil {
 		return x.Active
+	}
+	return 0
+}
+
+func (x *ActivePush) GetCardsNum() int32 {
+	if x != nil {
+		return x.CardsNum
 	}
 	return 0
 }
@@ -2916,30 +2924,27 @@ const file_helloworld_v1_api_proto_rawDesc = "" +
 	"drawResult\x18\t \x01(\v2\x17.whot.v1.DrawCardResultR\n" +
 	"drawResult\x12@\n" +
 	"\rDeclareResult\x18\n" +
-	" \x01(\v2\x1a.whot.v1.DeclareSuitResultR\rDeclareResult\"Z\n" +
+	" \x01(\v2\x1a.whot.v1.DeclareSuitResultR\rDeclareResult\"V\n" +
 	"\x0ePlayCardResult\x12\x12\n" +
-	"\x04card\x18\x01 \x01(\x05R\x04card\x12\x1e\n" +
-	"\n" +
-	"totalCards\x18\x02 \x01(\x05R\n" +
-	"totalCards\x12\x14\n" +
-	"\x05cards\x18\x03 \x03(\x05R\x05cards\"v\n" +
+	"\x04card\x18\x01 \x01(\x05R\x04card\x12\x1a\n" +
+	"\bcardsNum\x18\x02 \x01(\x05R\bcardsNum\x12\x14\n" +
+	"\x05cards\x18\x03 \x03(\x05R\x05cards\"r\n" +
 	"\x0eDrawCardResult\x12\x18\n" +
-	"\adrawNum\x18\x01 \x01(\x05R\adrawNum\x12\x1e\n" +
-	"\n" +
-	"totalCards\x18\x02 \x01(\x05R\n" +
-	"totalCards\x12\x14\n" +
+	"\adrawNum\x18\x01 \x01(\x05R\adrawNum\x12\x1a\n" +
+	"\bcardsNum\x18\x02 \x01(\x05R\bcardsNum\x12\x14\n" +
 	"\x05drawn\x18\x03 \x03(\x05R\x05drawn\x12\x14\n" +
 	"\x05cards\x18\x04 \x03(\x05R\x05cards\"6\n" +
 	"\x11DeclareSuitResult\x12!\n" +
-	"\x04suit\x18\x01 \x01(\x0e2\r.whot.v1.SUITR\x04suit\"\xc7\x01\n" +
+	"\x04suit\x18\x01 \x01(\x0e2\r.whot.v1.SUITR\x04suit\"\xe3\x01\n" +
 	"\n" +
 	"ActivePush\x12\x14\n" +
 	"\x05stage\x18\x01 \x01(\x05R\x05stage\x12\x18\n" +
 	"\atimeout\x18\x02 \x01(\x03R\atimeout\x12\x16\n" +
-	"\x06active\x18\x03 \x01(\x05R\x06active\x12\x18\n" +
-	"\aleftNum\x18\x04 \x01(\x05R\aleftNum\x12*\n" +
-	"\apending\x18\x05 \x01(\v2\x10.whot.v1.PendingR\apending\x12+\n" +
-	"\x05canOp\x18\x06 \x03(\v2\x15.whot.v1.ActionOptionR\x05canOp\"\x90\x01\n" +
+	"\x06active\x18\x03 \x01(\x05R\x06active\x12\x1a\n" +
+	"\bcardsNum\x18\x04 \x01(\x05R\bcardsNum\x12\x18\n" +
+	"\aleftNum\x18\x05 \x01(\x05R\aleftNum\x12*\n" +
+	"\apending\x18\x06 \x01(\v2\x10.whot.v1.PendingR\apending\x12+\n" +
+	"\x05canOp\x18\a \x03(\v2\x15.whot.v1.ActionOptionR\x05canOp\"\x90\x01\n" +
 	"\fActionOption\x12'\n" +
 	"\x06action\x18\x01 \x01(\x0e2\x0f.whot.v1.ACTIONR\x06action\x12\x14\n" +
 	"\x05cards\x18\x02 \x03(\x05R\x05cards\x12\x1c\n" +

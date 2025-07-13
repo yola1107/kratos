@@ -253,7 +253,7 @@ components:
                 drawNum:
                     type: integer
                     format: int32
-                totalCards:
+                cardsNum:
                     type: integer
                     format: int32
                 drawn:
@@ -384,7 +384,7 @@ components:
                 card:
                     type: integer
                     format: int32
-                totalCards:
+                cardsNum:
                     type: integer
                     format: int32
                 cards:

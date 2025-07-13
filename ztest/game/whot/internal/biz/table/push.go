@@ -196,12 +196,13 @@ func (t *Table) broadcastActivePlayerPush() {
 			continue
 		}
 		rsp := &v1.ActivePush{
-			Stage:   int32(t.stage.GetState()),
-			Timeout: int64(t.stage.Remaining().Seconds()),
-			Active:  t.active,
-			LeftNum: t.cards.GetCardNum(),
-			Pending: t.pending,
-			CanOp:   t.getCanOp(p),
+			Stage:    int32(t.stage.GetState()),
+			Timeout:  int64(t.stage.Remaining().Seconds()),
+			Active:   t.active,
+			LeftNum:  t.cards.GetCardNum(),
+			CardsNum: int32(len(p.GetCards())),
+			Pending:  t.pending,
+			CanOp:    t.getCanOp(p),
 		}
 		if p.GetChairID() == t.active && p.IsGaming() {
 			t.mLog.activePush(p, t.currCard, t.pending, rsp.CanOp)
@@ -230,14 +231,14 @@ func (t *Table) broadcastPlayerAction(p *player.Player, action v1.ACTION, cs []i
 			LeftNum: t.cards.GetCardNum(),
 			Effect:  t.pending,
 			PlayResult: &v1.PlayCardResult{
-				Card:       0,
-				Cards:      nil,
-				TotalCards: int32(len(hand)),
+				CardsNum: int32(len(hand)),
+				Card:     0,
+				Cards:    nil,
 			},
 			DrawResult: &v1.DrawCardResult{
-				DrawNum:    0,
-				Cards:      nil,
-				TotalCards: int32(len(hand)),
+				CardsNum: int32(len(hand)),
+				DrawNum:  0,
+				Cards:    nil,
 			},
 			DeclareResult: &v1.DeclareSuitResult{
 				Suit: declaredSuit,

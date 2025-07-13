@@ -309,7 +309,7 @@ message SceneRsp {
     int32 firstChair            = 5;   // 首家椅子号
     int32 currCard              = 6;   // 最后出牌（花色*100 + 牌值）
     SUIT declareSuit            = 7;   // 当前申明的花色
-    int32 leftNum               = 8;   // 剩余牌数
+    int32 leftNum               = 8;   // 剩余牌堆牌数
     Pending pending             = 9;   // 当前待处理动作响应（如等待反击,等待声明花色）
     repeated PlayerInfo players = 10;  // 玩家列表
 }
@@ -352,14 +352,14 @@ message PlayerActionRsp {
 // 出牌结果
 message PlayCardResult {
     int32 card           = 1;  // 出牌玩家出的牌
-    int32 totalCards     = 2;  // 出牌玩家总牌数 (最后一张牌宣告)
+    int32 cardsNum       = 2;  // 出牌玩家手牌数
     repeated int32 cards = 3;  // 出牌玩家自己的手牌 (只发送给出牌玩家)
 }
 
 // 摸牌结果
 message DrawCardResult {
     int32 drawNum        = 1;  // 摸牌数量
-    int32 totalCards     = 2;  // 玩家总牌数
+    int32 cardsNum       = 2;  // 玩家手牌数
     repeated int32 drawn = 3;  // 摸到的牌 (只发送给摸牌玩家)
     repeated int32 cards = 4;  // 摸牌玩家自己的手牌 (只发送给摸牌玩家)
 }
@@ -374,9 +374,10 @@ message ActivePush {
     int32 stage                 = 1;  // 游戏阶段
     int64 timeout               = 2;  // 剩余时间
     int32 active                = 3;  // 当前操作玩家
-    int32 leftNum               = 4;  // 剩余牌数
-    Pending pending             = 5;  // 当前待处理动作响应（如等待反击,等待声明花色）
-    repeated ActionOption canOp = 6;  // 当前允许的操作及牌
+    int32 cardsNum              = 4;  // 玩家手牌数
+    int32 leftNum               = 5;  // 剩余牌数
+    Pending pending             = 6;  // 当前待处理动作响应（如等待反击,等待声明花色）
+    repeated ActionOption canOp = 7;  // 当前允许的操作及牌
 }
 
 // 单个动作以及其附属信息（如：出哪些牌、声明哪种花色）
