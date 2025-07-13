@@ -281,10 +281,10 @@ func getMostFrequentSuit(hand []int32, options []v1.SUIT) v1.SUIT {
 	}
 
 	var best v1.SUIT
-	max := -1
+	maxSuitCount := -1
 	for _, s := range options {
-		if suitCount[s] > max {
-			best, max = s, suitCount[s]
+		if suitCount[s] > maxSuitCount {
+			best, maxSuitCount = s, suitCount[s]
 		}
 	}
 	return best
@@ -304,10 +304,16 @@ func chooseBestCard(candidates, hand []int32, currCard int32) int32 {
 	}
 
 	currSuit, currNum := Suit(currCard), Number(currCard)
-	bestCard, bestScore := int32(0), math.MaxInt
+	whotCount := 0
+	for _, c := range hand {
+		if IsWhotCard(c) {
+			whotCount++
+		}
+	}
 
+	bestCard, bestScore := int32(0), math.MaxInt
 	for _, c := range candidates {
-		score := evaluateCardScore(c, v1.SUIT(currSuit), currNum, numCount, suitCount)
+		score := evaluateCardScore(c, currSuit, currNum, numCount, suitCount, whotCount)
 		if score < bestScore {
 			bestCard, bestScore = c, score
 		}
@@ -316,20 +322,43 @@ func chooseBestCard(candidates, hand []int32, currCard int32) int32 {
 }
 
 // 评分函数 evaluateCardScore
-func evaluateCardScore(card int32, currSuit v1.SUIT, currNum int32, numCount map[int32]int, suitCount map[int32]int) int {
+func evaluateCardScore(card int32, currSuit int32, currNum int32, numCount map[int32]int, suitCount map[int32]int, whotCount int) int {
 	if IsWhotCard(card) {
-		return 100 // 最后出 WHOT
+		if whotCount > 1 {
+			return 30 // 多张 WHOT 时允许提前出
+		}
+		return 100 // 单张 WHOT，保留作为万能牌
 	}
 
 	s, n := Suit(card), Number(card)
 	score := 0
-	if s == int32(currSuit) {
-		score -= 5
+
+	// 匹配花色/数字
+	if s == currSuit {
+		score -= 6
 	}
 	if n == currNum {
-		score -= 5
+		score -= 6
 	}
-	score -= numCount[n] * 3
+
+	// 数量多的数字/花色优先出
+	score -= numCount[n] * 4
 	score -= suitCount[s] * 2
+
+	// 惩罚类卡（比如让下家摸牌），尽量保留
+	if isPenaltyCard(n) {
+		score += 10
+	}
+
 	return score
+}
+
+// 惩罚类卡牌
+func isPenaltyCard(n int32) bool {
+	switch n {
+	case 1, 2, 5, 8, 14:
+		return true
+	default:
+		return false
+	}
 }
