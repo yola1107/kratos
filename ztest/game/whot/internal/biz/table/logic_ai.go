@@ -1,6 +1,7 @@
 package table
 
 import (
+	"math"
 	"sync/atomic"
 	"time"
 
@@ -116,6 +117,98 @@ func (r *RobotLogic) OnMessage(p *player.Player, cmd v1.GameCommand, msg proto.M
 	}
 }
 
+func (r *RobotLogic) onExit(p *player.Player, _ proto.Message) {
+	if !r.mTable.CanExitRobot(p) {
+		return
+	}
+	r.markExitNow() // 记录离桌时间
+	dur := time.Duration(ext.RandInt(ExitMinIntervalSec, ExitMaxIntervalSec)) * time.Second
+
+	r.mTable.repo.GetTimer().Once(dur, func() {
+		r.mTable.OnExitGame(p, 0, "ai exit")
+	})
+}
+
+//
+// func (r *RobotLogic) ActivePlayer(p *player.Player, msg proto.Message) {
+// 	rsp, ok := msg.(*v1.ActivePush)
+// 	if !ok || rsp == nil || !p.IsGaming() || p.GetChairID() != rsp.Active || p.GetChairID() != r.mTable.active {
+// 		return
+// 	}
+//
+// 	ops := r.mTable.getCanOp(p)
+// 	if len(ops) == 0 {
+// 		log.Errorf("no available options: player=%v table=%v", p.Desc(), r.mTable.Desc())
+// 		return
+// 	}
+// 	log.Debugf("=> p:%v, curr=%v, canOps=%v", p.Desc(), r.mTable.currCard, ext.ToJSON(ops))
+//
+// 	req := &v1.PlayerActionReq{UserId: p.GetPlayerID()}
+//
+// pick:
+// 	for _, op := range ops {
+// 		switch op.Action {
+// 		case v1.ACTION_PLAY_CARD:
+// 			var nonWhot []int32
+// 			for _, c := range op.Cards {
+// 				if IsWhotCard(c) {
+// 					nonWhot = append(nonWhot, c)
+// 				}
+// 			}
+// 			if len(nonWhot) > 0 {
+// 				req.Action = v1.ACTION_PLAY_CARD
+// 				req.OutCard = nonWhot[ext.RandInt(0, len(nonWhot))]
+// 				break pick
+// 			}
+// 			if len(op.Cards) > 0 {
+// 				req.Action = v1.ACTION_PLAY_CARD
+// 				req.OutCard = op.Cards[ext.RandInt(0, len(op.Cards))]
+// 				break pick
+// 			}
+//
+// 		case v1.ACTION_DRAW_CARD:
+// 			if req.Action == 0 {
+// 				req.Action = v1.ACTION_DRAW_CARD
+// 			}
+//
+// 		case v1.ACTION_SKIP_TURN:
+// 			if req.Action == 0 {
+// 				req.Action = v1.ACTION_SKIP_TURN
+// 			}
+//
+// 		case v1.ACTION_DECLARE_SUIT:
+// 			req.Action = v1.ACTION_DECLARE_SUIT
+// 			if len(op.Suits) > 0 {
+// 				req.DeclareSuit = op.Suits[ext.RandInt(0, len(op.Suits))]
+// 			}
+//
+// 		default:
+// 			log.Warnf("unknown action=%v for player=%v", op.Action, p.Desc())
+// 		}
+// 	}
+//
+// 	if req.Action == 0 {
+// 		log.Warnf("no suitable action selected for player=%v at table=%v", p.Desc(), r.mTable.Desc())
+// 		return
+// 	}
+//
+// 	remaining := r.mTable.stage.Remaining().Milliseconds()
+// 	delay := time.Duration(ext.RandInt(800, int(remaining*3/4))) * time.Millisecond
+// 	r.mTable.repo.GetTimer().Once(delay, func() {
+// 		r.mTable.OnPlayerActionReq(p, req, false)
+// 	})
+// }
+
+/*
+	AI智能出牌策略
+*/
+/*
+✅ 打出最多牌：优先打掉重复的点数/花色，快速减少手牌
+✅ 合理利用当前出牌：优先跟牌，保留未来接牌机会
+✅ 控制 Whot：不随意打掉万能牌，留作关键用途
+✅ 高度可扩展：后续可添加 AI 模拟、对手预测等
+*/
+
 func (r *RobotLogic) ActivePlayer(p *player.Player, msg proto.Message) {
 	rsp, ok := msg.(*v1.ActivePush)
 	if !ok || rsp == nil || !p.IsGaming() || p.GetChairID() != rsp.Active || p.GetChairID() != r.mTable.active {
@@ -130,70 +223,113 @@ func (r *RobotLogic) ActivePlayer(p *player.Player, msg proto.Message) {
 
 	log.Debugf("=> p:%v, curr=%v, canOps=%v", p.Desc(), r.mTable.currCard, ext.ToJSON(ops))
 
-	req := &v1.PlayerActionReq{UserId: p.GetPlayerID()}
-
-pick:
-	for _, op := range ops {
-		switch op.Action {
-		case v1.ACTION_PLAY_CARD:
-			var nonWhot []int32
-			for _, c := range op.Cards {
-				if IsWhotCard(c) {
-					nonWhot = append(nonWhot, c)
-				}
-			}
-			if len(nonWhot) > 0 {
-				req.Action = v1.ACTION_PLAY_CARD
-				req.OutCard = nonWhot[ext.RandInt(0, len(nonWhot))]
-				break pick
-			}
-			if len(op.Cards) > 0 {
-				req.Action = v1.ACTION_PLAY_CARD
-				req.OutCard = op.Cards[ext.RandInt(0, len(op.Cards))]
-				break pick
-			}
-
-		case v1.ACTION_DRAW_CARD:
-			if req.Action == 0 {
-				req.Action = v1.ACTION_DRAW_CARD
-			}
-
-		case v1.ACTION_SKIP_TURN:
-			if req.Action == 0 {
-				req.Action = v1.ACTION_SKIP_TURN
-			}
-
-		case v1.ACTION_DECLARE_SUIT:
-			req.Action = v1.ACTION_DECLARE_SUIT
-			if len(op.Suits) > 0 {
-				req.DeclareSuit = op.Suits[ext.RandInt(0, len(op.Suits))]
-			}
-
-		default:
-			log.Warnf("unknown action=%v for player=%v", op.Action, p.Desc())
-		}
-	}
-
-	if req.Action == 0 {
-		log.Warnf("no suitable action selected for player=%v at table=%v", p.Desc(), r.mTable.Desc())
+	req := selectBestAction(p, ops, r.mTable.currCard)
+	if req == nil {
+		log.Errorf("no suitable action selected: player=%v table=%v", p.Desc(), r.mTable.Desc())
 		return
 	}
 
-	remaining := r.mTable.stage.Remaining().Milliseconds()
-	delay := time.Duration(ext.RandInt(800, int(remaining*3/4))) * time.Millisecond
+	// 延迟模拟思考时间
+	delay := time.Duration(ext.RandInt(1000, int(r.mTable.stage.Remaining().Milliseconds()*3/4))) * time.Millisecond
 	r.mTable.repo.GetTimer().Once(delay, func() {
 		r.mTable.OnPlayerActionReq(p, req, false)
 	})
 }
 
-func (r *RobotLogic) onExit(p *player.Player, _ proto.Message) {
-	if !r.mTable.CanExitRobot(p) {
-		return
-	}
-	r.markExitNow() // 记录离桌时间
-	dur := time.Duration(ext.RandInt(ExitMinIntervalSec, ExitMaxIntervalSec)) * time.Second
+// 智能出牌逻辑 selectBestAction
+func selectBestAction(p *player.Player, ops []*v1.ActionOption, currCard int32) *v1.PlayerActionReq {
+	hand := p.GetCards()
+	for _, op := range ops {
+		switch op.Action {
+		case v1.ACTION_DECLARE_SUIT:
+			return &v1.PlayerActionReq{
+				UserId:      p.GetPlayerID(),
+				Action:      v1.ACTION_DECLARE_SUIT,
+				DeclareSuit: getMostFrequentSuit(hand, op.Suits),
+			}
 
-	r.mTable.repo.GetTimer().Once(dur, func() {
-		r.mTable.OnExitGame(p, 0, "ai exit")
-	})
+		case v1.ACTION_PLAY_CARD:
+			if best := chooseBestCard(op.Cards, hand, currCard); best > 0 {
+				return &v1.PlayerActionReq{
+					UserId:  p.GetPlayerID(),
+					Action:  v1.ACTION_PLAY_CARD,
+					OutCard: best,
+				}
+			}
+
+		case v1.ACTION_DRAW_CARD:
+			return &v1.PlayerActionReq{
+				UserId: p.GetPlayerID(),
+				Action: v1.ACTION_DRAW_CARD,
+			}
+
+		case v1.ACTION_SKIP_TURN:
+			return &v1.PlayerActionReq{
+				UserId: p.GetPlayerID(),
+				Action: v1.ACTION_SKIP_TURN,
+			}
+		}
+	}
+	return nil
+}
+
+// 出最多的花色 getMostFrequentSuit
+func getMostFrequentSuit(hand []int32, options []v1.SUIT) v1.SUIT {
+	suitCount := make(map[v1.SUIT]int)
+	for _, c := range hand {
+		suitCount[v1.SUIT(Suit(c))]++
+	}
+
+	var best v1.SUIT
+	max := -1
+	for _, s := range options {
+		if suitCount[s] > max {
+			best, max = s, suitCount[s]
+		}
+	}
+	return best
+}
+
+// 出牌选择策略 chooseBestCard
+func chooseBestCard(candidates, hand []int32, currCard int32) int32 {
+	if len(candidates) == 0 {
+		return 0
+	}
+
+	numCount := make(map[int32]int)
+	suitCount := make(map[int32]int)
+	for _, c := range hand {
+		numCount[Number(c)]++
+		suitCount[Suit(c)]++
+	}
+
+	currSuit, currNum := Suit(currCard), Number(currCard)
+	bestCard, bestScore := int32(0), math.MaxInt
+
+	for _, c := range candidates {
+		score := evaluateCardScore(c, v1.SUIT(currSuit), currNum, numCount, suitCount)
+		if score < bestScore {
+			bestCard, bestScore = c, score
+		}
+	}
+	return bestCard
+}
+
+// 评分函数 evaluateCardScore
+func evaluateCardScore(card int32, currSuit v1.SUIT, currNum int32, numCount map[int32]int, suitCount map[int32]int) int {
+	if IsWhotCard(card) {
+		return 100 // 最后出 WHOT
+	}
+
+	s, n := Suit(card), Number(card)
+	score := 0
+	if s == int32(currSuit) {
+		score -= 5
+	}
+	if n == currNum {
+		score -= 5
+	}
+	score -= numCount[n] * 3
+	score -= suitCount[s] * 2
+	return score
 }
