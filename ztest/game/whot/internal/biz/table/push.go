@@ -1,6 +1,7 @@
 package table
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/yola1107/kratos/v2/log"
@@ -257,9 +258,13 @@ func (t *Table) broadcastPlayerAction(p *player.Player, action v1.ACTION, cs []i
 		t.SendPacketToClient(v, v1.GameCommand_OnPlayerActionRsp, rsp)
 	}
 
+	deSuit := ""
+	if declaredSuit != 0 {
+		deSuit = fmt.Sprintf("%d", declaredSuit)
+	}
 	pendingStr := descPendingEffect(t.pending)
-	log.Debugf("sendActionRsp. p=%v, ac=%q, cards=%v, deSuit=%d, pending=%v,curr=%v, \n",
-		p.Desc(), action, cs, declaredSuit, pendingStr, t.currCard)
+	log.Debugf("sendActionRsp. p=%v, ac=%q, cards=%v, deSuit=%v, pending=%v,curr=%v, \n",
+		p.Desc(), action, cs, deSuit, pendingStr, t.currCard)
 }
 
 func (t *Table) getCanOp(p *player.Player) []*v1.ActionOption {

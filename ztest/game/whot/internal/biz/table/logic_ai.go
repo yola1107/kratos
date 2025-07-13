@@ -129,76 +129,6 @@ func (r *RobotLogic) onExit(p *player.Player, _ proto.Message) {
 	})
 }
 
-//
-// func (r *RobotLogic) ActivePlayer(p *player.Player, msg proto.Message) {
-// 	rsp, ok := msg.(*v1.ActivePush)
-// 	if !ok || rsp == nil || !p.IsGaming() || p.GetChairID() != rsp.Active || p.GetChairID() != r.mTable.active {
-// 		return
-// 	}
-//
-// 	ops := r.mTable.getCanOp(p)
-// 	if len(ops) == 0 {
-// 		log.Errorf("no available options: player=%v table=%v", p.Desc(), r.mTable.Desc())
-// 		return
-// 	}
-// 	log.Debugf("=> p:%v, curr=%v, canOps=%v", p.Desc(), r.mTable.currCard, ext.ToJSON(ops))
-//
-// 	req := &v1.PlayerActionReq{UserId: p.GetPlayerID()}
-//
-// pick:
-// 	for _, op := range ops {
-// 		switch op.Action {
-// 		case v1.ACTION_PLAY_CARD:
-// 			var nonWhot []int32
-// 			for _, c := range op.Cards {
-// 				if IsWhotCard(c) {
-// 					nonWhot = append(nonWhot, c)
-// 				}
-// 			}
-// 			if len(nonWhot) > 0 {
-// 				req.Action = v1.ACTION_PLAY_CARD
-// 				req.OutCard = nonWhot[ext.RandInt(0, len(nonWhot))]
-// 				break pick
-// 			}
-// 			if len(op.Cards) > 0 {
-// 				req.Action = v1.ACTION_PLAY_CARD
-// 				req.OutCard = op.Cards[ext.RandInt(0, len(op.Cards))]
-// 				break pick
-// 			}
-//
-// 		case v1.ACTION_DRAW_CARD:
-// 			if req.Action == 0 {
-// 				req.Action = v1.ACTION_DRAW_CARD
-// 			}
-//
-// 		case v1.ACTION_SKIP_TURN:
-// 			if req.Action == 0 {
-// 				req.Action = v1.ACTION_SKIP_TURN
-// 			}
-//
-// 		case v1.ACTION_DECLARE_SUIT:
-// 			req.Action = v1.ACTION_DECLARE_SUIT
-// 			if len(op.Suits) > 0 {
-// 				req.DeclareSuit = op.Suits[ext.RandInt(0, len(op.Suits))]
-// 			}
-//
-// 		default:
-// 			log.Warnf("unknown action=%v for player=%v", op.Action, p.Desc())
-// 		}
-// 	}
-//
-// 	if req.Action == 0 {
-// 		log.Warnf("no suitable action selected for player=%v at table=%v", p.Desc(), r.mTable.Desc())
-// 		return
-// 	}
-//
-// 	remaining := r.mTable.stage.Remaining().Milliseconds()
-// 	delay := time.Duration(ext.RandInt(800, int(remaining*3/4))) * time.Millisecond
-// 	r.mTable.repo.GetTimer().Once(delay, func() {
-// 		r.mTable.OnPlayerActionReq(p, req, false)
-// 	})
-// }
-
 /*
 	AI智能出牌策略
 */
@@ -223,21 +153,22 @@ func (r *RobotLogic) ActivePlayer(p *player.Player, msg proto.Message) {
 
 	log.Debugf("=> p:%v, curr=%v, canOps=%v", p.Desc(), r.mTable.currCard, ext.ToJSON(ops))
 
-	req := selectBestAction(p, ops, r.mTable.currCard)
+	// 对手的手牌数量
+	opponentHandSize := r.mTable.GetMinOpponentHandSize(p)
+	req := selectBestAction(p, ops, r.mTable.currCard, opponentHandSize)
 	if req == nil {
-		log.Errorf("no suitable action selected: player=%v table=%v", p.Desc(), r.mTable.Desc())
+		log.Warnf("no suitable action selected: player=%v table=%v", p.Desc(), r.mTable.Desc())
 		return
 	}
 
-	// 延迟模拟思考时间
 	delay := time.Duration(ext.RandInt(1000, int(r.mTable.stage.Remaining().Milliseconds()*3/4))) * time.Millisecond
 	r.mTable.repo.GetTimer().Once(delay, func() {
 		r.mTable.OnPlayerActionReq(p, req, false)
 	})
 }
 
-// 智能出牌逻辑 selectBestAction
-func selectBestAction(p *player.Player, ops []*v1.ActionOption, currCard int32) *v1.PlayerActionReq {
+// 策略选择
+func selectBestAction(p *player.Player, ops []*v1.ActionOption, currCard int32, opponentHandSize int) *v1.PlayerActionReq {
 	hand := p.GetCards()
 	for _, op := range ops {
 		switch op.Action {
@@ -247,22 +178,19 @@ func selectBestAction(p *player.Player, ops []*v1.ActionOption, currCard int32) 
 				Action:      v1.ACTION_DECLARE_SUIT,
 				DeclareSuit: getMostFrequentSuit(hand, op.Suits),
 			}
-
 		case v1.ACTION_PLAY_CARD:
-			if best := chooseBestCard(op.Cards, hand, currCard); best > 0 {
+			if best := chooseBestCard(op.Cards, hand, currCard, opponentHandSize); best > 0 {
 				return &v1.PlayerActionReq{
 					UserId:  p.GetPlayerID(),
 					Action:  v1.ACTION_PLAY_CARD,
 					OutCard: best,
 				}
 			}
-
 		case v1.ACTION_DRAW_CARD:
 			return &v1.PlayerActionReq{
 				UserId: p.GetPlayerID(),
 				Action: v1.ACTION_DRAW_CARD,
 			}
-
 		case v1.ACTION_SKIP_TURN:
 			return &v1.PlayerActionReq{
 				UserId: p.GetPlayerID(),
@@ -273,27 +201,26 @@ func selectBestAction(p *player.Player, ops []*v1.ActionOption, currCard int32) 
 	return nil
 }
 
-// 出最多的花色 getMostFrequentSuit
+// 出最多的花色
 func getMostFrequentSuit(hand []int32, options []v1.SUIT) v1.SUIT {
 	suitCount := make(map[v1.SUIT]int)
 	for _, c := range hand {
-		suit := v1.SUIT(Suit(c))
-		suitCount[suit]++
+		suitCount[v1.SUIT(Suit(c))]++
 	}
 
-	var best v1.SUIT
-	maxCount := -1
+	var bestSuit v1.SUIT
+	highest := -1
 	for _, s := range options {
-		if suitCount[s] > maxCount {
-			best = s
-			maxCount = suitCount[s]
+		if suitCount[s] > highest {
+			bestSuit = s
+			highest = suitCount[s]
 		}
 	}
-	return best
+	return bestSuit
 }
 
-// 出牌选择策略 chooseBestCard
-func chooseBestCard(candidates, hand []int32, currCard int32) int32 {
+// 出牌选择策略
+func chooseBestCard(candidates, hand []int32, currCard int32, opponentHandSize int) int32 {
 	if len(candidates) == 0 {
 		return 0
 	}
@@ -301,10 +228,11 @@ func chooseBestCard(candidates, hand []int32, currCard int32) int32 {
 	currSuit := v1.SUIT(Suit(currCard))
 	currNum := Number(currCard)
 
-	bestCard := int32(0)
+	var bestCard int32
 	bestScore := math.MinInt
+
 	for _, c := range candidates {
-		score := evaluateCardScore(c, currSuit, currNum, hand)
+		score := evaluateCardScoreV2(c, currSuit, currNum, hand, opponentHandSize)
 		if score > bestScore {
 			bestCard = c
 			bestScore = score
@@ -313,14 +241,17 @@ func chooseBestCard(candidates, hand []int32, currCard int32) int32 {
 	return bestCard
 }
 
-func evaluateCardScore(card int32, currSuit v1.SUIT, currNum int32, hand []int32) int {
+// 优化版评分函数
+func evaluateCardScoreV2(card int32, currSuit v1.SUIT, currNum int32, hand []int32, opponentHandSize int) int {
 	if IsWhotCard(card) {
-		if len(hand) == 1 {
-			return 100 // 出最后一张 WHOT
-		} else if len(hand) <= 3 {
-			return 20 // 手牌少时可以考虑出
+		switch {
+		case len(hand) == 1:
+			return 100
+		case len(hand) <= 3:
+			return 40
+		default:
+			return -300
 		}
-		return -300
 	}
 
 	s := v1.SUIT(Suit(card))
@@ -335,7 +266,131 @@ func evaluateCardScore(card int32, currSuit v1.SUIT, currNum int32, hand []int32
 
 	score := 0
 
-	// 匹配加分（稍微降低）
+	if s == currSuit {
+		score += 10
+	}
+	if n == currNum {
+		score += 10
+	}
+
+	score -= (3 - numCount[n]) * 4
+	score -= (2 - suitCount[s]) * 3
+
+	switch n {
+	case 2:
+		if opponentHandSize > 2 {
+			score += 10
+		} else {
+			score -= 5
+		}
+	case 8:
+		score += 5
+	case 14:
+		score += 12
+	case 20:
+		if opponentHandSize > 1 {
+			score += 10
+		} else {
+			score -= 10
+		}
+	}
+
+	canChain := false
+	for _, c := range hand {
+		if c == card {
+			continue
+		}
+		if Suit(c) == int32(s) || Number(c) == n {
+			canChain = true
+			break
+		}
+	}
+	if canChain {
+		score += 5
+	}
+
+	if len(hand) <= 3 {
+		score -= (3 - numCount[n]) * 6
+		score -= (2 - suitCount[s]) * 5
+	}
+
+	return score
+}
+
+func (t *Table) GetMinOpponentHandSize(p *player.Player) int {
+	opponentHandSize := 54
+	if p == nil {
+		return opponentHandSize
+	}
+	for _, v := range t.seats {
+		if v == nil || !v.IsGaming() || v.GetChairID() == p.GetChairID() {
+			continue
+		}
+		if len(v.GetCards()) < opponentHandSize {
+			opponentHandSize = len(v.GetCards())
+		}
+	}
+	return opponentHandSize
+}
+
+/*
+	AI智能摸牌,剩余牌堆中选对自己有利的牌
+*/
+
+// DrawSmartCard 智能摸牌 DrawSmartCard
+func (t *Table) DrawSmartCard(p *player.Player) int32 {
+	heap := t.cards.cards
+	if len(heap) == 0 {
+		return 0
+	}
+
+	hand := p.GetCards()
+	currCard := t.currCard
+	currSuit := v1.SUIT(Suit(currCard))
+	currNum := Number(currCard)
+
+	// 如果不希望暴露对手数量，可以固定给个值
+	opponentHandSize := t.GetMinOpponentHandSize(p)
+
+	var bestCard int32
+	bestScore := math.MinInt
+	bestIdx := -1
+
+	for i, c := range heap {
+		score := evaluateDrawCardScore(c, currSuit, currNum, hand, opponentHandSize)
+		if score > bestScore {
+			bestScore = score
+			bestCard = c
+			bestIdx = i
+		}
+	}
+
+	if bestIdx >= 0 {
+		// 注意：真实抽牌逻辑应该在发牌系统中执行；这里只是选择用哪张而已
+		return bestCard
+	}
+	return 0
+}
+
+// 摸牌专用评分：更倾向于补充连号、同花色，不太倾向功能牌
+func evaluateDrawCardScore(card int32, currSuit v1.SUIT, currNum int32, hand []int32, opponentHandSize int) int {
+	if IsWhotCard(card) {
+		return -100 // 摸牌阶段避免抽Whot
+	}
+
+	s := v1.SUIT(Suit(card))
+	n := Number(card)
+
+	numCount := make(map[int32]int)
+	suitCount := make(map[v1.SUIT]int)
+	for _, c := range hand {
+		numCount[Number(c)]++
+		suitCount[v1.SUIT(Suit(c))]++
+	}
+
+	score := 0
+
+	// 如果和当前场面牌相符，得分
 	if s == currSuit {
 		score += 8
 	}
@@ -343,26 +398,13 @@ func evaluateCardScore(card int32, currSuit v1.SUIT, currNum int32, hand []int32
 		score += 8
 	}
 
-	// 稀有牌减分
-	score -= numCount[n] * 5
-	score -= suitCount[s] * 3
+	// 补充已有的花色/数字
+	score += numCount[n] * 3
+	score += suitCount[s] * 2
 
-	// 特殊牌偏好
-	switch n {
-	case 2:
-		score += 10
-	case 8:
-		score += 6
-	case 14:
-		score += 15
-	case 20:
-		score += 10
-	}
-
-	// 手牌少时更积极处理非主流牌
-	if len(hand) <= 3 {
-		score -= numCount[n] * 8
-		score -= suitCount[s] * 5
+	// 功能牌轻微加分（可策略调节）
+	if n == 2 || n == 14 || n == 20 {
+		score += 2
 	}
 
 	return score
