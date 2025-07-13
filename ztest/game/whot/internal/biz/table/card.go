@@ -2,6 +2,7 @@ package table
 
 import (
 	"github.com/yola1107/kratos/v2/library/ext"
+	v1 "github.com/yola1107/kratos/v2/ztest/game/whot/api/helloworld/v1"
 )
 
 const (
@@ -42,15 +43,30 @@ func Number(card int32) int32 {
 // ValidBottom 合法的底牌 非功能牌
 func ValidBottom(card int32) bool {
 	return !IsSpecialCard(card)
+
 }
 
 // IsSpecialCard 功能牌说明：其中1，2，8，14，20为功能牌
 func IsSpecialCard(card int32) bool {
+	if IsWhotCard(card) {
+		return true
+	}
+
+	suit := Suit(card)
 	number := Number(card)
-	return number == 1 || number == 2 || number == 8 || number == 14 || number == 20
+	isValidSuit := suit >= int32(v1.SUIT_CIRCLE) && suit <= int32(v1.SUIT_START)
+	isFunctionNumber := number == 1 || number == 2 || number == 8 || number == 14
+	return isValidSuit && isFunctionNumber
 }
 
-// GameCards 管理牌堆
+func IsWhotCard(card int32) bool {
+	return card == WhotCard
+}
+
+/*
+	GameCards 管理牌堆
+*/
+
 type GameCards struct {
 	index  int
 	cards  []int32

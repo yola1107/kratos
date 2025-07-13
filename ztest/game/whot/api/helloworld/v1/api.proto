@@ -40,12 +40,12 @@ enum GameCommand {
     OnUserOfflinePush = 2004;  //用户断线通知
 
     // game push
-    OnMatchResultPush = 2100;  //匹配结果通知
-    OnSendCardPush    = 2101;  //发牌通知
-    OnActivePush      = 2102;  //活动玩家通知
-    OnDrawCardPush    = 2103;  //摸牌信息推送
-    OnLastCardPush    = 2104;  //最后一张通知
-    OnResultPush      = 2200;  //结算通知
+    OnMatchResultPush    = 2100;  //匹配结果通知
+    OnSendCardPush       = 2101;  //发牌通知
+    OnActivePush         = 2102;  //活动玩家通知
+    OnMarketDrawCardPush = 2103;  //补牌信息推送(MARKET)
+    OnLastCardPush       = 2104;  //最后一张通知
+    OnResultPush         = 2200;  //结算通知
 }
 
 // The whot service definition.
@@ -322,7 +322,7 @@ message PlayerInfo {
     bool hosting         = 4;  // 是否托管
     bool offline         = 5;  // 是否断线
     repeated int32 cards = 6;  // 手牌列表（格式：花色*100 + 牌值）
-    CanOpInfo canOp      = 7;  // 当前允许的操作及牌. (只有当前活动玩家才能有操作信息)
+  repeated ActionOption canOp      = 7;  // 当前允许的操作及牌. (只有当前活动玩家才能有操作信息)
 }
 
 // 玩家操作请求
@@ -369,12 +369,7 @@ message ActivePush {
     int32 active    = 3;  // 当前操作玩家
     int32 leftNum   = 4;  // 剩余牌数
     Pending pending = 5;  // 当前待处理动作响应（如等待反击,等待声明花色）
-    CanOpInfo canOp = 6;  // 当前允许的操作及牌
-}
-
-// 允许操作及对应信息（客户端据此构建操作界面）
-message CanOpInfo {
-    repeated ActionOption options = 1;
+    repeated ActionOption canOp = 6;  // 当前允许的操作及牌
 }
 
 // 单个动作以及其附属信息（如：出哪些牌、声明哪种花色）
@@ -382,7 +377,7 @@ message ActionOption {
     ACTION action        = 1;  // 可执行的动作类型（如 出牌、摸牌、声明花色等）
     repeated int32 cards = 2;  // 出牌可选
     int32 drawCount      = 3;  // 需摸牌数量
-    repeated int32 suits = 4;  // 选花可选（仅声明花色时有效）
+    repeated SUIT suits  = 4;  // 选花可选（仅声明花色时有效）
 }
 
 // 当前待处理动作响应; 如等待反击,等待声明花色等操作
@@ -394,7 +389,7 @@ message Pending {
 }
 
 // 摸牌推送
-message DrawCardPush {
+message MarketDrawCardPush {
     int64 userID         = 1;  // 用户ID
     int32 chairID        = 2;  // 椅子号
     repeated int32 draw  = 3;  // 摸到的牌
@@ -410,7 +405,8 @@ message LastCardPush {
 // 结果推送
 message ResultPush {
     FINISH_TYPE finishType        = 1;
-    repeated PlayerResult results = 2;
+    int64 winnerID = 2;  //赢家Id
+    repeated PlayerResult results = 3;
 }
 
 // 玩家结果
@@ -418,7 +414,7 @@ message PlayerResult {
     int64 userID             = 1;  // 用户ID
     int32 chairID            = 2;  // 椅子号
     bool isWinner            = 3;  // 是否获胜
-    float winScore           = 4;  // 赢分
+    double winScore           = 4;  // 赢分
     repeated int32 handCards = 5;  // 剩余手牌
     int32 handCardsScore     = 6;  // 剩余手牌得分
 }

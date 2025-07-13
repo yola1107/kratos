@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/yola1107/kratos/v2/log"
+	v1 "github.com/yola1107/kratos/v2/ztest/game/whot/api/helloworld/v1"
+	"github.com/yola1107/kratos/v2/ztest/game/whot/internal/biz/player"
 )
 
 /*
@@ -136,5 +138,81 @@ func (t TYPE) String() string {
 		return "Normal"
 	default:
 		return "Unknown"
+	}
+}
+
+// --------------------------------------
+
+/*
+	赢所有玩家（除自己外）底注之和（抽税20%），
+	例：底注为100，3人玩，底注之和为：200，那么：
+	如果赢：100 + 200 * （1-20%） = 260
+	如果输：100（底注）
+*/
+
+// SettleObj 定义与实现
+type SettleObj struct {
+	Winner    *player.Player
+	Users     []*player.Player
+	BaseScore float64
+	TaxRate   float64
+	EndType   v1.FINISH_TYPE
+
+	TaxFee   float64
+	WinScore float64
+	result   *v1.ResultPush
+}
+
+// GetResult 返回结算结果（只读）
+func (s *SettleObj) GetResult() *v1.ResultPush {
+	return s.result
+}
+
+// Settle 执行结算
+func (s *SettleObj) Settle() error {
+	if s.Winner == nil || len(s.Users) == 0 {
+		return fmt.Errorf("invalid settle input: winner or users missing")
+	}
+	if s.BaseScore < 0 || s.TaxRate < 0 || s.TaxRate > 1 {
+		return fmt.Errorf("invalid baseScore or taxRate")
+	}
+
+	winID := s.Winner.GetPlayerID()
+	var (
+		totalLost float64
+		results   []*v1.PlayerResult
+	)
+
+	for _, p := range s.Users {
+		if p == nil || p.GetPlayerID() == winID {
+			continue
+		}
+		totalLost += s.BaseScore
+		results = append(results, buildResult(p, false, -s.BaseScore))
+	}
+
+	tax := totalLost * s.TaxRate
+	winScore := s.BaseScore + totalLost - tax
+	s.WinScore = winScore
+	s.TaxFee = tax
+
+	results = append(results, buildResult(s.Winner, true, winScore))
+
+	s.result = &v1.ResultPush{
+		FinishType: s.EndType,
+		WinnerID:   winID,
+		Results:    results,
+	}
+	return nil
+}
+
+func buildResult(p *player.Player, isWinner bool, score float64) *v1.PlayerResult {
+	return &v1.PlayerResult{
+		UserID:         p.GetPlayerID(),
+		ChairID:        p.GetChairID(),
+		IsWinner:       isWinner,
+		WinScore:       score,
+		HandCards:      p.GetCards(),
+		HandCardsScore: p.GetHandScore(),
 	}
 }

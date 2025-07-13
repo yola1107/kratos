@@ -1,6 +1,8 @@
 package table
 
 import (
+	"sort"
+
 	"github.com/yola1107/kratos/v2/log"
 	v1 "github.com/yola1107/kratos/v2/ztest/game/whot/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/game/whot/internal/biz/player"
@@ -116,6 +118,14 @@ func (t *Table) broadcastUserQuitPush(p *player.Player, isSwitchTable bool) {
 	游戏协议
 */
 
+func (t *Table) sendMatchOk(p *player.Player) {
+	t.SendPacketToClient(p, v1.GameCommand_OnMatchResultPush, &v1.MatchResultPush{
+		Code: 0,
+		Msg:  "",
+		Uid:  p.GetPlayerID(),
+	})
+}
+
 // 发牌推送
 func (t *Table) dispatchCardPush(canGameSeats []*player.Player, bottom []int32, leftNum int32) {
 	for _, p := range canGameSeats {
@@ -193,20 +203,15 @@ func (t *Table) broadcastActivePlayerPush() {
 			CanOp:   t.getCanOp(p),
 		}
 		if p.GetChairID() == t.active && p.IsGaming() {
+			t.mLog.activePush(p, t.currCard, t.pending, rsp.CanOp)
+			// log.Debugf("sendActivePush. p:%v, curr=%d, pending=%s, canOp=%v,",
+			// 	p.Desc(), t.currCard, descPendingEffect(t.pending), ext.ToJSON(rsp.CanOp))
 		}
 		t.SendPacketToClient(p, v1.GameCommand_OnActivePush, rsp)
 	}
 }
 
-// func (t *Table) sendActionRsp(p *player.Player, rsp *v1.PlayerActionRsp) {
-// 	if rsp == nil {
-// 		return
-// 	}
-// 	t.SendPacketToClient(p, v1.GameCommand_OnPlayerActionRsp, rsp)
-// }
-
 func (t *Table) broadcastPlayerAction(p *player.Player, action v1.ACTION, cs []int32, declaredSuit v1.SUIT) {
-
 	for _, v := range t.seats {
 		if v == nil {
 			continue
@@ -251,69 +256,96 @@ func (t *Table) broadcastPlayerAction(p *player.Player, action v1.ACTION, cs []i
 
 		t.SendPacketToClient(v, v1.GameCommand_OnPlayerActionRsp, rsp)
 	}
+
+	pendingStr := descPendingEffect(t.pending)
+	log.Debugf("sendActionRsp. p=%v, ac=%q, cards=%v, deSuit=%d, pending=%v,curr=%v, \n",
+		p.Desc(), action, cs, declaredSuit, pendingStr, t.currCard)
 }
 
-func (t *Table) getCanOp(p *player.Player) *v1.CanOpInfo {
+func (t *Table) getCanOp(p *player.Player) []*v1.ActionOption {
 	if p == nil || !p.IsGaming() || len(t.GetGamers()) <= 1 || p.GetChairID() != t.active {
 		return nil
 	}
 	switch t.stage.GetState() {
 	case StWait, StReady, StWaitEnd, StEnd:
 		return nil
+	default:
 	}
 
-	canOuts := calcCanOut(t.currCard, p.GetCards())
-	pending := t.pending
 	var ops []*v1.ActionOption
+	pending := t.pending
 
 	switch {
-	case pending == nil || pending.Effect == v1.CARD_EFFECT_NORMAL,
-		pending.Effect == v1.CARD_EFFECT_HOLD_ON:
+	case pending == nil || pending.Effect == v1.CARD_EFFECT_NORMAL, pending.Effect == v1.CARD_EFFECT_HOLD_ON:
 		ops = append(ops, newDrawOption(1))
 
-	case pending.Effect == v1.CARD_EFFECT_PICK_TWO:
+	case pending.Effect == v1.CARD_EFFECT_PICK_TWO: // 出牌出点数一样的
 		ops = append(ops, newDrawOption(pending.Quantity))
 
-	case pending.Effect == v1.CARD_EFFECT_SUSPEND:
+	case pending.Effect == v1.CARD_EFFECT_SUSPEND: // 出牌出点数一样的
 		ops = append(ops, &v1.ActionOption{Action: v1.ACTION_SKIP_TURN})
 
 	case pending.Effect == v1.CARD_EFFECT_WHOT:
-		return &v1.CanOpInfo{Options: []*v1.ActionOption{
-			{Action: v1.ACTION_DECLARE_SUIT, Suits: []int32{1, 2, 3, 4, 5}},
-		}}
+		suits := []v1.SUIT(nil)
+		for i := v1.SUIT_CIRCLE; i <= v1.SUIT_START; i++ {
+			suits = append(suits, i)
+		}
+		return []*v1.ActionOption{
+			{Action: v1.ACTION_DECLARE_SUIT, Suits: suits},
+		}
 	}
 
+	canOuts := collectPlayCard(t.currCard, p.GetCards(), pending)
 	if len(canOuts) > 0 {
 		ops = append(ops, &v1.ActionOption{Action: v1.ACTION_PLAY_CARD, Cards: canOuts})
 	}
-	return &v1.CanOpInfo{Options: ops}
+
+	if len(ops) > 1 {
+		sort.Slice(ops, func(i, j int) bool {
+			return ops[i].Action < ops[j].Action
+		})
+	}
+
+	return ops
 }
 
 func newDrawOption(n int32) *v1.ActionOption {
 	return &v1.ActionOption{Action: v1.ACTION_DRAW_CARD, DrawCount: n}
 }
 
-func calcCanOut(card int32, hand []int32) []int32 {
-	special := IsSpecialCard(card)
-	suit, number := Suit(card), Number(card)
-
-	var outList []int32
-	for _, c := range hand {
-		s, n := Suit(c), Number(c)
-
-		if s == int32(v1.SUIT_SUIT_WHOT) {
-			outList = append(outList, c)
-		} else if !special && (s == suit || n == number) {
-			outList = append(outList, c)
-		} else if special && n == number {
-			outList = append(outList, c)
+func collectPlayCard(currCard int32, hand []int32, pending *v1.Pending) []int32 {
+	out := make([]int32, 0, len(hand))
+	for _, card := range hand {
+		if canPlayCardOn(currCard, card, pending) {
+			out = append(out, card)
 		}
 	}
-	return outList
+	return out
 }
 
-func (t *Table) sendDrawCardPush(p *player.Player, draw []int32) {
-	t.SendPacketToClient(p, v1.GameCommand_OnDrawCardPush, &v1.DrawCardPush{
+func canPlayCardOn(currCard, card int32, pending *v1.Pending) bool {
+	suit, number := Suit(currCard), Number(currCard)
+	s, n := Suit(card), Number(card)
+
+	// 没有 pending 情况等价于普通出牌
+	if pending == nil {
+		return IsWhotCard(card) || s == suit || n == number
+	}
+
+	switch pending.Effect {
+	case v1.CARD_EFFECT_PICK_TWO, v1.CARD_EFFECT_SUSPEND:
+		return IsWhotCard(card) || n == number
+
+	case v1.CARD_EFFECT_MARKET, v1.CARD_EFFECT_WHOT:
+		return false
+
+	default: // CARD_EFFECT_NORMAL, HOLD_ON 等
+		return IsWhotCard(card) || s == suit || n == number
+	}
+}
+
+func (t *Table) sendMarketDrawCardPush(p *player.Player, draw []int32) {
+	t.SendPacketToClient(p, v1.GameCommand_OnMarketDrawCardPush, &v1.MarketDrawCardPush{
 		UserID:  p.GetPlayerID(),
 		ChairID: p.GetChairID(),
 		Draw:    draw,
@@ -322,16 +354,12 @@ func (t *Table) sendDrawCardPush(p *player.Player, draw []int32) {
 	})
 }
 
-func (t *Table) broadcastResult() {
-	for _, v := range t.seats {
-		if v == nil {
-			continue
-		}
-		t.SendPacketToClient(v, v1.GameCommand_OnResultPush, &v1.ResultPush{
-			FinishType: 0,
-			Results:    nil,
-		})
+func (t *Table) broadcastResult(obj *SettleObj) {
+	rsp := &v1.ResultPush{}
+	if obj != nil {
+		rsp = obj.GetResult()
 	}
+	t.SendPacketToAll(v1.GameCommand_OnResultPush, rsp)
 }
 
 func ifThen[T any](cond bool, a, b T) T {

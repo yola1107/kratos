@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/library/log/file"
 	v1 "github.com/yola1107/kratos/v2/ztest/game/whot/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/game/whot/internal/biz/player"
@@ -69,12 +70,47 @@ func (l *Log) begin(tb string, bet float64, seats []*player.Player, infos any) {
 	l.write(strings.Join(logs, "\r\n"))
 }
 
-func (l *Log) activePush(p *player.Player, first int32, curRound int32, canOp []v1.ACTION, gamingCnt int) {
-	l.write("[操作通知] 玩家:%+v first:%+v curRound:%d canOp:%v gaming:%d", p.Desc(), first, curRound, canOp, gamingCnt)
+func (l *Log) activePush(p *player.Player, currCard int32, pending *v1.Pending, canOp []*v1.ActionOption) {
+	l.write("[操作通知] 玩家:%+v currCard=%d, pending=%v, canOp=%v", p.Desc(), currCard, descPendingEffect(pending), ext.ToJSON(canOp))
 }
 
 func (l *Log) stage(s string, active int32) {
 	l.write("[状态转移] %s. active=%+v", s, active)
+}
+
+func (l *Log) play(p *player.Player, card int32, pending *v1.Pending, timeout bool) {
+	l.write("[玩家出牌] 玩家:%+v. out=[%+v] pending=%s, timeout=%+v", p.Desc(), card, descPending(pending), timeout)
+}
+
+func (l *Log) replyPending(p *player.Player, action v1.ACTION, pending *v1.Pending) {
+	l.write("[响应Pending] 玩家:%+v. action=%q 响应了pending，清除:%s", p.Desc(), action, descPending(pending))
+}
+
+func (l *Log) draw(p *player.Player, card []int32, pending *v1.Pending, timeout bool) {
+	l.write("[玩家抓牌] 玩家:%+v. drawn=%+v, pending=%s, timeout=%+v", p.Desc(), card, descPending(pending), timeout)
+}
+
+func (l *Log) skipTurn(p *player.Player, timeout bool) {
+	l.write("[玩家跳过] 玩家:%+v pending=, timeout=%v", p.Desc(), timeout)
+}
+
+func (l *Log) declareSuit(p *player.Player, suit v1.SUIT, currCard int32, timeout bool) {
+	l.write("[Whot确定花色] 玩家:%+v 花色=%d, currCard=%v, timeout=%+v", p.Desc(), suit, currCard, timeout)
+}
+
+func descPending(pending *v1.Pending) string {
+	if pending == nil {
+		return ""
+	}
+	return fmt.Sprintf("{%+v->%v %v %v} ",
+		pending.Initiator, pending.Target, pending.Effect, pending.Quantity)
+}
+
+func descPendingEffect(pending *v1.Pending) string {
+	if pending == nil {
+		return ""
+	}
+	return fmt.Sprintf("%q", pending.Effect)
 }
 
 func logPlayers(players []*player.Player) string {
@@ -88,10 +124,11 @@ func logPlayers(players []*player.Player) string {
 	return strings.Join(logs, "\r\n")
 }
 
-func (l *Log) settle(winner *player.Player, msgs ...any) {
+func (l *Log) settle(winner *player.Player, win, tax float64, msgs ...any) {
 	logs := []string{"[结算]"}
 	if winner != nil {
-		logs = append(logs, fmt.Sprintf("<赢家>:%+v Hands:%v", winner.Desc(), winner.GetCards()))
+		logs = append(logs, fmt.Sprintf("<赢家>:%+v win:%.1f tax:%.1f Hands:%v",
+			winner.Desc(), win, tax, winner.GetCards()))
 	}
 	for _, msg := range msgs {
 		logs = append(logs, fmt.Sprintf("%v", msg))

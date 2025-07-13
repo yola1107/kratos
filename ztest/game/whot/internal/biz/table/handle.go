@@ -1,6 +1,7 @@
 package table
 
 import (
+	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/log"
 	v1 "github.com/yola1107/kratos/v2/ztest/game/whot/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/game/whot/internal/biz/player"
@@ -46,41 +47,43 @@ func (t *Table) OnPlayerActionReq(p *player.Player, in *v1.PlayerActionReq, time
 		return
 	}
 
-	// log.Debugf("=> p:%v, ac=%v CanOp=%v, gamer=%+v timeout=%v",
-	// 	p.Desc(), in.Action, t.getCanOp(p), len(t.GetGamers()), timeout)
+	reqstr := ext.ToJSON(in)
+	pendstr := descPendingEffect(t.pending)
+	log.Debugf("onActionReq. p=%v, req=%v, pending=%v, Timeout=%v ",
+		p.Desc(), reqstr, pendstr, timeout)
 
 	switch in.Action {
 	case v1.ACTION_PLAY_CARD:
 		if !t.canOutCard(t.currCard, p.GetCards(), in.OutCard) {
-			log.Errorf("playCard err: curr=%v out=%v hand=%v", t.currCard, in.OutCard, p.GetCards())
+			log.Errorf("playCard err: p=%v curr=%v out=%v", p.Desc(), t.currCard, reqstr)
 			return
 		}
-		t.onPlayCard(p, in.OutCard)
+		t.onPlayCard(p, in.OutCard, timeout)
 
 	case v1.ACTION_DRAW_CARD:
 		if !t.canDrawCard(p) {
-			log.Errorf("drawCard err: 当前不允许摸牌，pending=%+v", t.pending)
+			log.Errorf("drawCard err: 当前不允许摸牌，p=%v, currCard=%d, %v", p.Desc(), t.currCard, pendstr)
 			return
 		}
-		t.onDrawCard(p)
+		t.onDrawCard(p, timeout)
 
 	case v1.ACTION_SKIP_TURN: // 8牌
 		if t.pending == nil || t.pending.Effect != v1.CARD_EFFECT_SUSPEND {
-			log.Errorf("skipCard err: 当前不允许跳过，pending=%+v", t.pending)
+			log.Errorf("skipCard err: 当前不允许跳过，p=%v, currCard=%d %v", p.Desc(), t.currCard, pendstr)
 			return
 		}
-		t.onSkipTurn(p)
+		t.onSkipTurn(p, timeout)
 
 	case v1.ACTION_DECLARE_SUIT:
 		if t.pending == nil || t.pending.Effect != v1.CARD_EFFECT_WHOT || t.currCard != WhotCard {
-			log.Errorf("declareCard err: 当前不允许声明花色, pending=%+v currCard=%d", t.pending, t.currCard)
+			log.Errorf("declareCard err: 当前不允许声明花色, p=%v, currCard=%d %v ", p.Desc(), t.currCard, pendstr)
 			return
 		}
 		if suit := in.DeclareSuit; suit < v1.SUIT_CIRCLE || suit > v1.SUIT_START {
-			log.Errorf("declareCard err: 非法花色: %v", in.DeclareSuit)
+			log.Errorf("declareCard err: 非法花色, p=%v, suit=%d", p.Desc(), in.DeclareSuit)
 			return
 		}
-		t.onDeclareSuit(p, in.DeclareSuit)
+		t.onDeclareSuit(p, in.DeclareSuit, timeout)
 
 	default:
 		log.Warnf("未知操作类型: %v", in.Action)
@@ -90,12 +93,13 @@ func (t *Table) OnPlayerActionReq(p *player.Player, in *v1.PlayerActionReq, time
 	return true
 }
 
-func (t *Table) onPlayCard(p *player.Player, card int32) {
+func (t *Table) onPlayCard(p *player.Player, card int32, timeout bool) {
 	p.RemoveCard(card)
 	t.currCard = card
-	t.declareSuit = v1.SUIT_INVALID
+	t.declareSuit = -1
 	t.updatePending(p, card)
 	t.broadcastPlayerAction(p, v1.ACTION_PLAY_CARD, []int32{card}, 0)
+	t.mLog.play(p, card, t.pending, timeout)
 
 	if len(p.GetCards()) == 0 {
 		t.updateStage(StWaitEnd)
@@ -104,7 +108,8 @@ func (t *Table) onPlayCard(p *player.Player, card int32) {
 
 	// 14牌：所有其他玩家各抽一张 MARKET, 发牌不够了游戏结束
 	if t.pending != nil && t.pending.Effect == v1.CARD_EFFECT_MARKET && Number(card) == 14 {
-		if t.broadDrawCardByMarket() {
+		t.pending = nil // 清理掉14牌等待响应
+		if over := t.drawCardByMarket(); over {
 			t.updateStage(StWaitEnd)
 			return
 		}
@@ -154,7 +159,7 @@ func (t *Table) updatePending(p *player.Player, card int32) {
 	}
 }
 
-func (t *Table) broadDrawCardByMarket() (end bool) {
+func (t *Table) drawCardByMarket() (end bool) {
 	for _, v := range t.seats {
 		if v == nil || !v.IsGaming() {
 			continue
@@ -163,12 +168,12 @@ func (t *Table) broadDrawCardByMarket() (end bool) {
 		if len(drawn) == 0 || t.cards.IsEmpty() {
 			return true
 		}
-		t.sendDrawCardPush(v, drawn)
+		t.sendMarketDrawCardPush(v, drawn)
 	}
 	return false
 }
 
-func (t *Table) onDrawCard(p *player.Player) {
+func (t *Table) onDrawCard(p *player.Player, timeout bool) {
 	count := int32(1)
 	if t.pending != nil && t.pending.Quantity > 0 {
 		count = t.pending.Quantity
@@ -176,18 +181,20 @@ func (t *Table) onDrawCard(p *player.Player) {
 
 	drawn := t.cards.DispatchCards(int(count))
 	if len(drawn) == 0 || t.cards.IsEmpty() {
-		log.Debugf("无法摸牌（可能牌堆不足），结束游戏")
+		log.Debugf("无法摸牌（可能牌堆不足 leftNum=%d），结束游戏", t.cards.GetCardNum())
 		t.updateStage(StWaitEnd)
 		return
 	}
 
 	if t.pending != nil && t.pending.Target == p.GetChairID() {
-		log.Debugf("drawCard. p=%v 响应了 pending，清除: %+v", p.Desc(), t.pending)
+		log.Debugf("drawCard. p=%v, 响应了pending，清除: %+v", p.Desc(), descPending(t.pending))
+		t.mLog.replyPending(p, v1.ACTION_DRAW_CARD, t.pending)
 		t.pending = nil
 	}
 
 	p.AddCards(drawn)
 	t.broadcastPlayerAction(p, v1.ACTION_DRAW_CARD, drawn, 0)
+	t.mLog.draw(p, drawn, t.pending, timeout)
 
 	// 通知下个玩家操作
 	t.active = t.getNextActiveChair()
@@ -195,10 +202,10 @@ func (t *Table) onDrawCard(p *player.Player) {
 	t.broadcastActivePlayerPush()
 }
 
-func (t *Table) onSkipTurn(p *player.Player) {
-	log.Debugf("skipTurn. p=%v 清除:%+v", p.Desc(), t.pending)
+func (t *Table) onSkipTurn(p *player.Player, timeout bool) {
 	t.pending = nil
 	t.broadcastPlayerAction(p, v1.ACTION_SKIP_TURN, nil, 0)
+	t.mLog.skipTurn(p, timeout)
 
 	// 通知下个玩家操作
 	t.active = t.getNextActiveChair()
@@ -206,12 +213,12 @@ func (t *Table) onSkipTurn(p *player.Player) {
 	t.broadcastActivePlayerPush()
 }
 
-func (t *Table) onDeclareSuit(p *player.Player, suit v1.SUIT) {
-	log.Debugf("declareSuit. p=%v suit=%v pending=%+v", p.Desc(), suit, t.pending)
+func (t *Table) onDeclareSuit(p *player.Player, suit v1.SUIT, timeout bool) {
 	t.currCard = NewDeclareWhot(int32(suit), t.currCard) // 修改当前牌的花色
 	t.declareSuit = suit
 	t.pending = nil
 	t.broadcastPlayerAction(p, v1.ACTION_DECLARE_SUIT, nil, suit)
+	t.mLog.declareSuit(p, suit, t.currCard, timeout)
 
 	// 通知当前玩家操作
 	t.active = p.GetChairID()
@@ -220,8 +227,9 @@ func (t *Table) onDeclareSuit(p *player.Player, suit v1.SUIT) {
 }
 
 func (t *Table) canOutCard(curr int32, hand []int32, card int32) bool {
-	for _, c := range calcCanOut(curr, hand) {
-		if c == card {
+	pending := t.pending
+	for _, c := range hand {
+		if c == card && canPlayCardOn(curr, card, pending) {
 			return true
 		}
 	}

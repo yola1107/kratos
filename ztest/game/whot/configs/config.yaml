@@ -35,7 +35,7 @@ log:
     appName: "whot-server"
     directory: "./logs"
     formatJson: false
-    errorFile: false
+    errorFile: true
     sensitive: [ "password", "token" ]
     rotate:
       maxSizeMB: 100
@@ -63,10 +63,10 @@ room:
     speaker_card_type: 2
     high_strength_rate: 30
   robot:
-    open: false
-    num: 5
-    table_max_count: 4
-    min_play_count: 3        # 预留n个AI自己玩游戏
+    open: true
+    num: 2
+    table_max_count: 2
+    min_play_count: 2        # 预留n个AI自己玩游戏
     id_begin: 100000
     min_money: 100.0
     max_money: 10000.0
@@ -74,7 +74,7 @@ room:
     stand_max_money: 8000.0
     reserveN: 1                # 预留N桌AI自己玩游戏  (废弃)
   logCache:
-    open: false
+    open: true
 
 
 # 客户端压测配置
@@ -102,7 +102,7 @@ loadTest:
         compress: true
         localTime: true
   press:
-    open: true
+    open: false
     url: "ws://127.0.0.1:3102/"
     num: 2
     batch: [1, 2]

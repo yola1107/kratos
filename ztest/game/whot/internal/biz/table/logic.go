@@ -2,10 +2,12 @@ package table
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/log"
+	v1 "github.com/yola1107/kratos/v2/ztest/game/whot/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/game/whot/internal/biz/player"
 )
 
@@ -18,12 +20,10 @@ const MinStartPlayerCnt = 2
 
 func (t *Table) OnTimer() {
 	state := t.stage.GetState()
-	// timerID := t.stage.GetTimerID()
-	// log.Debugf("[Stage] OnTimer timeout. St:%v TimerID=%d", state, timerID)
-
+	// log.Debugf("[Stage] OnTimer timeout. St:%v TimerID=%d", state, t.stage.GetTimerID())
 	switch state {
 	case StWait:
-		// log.Debugf("StWait timeout. tb:%v ", t.Desc())
+		// 等待阶段无动作或日志
 	case StReady:
 		t.onGameStart()
 	case StSendCard:
@@ -35,7 +35,7 @@ func (t *Table) OnTimer() {
 	case StEnd:
 		t.onEndTimeout()
 	default:
-		log.Errorf("unhandled stage timeout: %v ", state)
+		log.Errorf("unhandled stage timeout: %v", state)
 	}
 }
 
@@ -45,82 +45,71 @@ func (t *Table) updateStage(state StageID) {
 }
 
 func (t *Table) updateStageWith(state StageID, duration time.Duration) {
-	// 获取当前定时器ID并取消
-	currentTimerID := t.stage.GetTimerID()
-	t.repo.GetTimer().Cancel(currentTimerID)
-
-	// 启动新定时器
+	// 取消之前定时器，启动新定时器
+	t.repo.GetTimer().Cancel(t.stage.GetTimerID())
 	timerID := t.repo.GetTimer().Once(duration, t.OnTimer)
 
-	// 更新阶段
 	t.stage.Set(state, duration, timerID)
-
-	// 日志
 	t.mLog.stage(t.stage.Desc(), t.active)
-	// log.Debugf("[Stage] ====> %v, timerID: %d->%d", t.stage.Desc(), currentTimerID, timerID)
+	// log.Debugf("[Stage] ====> %v, timerID: %d", t.stage.Desc(), timerID)
 }
 
+// 判断是否满足开局条件，满足则进入准备阶段
 func (t *Table) checkCanStart() {
-	if t.stage.GetState() != StWait {
+	if t.stage.GetState() != StWait || !t.hasEnoughReadyPlayers() {
 		return
 	}
-
-	if canStart := t.checkReadyPlayer(); !canStart {
-		return
-	}
-
-	// 准备开局
 	t.updateStage(StReady)
 }
 
+func (t *Table) hasEnoughReadyPlayers() bool {
+	count := 0
+	baseMoney := t.repo.GetRoomConfig().Game.BaseMoney
+	for _, p := range t.seats {
+		if p != nil && p.IsReady() && p.GetAllMoney() >= baseMoney {
+			count++
+		}
+	}
+	return count >= MinStartPlayerCnt
+}
+
+// 开局流程
 func (t *Table) onGameStart() {
-	// 再次检查是否可进行游戏; 兜底回退到StWait
-	can, seats, infos := t.checkReadyInfos()
-	if !can || t.stage.GetState() != StReady {
+	if t.stage.GetState() != StReady {
 		t.updateStage(StWait)
 		return
 	}
 
-	// 扣钱
+	canStart, seats := t.getReadySeats()
+	if !canStart {
+		t.updateStage(StWait)
+		return
+	}
+
 	t.intoGaming(seats)
-
-	// 计算庄家及操作玩家
 	t.calcBanker(seats)
-
-	// 发牌
 	t.dispatchCard(seats)
-
-	// 发牌状态倒计时3s
 	t.updateStage(StSendCard)
 
-	log.Debugf("******** <游戏开始> %s GamerInfo=%+v all=%v", t.Desc(), infos, logPlayers(t.seats))
+	infos := make([]string, 0, len(seats))
+	for _, p := range seats {
+		infos = append(infos, fmt.Sprintf("%d:%d", p.GetPlayerID(), p.GetChairID()))
+	}
+
+	log.Debugf("******** <游戏开始> %s GamerInfo=%v", t.Desc(), infos)
 	t.mLog.begin(t.Desc(), t.repo.GetRoomConfig().Game.BaseMoney, t.seats, infos)
 }
 
-// 检查用户是否可以开局
-func (t *Table) checkReadyPlayer() bool {
-	okCnt := 0
-	for _, v := range t.seats {
-		if v == nil || !v.IsReady() || v.GetAllMoney() < t.repo.GetRoomConfig().Game.BaseMoney {
-			continue
+// 获取所有满足准备和资金条件的玩家
+func (t *Table) getReadySeats() (bool, []*player.Player) {
+	baseMoney := t.repo.GetRoomConfig().Game.BaseMoney
+	readySeats := make([]*player.Player, 0, len(t.seats))
+	for _, p := range t.seats {
+		if p != nil && p.IsReady() && p.GetAllMoney() >= baseMoney {
+			readySeats = append(readySeats, p)
 		}
-		okCnt++
 	}
-	return okCnt >= MinStartPlayerCnt
-}
-
-func (t *Table) checkReadyInfos() (bool, []*player.Player, []string) {
-	canGameInfo := []string(nil)
-	canGameSeats := []*player.Player(nil)
-	for _, v := range t.seats {
-		if v == nil || v.GetAllMoney() < t.repo.GetRoomConfig().Game.BaseMoney || !v.IsReady() {
-			continue
-		}
-		canGameSeats = append(canGameSeats, v)
-		canGameInfo = append(canGameInfo, fmt.Sprintf("%d:%d", v.GetPlayerID(), v.GetChairID()))
-	}
-
-	return len(canGameSeats) >= MinStartPlayerCnt, canGameSeats, canGameInfo
+	return len(readySeats) >= MinStartPlayerCnt, readySeats
 }
 
 // 检查是否自动准备
@@ -133,55 +122,54 @@ func (t *Table) checkAutoReady(p *player.Player) {
 	}
 }
 
+// 自动准备逻辑
 func (t *Table) checkAutoReadyAll() {
 	if !t.repo.GetRoomConfig().Game.AutoReady {
 		return
 	}
+	baseMoney := t.repo.GetRoomConfig().Game.BaseMoney
 	for _, p := range t.seats {
-		if p != nil && !p.IsReady() && p.GetAllMoney() >= t.repo.GetRoomConfig().Game.BaseMoney {
+		if p != nil && !p.IsReady() && p.GetAllMoney() >= baseMoney {
 			p.SetReady()
 		}
 	}
 }
 
-// 扣钱 （或处理可以进行游戏的玩家状态等逻辑）
+// 扣钱并设置玩家游戏状态
 func (t *Table) intoGaming(seats []*player.Player) {
+	baseMoney := t.repo.GetRoomConfig().Game.BaseMoney
 	for _, p := range seats {
 		if p == nil {
 			continue
 		}
 		p.SetGaming()
-		if !p.IntoGaming(t.repo.GetRoomConfig().Game.BaseMoney) {
-			log.Errorf("intoGaming error. p:%+v currBet=%.1f", p.Desc(), t.repo.GetRoomConfig().Game.BaseMoney)
+		if !p.IntoGaming(baseMoney) {
+			log.Errorf("intoGaming error. p:%+v baseMoney=%.1f", p.Desc(), baseMoney)
 		}
+
+		t.sendMatchOk(p)
 	}
 }
 
-// 计算庄家/首家位置
+// 计算庄家
 func (t *Table) calcBanker(seats []*player.Player) {
 	idx := ext.RandInt(0, len(seats))
-	t.active = seats[int32(idx)].GetChairID()
+	t.active = seats[idx].GetChairID()
 	t.first = t.active
 }
 
-// 发牌
+// 发牌流程
 func (t *Table) dispatchCard(seats []*player.Player) {
-	// 洗牌
 	t.cards.Shuffle()
 
-	// 发牌
 	for _, p := range seats {
 		p.AddCards(t.cards.DispatchCards(5))
 	}
 
-	// 设置底牌
 	bottom := t.cards.SetBottom()
+	t.currCard = bottom[0]
 	leftNum := t.cards.GetCardNum()
 
-	// 设置桌面操作的牌
-	t.currCard = bottom[0]
-
-	// 发牌广播
 	t.dispatchCardPush(seats, bottom, leftNum)
 }
 
@@ -191,62 +179,131 @@ func (t *Table) onSendCardTimeout() {
 }
 
 func (t *Table) onActionTimeout() {
-
-}
-
-/* 游戏结束 */
-func (t *Table) gameEnd() {
-
-	t.settle()
-
-	t.broadcastResult()
-
-	// 保存每一局记录 // todo
-
-	// 重置玩家状态
-	t.setSitStatus()
-
-	// 检查踢人
-	t.checkKick()
-
-	// 清理数据
-	t.Reset()
-
-	log.Debugf("结束清理完成。tb=%v \n", t.Desc())
-	t.mLog.end(fmt.Sprintf("结束清理完成。%s %s", t.Desc(), logPlayers(t.seats)))
-
-	// 状态转移
-	t.updateStage(StEnd)
-}
-
-func (t *Table) settle() {
-	// 胜利的玩家
-	var winner *player.Player
-	for _, seat := range t.seats {
-		if seat != nil && seat.IsGaming() {
-			winner = seat
-			break
-		}
-	}
-
-	if winner == nil {
-		log.Errorf("settle winner == nil. tb=%+v", t.Desc())
+	p := t.GetActivePlayer()
+	if p == nil || !p.IsGaming() {
+		log.Errorf("onActionTimeout: no active gaming player at table %v", t.Desc())
 		return
 	}
 
-	// 结算
-	// winner.Settle(t.totalBet)
+	req, err := t.makeAutoActionReq(p)
+	if err != nil {
+		log.Errorf("onActionTimeout: failed to generate action req: %v", err)
+		return
+	}
 
-	t.mLog.settle(winner)
-	// log.Debugf("gameEnd tb=%s winner=%+v", t.Desc(), winner.Desc())
+	t.OnPlayerActionReq(p, req, true)
+}
+
+func (t *Table) makeAutoActionReq(p *player.Player) (*v1.PlayerActionReq, error) {
+	ops := t.getCanOp(p)
+	if len(ops) == 0 {
+		return nil, fmt.Errorf("no available options: player=%v table=%v", p.Desc(), t.Desc())
+	}
+
+	op := ops[ext.RandInt(0, len(ops))]
+
+	req := &v1.PlayerActionReq{
+		UserId: p.GetPlayerID(),
+		Action: op.Action,
+	}
+
+	switch op.Action {
+	case v1.ACTION_PLAY_CARD:
+		if len(op.Cards) > 0 {
+			req.OutCard = op.Cards[ext.RandInt(0, len(op.Cards))]
+		}
+	case v1.ACTION_DRAW_CARD:
+		// no extra fields
+	case v1.ACTION_DECLARE_SUIT:
+		if len(op.Suits) > 0 {
+			req.DeclareSuit = op.Suits[ext.RandInt(0, len(op.Suits))]
+		}
+	case v1.ACTION_SKIP_TURN:
+		// no extra fields
+	default:
+		return nil, fmt.Errorf("unexpected action=%v for player=%v", op.Action, p.Desc())
+	}
+
+	return req, nil
+}
+
+func (t *Table) gameEnd() {
+	obj := t.settle() //
+
+	t.broadcastResult(obj) //
+
+	t.setSitStatus() // 重置状态
+
+	// 保存每一局记录 // todo
+	t.checkKick() // 检查踢人
+
+	t.Reset() // 清理数据
+
+	log.Debugf("结束清理完成。tb=%v", t.Desc())
+	t.mLog.end(fmt.Sprintf("结束清理完成。%s %s", t.Desc(), logPlayers(t.seats)))
+
+	t.updateStage(StEnd)
+}
+
+func (t *Table) settle() *SettleObj {
+	winner, endType := t.calcWinner()
+	if winner == nil {
+		log.Errorf("settle failed: no valid winner. tb=%+v", t.Desc())
+		return nil
+	}
+
+	conf := t.repo.GetRoomConfig().Game
+	settle := &SettleObj{
+		Winner:    winner,
+		Users:     t.GetGamers(),
+		BaseScore: conf.BaseMoney,
+		TaxRate:   conf.Fee,
+		EndType:   endType,
+	}
+
+	if err := settle.Settle(); err != nil {
+		log.Errorf("settle error: %v", err)
+		return nil
+	}
+
+	// 可选保存结果供查询：
+	// t.settleObj = settle
+
+	tax := settle.TaxFee
+	win := settle.WinScore
+	winner.AddMoney(win)
+
+	t.mLog.settle(winner, win, tax, ext.ToJSON(settle.GetResult()))
+	log.Debugf("settle. tb=%s winner=%+v win=%v fee=%.1f info=%v",
+		t.Desc(), winner.Desc(), win, tax, settle.GetResult())
+	return settle
+}
+
+func (t *Table) calcWinner() (*player.Player, v1.FINISH_TYPE) {
+	var (
+		winner   *player.Player
+		minScore int32 = math.MaxInt32
+	)
+
+	for _, p := range t.GetGamers() {
+		if score := p.GetHandScore(); winner == nil || score < minScore {
+			winner = p
+			minScore = score
+		}
+	}
+
+	endType := v1.FINISH_TYPE_DECK_EMPTY
+	if winner != nil && minScore == 0 {
+		endType = v1.FINISH_TYPE_PLAYER_HAND_EMPTY
+	}
+	return winner, endType
 }
 
 func (t *Table) setSitStatus() {
-	for _, v := range t.seats {
-		if v == nil {
-			continue
+	for _, p := range t.seats {
+		if p != nil {
+			p.SetSit()
 		}
-		v.SetSit()
 	}
 }
 

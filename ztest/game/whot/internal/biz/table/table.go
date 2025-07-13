@@ -29,9 +29,9 @@ type Table struct {
 	first   int32      // 第一个操作玩家
 	aiLogic RobotLogic // 机器人逻辑
 
-	currCard    int32       // 当前操作的牌 (whot牌指定的花色时,将牌值*-1 花色为指定的花色 特殊处理)
+	currCard    int32       // 当前操作的牌 (whot牌指定的花色时,修改currCard的花色为指定花色)
 	declareSuit v1.SUIT     // whot牌指定的花色
-	pending     *v1.Pending // 玩家执行的动作 例如出牌,摸牌,声明花色等信息
+	pending     *v1.Pending // 当前待处理动作响应; 如等待反击,等待声明花色等操作
 }
 
 func NewTable(id int32, typ TYPE, c *conf.Room, repo Repo) *Table {
@@ -58,6 +58,9 @@ func NewTable(id int32, typ TYPE, c *conf.Room, repo Repo) *Table {
 func (t *Table) Reset() {
 	t.active = -1
 	t.first = -1
+	t.currCard = -1
+	t.declareSuit = -1
+	t.pending = nil
 	for _, seat := range t.seats {
 		if seat == nil {
 			continue
@@ -67,13 +70,8 @@ func (t *Table) Reset() {
 }
 
 func (t *Table) Desc() string {
-	pending := ""
-	if t.pending != nil {
-		pending = fmt.Sprintf("{%+v->%v %v %v} ",
-			t.pending.Initiator, t.pending.Target, t.pending.Effect, t.pending.Quantity)
-	}
-	str := fmt.Sprintf("(TableID:%d SitCnt:%d Gamers:%d St:%+v Pend=%s active:%d)",
-		t.ID, t.sitCnt, len(t.GetGamers()), t.stage.GetState(), pending, t.active)
+	str := fmt.Sprintf("(TableID:%d SitCnt:%d Gamers:%d St:%+v First:%d CurrCard:[%d] active:%d pending=%v)",
+		t.ID, t.sitCnt, len(t.GetGamers()), t.stage.GetState(), t.first, t.currCard, t.active, descPending(t.pending))
 	return str
 }
 
@@ -267,8 +265,6 @@ func (t *Table) GetPlayerByChair(chair int32) *player.Player {
 
 // GetGamers 返回“仍可继续操作”的玩家：
 //  1. 仍在本局游戏中 (IsGaming)
-//  2. 没有弃牌 (未 Fold)
-//  3. 没有在比牌中落败
 func (t *Table) GetGamers() (seats []*player.Player) {
 	for _, p := range t.seats {
 		if p == nil || !p.IsGaming() {

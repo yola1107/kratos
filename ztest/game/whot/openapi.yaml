@@ -209,16 +209,8 @@ components:
                     type: array
                     items:
                         type: integer
-                        format: int32
+                        format: enum
             description: 单个动作以及其附属信息（如：出哪些牌、声明哪种花色）
-        whot.v1.CanOpInfo:
-            type: object
-            properties:
-                options:
-                    type: array
-                    items:
-                        $ref: '#/components/schemas/whot.v1.ActionOption'
-            description: 允许操作及对应信息（客户端据此构建操作界面）
         whot.v1.ChatReq:
             type: object
             properties:
@@ -453,7 +445,9 @@ components:
                         type: integer
                         format: int32
                 canOp:
-                    $ref: '#/components/schemas/whot.v1.CanOpInfo'
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/whot.v1.ActionOption'
             description: 玩家基础信息
         whot.v1.ReadyReq:
             type: object

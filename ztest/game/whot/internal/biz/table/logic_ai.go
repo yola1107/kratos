@@ -118,32 +118,71 @@ func (r *RobotLogic) OnMessage(p *player.Player, cmd v1.GameCommand, msg proto.M
 
 func (r *RobotLogic) ActivePlayer(p *player.Player, msg proto.Message) {
 	rsp, ok := msg.(*v1.ActivePush)
-	if !ok || rsp == nil || !p.IsGaming() ||
-		p.GetChairID() != rsp.Active || p.GetChairID() != r.mTable.active {
+	if !ok || rsp == nil || !p.IsGaming() || p.GetChairID() != rsp.Active || p.GetChairID() != r.mTable.active {
 		return
 	}
 
-	s := r.mTable.stage
-	ops := rsp.GetCanOp()
-
-	// ops2 := r.mTable.getCanOp(p)
-	// if len(ops) == 0 || len(ops2) == 0 || !ext.SliceContains(ops, ops2...) || !ext.SliceContains(ops2, ops...) {
-	// 	log.Errorf("empty. p:%+v stage:%v active:%v ops:%v ops2:%v ",
-	// 		p.Desc(), s.Desc(), r.mTable.active, ops, ops2)
-	// 	ops = ops2
-	// }
-
-	op := RandOpWithWeight(ops)               // 按权重随机选操作
-	remaining := s.Remaining().Milliseconds() // 获取剩余操作时间 ms
-	dur := time.Duration(ext.RandInt(1000, remaining*3/4)) * time.Millisecond
-	req := &v1.ActionReq{
-		UserID:         p.GetPlayerID(),
-		Action:         op,
-		SideReplyAllow: ext.IsHitFloat(0.5),
+	ops := r.mTable.getCanOp(p)
+	if len(ops) == 0 {
+		log.Errorf("no available options: player=%v table=%v", p.Desc(), r.mTable.Desc())
+		return
 	}
 
-	r.mTable.repo.GetTimer().Once(dur, func() {
-		r.mTable.OnActionReq(p, req, false)
+	log.Debugf("=> p:%v, curr=%v, canOps=%v", p.Desc(), r.mTable.currCard, ext.ToJSON(ops))
+
+	req := &v1.PlayerActionReq{UserId: p.GetPlayerID()}
+
+pick:
+	for _, op := range ops {
+		switch op.Action {
+		case v1.ACTION_PLAY_CARD:
+			var nonWhot []int32
+			for _, c := range op.Cards {
+				if IsWhotCard(c) {
+					nonWhot = append(nonWhot, c)
+				}
+			}
+			if len(nonWhot) > 0 {
+				req.Action = v1.ACTION_PLAY_CARD
+				req.OutCard = nonWhot[ext.RandInt(0, len(nonWhot))]
+				break pick
+			}
+			if len(op.Cards) > 0 {
+				req.Action = v1.ACTION_PLAY_CARD
+				req.OutCard = op.Cards[ext.RandInt(0, len(op.Cards))]
+				break pick
+			}
+
+		case v1.ACTION_DRAW_CARD:
+			if req.Action == 0 {
+				req.Action = v1.ACTION_DRAW_CARD
+			}
+
+		case v1.ACTION_SKIP_TURN:
+			if req.Action == 0 {
+				req.Action = v1.ACTION_SKIP_TURN
+			}
+
+		case v1.ACTION_DECLARE_SUIT:
+			req.Action = v1.ACTION_DECLARE_SUIT
+			if len(op.Suits) > 0 {
+				req.DeclareSuit = op.Suits[ext.RandInt(0, len(op.Suits))]
+			}
+
+		default:
+			log.Warnf("unknown action=%v for player=%v", op.Action, p.Desc())
+		}
+	}
+
+	if req.Action == 0 {
+		log.Warnf("no suitable action selected for player=%v at table=%v", p.Desc(), r.mTable.Desc())
+		return
+	}
+
+	remaining := r.mTable.stage.Remaining().Milliseconds()
+	delay := time.Duration(ext.RandInt(800, int(remaining*3/4))) * time.Millisecond
+	r.mTable.repo.GetTimer().Once(delay, func() {
+		r.mTable.OnPlayerActionReq(p, req, false)
 	})
 }
 
@@ -157,38 +196,4 @@ func (r *RobotLogic) onExit(p *player.Player, _ proto.Message) {
 	r.mTable.repo.GetTimer().Once(dur, func() {
 		r.mTable.OnExitGame(p, 0, "ai exit")
 	})
-}
-
-// RandOpWithWeight 按权重从ops中随机选择一个动作
-func RandOpWithWeight(ops []v1.ACTION) v1.ACTION {
-	if len(ops) == 0 {
-		return -1
-	}
-	weights := map[v1.ACTION]int{
-		v1.ACTION_SEE:        5,
-		v1.ACTION_CALL:       4,
-		v1.ACTION_RAISE:      3,
-		v1.ACTION_SHOW:       2,
-		v1.ACTION_SIDE:       5,
-		v1.ACTION_SIDE_REPLY: 3,
-		v1.ACTION_PACK:       1,
-	}
-
-	pool := make([]v1.ACTION, 0, len(ops)*10)
-	for _, op := range ops {
-		w := weights[op]
-		if w == 0 {
-			w = 1 // 默认权重1
-		}
-		for i := 0; i < w; i++ {
-			pool = append(pool, op)
-		}
-	}
-
-	if len(pool) == 0 {
-		log.Warnf("RandOpWithWeight empty pool, fallback to first op")
-		return ops[0]
-	}
-
-	return pool[ext.RandIntInclusive(0, len(pool)-1)]
 }

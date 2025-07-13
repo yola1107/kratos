@@ -2,6 +2,7 @@ package player
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/log"
@@ -72,14 +73,15 @@ func (p *Player) ExitReset() {
 }
 
 func (p *Player) Desc() string {
-	bool2Int := func(v bool) int {
-		if v {
-			return 1
-		}
-		return 0
+	return fmt.Sprintf("(%d %d T:%d ai:%d Hand:%v)",
+		p.GetPlayerID(), p.GetChairID(), p.GetTableID(), bool2Int(p.isRobot), p.GetCards())
+}
+
+func bool2Int(v bool) int {
+	if v {
+		return 1
 	}
-	return fmt.Sprintf("(%d %d T:%d M:%.1f B:%.1f St:%v ai:%d offline:%v)", p.GetPlayerID(), p.GetChairID(), p.GetTableID(),
-		p.GetAllMoney(), p.GetBet(), p.GetStatus(), bool2Int(p.isRobot), bool2Int(p.IsOffline()))
+	return 0
 }
 
 func (p *Player) SetTableID(tableID int32) {
@@ -189,10 +191,28 @@ func (p *Player) GetCards() []int32 {
 
 func (p *Player) AddCards(cs []int32) {
 	p.gameData.cards = append(p.gameData.cards, cs...)
+	p.refreshCards()
 }
 
 func (p *Player) RemoveCard(card int32) {
 	p.gameData.cards = ext.SliceDel(p.gameData.cards, card)
+	p.refreshCards()
+}
+
+func (p *Player) refreshCards() {
+	if len(p.gameData.cards) == 0 {
+		return
+	}
+	sort.Slice(p.gameData.cards, func(i, j int) bool {
+		return p.gameData.cards[i] < p.gameData.cards[j]
+	})
+}
+func (p *Player) GetHandScore() int32 {
+	var total int32
+	for _, card := range p.GetCards() {
+		total += card % 100
+	}
+	return total
 }
 
 func (p *Player) IntoGaming(bet float64) bool {
