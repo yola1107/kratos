@@ -240,6 +240,13 @@ components:
                     format: int32
                 msg:
                     type: string
+        whot.v1.DeclareSuitResult:
+            type: object
+            properties:
+                suit:
+                    type: integer
+                    format: enum
+            description: 声明花色结果
         whot.v1.DrawCardResult:
             type: object
             properties:
@@ -249,6 +256,11 @@ components:
                 totalCards:
                     type: integer
                     format: int32
+                drawn:
+                    type: array
+                    items:
+                        type: integer
+                        format: int32
                 cards:
                     type: array
                     items:
@@ -372,9 +384,9 @@ components:
                 card:
                     type: integer
                     format: int32
-                declareSuit:
+                totalCards:
                     type: integer
-                    format: enum
+                    format: int32
                 cards:
                     type: array
                     items:
@@ -423,6 +435,8 @@ components:
                     description: 执行结果
                 drawResult:
                     $ref: '#/components/schemas/whot.v1.DrawCardResult'
+                DeclareResult:
+                    $ref: '#/components/schemas/whot.v1.DeclareSuitResult'
             description: 玩家操作响应
         whot.v1.PlayerInfo:
             type: object

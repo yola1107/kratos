@@ -2001,8 +2001,9 @@ type PlayerActionRsp struct {
 	LeftNum int32                  `protobuf:"varint,6,opt,name=leftNum,proto3" json:"leftNum,omitempty"`                   // 牌堆剩余牌数
 	Effect  *Pending               `protobuf:"bytes,7,opt,name=effect,proto3" json:"effect,omitempty"`                      // 触发的牌面效果及等待响应信息（如 +2、跳过、选花色）
 	// 执行结果
-	PlayResult    *PlayCardResult `protobuf:"bytes,8,opt,name=playResult,proto3" json:"playResult,omitempty"` // 出牌结果
-	DrawResult    *DrawCardResult `protobuf:"bytes,9,opt,name=drawResult,proto3" json:"drawResult,omitempty"` // 摸牌结果
+	PlayResult    *PlayCardResult    `protobuf:"bytes,8,opt,name=playResult,proto3" json:"playResult,omitempty"`        // 出牌结果
+	DrawResult    *DrawCardResult    `protobuf:"bytes,9,opt,name=drawResult,proto3" json:"drawResult,omitempty"`        // 摸牌结果
+	DeclareResult *DeclareSuitResult `protobuf:"bytes,10,opt,name=DeclareResult,proto3" json:"DeclareResult,omitempty"` // 花色声明结果
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2100,12 +2101,19 @@ func (x *PlayerActionRsp) GetDrawResult() *DrawCardResult {
 	return nil
 }
 
+func (x *PlayerActionRsp) GetDeclareResult() *DeclareSuitResult {
+	if x != nil {
+		return x.DeclareResult
+	}
+	return nil
+}
+
 // 出牌结果
 type PlayCardResult struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Card          int32                  `protobuf:"varint,1,opt,name=card,proto3" json:"card,omitempty"`                                 // 出的牌
-	DeclareSuit   SUIT                   `protobuf:"varint,2,opt,name=declareSuit,proto3,enum=whot.v1.SUIT" json:"declareSuit,omitempty"` // 打出万能牌后声明花色类型 1-5
-	Cards         []int32                `protobuf:"varint,3,rep,packed,name=cards,proto3" json:"cards,omitempty"`                        // 出牌后自己的手牌(只发送给出牌玩家)
+	Card          int32                  `protobuf:"varint,1,opt,name=card,proto3" json:"card,omitempty"`             // 出牌玩家出的牌
+	TotalCards    int32                  `protobuf:"varint,2,opt,name=totalCards,proto3" json:"totalCards,omitempty"` // 出牌玩家总牌数 (最后一张牌宣告)
+	Cards         []int32                `protobuf:"varint,3,rep,packed,name=cards,proto3" json:"cards,omitempty"`    // 出牌玩家自己的手牌 (只发送给出牌玩家)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2147,11 +2155,11 @@ func (x *PlayCardResult) GetCard() int32 {
 	return 0
 }
 
-func (x *PlayCardResult) GetDeclareSuit() SUIT {
+func (x *PlayCardResult) GetTotalCards() int32 {
 	if x != nil {
-		return x.DeclareSuit
+		return x.TotalCards
 	}
-	return SUIT_INVALID
+	return 0
 }
 
 func (x *PlayCardResult) GetCards() []int32 {
@@ -2166,7 +2174,8 @@ type DrawCardResult struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	DrawNum       int32                  `protobuf:"varint,1,opt,name=drawNum,proto3" json:"drawNum,omitempty"`       // 摸牌数量
 	TotalCards    int32                  `protobuf:"varint,2,opt,name=totalCards,proto3" json:"totalCards,omitempty"` // 玩家总牌数
-	Cards         []int32                `protobuf:"varint,3,rep,packed,name=cards,proto3" json:"cards,omitempty"`    // 摸牌后自己的手牌(只发送给摸牌玩家)
+	Drawn         []int32                `protobuf:"varint,3,rep,packed,name=drawn,proto3" json:"drawn,omitempty"`    // 摸到的牌 (只发送给摸牌玩家)
+	Cards         []int32                `protobuf:"varint,4,rep,packed,name=cards,proto3" json:"cards,omitempty"`    // 摸牌玩家自己的手牌 (只发送给摸牌玩家)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2215,11 +2224,63 @@ func (x *DrawCardResult) GetTotalCards() int32 {
 	return 0
 }
 
+func (x *DrawCardResult) GetDrawn() []int32 {
+	if x != nil {
+		return x.Drawn
+	}
+	return nil
+}
+
 func (x *DrawCardResult) GetCards() []int32 {
 	if x != nil {
 		return x.Cards
 	}
 	return nil
+}
+
+// 声明花色结果
+type DeclareSuitResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Suit          SUIT                   `protobuf:"varint,1,opt,name=suit,proto3,enum=whot.v1.SUIT" json:"suit,omitempty"` // 打出万能牌后声明花色类型 1-5
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeclareSuitResult) Reset() {
+	*x = DeclareSuitResult{}
+	mi := &file_helloworld_v1_api_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeclareSuitResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeclareSuitResult) ProtoMessage() {}
+
+func (x *DeclareSuitResult) ProtoReflect() protoreflect.Message {
+	mi := &file_helloworld_v1_api_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeclareSuitResult.ProtoReflect.Descriptor instead.
+func (*DeclareSuitResult) Descriptor() ([]byte, []int) {
+	return file_helloworld_v1_api_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *DeclareSuitResult) GetSuit() SUIT {
+	if x != nil {
+		return x.Suit
+	}
+	return SUIT_INVALID
 }
 
 // 活动玩家操作推送（轮到玩家操作）
@@ -2237,7 +2298,7 @@ type ActivePush struct {
 
 func (x *ActivePush) Reset() {
 	*x = ActivePush{}
-	mi := &file_helloworld_v1_api_proto_msgTypes[28]
+	mi := &file_helloworld_v1_api_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2249,7 +2310,7 @@ func (x *ActivePush) String() string {
 func (*ActivePush) ProtoMessage() {}
 
 func (x *ActivePush) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_v1_api_proto_msgTypes[28]
+	mi := &file_helloworld_v1_api_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2262,7 +2323,7 @@ func (x *ActivePush) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActivePush.ProtoReflect.Descriptor instead.
 func (*ActivePush) Descriptor() ([]byte, []int) {
-	return file_helloworld_v1_api_proto_rawDescGZIP(), []int{28}
+	return file_helloworld_v1_api_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *ActivePush) GetStage() int32 {
@@ -2320,7 +2381,7 @@ type ActionOption struct {
 
 func (x *ActionOption) Reset() {
 	*x = ActionOption{}
-	mi := &file_helloworld_v1_api_proto_msgTypes[29]
+	mi := &file_helloworld_v1_api_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2332,7 +2393,7 @@ func (x *ActionOption) String() string {
 func (*ActionOption) ProtoMessage() {}
 
 func (x *ActionOption) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_v1_api_proto_msgTypes[29]
+	mi := &file_helloworld_v1_api_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2345,7 +2406,7 @@ func (x *ActionOption) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActionOption.ProtoReflect.Descriptor instead.
 func (*ActionOption) Descriptor() ([]byte, []int) {
-	return file_helloworld_v1_api_proto_rawDescGZIP(), []int{29}
+	return file_helloworld_v1_api_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ActionOption) GetAction() ACTION {
@@ -2389,7 +2450,7 @@ type Pending struct {
 
 func (x *Pending) Reset() {
 	*x = Pending{}
-	mi := &file_helloworld_v1_api_proto_msgTypes[30]
+	mi := &file_helloworld_v1_api_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2401,7 +2462,7 @@ func (x *Pending) String() string {
 func (*Pending) ProtoMessage() {}
 
 func (x *Pending) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_v1_api_proto_msgTypes[30]
+	mi := &file_helloworld_v1_api_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2414,7 +2475,7 @@ func (x *Pending) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Pending.ProtoReflect.Descriptor instead.
 func (*Pending) Descriptor() ([]byte, []int) {
-	return file_helloworld_v1_api_proto_rawDescGZIP(), []int{30}
+	return file_helloworld_v1_api_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *Pending) GetEffect() CARD_EFFECT {
@@ -2459,7 +2520,7 @@ type MarketDrawCardPush struct {
 
 func (x *MarketDrawCardPush) Reset() {
 	*x = MarketDrawCardPush{}
-	mi := &file_helloworld_v1_api_proto_msgTypes[31]
+	mi := &file_helloworld_v1_api_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2471,7 +2532,7 @@ func (x *MarketDrawCardPush) String() string {
 func (*MarketDrawCardPush) ProtoMessage() {}
 
 func (x *MarketDrawCardPush) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_v1_api_proto_msgTypes[31]
+	mi := &file_helloworld_v1_api_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2484,7 +2545,7 @@ func (x *MarketDrawCardPush) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MarketDrawCardPush.ProtoReflect.Descriptor instead.
 func (*MarketDrawCardPush) Descriptor() ([]byte, []int) {
-	return file_helloworld_v1_api_proto_rawDescGZIP(), []int{31}
+	return file_helloworld_v1_api_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *MarketDrawCardPush) GetUserID() int64 {
@@ -2532,7 +2593,7 @@ type LastCardPush struct {
 
 func (x *LastCardPush) Reset() {
 	*x = LastCardPush{}
-	mi := &file_helloworld_v1_api_proto_msgTypes[32]
+	mi := &file_helloworld_v1_api_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2544,7 +2605,7 @@ func (x *LastCardPush) String() string {
 func (*LastCardPush) ProtoMessage() {}
 
 func (x *LastCardPush) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_v1_api_proto_msgTypes[32]
+	mi := &file_helloworld_v1_api_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2557,7 +2618,7 @@ func (x *LastCardPush) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LastCardPush.ProtoReflect.Descriptor instead.
 func (*LastCardPush) Descriptor() ([]byte, []int) {
-	return file_helloworld_v1_api_proto_rawDescGZIP(), []int{32}
+	return file_helloworld_v1_api_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *LastCardPush) GetIsLast() bool {
@@ -2579,7 +2640,7 @@ type ResultPush struct {
 
 func (x *ResultPush) Reset() {
 	*x = ResultPush{}
-	mi := &file_helloworld_v1_api_proto_msgTypes[33]
+	mi := &file_helloworld_v1_api_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2591,7 +2652,7 @@ func (x *ResultPush) String() string {
 func (*ResultPush) ProtoMessage() {}
 
 func (x *ResultPush) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_v1_api_proto_msgTypes[33]
+	mi := &file_helloworld_v1_api_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2604,7 +2665,7 @@ func (x *ResultPush) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResultPush.ProtoReflect.Descriptor instead.
 func (*ResultPush) Descriptor() ([]byte, []int) {
-	return file_helloworld_v1_api_proto_rawDescGZIP(), []int{33}
+	return file_helloworld_v1_api_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ResultPush) GetFinishType() FINISH_TYPE {
@@ -2643,7 +2704,7 @@ type PlayerResult struct {
 
 func (x *PlayerResult) Reset() {
 	*x = PlayerResult{}
-	mi := &file_helloworld_v1_api_proto_msgTypes[34]
+	mi := &file_helloworld_v1_api_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2655,7 +2716,7 @@ func (x *PlayerResult) String() string {
 func (*PlayerResult) ProtoMessage() {}
 
 func (x *PlayerResult) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_v1_api_proto_msgTypes[34]
+	mi := &file_helloworld_v1_api_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2668,7 +2729,7 @@ func (x *PlayerResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlayerResult.ProtoReflect.Descriptor instead.
 func (*PlayerResult) Descriptor() ([]byte, []int) {
-	return file_helloworld_v1_api_proto_rawDescGZIP(), []int{34}
+	return file_helloworld_v1_api_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *PlayerResult) GetUserID() int64 {
@@ -2839,7 +2900,7 @@ const file_helloworld_v1_api_proto_rawDesc = "" +
 	"\x06userId\x18\x01 \x01(\x03R\x06userId\x12'\n" +
 	"\x06action\x18\x02 \x01(\x0e2\x0f.whot.v1.ACTIONR\x06action\x12\x18\n" +
 	"\aoutCard\x18\x03 \x01(\x05R\aoutCard\x12/\n" +
-	"\vdeclareSuit\x18\x04 \x01(\x0e2\r.whot.v1.SUITR\vdeclareSuit\"\xd0\x02\n" +
+	"\vdeclareSuit\x18\x04 \x01(\x0e2\r.whot.v1.SUITR\vdeclareSuit\"\x92\x03\n" +
 	"\x0fPlayerActionRsp\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12\x16\n" +
@@ -2853,17 +2914,24 @@ const file_helloworld_v1_api_proto_rawDesc = "" +
 	"playResult\x127\n" +
 	"\n" +
 	"drawResult\x18\t \x01(\v2\x17.whot.v1.DrawCardResultR\n" +
-	"drawResult\"k\n" +
+	"drawResult\x12@\n" +
+	"\rDeclareResult\x18\n" +
+	" \x01(\v2\x1a.whot.v1.DeclareSuitResultR\rDeclareResult\"Z\n" +
 	"\x0ePlayCardResult\x12\x12\n" +
-	"\x04card\x18\x01 \x01(\x05R\x04card\x12/\n" +
-	"\vdeclareSuit\x18\x02 \x01(\x0e2\r.whot.v1.SUITR\vdeclareSuit\x12\x14\n" +
-	"\x05cards\x18\x03 \x03(\x05R\x05cards\"`\n" +
+	"\x04card\x18\x01 \x01(\x05R\x04card\x12\x1e\n" +
+	"\n" +
+	"totalCards\x18\x02 \x01(\x05R\n" +
+	"totalCards\x12\x14\n" +
+	"\x05cards\x18\x03 \x03(\x05R\x05cards\"v\n" +
 	"\x0eDrawCardResult\x12\x18\n" +
 	"\adrawNum\x18\x01 \x01(\x05R\adrawNum\x12\x1e\n" +
 	"\n" +
 	"totalCards\x18\x02 \x01(\x05R\n" +
 	"totalCards\x12\x14\n" +
-	"\x05cards\x18\x03 \x03(\x05R\x05cards\"\xc7\x01\n" +
+	"\x05drawn\x18\x03 \x03(\x05R\x05drawn\x12\x14\n" +
+	"\x05cards\x18\x04 \x03(\x05R\x05cards\"6\n" +
+	"\x11DeclareSuitResult\x12!\n" +
+	"\x04suit\x18\x01 \x01(\x0e2\r.whot.v1.SUITR\x04suit\"\xc7\x01\n" +
 	"\n" +
 	"ActivePush\x12\x14\n" +
 	"\x05stage\x18\x01 \x01(\x05R\x05stage\x12\x18\n" +
@@ -3000,7 +3068,7 @@ func file_helloworld_v1_api_proto_rawDescGZIP() []byte {
 }
 
 var file_helloworld_v1_api_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_helloworld_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 35)
+var file_helloworld_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 36)
 var file_helloworld_v1_api_proto_goTypes = []any{
 	(GameCommand)(0),           // 0: whot.v1.GameCommand
 	(ACTION)(0),                // 1: whot.v1.ACTION
@@ -3035,58 +3103,60 @@ var file_helloworld_v1_api_proto_goTypes = []any{
 	(*PlayerActionRsp)(nil),    // 30: whot.v1.PlayerActionRsp
 	(*PlayCardResult)(nil),     // 31: whot.v1.PlayCardResult
 	(*DrawCardResult)(nil),     // 32: whot.v1.DrawCardResult
-	(*ActivePush)(nil),         // 33: whot.v1.ActivePush
-	(*ActionOption)(nil),       // 34: whot.v1.ActionOption
-	(*Pending)(nil),            // 35: whot.v1.Pending
-	(*MarketDrawCardPush)(nil), // 36: whot.v1.MarketDrawCardPush
-	(*LastCardPush)(nil),       // 37: whot.v1.LastCardPush
-	(*ResultPush)(nil),         // 38: whot.v1.ResultPush
-	(*PlayerResult)(nil),       // 39: whot.v1.PlayerResult
+	(*DeclareSuitResult)(nil),  // 33: whot.v1.DeclareSuitResult
+	(*ActivePush)(nil),         // 34: whot.v1.ActivePush
+	(*ActionOption)(nil),       // 35: whot.v1.ActionOption
+	(*Pending)(nil),            // 36: whot.v1.Pending
+	(*MarketDrawCardPush)(nil), // 37: whot.v1.MarketDrawCardPush
+	(*LastCardPush)(nil),       // 38: whot.v1.LastCardPush
+	(*ResultPush)(nil),         // 39: whot.v1.ResultPush
+	(*PlayerResult)(nil),       // 40: whot.v1.PlayerResult
 }
 var file_helloworld_v1_api_proto_depIdxs = []int32{
 	4,  // 0: whot.v1.SceneRsp.declareSuit:type_name -> whot.v1.SUIT
-	35, // 1: whot.v1.SceneRsp.pending:type_name -> whot.v1.Pending
+	36, // 1: whot.v1.SceneRsp.pending:type_name -> whot.v1.Pending
 	28, // 2: whot.v1.SceneRsp.players:type_name -> whot.v1.PlayerInfo
-	34, // 3: whot.v1.PlayerInfo.canOp:type_name -> whot.v1.ActionOption
+	35, // 3: whot.v1.PlayerInfo.canOp:type_name -> whot.v1.ActionOption
 	1,  // 4: whot.v1.PlayerActionReq.action:type_name -> whot.v1.ACTION
 	4,  // 5: whot.v1.PlayerActionReq.declareSuit:type_name -> whot.v1.SUIT
 	1,  // 6: whot.v1.PlayerActionRsp.action:type_name -> whot.v1.ACTION
-	35, // 7: whot.v1.PlayerActionRsp.effect:type_name -> whot.v1.Pending
+	36, // 7: whot.v1.PlayerActionRsp.effect:type_name -> whot.v1.Pending
 	31, // 8: whot.v1.PlayerActionRsp.playResult:type_name -> whot.v1.PlayCardResult
 	32, // 9: whot.v1.PlayerActionRsp.drawResult:type_name -> whot.v1.DrawCardResult
-	4,  // 10: whot.v1.PlayCardResult.declareSuit:type_name -> whot.v1.SUIT
-	35, // 11: whot.v1.ActivePush.pending:type_name -> whot.v1.Pending
-	34, // 12: whot.v1.ActivePush.canOp:type_name -> whot.v1.ActionOption
-	1,  // 13: whot.v1.ActionOption.action:type_name -> whot.v1.ACTION
-	4,  // 14: whot.v1.ActionOption.suits:type_name -> whot.v1.SUIT
-	2,  // 15: whot.v1.Pending.effect:type_name -> whot.v1.CARD_EFFECT
-	3,  // 16: whot.v1.ResultPush.finishType:type_name -> whot.v1.FINISH_TYPE
-	39, // 17: whot.v1.ResultPush.results:type_name -> whot.v1.PlayerResult
-	5,  // 18: whot.v1.Whot.SayHelloReq:input_type -> whot.v1.HelloRequest
-	7,  // 19: whot.v1.Whot.OnLoginReq:input_type -> whot.v1.LoginReq
-	9,  // 20: whot.v1.Whot.OnLogoutReq:input_type -> whot.v1.LogoutReq
-	11, // 21: whot.v1.Whot.OnReadyReq:input_type -> whot.v1.ReadyReq
-	13, // 22: whot.v1.Whot.OnSwitchTableReq:input_type -> whot.v1.SwitchTableReq
-	26, // 23: whot.v1.Whot.OnSceneReq:input_type -> whot.v1.SceneReq
-	15, // 24: whot.v1.Whot.OnChatReq:input_type -> whot.v1.ChatReq
-	19, // 25: whot.v1.Whot.OnHostingReq:input_type -> whot.v1.HostingReq
-	17, // 26: whot.v1.Whot.OnForwardReq:input_type -> whot.v1.ForwardReq
-	29, // 27: whot.v1.Whot.OnPlayerActionReq:input_type -> whot.v1.PlayerActionReq
-	6,  // 28: whot.v1.Whot.SayHelloReq:output_type -> whot.v1.HelloReply
-	8,  // 29: whot.v1.Whot.OnLoginReq:output_type -> whot.v1.LoginRsp
-	10, // 30: whot.v1.Whot.OnLogoutReq:output_type -> whot.v1.LogoutRsp
-	12, // 31: whot.v1.Whot.OnReadyReq:output_type -> whot.v1.ReadyRsp
-	14, // 32: whot.v1.Whot.OnSwitchTableReq:output_type -> whot.v1.SwitchTableRsp
-	27, // 33: whot.v1.Whot.OnSceneReq:output_type -> whot.v1.SceneRsp
-	16, // 34: whot.v1.Whot.OnChatReq:output_type -> whot.v1.ChatRsp
-	20, // 35: whot.v1.Whot.OnHostingReq:output_type -> whot.v1.HostingRsp
-	18, // 36: whot.v1.Whot.OnForwardReq:output_type -> whot.v1.ForwardRsp
-	30, // 37: whot.v1.Whot.OnPlayerActionReq:output_type -> whot.v1.PlayerActionRsp
-	28, // [28:38] is the sub-list for method output_type
-	18, // [18:28] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	33, // 10: whot.v1.PlayerActionRsp.DeclareResult:type_name -> whot.v1.DeclareSuitResult
+	4,  // 11: whot.v1.DeclareSuitResult.suit:type_name -> whot.v1.SUIT
+	36, // 12: whot.v1.ActivePush.pending:type_name -> whot.v1.Pending
+	35, // 13: whot.v1.ActivePush.canOp:type_name -> whot.v1.ActionOption
+	1,  // 14: whot.v1.ActionOption.action:type_name -> whot.v1.ACTION
+	4,  // 15: whot.v1.ActionOption.suits:type_name -> whot.v1.SUIT
+	2,  // 16: whot.v1.Pending.effect:type_name -> whot.v1.CARD_EFFECT
+	3,  // 17: whot.v1.ResultPush.finishType:type_name -> whot.v1.FINISH_TYPE
+	40, // 18: whot.v1.ResultPush.results:type_name -> whot.v1.PlayerResult
+	5,  // 19: whot.v1.Whot.SayHelloReq:input_type -> whot.v1.HelloRequest
+	7,  // 20: whot.v1.Whot.OnLoginReq:input_type -> whot.v1.LoginReq
+	9,  // 21: whot.v1.Whot.OnLogoutReq:input_type -> whot.v1.LogoutReq
+	11, // 22: whot.v1.Whot.OnReadyReq:input_type -> whot.v1.ReadyReq
+	13, // 23: whot.v1.Whot.OnSwitchTableReq:input_type -> whot.v1.SwitchTableReq
+	26, // 24: whot.v1.Whot.OnSceneReq:input_type -> whot.v1.SceneReq
+	15, // 25: whot.v1.Whot.OnChatReq:input_type -> whot.v1.ChatReq
+	19, // 26: whot.v1.Whot.OnHostingReq:input_type -> whot.v1.HostingReq
+	17, // 27: whot.v1.Whot.OnForwardReq:input_type -> whot.v1.ForwardReq
+	29, // 28: whot.v1.Whot.OnPlayerActionReq:input_type -> whot.v1.PlayerActionReq
+	6,  // 29: whot.v1.Whot.SayHelloReq:output_type -> whot.v1.HelloReply
+	8,  // 30: whot.v1.Whot.OnLoginReq:output_type -> whot.v1.LoginRsp
+	10, // 31: whot.v1.Whot.OnLogoutReq:output_type -> whot.v1.LogoutRsp
+	12, // 32: whot.v1.Whot.OnReadyReq:output_type -> whot.v1.ReadyRsp
+	14, // 33: whot.v1.Whot.OnSwitchTableReq:output_type -> whot.v1.SwitchTableRsp
+	27, // 34: whot.v1.Whot.OnSceneReq:output_type -> whot.v1.SceneRsp
+	16, // 35: whot.v1.Whot.OnChatReq:output_type -> whot.v1.ChatRsp
+	20, // 36: whot.v1.Whot.OnHostingReq:output_type -> whot.v1.HostingRsp
+	18, // 37: whot.v1.Whot.OnForwardReq:output_type -> whot.v1.ForwardRsp
+	30, // 38: whot.v1.Whot.OnPlayerActionReq:output_type -> whot.v1.PlayerActionRsp
+	29, // [29:39] is the sub-list for method output_type
+	19, // [19:29] is the sub-list for method input_type
+	19, // [19:19] is the sub-list for extension type_name
+	19, // [19:19] is the sub-list for extension extendee
+	0,  // [0:19] is the sub-list for field type_name
 }
 
 func init() { file_helloworld_v1_api_proto_init() }
@@ -3100,7 +3170,7 @@ func file_helloworld_v1_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_helloworld_v1_api_proto_rawDesc), len(file_helloworld_v1_api_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   35,
+			NumMessages:   36,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

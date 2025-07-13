@@ -26,8 +26,8 @@ func NewCard(suit, number int32) int32 {
 }
 
 // NewDeclareWhot 修改 Whot 牌花色
-func NewDeclareWhot(suit int32, card int32) int32 {
-	return suit*SuitMask + Number(card)
+func NewDeclareWhot(suit int32) int32 {
+	return suit*SuitMask + Number(WhotCard)
 }
 
 // Suit 返回花色

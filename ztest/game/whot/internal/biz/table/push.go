@@ -218,6 +218,7 @@ func (t *Table) broadcastPlayerAction(p *player.Player, action v1.ACTION, cs []i
 			continue
 		}
 
+		hand := p.GetCards()
 		self := v.GetPlayerID() == p.GetPlayerID()
 
 		rsp := &v1.PlayerActionRsp{
@@ -229,14 +230,17 @@ func (t *Table) broadcastPlayerAction(p *player.Player, action v1.ACTION, cs []i
 			LeftNum: t.cards.GetCardNum(),
 			Effect:  t.pending,
 			PlayResult: &v1.PlayCardResult{
-				Card:        0,
-				DeclareSuit: declaredSuit,
-				Cards:       nil,
+				Card:       0,
+				Cards:      nil,
+				TotalCards: int32(len(hand)),
 			},
 			DrawResult: &v1.DrawCardResult{
 				DrawNum:    0,
-				TotalCards: int32(len(p.GetCards())),
 				Cards:      nil,
+				TotalCards: int32(len(hand)),
+			},
+			DeclareResult: &v1.DeclareSuitResult{
+				Suit: declaredSuit,
 			},
 		}
 
@@ -246,12 +250,13 @@ func (t *Table) broadcastPlayerAction(p *player.Player, action v1.ACTION, cs []i
 				rsp.PlayResult.Card = cs[0]
 			}
 			if self {
-				rsp.PlayResult.Cards = p.GetCards()
+				rsp.PlayResult.Cards = hand
 			}
 		case v1.ACTION_DRAW_CARD:
 			rsp.DrawResult.DrawNum = int32(len(cs))
 			if self {
-				rsp.PlayResult.Cards = p.GetCards()
+				rsp.DrawResult.Drawn = cs
+				rsp.PlayResult.Cards = hand
 			}
 		}
 

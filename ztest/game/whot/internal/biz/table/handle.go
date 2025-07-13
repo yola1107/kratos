@@ -220,7 +220,7 @@ func (t *Table) onSkipTurn(p *player.Player, timeout bool) {
 }
 
 func (t *Table) onDeclareSuit(p *player.Player, suit v1.SUIT, timeout bool) {
-	t.currCard = NewDeclareWhot(int32(suit), t.currCard) // 修改当前牌的花色
+	t.currCard = NewDeclareWhot(int32(suit)) // 修改当前牌的花色
 	t.declareSuit = suit
 	t.pending = nil
 	t.broadcastPlayerAction(p, v1.ACTION_DECLARE_SUIT, nil, suit)
