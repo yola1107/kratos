@@ -55,7 +55,7 @@ func (t *Table) OnPlayerActionReq(p *player.Player, in *v1.PlayerActionReq, time
 	switch in.Action {
 	case v1.ACTION_PLAY_CARD:
 		if !t.canOutCard(t.currCard, p.GetCards(), in.OutCard) {
-			log.Errorf("playCard err: p=%v curr=%v out=%v", p.Desc(), t.currCard, reqstr)
+			log.Errorf("playCard err: p=%v, curr=%v, out=%v,", p.Desc(), t.currCard, reqstr)
 			return
 		}
 		t.onPlayCard(p, in.OutCard, timeout)
@@ -109,7 +109,7 @@ func (t *Table) onPlayCard(p *player.Player, card int32, timeout bool) {
 	// 14牌：所有其他玩家各抽一张 MARKET, 发牌不够了游戏结束
 	if t.pending != nil && t.pending.Effect == v1.CARD_EFFECT_MARKET && Number(card) == 14 {
 		t.pending = nil // 清理掉14牌等待响应
-		if over := t.drawCardByMarket(); over {
+		if over := t.drawCardByMarket(p); over {
 			t.updateStage(StWaitEnd)
 			return
 		}
@@ -159,16 +159,22 @@ func (t *Table) updatePending(p *player.Player, card int32) {
 	}
 }
 
-func (t *Table) drawCardByMarket() (end bool) {
+func (t *Table) drawCardByMarket(p *player.Player) (end bool) {
 	for _, v := range t.seats {
 		if v == nil || !v.IsGaming() {
+			continue
+		}
+		if v.GetPlayerID() == p.GetPlayerID() {
 			continue
 		}
 		drawn := t.cards.DispatchCards(1)
 		if len(drawn) == 0 || t.cards.IsEmpty() {
 			return true
 		}
+		v.AddCards(drawn)
 		t.sendMarketDrawCardPush(v, drawn)
+		t.mLog.market(v, drawn, t.pending, false)
+		log.Debugf("drawCardByMarket: 所有其他玩家各抽一张. uid=%v, drawn=%v ", v.GetPlayerID(), drawn)
 	}
 	return false
 }

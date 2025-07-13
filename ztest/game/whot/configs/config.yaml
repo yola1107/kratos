@@ -52,13 +52,13 @@ room:
     vid: 1002
     min_money: 100.0
     max_money: 10000.0
-    base_money: 1.0
+    base_money: 100.0
     auto_ready: true
     ch_limit: 600.0
     pot_limit: 800.0
     see_round: 3
     auto_see_round: 6
-    fee: 0.05
+    fee: 0.2
     speaker_minmoney: 200.0
     speaker_card_type: 2
     high_strength_rate: 30
@@ -85,12 +85,12 @@ loadTest:
       token: "7945687310:AAHA9tkUPV1ELEsVSLoDZe_Cc76wp7YdDVI"
     alerter:
       enabled: true
-      prefix: "api-client"                   # 告警消息前缀，用于标识服务名
+      prefix: "whot-client"                   # 告警消息前缀，用于标识服务名
       format: html                           # 默认html格式，可选json格式
     logger:
       mode: 1                                # 0:dev 1:prod
       level: debug                           # 日志级别 "debug", "info", "warn", "error"
-      appName: "api-client"
+      appName: "whot-client"
       directory: "./logs"
       formatJson: false
       errorFile: false

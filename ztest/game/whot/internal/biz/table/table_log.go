@@ -71,7 +71,7 @@ func (l *Log) begin(tb string, bet float64, seats []*player.Player, infos any) {
 }
 
 func (l *Log) activePush(p *player.Player, currCard int32, pending *v1.Pending, canOp []*v1.ActionOption) {
-	l.write("[操作通知] 玩家:%+v currCard=%d, pending=%v, canOp=%v", p.Desc(), currCard, descPendingEffect(pending), ext.ToJSON(canOp))
+	l.write("[操作通知] 玩家:%+v curr=%d, pending=%v, canOp=%v", p.Desc(), currCard, descPendingEffect(pending), ext.ToJSON(canOp))
 }
 
 func (l *Log) stage(s string, active int32) {
@@ -82,16 +82,20 @@ func (l *Log) play(p *player.Player, card int32, pending *v1.Pending, timeout bo
 	l.write("[玩家出牌] 玩家:%+v. out=[%+v] pending=%s, timeout=%+v", p.Desc(), card, descPending(pending), timeout)
 }
 
-func (l *Log) replyPending(p *player.Player, action v1.ACTION, pending *v1.Pending) {
-	l.write("[响应Pending] 玩家:%+v. action=%q 响应了pending，清除:%s", p.Desc(), action, descPending(pending))
-}
-
 func (l *Log) draw(p *player.Player, card []int32, pending *v1.Pending, timeout bool) {
 	l.write("[玩家抓牌] 玩家:%+v. drawn=%+v, pending=%s, timeout=%+v", p.Desc(), card, descPending(pending), timeout)
 }
 
+func (l *Log) replyPending(p *player.Player, action v1.ACTION, pending *v1.Pending) {
+	l.write("[响应Pending] 玩家:%+v. action=%q 响应了pending，清除:%s", p.Desc(), action, descPending(pending))
+}
+
+func (l *Log) market(p *player.Player, card []int32, pending *v1.Pending, timeout bool) {
+	l.write("[market各抽一张] 玩家:%+v. drawn=%+v, pending=%s, timeout=%+v", p.Desc(), card, descPending(pending), timeout)
+}
+
 func (l *Log) skipTurn(p *player.Player, timeout bool) {
-	l.write("[玩家跳过] 玩家:%+v pending=, timeout=%v", p.Desc(), timeout)
+	l.write("[suspend玩家跳过] 玩家:%+v pending=, timeout=%v", p.Desc(), timeout)
 }
 
 func (l *Log) declareSuit(p *player.Player, suit v1.SUIT, currCard int32, timeout bool) {
