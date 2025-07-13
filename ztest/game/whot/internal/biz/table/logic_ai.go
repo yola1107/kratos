@@ -277,14 +277,16 @@ func selectBestAction(p *player.Player, ops []*v1.ActionOption, currCard int32) 
 func getMostFrequentSuit(hand []int32, options []v1.SUIT) v1.SUIT {
 	suitCount := make(map[v1.SUIT]int)
 	for _, c := range hand {
-		suitCount[v1.SUIT(Suit(c))]++
+		suit := v1.SUIT(Suit(c))
+		suitCount[suit]++
 	}
 
 	var best v1.SUIT
-	maxSuitCount := -1
+	maxCount := -1
 	for _, s := range options {
-		if suitCount[s] > maxSuitCount {
-			best, maxSuitCount = s, suitCount[s]
+		if suitCount[s] > maxCount {
+			best = s
+			maxCount = suitCount[s]
 		}
 	}
 	return best
@@ -296,69 +298,72 @@ func chooseBestCard(candidates, hand []int32, currCard int32) int32 {
 		return 0
 	}
 
-	numCount := make(map[int32]int)
-	suitCount := make(map[int32]int)
-	for _, c := range hand {
-		numCount[Number(c)]++
-		suitCount[Suit(c)]++
-	}
+	currSuit := v1.SUIT(Suit(currCard))
+	currNum := Number(currCard)
 
-	currSuit, currNum := Suit(currCard), Number(currCard)
-	whotCount := 0
-	for _, c := range hand {
-		if IsWhotCard(c) {
-			whotCount++
-		}
-	}
-
-	bestCard, bestScore := int32(0), math.MaxInt
+	bestCard := int32(0)
+	bestScore := math.MinInt
 	for _, c := range candidates {
-		score := evaluateCardScore(c, currSuit, currNum, numCount, suitCount, whotCount)
-		if score < bestScore {
-			bestCard, bestScore = c, score
+		score := evaluateCardScore(c, currSuit, currNum, hand)
+		if score > bestScore {
+			bestCard = c
+			bestScore = score
 		}
 	}
 	return bestCard
 }
 
-// 评分函数 evaluateCardScore
-func evaluateCardScore(card int32, currSuit int32, currNum int32, numCount map[int32]int, suitCount map[int32]int, whotCount int) int {
+func evaluateCardScore(card int32, currSuit v1.SUIT, currNum int32, hand []int32) int {
 	if IsWhotCard(card) {
-		if whotCount > 1 {
-			return 30 // 多张 WHOT 时允许提前出
+		if len(hand) == 1 {
+			return 100 // 出最后一张 WHOT
+		} else if len(hand) <= 3 {
+			return 20 // 手牌少时可以考虑出
 		}
-		return 100 // 单张 WHOT，保留作为万能牌
+		return -300
 	}
 
-	s, n := Suit(card), Number(card)
+	s := v1.SUIT(Suit(card))
+	n := Number(card)
+
+	numCount := make(map[int32]int)
+	suitCount := make(map[v1.SUIT]int)
+	for _, c := range hand {
+		numCount[Number(c)]++
+		suitCount[v1.SUIT(Suit(c))]++
+	}
+
 	score := 0
 
-	// 匹配花色/数字
+	// 匹配加分（稍微降低）
 	if s == currSuit {
-		score -= 6
+		score += 8
 	}
 	if n == currNum {
-		score -= 6
+		score += 8
 	}
 
-	// 数量多的数字/花色优先出
-	score -= numCount[n] * 4
-	score -= suitCount[s] * 2
+	// 稀有牌减分
+	score -= numCount[n] * 5
+	score -= suitCount[s] * 3
 
-	// 惩罚类卡（比如让下家摸牌），尽量保留
-	if isPenaltyCard(n) {
+	// 特殊牌偏好
+	switch n {
+	case 2:
+		score += 10
+	case 8:
+		score += 6
+	case 14:
+		score += 15
+	case 20:
 		score += 10
 	}
 
-	return score
-}
-
-// 惩罚类卡牌
-func isPenaltyCard(n int32) bool {
-	switch n {
-	case 1, 2, 5, 8, 14:
-		return true
-	default:
-		return false
+	// 手牌少时更积极处理非主流牌
+	if len(hand) <= 3 {
+		score -= numCount[n] * 8
+		score -= suitCount[s] * 5
 	}
+
+	return score
 }

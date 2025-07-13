@@ -239,7 +239,7 @@ func (t *Table) gameEnd() {
 
 	t.Reset() // 清理数据
 
-	log.Debugf("结束清理完成。tb=%v", t.Desc())
+	log.Debugf("结束清理完成。tb=%v \n\n\n", t.Desc())
 	t.mLog.end(fmt.Sprintf("结束清理完成。%s %s", t.Desc(), logPlayers(t.seats)))
 
 	t.updateStage(StEnd)
