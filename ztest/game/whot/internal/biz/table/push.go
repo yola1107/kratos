@@ -356,13 +356,34 @@ func canPlayCardOn(currCard, card int32, pending *v1.Pending) bool {
 }
 
 func (t *Table) sendMarketDrawCardPush(p *player.Player, draw []int32) {
-	t.SendPacketToClient(p, v1.GameCommand_OnMarketDrawCardPush, &v1.MarketDrawCardPush{
-		UserID:  p.GetPlayerID(),
-		ChairID: p.GetChairID(),
-		Draw:    draw,
-		Cards:   p.GetCards(),
-		LeftNum: t.cards.GetCardNum(),
-	})
+	// t.SendPacketToClient(p, v1.GameCommand_OnMarketDrawCardPush, &v1.MarketDrawCardPush{
+	// 	UserID:   p.GetPlayerID(),
+	// 	ChairID:  p.GetChairID(),
+	// 	Draw:     draw,
+	// 	Cards:    p.GetCards(),
+	// 	CardsNum: int32(len(p.GetCards())),
+	// 	LeftNum:  t.cards.GetCardNum(),
+	// })
+
+	for _, v := range t.seats {
+		if v == nil {
+			continue
+		}
+		rsp := &v1.MarketDrawCardPush{
+			UserID:   p.GetPlayerID(),
+			ChairID:  p.GetChairID(),
+			DrawNum:  int32(len(draw)),
+			CardsNum: int32(len(p.GetCards())),
+			LeftNum:  t.cards.GetCardNum(),
+			Draw:     nil,
+			Cards:    nil,
+		}
+		if v.GetPlayerID() == p.GetPlayerID() {
+			rsp.Draw = draw
+			rsp.Cards = p.GetCards()
+		}
+		t.SendPacketToClient(v, v1.GameCommand_OnMarketDrawCardPush, rsp)
+	}
 }
 
 func (t *Table) broadcastResult(obj *SettleObj) {

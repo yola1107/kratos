@@ -2112,7 +2112,7 @@ func (x *PlayerActionRsp) GetDeclareResult() *DeclareSuitResult {
 type PlayCardResult struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Card          int32                  `protobuf:"varint,1,opt,name=card,proto3" json:"card,omitempty"`          // 出牌玩家出的牌
-	CardsNum      int32                  `protobuf:"varint,2,opt,name=cardsNum,proto3" json:"cardsNum,omitempty"`  // 出牌玩家手牌数
+	CardsNum      int32                  `protobuf:"varint,2,opt,name=cardsNum,proto3" json:"cardsNum,omitempty"`  // 出牌玩家手牌数量
 	Cards         []int32                `protobuf:"varint,3,rep,packed,name=cards,proto3" json:"cards,omitempty"` // 出牌玩家自己的手牌 (只发送给出牌玩家)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2289,7 +2289,7 @@ type ActivePush struct {
 	Stage         int32                  `protobuf:"varint,1,opt,name=stage,proto3" json:"stage,omitempty"`       // 游戏阶段
 	Timeout       int64                  `protobuf:"varint,2,opt,name=timeout,proto3" json:"timeout,omitempty"`   // 剩余时间
 	Active        int32                  `protobuf:"varint,3,opt,name=active,proto3" json:"active,omitempty"`     // 当前操作玩家
-	CardsNum      int32                  `protobuf:"varint,4,opt,name=cardsNum,proto3" json:"cardsNum,omitempty"` // 玩家手牌数
+	CardsNum      int32                  `protobuf:"varint,4,opt,name=cardsNum,proto3" json:"cardsNum,omitempty"` // 玩家手牌数量
 	LeftNum       int32                  `protobuf:"varint,5,opt,name=leftNum,proto3" json:"leftNum,omitempty"`   // 剩余牌数
 	Pending       *Pending               `protobuf:"bytes,6,opt,name=pending,proto3" json:"pending,omitempty"`    // 当前待处理动作响应（如等待反击,等待声明花色）
 	CanOp         []*ActionOption        `protobuf:"bytes,7,rep,name=canOp,proto3" json:"canOp,omitempty"`        // 当前允许的操作及牌
@@ -2519,9 +2519,11 @@ type MarketDrawCardPush struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserID        int64                  `protobuf:"varint,1,opt,name=userID,proto3" json:"userID,omitempty"`      // 用户ID
 	ChairID       int32                  `protobuf:"varint,2,opt,name=chairID,proto3" json:"chairID,omitempty"`    // 椅子号
-	Draw          []int32                `protobuf:"varint,3,rep,packed,name=draw,proto3" json:"draw,omitempty"`   // 摸到的牌
-	Cards         []int32                `protobuf:"varint,4,rep,packed,name=cards,proto3" json:"cards,omitempty"` // 最后手牌
-	LeftNum       int32                  `protobuf:"varint,5,opt,name=leftNum,proto3" json:"leftNum,omitempty"`    // 剩余牌数
+	DrawNum       int32                  `protobuf:"varint,3,opt,name=drawNum,proto3" json:"drawNum,omitempty"`    // 摸牌数量
+	CardsNum      int32                  `protobuf:"varint,4,opt,name=cardsNum,proto3" json:"cardsNum,omitempty"`  // 最后手牌数量
+	Draw          []int32                `protobuf:"varint,5,rep,packed,name=draw,proto3" json:"draw,omitempty"`   // 摸到的牌
+	Cards         []int32                `protobuf:"varint,6,rep,packed,name=cards,proto3" json:"cards,omitempty"` // 最后手牌
+	LeftNum       int32                  `protobuf:"varint,7,opt,name=leftNum,proto3" json:"leftNum,omitempty"`    // 剩余牌数
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2566,6 +2568,20 @@ func (x *MarketDrawCardPush) GetUserID() int64 {
 func (x *MarketDrawCardPush) GetChairID() int32 {
 	if x != nil {
 		return x.ChairID
+	}
+	return 0
+}
+
+func (x *MarketDrawCardPush) GetDrawNum() int32 {
+	if x != nil {
+		return x.DrawNum
+	}
+	return 0
+}
+
+func (x *MarketDrawCardPush) GetCardsNum() int32 {
+	if x != nil {
+		return x.CardsNum
 	}
 	return 0
 }
@@ -2954,13 +2970,15 @@ const file_helloworld_v1_api_proto_rawDesc = "" +
 	"\x06effect\x18\x01 \x01(\x0e2\x14.whot.v1.CARD_EFFECTR\x06effect\x12\x1c\n" +
 	"\tinitiator\x18\x02 \x01(\x05R\tinitiator\x12\x16\n" +
 	"\x06target\x18\x03 \x01(\x05R\x06target\x12\x1a\n" +
-	"\bquantity\x18\x04 \x01(\x05R\bquantity\"\x8a\x01\n" +
+	"\bquantity\x18\x04 \x01(\x05R\bquantity\"\xc0\x01\n" +
 	"\x12MarketDrawCardPush\x12\x16\n" +
 	"\x06userID\x18\x01 \x01(\x03R\x06userID\x12\x18\n" +
-	"\achairID\x18\x02 \x01(\x05R\achairID\x12\x12\n" +
-	"\x04draw\x18\x03 \x03(\x05R\x04draw\x12\x14\n" +
-	"\x05cards\x18\x04 \x03(\x05R\x05cards\x12\x18\n" +
-	"\aleftNum\x18\x05 \x01(\x05R\aleftNum\"&\n" +
+	"\achairID\x18\x02 \x01(\x05R\achairID\x12\x18\n" +
+	"\adrawNum\x18\x03 \x01(\x05R\adrawNum\x12\x1a\n" +
+	"\bcardsNum\x18\x04 \x01(\x05R\bcardsNum\x12\x12\n" +
+	"\x04draw\x18\x05 \x03(\x05R\x04draw\x12\x14\n" +
+	"\x05cards\x18\x06 \x03(\x05R\x05cards\x12\x18\n" +
+	"\aleftNum\x18\a \x01(\x05R\aleftNum\"&\n" +
 	"\fLastCardPush\x12\x16\n" +
 	"\x06isLast\x18\x01 \x01(\bR\x06isLast\"\x8f\x01\n" +
 	"\n" +

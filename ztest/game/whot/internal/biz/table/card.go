@@ -26,8 +26,8 @@ func NewCard(suit, number int32) int32 {
 }
 
 // NewDeclareWhot 修改 Whot 牌花色
-func NewDeclareWhot(suit int32) int32 {
-	return suit*SuitMask + Number(WhotCard)
+func NewDeclareWhot(suit int32, card int32) int32 {
+	return suit*SuitMask + Number(card)
 }
 
 // Suit 返回花色
@@ -101,11 +101,7 @@ func (g *GameCards) DispatchCards(n int) []int32 {
 
 // GetCards 获取剩余牌堆
 func (g *GameCards) GetCards() []int32 {
-	cards := []int32(nil)
-	for i := g.index; i < len(g.cards); i++ {
-		cards = append(cards, g.cards[i])
-	}
-	return cards
+	return ext.SliceCopy(g.cards[g.index:])
 }
 
 // GetCardNum 返回剩余牌数

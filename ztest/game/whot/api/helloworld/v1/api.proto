@@ -352,7 +352,7 @@ message PlayerActionRsp {
 // 出牌结果
 message PlayCardResult {
     int32 card           = 1;  // 出牌玩家出的牌
-    int32 cardsNum       = 2;  // 出牌玩家手牌数
+    int32 cardsNum       = 2;  // 出牌玩家手牌数量
     repeated int32 cards = 3;  // 出牌玩家自己的手牌 (只发送给出牌玩家)
 }
 
@@ -374,7 +374,7 @@ message ActivePush {
     int32 stage                 = 1;  // 游戏阶段
     int64 timeout               = 2;  // 剩余时间
     int32 active                = 3;  // 当前操作玩家
-    int32 cardsNum              = 4;  // 玩家手牌数
+    int32 cardsNum              = 4;  // 玩家手牌数量
     int32 leftNum               = 5;  // 剩余牌数
     Pending pending             = 6;  // 当前待处理动作响应（如等待反击,等待声明花色）
     repeated ActionOption canOp = 7;  // 当前允许的操作及牌
@@ -400,9 +400,11 @@ message Pending {
 message MarketDrawCardPush {
     int64 userID         = 1;  // 用户ID
     int32 chairID        = 2;  // 椅子号
-    repeated int32 draw  = 3;  // 摸到的牌
-    repeated int32 cards = 4;  // 最后手牌
-    int32 leftNum        = 5;  // 剩余牌数
+    int32 drawNum        = 3;  // 摸牌数量
+    int32 cardsNum       = 4;  // 最后手牌数量
+    repeated int32 draw  = 5;  // 摸到的牌
+    repeated int32 cards = 6;  // 最后手牌
+    int32 leftNum        = 7;  // 剩余牌数
 }
 
 // 最后一张推送

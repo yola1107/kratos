@@ -74,8 +74,8 @@ func (t *Table) OnPlayerActionReq(p *player.Player, in *v1.PlayerActionReq, time
 		}
 		t.onSkipTurn(p, timeout)
 
-	case v1.ACTION_DECLARE_SUIT:
-		if t.pending == nil || t.pending.Effect != v1.CARD_EFFECT_WHOT || t.currCard != WhotCard {
+	case v1.ACTION_DECLARE_SUIT: //
+		if t.pending == nil || t.pending.Effect != v1.CARD_EFFECT_WHOT || !IsWhotCard(t.currCard) {
 			log.Errorf("declareCard err: 当前不允许声明花色, p=%v, currCard=%d %v ", p.Desc(), t.currCard, pendstr)
 			return
 		}
@@ -159,24 +159,36 @@ func (t *Table) updatePending(p *player.Player, card int32) {
 	}
 }
 
-func (t *Table) drawCardByMarket(p *player.Player) (end bool) {
-	for _, v := range t.seats {
-		if v == nil || !v.IsGaming() {
-			continue
-		}
-		if v.GetPlayerID() == p.GetPlayerID() {
-			continue
-		}
-		drawn := t.cards.DispatchCards(1)
-		if len(drawn) == 0 || t.cards.IsEmpty() {
-			return true
-		}
-		v.AddCards(drawn)
-		t.sendMarketDrawCardPush(v, drawn)
-		t.mLog.market(v, drawn, t.pending, false)
-		log.Debugf("drawCardByMarket: 所有其他玩家各抽一张. uid=%v, drawn=%v ", v.GetPlayerID(), drawn)
+func (t *Table) drawCardByMarket(p *player.Player) (deckEmpty bool) {
+	start := p.GetChairID()
+	if start < 0 || start >= int32(t.MaxCnt) {
+		return false
 	}
-	return false
+
+	chair := start
+	for {
+		chair = (chair + 1) % int32(t.MaxCnt)
+		if chair == start {
+			break // 一圈结束，不包括自己
+		}
+
+		targetPlayer := t.seats[chair]
+		if targetPlayer == nil || !targetPlayer.IsGaming() {
+			continue
+		}
+
+		drawn := t.cards.DispatchCards(1)
+		if len(drawn) == 0 {
+			return true // 牌堆空了
+		}
+
+		targetPlayer.AddCards(drawn)
+		t.sendMarketDrawCardPush(targetPlayer, drawn)
+		t.mLog.market(targetPlayer, drawn, t.pending, false)
+		log.Debugf("MARKET: uid=%v 抽牌=%v", targetPlayer.GetPlayerID(), drawn)
+	}
+
+	return t.cards.IsEmpty()
 }
 
 func (t *Table) onDrawCard(p *player.Player, timeout bool) {
@@ -220,7 +232,7 @@ func (t *Table) onSkipTurn(p *player.Player, timeout bool) {
 }
 
 func (t *Table) onDeclareSuit(p *player.Player, suit v1.SUIT, timeout bool) {
-	t.currCard = NewDeclareWhot(int32(suit)) // 修改当前牌的花色
+	t.currCard = NewDeclareWhot(int32(suit), t.currCard) // 修改当前牌的花色
 	t.declareSuit = suit
 	t.pending = nil
 	t.broadcastPlayerAction(p, v1.ACTION_DECLARE_SUIT, nil, suit)
