@@ -2,6 +2,7 @@ package robot
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/yola1107/kratos/v2/library/ext"
@@ -25,8 +26,10 @@ type Manager struct {
 	conf *conf.Room
 	repo Repo
 
-	all  sync.Map // map[playerID]*player.Player
-	free sync.Map // map[playerID]*player.Player
+	all       sync.Map // map[playerID]*player.Player
+	free      sync.Map // map[playerID]*player.Player
+	allCount  atomic.Int32
+	freeCount atomic.Int32
 }
 
 // NewManager 创建机器人管理器
@@ -74,6 +77,8 @@ func (m *Manager) load() {
 		m.reset(p)
 		m.all.Store(id, p)
 		m.free.Store(id, p)
+		m.allCount.Add(1)
+		m.freeCount.Add(1)
 		toLoad--
 	}
 }
@@ -97,6 +102,8 @@ func (m *Manager) release() {
 		}
 		m.all.Delete(k)
 		m.free.Delete(k)
+		m.allCount.Add(-1)
+		m.freeCount.Add(-1)
 		toRelease--
 		return toRelease > 0
 	})
@@ -134,6 +141,7 @@ func (m *Manager) login() {
 			index++
 			if m.Enter(p, tb) {
 				m.free.Delete(p.GetPlayerID())
+				m.freeCount.Add(-1)
 				return true // 下一个 AI
 			}
 		}
@@ -178,6 +186,7 @@ func (m *Manager) Leave(uid int64) bool {
 	}
 	m.reset(p)
 	m.free.Store(uid, p)
+	m.freeCount.Add(1)
 	return true
 }
 
@@ -203,19 +212,9 @@ func (m *Manager) Monitor() Monitor {
 }
 
 func (m *Manager) countAll() int32 {
-	var count int32
-	m.all.Range(func(_, _ any) bool {
-		count++
-		return true
-	})
-	return count
+	return m.allCount.Load()
 }
 
 func (m *Manager) countFree() int32 {
-	var count int32
-	m.free.Range(func(_, _ any) bool {
-		count++
-		return true
-	})
-	return count
+	return m.freeCount.Load()
 }
