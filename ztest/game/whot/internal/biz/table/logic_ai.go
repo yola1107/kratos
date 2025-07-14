@@ -157,7 +157,7 @@ func (r *RobotLogic) ActivePlayer(p *player.Player, msg proto.Message) {
 	opponentHandSize := r.mTable.GetMinOpponentHandSize(p)
 	req := selectBestAction(p, ops, r.mTable.currCard, opponentHandSize)
 	if req == nil {
-		log.Warnf("no suitable action selected: player=%v table=%v", p.Desc(), r.mTable.Desc())
+		log.Errorf("no suitable action selected: player=%v table=%v", p.Desc(), r.mTable.Desc())
 		return
 	}
 
