@@ -106,7 +106,7 @@ func (t *Table) onPlayCard(p *player.Player, card int32, timeout bool) {
 		return
 	}
 
-	// 14牌：所有其他玩家各抽一张 MARKET, 发牌不够了游戏结束
+	// MARKET:14牌：所有其他玩家各抽一张, 发牌不够了游戏结束
 	if t.pending != nil && t.pending.Effect == v1.CARD_EFFECT_MARKET && Number(card) == 14 {
 		t.pending = nil // 清理掉14牌等待响应
 		if over := t.drawCardByMarket(p); over {

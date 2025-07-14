@@ -99,6 +99,15 @@ func (g *GameCards) DispatchCards(n int) []int32 {
 	return cards
 }
 
+// GetCards 获取剩余牌堆
+func (g *GameCards) GetCards() []int32 {
+	cards := []int32(nil)
+	for i := g.index; i < len(g.cards); i++ {
+		cards = append(cards, g.cards[i])
+	}
+	return cards
+}
+
 // GetCardNum 返回剩余牌数
 func (g *GameCards) GetCardNum() int32 {
 	return int32(len(g.cards) - g.index)

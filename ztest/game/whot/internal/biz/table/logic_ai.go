@@ -339,7 +339,7 @@ func (t *Table) GetMinOpponentHandSize(p *player.Player) int {
 
 // DrawSmartCard 智能摸牌 DrawSmartCard
 func (t *Table) DrawSmartCard(p *player.Player) int32 {
-	heap := t.cards.cards
+	heap := t.cards.GetCards()
 	if len(heap) == 0 {
 		return 0
 	}

@@ -265,7 +265,7 @@ func (t *Table) broadcastPlayerAction(p *player.Player, action v1.ACTION, cs []i
 	}
 
 	deSuit := ""
-	if declaredSuit != 0 {
+	if declaredSuit > 0 {
 		deSuit = fmt.Sprintf("%d", declaredSuit)
 	}
 	pendingStr := descPendingEffect(t.pending)
