@@ -81,48 +81,37 @@ func (p *MatchPool) Join(pl *player.Player) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	// 1. 判重：检查玩家是否已在匹配池
+	// 判重检查
 	if _, exists := p.playerMap[playerID]; exists {
 		return
 	}
 
-	// 2. 添加玩家
-	entry := &MatchEntry{
+	// 添加玩家
+	p.waiting = append(p.waiting, &MatchEntry{
 		Player:    pl,
 		EnterTime: time.Now(),
-	}
-	p.waiting = append(p.waiting, entry)
+	})
 	p.playerMap[playerID] = struct{}{}
 	p.joined.Add(1)
 }
 
-// CancelMatch 取消匹配（优化重分配）
+// CancelMatch 取消匹配
 func (p *MatchPool) CancelMatch(playerID int64) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	defer p.canceled.Add(1)
 
-	// 1. 从映射中移除
+	// 从映射中移除
 	delete(p.playerMap, playerID)
 
-	// 2. 高效移除（避免不必要的重分配）
-	found := false
+	// 从等待列表中移除
 	for i, entry := range p.waiting {
 		if entry.Player.GetPlayerID() == playerID {
-			// 将最后一个元素移到当前位置
-			if i < len(p.waiting)-1 {
-				p.waiting[i] = p.waiting[len(p.waiting)-1]
-			}
-			// 缩短切片
+			// 高效移除：用最后一个元素替换当前位置
+			p.waiting[i] = p.waiting[len(p.waiting)-1]
 			p.waiting = p.waiting[:len(p.waiting)-1]
-			found = true
-			break
+			return
 		}
-	}
-
-	// 如果没有找到，不需要做任何操作
-	if !found {
-		return
 	}
 }
 
@@ -140,23 +129,25 @@ func (p *MatchPool) run() {
 
 // matchPlayers 核心匹配逻辑
 func (p *MatchPool) matchPlayers() {
-	// 1. 获取当前状态快照
 	now := time.Now()
 
+	// 1. 获取状态快照
 	p.mu.RLock()
-	// 复制等待玩家列表
-	waiting := make([]*MatchEntry, len(p.waiting))
-	copy(waiting, p.waiting)
-
-	// 获取当前空闲桌子
-	idleTables := p.getIdleTables()
-	p.mu.RUnlock()
-
-	if len(waiting) == 0 || len(idleTables) == 0 {
+	if len(p.waiting) == 0 {
+		p.mu.RUnlock()
 		return
 	}
 
-	// 2. 按进入时间排序（最早优先）
+	// 直接使用原始切片引用（只读操作安全）
+	waiting := p.waiting
+	idleTables := p.getIdleTables()
+	p.mu.RUnlock()
+
+	if len(idleTables) == 0 {
+		return
+	}
+
+	// 2. 按进入时间排序（原地排序）
 	sort.Slice(waiting, func(i, j int) bool {
 		return waiting[i].EnterTime.Before(waiting[j].EnterTime)
 	})
@@ -164,103 +155,117 @@ func (p *MatchPool) matchPlayers() {
 	// 3. 批量匹配玩家
 	matchedGroups, remaining := p.batchMatch(waiting, idleTables, now)
 
-	// 4. 分配匹配成功的组到桌子
+	// 4. 分配匹配成功的组到桌子并移除玩家ID
+	removedPlayerIDs := make(map[int64]struct{})
 	for _, group := range matchedGroups {
 		if group.table.JoinGroup(group.players) == nil {
 			p.matched.Add(int64(len(group.players)))
+
+			// 收集已匹配玩家ID
+			for _, pl := range group.players {
+				removedPlayerIDs[pl.GetPlayerID()] = struct{}{}
+			}
 		}
 	}
 
-	// 5. 更新等待池（加锁更新）
+	// 5. 更新等待池并移除已匹配玩家ID
 	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	// 移除已匹配玩家ID
+	for playerID := range removedPlayerIDs {
+		delete(p.playerMap, playerID)
+	}
+
+	// 直接使用剩余玩家切片
 	p.waiting = remaining
-	p.mu.Unlock()
 }
 
-// getIdleTables 获取当前空闲桌子（显式状态更新）
+// getIdleTables 获取当前空闲桌子（避免切片复制）
 func (p *MatchPool) getIdleTables() []*table.Table {
-	var idleTables []*table.Table
-	for _, t := range p.tables {
-		if t.IsIdle() {
-			idleTables = append(idleTables, t)
+	idleTables := make([]*table.Table, 0, len(p.tables))
+	for _, tbl := range p.tables {
+		if tbl.IsIdle() {
+			idleTables = append(idleTables, tbl)
 		}
 	}
 	return idleTables
 }
 
-// 匹配组结构
+// matchGroup 匹配组结构
 type matchGroup struct {
 	table   *table.Table
 	players []*player.Player
 }
 
-// batchMatch 批量匹配玩家（重构版）
-func (p *MatchPool) batchMatch(players []*MatchEntry, tables []*table.Table, now time.Time) ([]matchGroup, []*MatchEntry) {
+// batchMatch 批量匹配玩家（零复制优化）
+func (p *MatchPool) batchMatch(entries []*MatchEntry, availableTables []*table.Table, now time.Time) ([]matchGroup, []*MatchEntry) {
 	var (
 		matchedGroups []matchGroup
 		remaining     []*MatchEntry
 	)
 
 	timeoutThreshold := time.Duration(p.config.MinTimeoutSec) * time.Second
-	tableIndex := 0 // 当前可用桌子的索引
+	tableIdx := 0
+	currentIndex := 0
 
 	// 按顺序处理玩家
-	for i := 0; i < len(players) && tableIndex < len(tables); {
-		player := players[i]
+	for currentIndex < len(entries) && tableIdx < len(availableTables) {
+		entry := entries[currentIndex]
 
 		// 检查是否超时（只处理超时玩家）
-		if now.Sub(player.EnterTime) < timeoutThreshold {
-			remaining = append(remaining, player)
-			i++
+		if now.Sub(entry.EnterTime) < timeoutThreshold {
+			remaining = append(remaining, entry)
+			currentIndex++
 			continue
 		}
 
 		p.timeouts.Add(1)
 
-		// 尝试组建一组玩家
-		groupSize := 0
-		groupPlayers := make([]*player.Player, 0, p.config.MaxGroupSize)
-		table := tables[tableIndex]
+		// 使用现有切片引用构建玩家组
+		currentTable := availableTables[tableIdx]
+		groupStart := currentIndex
+		groupEnd := groupStart
 
-		// 从当前玩家开始组建一组
-		for j := i; j < len(players) && groupSize < p.config.MaxGroupSize; j++ {
+		// 确定组边界
+		for j := currentIndex; j < len(entries) && (j-groupStart) < p.config.MaxGroupSize; j++ {
 			// 只包含超时玩家
-			if now.Sub(players[j].EnterTime) < timeoutThreshold {
+			if now.Sub(entries[j].EnterTime) < timeoutThreshold {
 				break
 			}
-
-			groupPlayers = append(groupPlayers, players[j].Player)
-			groupSize++
-
-			// 达到最小组大小且有空闲桌子
-			if groupSize >= p.config.MinGroupSize {
-				// 记录匹配组
-				matchedGroups = append(matchedGroups, matchGroup{
-					table:   table,
-					players: groupPlayers,
-				})
-
-				// 移动到下一张桌子
-				tableIndex++
-
-				// 跳过已匹配的玩家
-				i = j + 1
-				break
-			}
+			groupEnd = j + 1
 		}
 
-		// 如果组没有完成，将玩家放回剩余列表
-		if groupSize < p.config.MinGroupSize {
-			for k := i; k < i+groupSize; k++ {
-				remaining = append(remaining, players[k])
+		// 检查组大小
+		groupSize := groupEnd - groupStart
+		if groupSize >= p.config.MinGroupSize {
+			// 直接使用原始切片构建玩家组（避免复制）
+			players := make([]*player.Player, 0, groupSize)
+			for j := groupStart; j < groupEnd; j++ {
+				players = append(players, entries[j].Player)
 			}
-			i += groupSize
+
+			// 记录匹配组
+			matchedGroups = append(matchedGroups, matchGroup{
+				table:   currentTable,
+				players: players,
+			})
+
+			// 移动到下一张桌子
+			tableIdx++
+			currentIndex = groupEnd
+		} else {
+			// 添加未匹配的玩家到剩余列表
+			for j := groupStart; j < groupEnd; j++ {
+				remaining = append(remaining, entries[j])
+			}
+			currentIndex = groupEnd
 		}
 	}
 
-	// 添加未处理的玩家到剩余列表
-	if tableIndex >= len(tables) {
-		remaining = append(remaining, players[i:]...)
+	// 添加剩余未处理的玩家到剩余列表
+	for i := currentIndex; i < len(entries); i++ {
+		remaining = append(remaining, entries[i])
 	}
 
 	return matchedGroups, remaining
