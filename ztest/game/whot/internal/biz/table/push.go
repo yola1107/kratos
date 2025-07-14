@@ -345,7 +345,7 @@ func canPlayCardOn(currCard, card int32, pending *v1.Pending) bool {
 
 	switch pending.Effect {
 	case v1.CARD_EFFECT_PICK_TWO, v1.CARD_EFFECT_SUSPEND:
-		return IsWhotCard(card) || n == number
+		return !IsWhotCard(card) && n == number
 
 	case v1.CARD_EFFECT_MARKET, v1.CARD_EFFECT_WHOT:
 		return false

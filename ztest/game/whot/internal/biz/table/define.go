@@ -32,8 +32,8 @@ var StageTimeouts = map[StageID]int64{
 	StReady:    0,
 	StSendCard: 3,
 	StPlaying:  8,
-	StWaitEnd:  1,
-	StEnd:      5,
+	StWaitEnd:  3,
+	StEnd:      10,
 }
 
 // StageNames maps each stage to its string name.

@@ -73,8 +73,8 @@ func (p *Player) ExitReset() {
 }
 
 func (p *Player) Desc() string {
-	return fmt.Sprintf("(%d %d T:%d ai:%d Hand:%v)",
-		p.GetPlayerID(), p.GetChairID(), p.GetTableID(), bool2Int(p.isRobot), p.GetCards())
+	return fmt.Sprintf("(%d %d T:%d St:%d ai:%d Hand:%v)",
+		p.GetPlayerID(), p.GetChairID(), p.GetTableID(), p.GetStatus(), bool2Int(p.isRobot), p.GetCards())
 }
 
 func bool2Int(v bool) int {
