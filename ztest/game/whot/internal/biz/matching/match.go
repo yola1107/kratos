@@ -10,90 +10,109 @@ import (
 	"github.com/yola1107/kratos/v2/ztest/game/whot/internal/biz/table"
 )
 
-// Repo 匹配需要的依赖接口，获取桌子列表和机器人
 type Repo interface {
-	GetEmptyTableList() []*table.Table
-	AcquireIdleAIs(n int) []*player.Player
-	RebackToIdleAIs([]*player.Player)
+	EmptyTables() []*table.Table
+	AcquireBots(n int) []*player.Player
+	ReleaseBots([]*player.Player)
 }
 
-// MatchConfig 匹配配置参数
-type MatchConfig struct {
-	MinTimeoutMs  int64         // 最小超时毫秒数，随机超时范围下限
-	MaxTimeoutMs  int64         // 最大超时毫秒数，随机超时范围上限
-	MinGroupSize  int           // 最小匹配组人数
-	MaxGroupSize  int           // 最大匹配组人数
-	CheckInterval time.Duration // 匹配调度定时器间隔
+type Config struct {
+	MinTimeoutMs  int64         // 匹配等待下限
+	MaxTimeoutMs  int64         // 匹配等待上限
+	MinGroupSize  int           // 最小组队人数
+	MaxGroupSize  int           // 最大组队人数
+	CheckInterval time.Duration // 匹配检查周期
 }
 
-// MatchPool 负责玩家匹配调度，管理玩家加入、超时匹配、补充机器人等
-type MatchPool struct {
+// ---------- 堆结构实现 ----------
+type entry struct {
+	player   *player.Player
+	deadline time.Time
+	index    int
+}
+
+type entryHeap []*entry
+
+func (h entryHeap) Len() int           { return len(h) }
+func (h entryHeap) Less(i, j int) bool { return h[i].deadline.Before(h[j].deadline) }
+func (h entryHeap) Swap(i, j int) {
+	h[i], h[j] = h[j], h[i]
+	h[i].index, h[j].index = i, j
+}
+
+func (h *entryHeap) Push(x any) {
+	e := x.(*entry)
+	e.index = len(*h)
+	*h = append(*h, e)
+}
+
+func (h *entryHeap) Pop() any {
+	old := *h
+	n := len(old)
+	e := old[n-1]
+	e.index = -1
+	*h = old[:n-1]
+	return e
+}
+
+// Pool 负责玩家匹配调度，管理玩家加入、超时匹配、补充机器人等
+type Pool struct {
 	repo     Repo
-	cfg      *MatchConfig
+	cfg      *Config
 	mu       sync.Mutex
-	heap     matchHeap            // 小顶堆，按deadline排序
-	entryMap map[int64]*heapEntry // playerID到堆元素的映射，便于快速删除
+	heap     entryHeap
+	entryMap map[int64]*entry
 	ticker   *time.Ticker
 	stop     chan struct{}
 }
 
-// NewMatchPool 创建匹配池实例
-func NewMatchPool(cfg *MatchConfig, repo Repo) *MatchPool {
+func New(cfg *Config, repo Repo) *Pool {
 	if cfg.CheckInterval <= 0 {
 		cfg.CheckInterval = 500 * time.Millisecond
 	}
-	return &MatchPool{
+	return &Pool{
 		repo:     repo,
 		cfg:      cfg,
-		heap:     make(matchHeap, 0),
-		entryMap: make(map[int64]*heapEntry),
+		heap:     make(entryHeap, 0),
+		entryMap: make(map[int64]*entry),
 		ticker:   time.NewTicker(cfg.CheckInterval),
 		stop:     make(chan struct{}),
 	}
 }
 
-// Start 启动匹配调度循环
-func (p *MatchPool) Start() {
+func (p *Pool) Start() {
 	go func() {
+		defer ext.RecoverFromError(func(e any) {
+			p.Start()
+		})
 		for {
 			select {
 			case <-p.stop:
 				return
 			case <-p.ticker.C:
-				p.doMatch()
+				p.runMatchCycle()
 			}
 		}
 	}()
 }
 
-// Stop 停止匹配调度
-func (p *MatchPool) Stop() {
+func (p *Pool) Stop() {
 	close(p.stop)
 	p.ticker.Stop()
 }
 
-// Add 将玩家加入匹配池，设置随机超时截止时间
-func (p *MatchPool) Add(pl *player.Player) {
+func (p *Pool) Add(pl *player.Player) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if old, exists := p.entryMap[pl.GetPlayerID()]; exists {
-		if old.index >= 0 {
-			return // 仍在堆中，跳过
-		}
+	id := pl.GetPlayerID()
+	if _, exists := p.entryMap[id]; exists {
+		return
 	}
-
-	// 生成随机超时时间
-	timeoutMs := ext.RandIntInclusive(p.cfg.MinTimeoutMs, p.cfg.MaxTimeoutMs)
-	deadline := time.Now().Add(time.Duration(timeoutMs) * time.Millisecond)
-
-	e := &heapEntry{player: pl, deadline: deadline}
-	heap.Push(&p.heap, e)
-	p.entryMap[pl.GetPlayerID()] = e
+	p.insert(pl, randomTimeout(p.cfg.MinTimeoutMs, p.cfg.MaxTimeoutMs))
 }
 
-// Remove 从匹配池移除玩家
-func (p *MatchPool) Remove(playerID int64) {
+func (p *Pool) Remove(playerID int64) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -102,131 +121,107 @@ func (p *MatchPool) Remove(playerID int64) {
 			heap.Remove(&p.heap, e.index)
 		}
 		delete(p.entryMap, playerID)
-		e.index = -1
 	}
 }
 
-// doMatch 匹配调度，定时触发
-func (p *MatchPool) doMatch() {
+func (p *Pool) runMatchCycle() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	now := time.Now()
-	var group []*player.Player
-
-	// 1. 取出所有超时玩家
-	for p.heap.Len() > 0 && p.heap[0].deadline.Before(now) {
-		e := heap.Pop(&p.heap).(*heapEntry)
-		delete(p.entryMap, e.player.GetPlayerID())
-		group = append(group, e.player)
-	}
-
+	group := p.popExpired()
 	if len(group) == 0 {
 		return
 	}
 
-	// 2. 如果不足最小人数，尝试从非超时中补充
-	if len(group) < p.cfg.MinGroupSize && p.heap.Len() > 0 {
-		needed := p.cfg.MinGroupSize - len(group)
-		for i := 0; i < needed && p.heap.Len() > 0; i++ {
-			e := heap.Pop(&p.heap).(*heapEntry)
-			delete(p.entryMap, e.player.GetPlayerID())
-			group = append(group, e.player)
-		}
+	if len(group) < p.cfg.MinGroupSize {
+		group = p.fillFromHeap(group, p.cfg.MinGroupSize-len(group))
 	}
 
-	// 3. 分组匹配
-	p.batchMatchWithRetry(group)
+	p.batchMatch(group)
 }
 
-func (p *MatchPool) batchMatchWithRetry(players []*player.Player) {
+func (p *Pool) popExpired() []*player.Player {
+	now := time.Now()
+	var result []*player.Player
+
+	for p.heap.Len() > 0 && p.heap[0].deadline.Before(now) {
+		e := heap.Pop(&p.heap).(*entry)
+		delete(p.entryMap, e.player.GetPlayerID())
+		result = append(result, e.player)
+	}
+	return result
+}
+
+func (p *Pool) fillFromHeap(group []*player.Player, needed int) []*player.Player {
+	for i := 0; i < needed && p.heap.Len() > 0; i++ {
+		e := heap.Pop(&p.heap).(*entry)
+		delete(p.entryMap, e.player.GetPlayerID())
+		group = append(group, e.player)
+	}
+	return group
+}
+
+func (p *Pool) batchMatch(players []*player.Player) {
 	for len(players) > 0 {
 		n := ext.RandIntInclusive(p.cfg.MinGroupSize, p.cfg.MaxGroupSize)
-		if len(players) < n {
+		if n > len(players) {
 			n = len(players)
 		}
 
 		group := players[:n]
 		players = players[n:]
 
-		matched := p.tryMatch(group)
+		matched := p.tryMatchGroup(group)
 		if matched < len(group) {
-			// 匹配失败的玩家延迟重新加入匹配池
-			p.retryAddPlayers(group[matched:])
+			p.requeue(group[matched:])
 		}
 	}
 }
 
-// tryMatch 尝试匹配一组玩家，返回成功匹配的玩家数量
-func (p *MatchPool) tryMatch(players []*player.Player) int {
-	var ais []*player.Player
-	if len(players) < p.cfg.MinGroupSize {
-		// 不够人时补充机器人
-		missing := p.cfg.MinGroupSize - len(players)
-		ais = p.repo.AcquireIdleAIs(missing) // 申请空闲AI
-		players = append(players, ais...)
-	}
-	if len(players) < p.cfg.MinGroupSize {
-		p.repo.RebackToIdleAIs(ais) // 回收申请的AI
-		// 仍不够，匹配失败
-		return 0
-	}
-	if len(players) > p.cfg.MaxGroupSize {
-		players = players[:p.cfg.MaxGroupSize]
+func (p *Pool) tryMatchGroup(group []*player.Player) int {
+	var bots []*player.Player
+	if len(group) < p.cfg.MinGroupSize {
+		missing := p.cfg.MinGroupSize - len(group)
+		bots = p.repo.AcquireBots(missing)
+		group = append(group, bots...)
 	}
 
-	// 遍历桌子尝试加入玩家组
-	for _, t := range p.repo.GetEmptyTableList() {
-		if t.JoinGroup(players) {
-			return len(players)
+	if len(group) < p.cfg.MinGroupSize {
+		p.repo.ReleaseBots(bots)
+		return 0
+	}
+
+	if len(group) > p.cfg.MaxGroupSize {
+		group = group[:p.cfg.MaxGroupSize]
+	}
+
+	for _, t := range p.repo.EmptyTables() {
+		// 使用异步任务池 todo
+		if t.JoinGroup(group) {
+			return len(group)
 		}
 	}
+
+	p.repo.ReleaseBots(bots)
 	return 0
 }
 
-func (p *MatchPool) retryAddPlayers(players []*player.Player) {
+func (p *Pool) requeue(players []*player.Player) {
 	now := time.Now()
 	for _, pl := range players {
-		// 避免已被取消匹配的玩家重复添加
-		if _, exists := p.entryMap[pl.GetPlayerID()]; exists {
-			continue
+		if _, exists := p.entryMap[pl.GetPlayerID()]; !exists {
+			p.insert(pl, now.Add(time.Millisecond*time.Duration(ext.RandInt(100, 1000))))
 		}
-		dur := time.Duration(ext.RandInt(100, 1000))
-		deadline := now.Add(dur * time.Millisecond)
-		e := &heapEntry{player: pl, deadline: deadline}
-		heap.Push(&p.heap, e)
-		p.entryMap[pl.GetPlayerID()] = e
 	}
 }
 
-// ---------- 堆结构实现 ----------
-
-type heapEntry struct {
-	player   *player.Player
-	deadline time.Time
-	index    int // 在堆中的索引
+func (p *Pool) insert(pl *player.Player, deadline time.Time) {
+	e := &entry{player: pl, deadline: deadline}
+	heap.Push(&p.heap, e)
+	p.entryMap[pl.GetPlayerID()] = e
 }
 
-type matchHeap []*heapEntry
-
-func (h matchHeap) Len() int           { return len(h) }
-func (h matchHeap) Less(i, j int) bool { return h[i].deadline.Before(h[j].deadline) }
-func (h matchHeap) Swap(i, j int) {
-	h[i], h[j] = h[j], h[i]
-	h[i].index, h[j].index = i, j
-}
-
-func (h *matchHeap) Push(x any) {
-	e := x.(*heapEntry)
-	e.index = len(*h)
-	*h = append(*h, e)
-}
-
-func (h *matchHeap) Pop() any {
-	old := *h
-	n := len(old)
-	e := old[n-1]
-	e.index = -1
-	*h = old[:n-1]
-	return e
+func randomTimeout(minMs, maxMs int64) time.Time {
+	ms := ext.RandIntInclusive(minMs, maxMs)
+	return time.Now().Add(time.Duration(ms) * time.Millisecond)
 }
