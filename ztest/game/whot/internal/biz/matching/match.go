@@ -29,11 +29,11 @@ type Config struct {
 	CheckInterval time.Duration
 }
 
-// entry 表示等待玩家及其超时时间，堆元素
+// entry 堆中元素，封装玩家及超时截止时间
 type entry struct {
 	player   *player.Player
 	deadline time.Time
-	index    int // 堆索引，方便移除
+	index    int
 }
 
 type entryHeap []*entry
@@ -61,7 +61,7 @@ func (h *entryHeap) Pop() interface{} {
 	return e
 }
 
-// Pool 是匹配池，负责玩家入队、定时匹配、机器人补充等
+// Pool 匹配池
 type Pool struct {
 	repo     Repo
 	cfg      *Config
@@ -87,10 +87,10 @@ func (p *Pool) Start() {
 }
 
 func (p *Pool) Stop() {
-	// 这里可实现停止定时器逻辑，视work.ITaskScheduler接口而定
+	// 暂无实现，如有需要可实现定时器停止等清理逻辑
 }
 
-// Add 玩家入队，若已存在则忽略
+// Add 添加玩家入队，忽略已存在玩家
 func (p *Pool) Add(pl *player.Player) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -102,7 +102,7 @@ func (p *Pool) Add(pl *player.Player) {
 	p.insert(pl, randomTimeout(p.cfg.MinTimeoutMs, p.cfg.MaxTimeoutMs))
 }
 
-// Remove 从队列中移除玩家
+// Remove 移除玩家出队
 func (p *Pool) Remove(playerID int64) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -115,31 +115,45 @@ func (p *Pool) Remove(playerID int64) {
 	}
 }
 
-// insert 内部插入，需持锁
+// insert 私有，必须持锁
 func (p *Pool) insert(pl *player.Player, deadline time.Time) {
 	e := &entry{player: pl, deadline: deadline}
 	heap.Push(&p.heap, e)
 	p.entryMap[pl.GetPlayerID()] = e
 }
 
-// runMatchCycle 定时执行匹配
+// runMatchCycle 周期执行匹配任务
 func (p *Pool) runMatchCycle() {
 	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	tables := p.repo.EmptyTables()
+	if len(tables) == 0 {
+		return // 无空桌，跳过匹配
+	}
+
+	// 先弹出所有超时玩家
 	expired := p.popExpired()
-	if len(expired) < p.cfg.MinGroupSize {
-		expired = p.fillFromHeap(expired, p.cfg.MinGroupSize-len(expired))
-	}
-	p.mu.Unlock()
-
 	if len(expired) == 0 {
-		return
+		return // 没有超时玩家，不做匹配
 	}
 
-	// 这里异步批量匹配，避免锁阻塞任务执行
-	p.batchMatch(expired)
+	// 不足最小组，尝试补机器人
+	if len(expired) < p.cfg.MinGroupSize {
+		bots := p.repo.AcquireBots(p.cfg.MinGroupSize - len(expired))
+		if len(bots) < p.cfg.MinGroupSize-len(expired) {
+			// 机器人不足，释放机器人和超时玩家，结束本轮匹配
+			p.repo.ReleaseBots(bots)
+			p.requeue(expired)
+			return
+		}
+		expired = append(expired, bots...)
+	}
+
+	p.batchMatch(tables, expired)
 }
 
-// popExpired 弹出所有超时玩家
+// popExpired 弹出所有截止时间已到的玩家
 func (p *Pool) popExpired() []*player.Player {
 	now := time.Now()
 	var expired []*player.Player
@@ -152,38 +166,8 @@ func (p *Pool) popExpired() []*player.Player {
 	return expired
 }
 
-// fillFromHeap 补充玩家至指定数量
-func (p *Pool) fillFromHeap(group []*player.Player, needed int) []*player.Player {
-	for i := 0; i < needed && p.heap.Len() > 0; i++ {
-		e := heap.Pop(&p.heap).(*entry)
-		delete(p.entryMap, e.player.GetPlayerID())
-		group = append(group, e.player)
-	}
-	return group
-}
-
-// matchTask 封装异步匹配任务，避免闭包引用陷阱
-type matchTask struct {
-	table *table.Table
-	group []*player.Player
-	bots  []*player.Player
-	pool  *Pool
-}
-
-func (t *matchTask) Run() {
-	ok := t.table.JoinGroup(t.group)
-	if !ok {
-		t.pool.repo.ReleaseBots(t.bots)
-		t.pool.requeue(t.group)
-	}
-	// 成功则机器人自动管理，无需释放
-}
-
-// requeue 重新入队玩家
+// requeue 玩家重新入队，带随机延迟避免热点
 func (p *Pool) requeue(players []*player.Player) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	now := time.Now()
 	for _, pl := range players {
 		id := pl.GetPlayerID()
@@ -193,56 +177,81 @@ func (p *Pool) requeue(players []*player.Player) {
 	}
 }
 
-// batchMatch 根据空桌和玩家批量异步提交匹配任务
-func (p *Pool) batchMatch(players []*player.Player) {
-	tables := p.repo.EmptyTables()
+// batchMatch 批量匹配玩家和空桌，异步提交任务
+func (p *Pool) batchMatch(tables []*table.Table, players []*player.Player) {
 	loop := p.repo.GetLoop()
 
-	tableIdx, playerIdx := 0, 0
+	tableIdx := 0
+	playerIdx := 0
 	for tableIdx < len(tables) && playerIdx < len(players) {
+		// 随机决定组大小
 		n := ext.RandIntInclusive(p.cfg.MinGroupSize, p.cfg.MaxGroupSize)
 		end := playerIdx + n
 		if end > len(players) {
 			end = len(players)
 		}
-		group := players[playerIdx:end]
 
-		var bots []*player.Player
+		group := players[playerIdx:end]
 		if len(group) < p.cfg.MinGroupSize {
-			bots = p.repo.AcquireBots(p.cfg.MinGroupSize - len(group))
+			// 组内玩家不足，尝试补机器人
+			bots := p.repo.AcquireBots(p.cfg.MinGroupSize - len(group))
+			if len(bots) < p.cfg.MinGroupSize-len(group) {
+				// 机器人不够，释放已拿机器人，回收玩家和机器人，退出
+				p.repo.ReleaseBots(bots)
+				p.requeue(players[playerIdx:])
+				return
+			}
 			group = append(group, bots...)
 		}
-		if len(group) < p.cfg.MinGroupSize {
-			p.repo.ReleaseBots(bots)
-			break
-		}
+
 		if len(group) > p.cfg.MaxGroupSize {
 			group = group[:p.cfg.MaxGroupSize]
 		}
 
+		// 复制切片防闭包引用问题
 		groupCopy := make([]*player.Player, len(group))
 		copy(groupCopy, group)
 
 		task := &matchTask{
 			table: tables[tableIdx],
 			group: groupCopy,
-			bots:  bots,
+			bots:  nil, // 机器人已合并入groupCopy，交给table处理
 			pool:  p,
 		}
 
-		loop.Post(task.Run)
+		loop.Post(func() {
+			task.Run()
+		})
 
 		playerIdx = end
 		tableIdx++
 	}
 
-	// 剩余玩家重新入队
+	// 未匹配完的玩家重新入队
 	if playerIdx < len(players) {
 		p.requeue(players[playerIdx:])
 	}
 }
 
-// randomTimeout 随机超时截止时间
+type matchTask struct {
+	table *table.Table
+	group []*player.Player
+	bots  []*player.Player
+	pool  *Pool
+}
+
+func (t *matchTask) Run() {
+	defer ext.RecoverFromError(nil)
+
+	ok := t.table.JoinGroup(t.group)
+	if !ok {
+		// 入桌失败，释放机器人，玩家重新入队
+		t.pool.repo.ReleaseBots(t.bots)
+		t.pool.requeue(t.group)
+	}
+}
+
+// randomTimeout 生成随机超时时间点
 func randomTimeout(minMs, maxMs int64) time.Time {
 	ms := ext.RandIntInclusive(minMs, maxMs)
 	return time.Now().Add(time.Duration(ms) * time.Millisecond)
