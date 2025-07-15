@@ -129,27 +129,15 @@ func (p *Pool) runMatchCycle() {
 
 	tables := p.repo.EmptyTables()
 	if len(tables) == 0 {
-		return // 无空桌，跳过匹配
+		return
 	}
 
-	// 先弹出所有超时玩家
 	expired := p.popExpired()
 	if len(expired) == 0 {
-		return // 没有超时玩家，不做匹配
+		return
 	}
 
-	// 不足最小组，尝试补机器人
-	if len(expired) < p.cfg.MinGroupSize {
-		bots := p.repo.AcquireBots(p.cfg.MinGroupSize - len(expired))
-		if len(bots) < p.cfg.MinGroupSize-len(expired) {
-			// 机器人不足，释放机器人和超时玩家，结束本轮匹配
-			p.repo.ReleaseBots(bots)
-			p.requeue(expired)
-			return
-		}
-		expired = append(expired, bots...)
-	}
-
+	// 移除机器人补充逻辑，完全在batchMatch中处理
 	p.batchMatch(tables, expired)
 }
 
@@ -178,44 +166,48 @@ func (p *Pool) requeue(players []*player.Player) {
 }
 
 // batchMatch 批量匹配玩家和空桌，异步提交任务
-func (p *Pool) batchMatch(tables []*table.Table, players []*player.Player) {
+// batchMatch 批量匹配玩家和空桌
+func (p *Pool) batchMatch(tables []*table.Table, realPlayers []*player.Player) {
 	loop := p.repo.GetLoop()
 
 	tableIdx := 0
 	playerIdx := 0
-	for tableIdx < len(tables) && playerIdx < len(players) {
+	for tableIdx < len(tables) && playerIdx < len(realPlayers) {
 		// 随机决定组大小
-		n := ext.RandIntInclusive(p.cfg.MinGroupSize, p.cfg.MaxGroupSize)
-		end := playerIdx + n
-		if end > len(players) {
-			end = len(players)
+		groupSize := ext.RandIntInclusive(p.cfg.MinGroupSize, p.cfg.MaxGroupSize)
+		end := playerIdx + groupSize
+		if end > len(realPlayers) {
+			end = len(realPlayers)
 		}
 
-		group := players[playerIdx:end]
-		if len(group) < p.cfg.MinGroupSize {
-			// 组内玩家不足，尝试补机器人
-			bots := p.repo.AcquireBots(p.cfg.MinGroupSize - len(group))
-			if len(bots) < p.cfg.MinGroupSize-len(group) {
-				// 机器人不够，释放已拿机器人，回收玩家和机器人，退出
+		// 当前组真实玩家
+		groupRealPlayers := realPlayers[playerIdx:end]
+		botNeeded := groupSize - len(groupRealPlayers)
+		var bots []*player.Player
+
+		// 需要补充机器人
+		if botNeeded > 0 {
+			bots = p.repo.AcquireBots(botNeeded)
+			if len(bots) < botNeeded {
+				// 机器人不足：释放已获取的，重入队当前组真实玩家
 				p.repo.ReleaseBots(bots)
-				p.requeue(players[playerIdx:])
-				return
+				p.requeue(groupRealPlayers)
+				playerIdx = end // 跳过当前组
+				break
 			}
-			group = append(group, bots...)
 		}
 
-		if len(group) > p.cfg.MaxGroupSize {
-			group = group[:p.cfg.MaxGroupSize]
-		}
+		// 构建玩家组(真实玩家+机器人)
+		group := make([]*player.Player, 0, len(groupRealPlayers)+len(bots))
+		group = append(group, groupRealPlayers...)
+		group = append(group, bots...)
 
-		// 复制切片防闭包引用问题
-		groupCopy := make([]*player.Player, len(group))
-		copy(groupCopy, group)
-
+		// 创建任务(记录真实玩家和机器人)
 		task := &matchTask{
 			table: tables[tableIdx],
-			group: groupCopy,
-			bots:  nil, // 机器人已合并入groupCopy，交给table处理
+			group: group,
+			real:  groupRealPlayers, // 明确记录真实玩家
+			bots:  bots,             // 明确记录机器人
 			pool:  p,
 		}
 
@@ -227,16 +219,17 @@ func (p *Pool) batchMatch(tables []*table.Table, players []*player.Player) {
 		tableIdx++
 	}
 
-	// 未匹配完的玩家重新入队
-	if playerIdx < len(players) {
-		p.requeue(players[playerIdx:])
+	// 剩余真实玩家重入队
+	if playerIdx < len(realPlayers) {
+		p.requeue(realPlayers[playerIdx:])
 	}
 }
 
 type matchTask struct {
 	table *table.Table
-	group []*player.Player
-	bots  []*player.Player
+	group []*player.Player // 全部玩家(真实+机器人)
+	real  []*player.Player // 仅真实玩家
+	bots  []*player.Player // 仅机器人
 	pool  *Pool
 }
 
@@ -245,9 +238,9 @@ func (t *matchTask) Run() {
 
 	ok := t.table.JoinGroup(t.group)
 	if !ok {
-		// 入桌失败，释放机器人，玩家重新入队
+		// 入桌失败：释放机器人+真实玩家重入队
 		t.pool.repo.ReleaseBots(t.bots)
-		t.pool.requeue(t.group)
+		t.pool.requeue(t.real)
 	}
 }
 
