@@ -1,8 +1,8 @@
 package matching
 
-// Repo 抽象接口
-type Repo interface {
-}
+// // Repo 抽象接口
+// type Repo interface {
+// }
 
 /*
 
@@ -75,7 +75,6 @@ sync.Map + atomic 更适合「稀疏读写、低频更新」的资源池（如 A
 匹配池中的玩家是高频变动的，[]slice + 锁 往往比 sync.Map 更高效；
 能精准控制并发锁粒度，避免被 sync.Map 的全局结构限制
 */
-
 
 /*
 

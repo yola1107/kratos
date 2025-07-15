@@ -1,250 +1,202 @@
 package matching
 
 import (
-	"errors"
-	"math/rand"
-	"sort"
+	"container/heap"
 	"sync"
-	"sync/atomic"
 	"time"
 
+	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/ztest/game/whot/internal/biz/player"
 	"github.com/yola1107/kratos/v2/ztest/game/whot/internal/biz/table"
 )
 
-type MatchConfig struct {
-	MinTimeoutSec int32
-	MaxTimeoutSec int32
-	MinGroupSize  int
-	MaxGroupSize  int
-	CheckInterval time.Duration
+// Repo 抽象接口
+type Repo interface {
+	GetTableList() []*table.Table
+	AcquireIdleAIs(n int) []*player.Player
 }
 
-type MatchEntry struct {
-	Player   *player.Player
-	Deadline time.Time // 超时截止时间，加入匹配时随机生成
+type MatchConfig struct {
+	MinTimeoutMs  int64         // 最小匹配超时时间（毫秒）
+	MaxTimeoutMs  int64         // 最大匹配超时时间（毫秒）
+	MinGroupSize  int           // 每组最少玩家数
+	MaxGroupSize  int           // 每组最多玩家数
+	CheckInterval time.Duration // 匹配检查间隔
 }
 
 type MatchPool struct {
-	mu      sync.Mutex
-	waiting map[int64]*MatchEntry // 玩家ID -> 匹配信息
-	config  MatchConfig
-	tables  []*table.Table
-	ticker  *time.Ticker
-	stop    chan struct{}
-
-	joined   atomic.Int64
-	matched  atomic.Int64
-	canceled atomic.Int64
-	timeouts atomic.Int64
+	repo     Repo
+	cfg      *MatchConfig
+	mu       sync.Mutex
+	heap     matchHeap
+	entryMap map[int64]*heapEntry
+	ticker   *time.Ticker
+	stop     chan struct{}
 }
 
-func NewMatchPool(tables []*table.Table, cfg MatchConfig) (*MatchPool, error) {
-	if cfg.MinTimeoutSec <= 0 || cfg.MaxTimeoutSec < cfg.MinTimeoutSec {
-		return nil, errors.New("invalid timeout config")
-	}
-	if cfg.MinGroupSize <= 0 || cfg.MaxGroupSize < cfg.MinGroupSize {
-		return nil, errors.New("invalid group size config")
-	}
+func NewMatchPool(cfg *MatchConfig, repo Repo) *MatchPool {
 	if cfg.CheckInterval <= 0 {
-		cfg.CheckInterval = 100 * time.Millisecond
+		cfg.CheckInterval = 500 * time.Millisecond
 	}
-
 	return &MatchPool{
-		waiting: make(map[int64]*MatchEntry),
-		tables:  tables,
-		config:  cfg,
-		ticker:  time.NewTicker(cfg.CheckInterval),
-		stop:    make(chan struct{}),
-	}, nil
+		repo:     repo,
+		cfg:      cfg,
+		heap:     make(matchHeap, 0),
+		entryMap: make(map[int64]*heapEntry),
+		ticker:   time.NewTicker(cfg.CheckInterval),
+		stop:     make(chan struct{}),
+	}
 }
 
 func (p *MatchPool) Start() {
 	go p.run()
 }
 
-func (p *MatchPool) Close() {
+func (p *MatchPool) Stop() {
 	close(p.stop)
 	p.ticker.Stop()
 }
 
-// JoinMatch 玩家加入匹配，设置随机超时deadline
-func (p *MatchPool) JoinMatch(pl *player.Player) {
+func (p *MatchPool) Add(pl *player.Player) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-
 	id := pl.GetPlayerID()
-	if _, exists := p.waiting[id]; exists {
-		return // 已经在匹配中，忽略
-	}
-
-	// 生成[minTimeoutSec, maxTimeoutSec]范围内的随机超时秒数
-	timeoutSec := p.config.MinTimeoutSec
-	if p.config.MaxTimeoutSec > p.config.MinTimeoutSec {
-		delta := p.config.MaxTimeoutSec - p.config.MinTimeoutSec + 1
-		timeoutSec = p.config.MinTimeoutSec + int32(rand.Intn(int(delta)))
-	}
-
-	deadline := time.Now().Add(time.Duration(timeoutSec) * time.Second)
-
-	p.waiting[id] = &MatchEntry{
-		Player:   pl,
-		Deadline: deadline,
-	}
-	p.joined.Add(1)
-}
-
-// CancelMatch 取消匹配，立即移除玩家
-func (p *MatchPool) CancelMatch(playerID int64) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	if _, ok := p.waiting[playerID]; !ok {
+	if _, exists := p.entryMap[id]; exists {
 		return
 	}
-	delete(p.waiting, playerID)
-	p.canceled.Add(1)
+	now := time.Now()
+	timeout := ext.RandIntInclusive(p.cfg.MinTimeoutMs, p.cfg.MaxTimeoutMs)
+
+	deadline := now.Add(time.Duration(timeout) * time.Millisecond)
+	e := &heapEntry{player: pl, deadline: deadline}
+	heap.Push(&p.heap, e)
+	p.entryMap[id] = e
+}
+
+func (p *MatchPool) Remove(playerID int64) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if e, ok := p.entryMap[playerID]; ok {
+		heap.Remove(&p.heap, e.index)
+		delete(p.entryMap, playerID)
+	}
 }
 
 func (p *MatchPool) run() {
 	for {
 		select {
-		case <-p.ticker.C:
-			p.tryMatch()
 		case <-p.stop:
+			return
+		case <-p.ticker.C:
+			p.match()
+		}
+	}
+}
+
+func (p *MatchPool) match() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	now := time.Now()
+	var timeoutPlayers []*player.Player
+
+	// 1. 取出所有超时玩家
+	for p.heap.Len() > 0 && p.heap[0].deadline.Before(now) {
+		e := heap.Pop(&p.heap).(*heapEntry)
+		delete(p.entryMap, e.player.GetPlayerID())
+		timeoutPlayers = append(timeoutPlayers, e.player)
+	}
+
+	// 2. 按组分批处理超时玩家
+	for len(timeoutPlayers) > 0 {
+		groupSize := p.cfg.MaxGroupSize
+		if len(timeoutPlayers) < groupSize {
+			groupSize = len(timeoutPlayers)
+		}
+		group := timeoutPlayers[:groupSize]
+		timeoutPlayers = timeoutPlayers[groupSize:]
+
+		if len(group) >= p.cfg.MinGroupSize {
+			p.tryEnterTable(group)
+		} else {
+			// 不足最小组大小，尝试补 AI
+			missing := p.cfg.MinGroupSize - len(group)
+			ais := p.repo.AcquireIdleAIs(missing)
+			group = append(group, ais...)
+			if len(group) >= p.cfg.MinGroupSize {
+				p.tryEnterTable(group)
+			}
+			// 如果补完仍不足，就不管，等下一轮重新入 heap（可选）
+		}
+	}
+
+	// 3. 如果剩余 heap 中玩家数量已满足构建新组，构建一组尝试入桌
+	if len(p.heap) >= p.cfg.MinGroupSize {
+		var all []*player.Player
+		for _, e := range p.heap {
+			all = append(all, e.player)
+		}
+		p.heap = p.heap[:0]
+		p.entryMap = make(map[int64]*heapEntry)
+
+		if len(all) > p.cfg.MaxGroupSize {
+			all = all[:p.cfg.MaxGroupSize]
+		}
+		p.tryEnterTable(all)
+	}
+}
+
+func (p *MatchPool) tryEnterTable(players []*player.Player) {
+	if len(players) == 0 {
+		return
+	}
+	if len(players) < p.cfg.MinGroupSize {
+		missing := p.cfg.MinGroupSize - len(players)
+		ais := p.repo.AcquireIdleAIs(missing)
+		players = append(players, ais...)
+		if len(players) < p.cfg.MinGroupSize {
+			return // 补完仍不够
+		}
+	}
+	if len(players) > p.cfg.MaxGroupSize {
+		players = players[:p.cfg.MaxGroupSize]
+	}
+	for _, t := range p.repo.GetTableList() {
+		if t.JoinGroup(players) {
 			return
 		}
 	}
 }
 
-// tryMatch 尝试匹配玩家
-func (p *MatchPool) tryMatch() {
-	now := time.Now()
-	idleTables := p.getIdleTables()
-	if len(idleTables) == 0 {
-		return
-	}
+// ----------------------- heap ----------------------------
 
-	p.mu.Lock()
-	if len(p.waiting) == 0 {
-		p.mu.Unlock()
-		return
-	}
-
-	// 把 map 转成切片并过滤无效玩家（冗余防护）
-	entries := make([]*MatchEntry, 0, len(p.waiting))
-	for _, entry := range p.waiting {
-		if entry.Player != nil {
-			entries = append(entries, entry)
-		}
-	}
-	p.mu.Unlock()
-
-	// 按deadline排序，先超时的靠前
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].Deadline.Before(entries[j].Deadline)
-	})
-
-	// 超时玩家和正常玩家分离
-	timedOut, normal := p.splitByTimeout(entries, now)
-	p.timeouts.Add(int64(len(timedOut)))
-
-	// 优先匹配超时玩家（组最小为2）
-	matchedGroups := make([]matchGroup, 0)
-	matched, idleTables := p.buildGroups(timedOut, idleTables, p.config.MinGroupSize)
-	matchedGroups = append(matchedGroups, matched...)
-
-	// 其次匹配正常玩家（组最小为 MinGroupSize）
-	if len(idleTables) > 0 {
-		normalMatched, _ := p.buildGroups(normal, idleTables, p.config.MinGroupSize)
-		matchedGroups = append(matchedGroups, normalMatched...)
-	}
-
-	if len(matchedGroups) == 0 {
-		return
-	}
-
-	p.commitMatchedGroups(matchedGroups)
+type heapEntry struct {
+	player   *player.Player
+	deadline time.Time
+	index    int
 }
 
-type matchGroup struct {
-	table   *table.Table
-	players []*player.Player
+type matchHeap []*heapEntry
+
+func (h matchHeap) Len() int           { return len(h) }
+func (h matchHeap) Less(i, j int) bool { return h[i].deadline.Before(h[j].deadline) }
+func (h matchHeap) Swap(i, j int) {
+	h[i], h[j] = h[j], h[i]
+	h[i].index = i
+	h[j].index = j
 }
 
-func (p *MatchPool) getIdleTables() []*table.Table {
-	idle := make([]*table.Table, 0)
-	for _, t := range p.tables {
-		if t.IsIdle() {
-			idle = append(idle, t)
-		}
-	}
-	return idle
+func (h *matchHeap) Push(x any) {
+	e := x.(*heapEntry)
+	e.index = len(*h)
+	*h = append(*h, e)
 }
 
-func (p *MatchPool) splitByTimeout(entries []*MatchEntry, now time.Time) (timedOut, normal []*MatchEntry) {
-	for _, e := range entries {
-		if now.After(e.Deadline) {
-			timedOut = append(timedOut, e)
-		} else {
-			normal = append(normal, e)
-		}
-	}
-	return
-}
-
-func (p *MatchPool) buildGroups(entries []*MatchEntry, tables []*table.Table, minGroup int) (groups []matchGroup, remainTables []*table.Table) {
-	if len(entries) < minGroup || len(tables) == 0 {
-		return nil, tables
-	}
-
-	maxGroup := p.config.MaxGroupSize
-	idx := 0
-	tableIdx := 0
-	for idx < len(entries) && tableIdx < len(tables) {
-		remain := len(entries) - idx
-		groupSize := maxGroup
-		if remain < groupSize {
-			groupSize = remain
-		}
-		if groupSize < minGroup {
-			break
-		}
-		players := make([]*player.Player, groupSize)
-		for i := 0; i < groupSize; i++ {
-			players[i] = entries[idx+i].Player
-		}
-		groups = append(groups, matchGroup{
-			table:   tables[tableIdx],
-			players: players,
-		})
-		idx += groupSize
-		tableIdx++
-	}
-	return groups, tables[tableIdx:]
-}
-
-func (p *MatchPool) commitMatchedGroups(groups []matchGroup) {
-	removedIDs := make(map[int64]struct{})
-
-	for _, g := range groups {
-		if g.table.JoinGroup(g.players) == nil {
-			for _, pl := range g.players {
-				removedIDs[pl.GetPlayerID()] = struct{}{}
-			}
-			p.matched.Add(int64(len(g.players)))
-		}
-	}
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	// 从等待map中移除匹配成功玩家
-	for id := range removedIDs {
-		delete(p.waiting, id)
-	}
-}
-
-func (p *MatchPool) Stats() (joined, matched, canceled, timeouts int64) {
-	return p.joined.Load(), p.matched.Load(), p.canceled.Load(), p.timeouts.Load()
+func (h *matchHeap) Pop() any {
+	old := *h
+	n := len(old)
+	e := old[n-1]
+	e.index = -1
+	*h = old[:n-1]
+	return e
 }
