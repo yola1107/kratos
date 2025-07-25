@@ -60,7 +60,9 @@ tree /f /a > tree.txt
 
 # 端口查询
 lsof -i -P | grep -E ':3102|:3103|:3104|:3105|:3106'
+lsof -nP -iTCP -sTCP:LISTEN | awk '{print $9}' | grep -E ':[7-8][0-9]{3}$'
 watch -n 2 'ss -lntp | awk '\''/:(8000|9000|3102)/ {print $0}'\'
+
 
 # 日志过滤
 tail -F logs/ws-*.log | grep --color=always -E '[a-zA-Z0-9_/.-]+\.go:[0-9]+\]|$'
