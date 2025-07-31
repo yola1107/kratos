@@ -4,7 +4,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/yola1107/kratos/v2/library/ext"
+	"github.com/yola1107/kratos/v2/library/xgo"
 	"github.com/yola1107/kratos/v2/log"
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
@@ -40,12 +40,12 @@ func (r *RobotLogic) markExitNow() {
 
 func (r *RobotLogic) EnterTooShort() bool {
 	elapsedSec := time.Now().Unix() - r.lastEnterUnix.Load()
-	return elapsedSec < int64(ext.RandIntInclusive(EnterMinIntervalSec, EnterMaxIntervalSec))
+	return elapsedSec < int64(xgo.RandIntInclusive(EnterMinIntervalSec, EnterMaxIntervalSec))
 }
 
 func (r *RobotLogic) ExitTooShort() bool {
 	elapsedSec := time.Now().Unix() - r.lastExitUnix.Load()
-	return elapsedSec < int64(ext.RandIntInclusive(ExitMinIntervalSec, ExitMaxIntervalSec))
+	return elapsedSec < int64(xgo.RandIntInclusive(ExitMinIntervalSec, ExitMaxIntervalSec))
 }
 
 // CanEnter 判断机器人是否能进桌
@@ -96,7 +96,7 @@ func (r *RobotLogic) CanExit(p *player.Player) bool {
 	case money >= cfg.StandMaxMoney, money <= cfg.StandMinMoney:
 		return true
 	default:
-		return ext.IsHitFloat(ExitRandChance)
+		return xgo.IsHitFloat(ExitRandChance)
 	}
 }
 
@@ -135,11 +135,11 @@ func (r *RobotLogic) ActivePlayer(p *player.Player, msg proto.Message) {
 
 	op := RandOpWithWeight(ops)               // 按权重随机选操作
 	remaining := s.Remaining().Milliseconds() // 获取剩余操作时间 ms
-	dur := time.Duration(ext.RandInt(1000, remaining*3/4)) * time.Millisecond
+	dur := time.Duration(xgo.RandInt(1000, remaining*3/4)) * time.Millisecond
 	req := &v1.ActionReq{
 		UserID:         p.GetPlayerID(),
 		Action:         op,
-		SideReplyAllow: ext.IsHitFloat(0.5),
+		SideReplyAllow: xgo.IsHitFloat(0.5),
 	}
 
 	r.mTable.repo.GetTimer().Once(dur, func() {
@@ -152,7 +152,7 @@ func (r *RobotLogic) onExit(p *player.Player, _ proto.Message) {
 		return
 	}
 	r.markExitNow() // 记录离桌时间
-	dur := time.Duration(ext.RandInt(ExitMinIntervalSec, ExitMaxIntervalSec)) * time.Second
+	dur := time.Duration(xgo.RandInt(ExitMinIntervalSec, ExitMaxIntervalSec)) * time.Second
 
 	r.mTable.repo.GetTimer().Once(dur, func() {
 		r.mTable.OnExitGame(p, 0, "ai exit")
@@ -190,5 +190,5 @@ func RandOpWithWeight(ops []v1.ACTION) v1.ACTION {
 		return ops[0]
 	}
 
-	return pool[ext.RandIntInclusive(0, len(pool)-1)]
+	return pool[xgo.RandIntInclusive(0, len(pool)-1)]
 }

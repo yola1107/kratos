@@ -1,0 +1,115 @@
+server:
+  http:
+    addr: 0.0.0.0:8000
+    timeout: 1s
+  grpc:
+    addr: 0.0.0.0:9000
+    timeout: 1s
+  tcp:
+    addr: 0.0.0.0:3101
+    timeout: 1s
+  websocket:
+    addr: 0.0.0.0:3102
+    timeout: 1s
+data:
+  database:
+    driver: mysql
+    source: root:root@tcp(192.168.152.128:3306)/test?parseTime=True&loc=Local
+  redis:
+#    addr: 192.168.152.128:6379
+    addr: 127.0.0.1:6379
+    password: ""
+    db: 0
+
+log:
+  telegram:
+    chatID: "-4672893880"
+    token: "7945687310:AAHA9tkUPV1ELEsVSLoDZe_Cc76wp7YdDVI"
+  alerter:
+    enabled: true
+    prefix: "ludo-server"                   # 告警消息前缀，用于标识服务名
+    format: html                           # 默认html格式，可选json格式
+  logger:
+    mode: 1                                # 0:dev 1:prod
+    level: debug                           # 日志级别 "debug", "info", "warn", "error"
+    appName: "ludo-server"
+    directory: "./logs"
+    formatJson: false
+    errorFile: true
+    sensitive: [ "password", "token" ]
+    rotate:
+      maxSizeMB: 100
+      maxBackups: 10
+      maxAgeDays: 7
+      compress: true
+      localTime: true
+
+room:
+  table:
+    tableNum: 1000
+    chairNum: 4
+  game:
+    vid: 1002
+    min_money: 100.0
+    max_money: 10000.0
+    base_money: 100.0
+    auto_ready: true
+    ch_limit: 600.0
+    pot_limit: 800.0
+    see_round: 3
+    auto_see_round: 6
+    fee: 0.2
+    speaker_minmoney: 200.0
+    speaker_card_type: 2
+    high_strength_rate: 30
+  robot:
+    open: true
+    num: 4
+    table_max_count: 4
+    min_play_count: 4        # 预留n个AI自己玩游戏
+    id_begin: 100000
+    min_money: 100.0
+    max_money: 10000.0
+    stand_min_money: 200.0
+    stand_max_money: 8000.0
+    reserveN: 1                # 预留N桌AI自己玩游戏  (废弃)
+  logCache:
+    open: true
+
+
+# 客户端压测配置
+loadTest:
+  log:
+    telegram:
+      chatID: "-4672893880"
+      token: "7945687310:AAHA9tkUPV1ELEsVSLoDZe_Cc76wp7YdDVI"
+    alerter:
+      enabled: true
+      prefix: "ludo-client"                   # 告警消息前缀，用于标识服务名
+      format: html                           # 默认html格式，可选json格式
+    logger:
+      mode: 1                                # 0:dev 1:prod
+      level: debug                           # 日志级别 "debug", "info", "warn", "error"
+      appName: "ludo-client"
+      directory: "./logs"
+      formatJson: false
+      errorFile: false
+      sensitive: []
+      rotate:
+        maxSizeMB: 100
+        maxBackups: 0
+        maxAgeDays: 7
+        compress: true
+        localTime: true
+  press:
+    open: false
+    url: "ws://127.0.0.1:3102/"
+    num: 2
+    batch: [1, 2]
+    interval: 5000   # ms
+    startID: 600000
+    minMoney: 100.0
+    maxMoney: 10000.0
+    logoutRate: 0.15
+    offlineRate: 0.05
+

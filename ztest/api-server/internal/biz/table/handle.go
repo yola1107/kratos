@@ -1,7 +1,7 @@
 package table
 
 import (
-	"github.com/yola1107/kratos/v2/library/ext"
+	"github.com/yola1107/kratos/v2/library/xgo"
 	"github.com/yola1107/kratos/v2/log"
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/calc"
@@ -302,7 +302,7 @@ func (t *Table) canSideShowReply(p *player.Player) ActionRet {
 	if next == nil || !next.IsGaming() || !next.Seen() {
 		return ActionRet{Code: ErrTargetInvalid}
 	}
-	if !ext.SliceContains(next.GetCompareSeats(), p.GetChairID()) {
+	if !xgo.SliceContains(next.GetCompareSeats(), p.GetChairID()) {
 		return ActionRet{Code: ErrTargetInvalid}
 	}
 	return ActionRet{Code: ErrOK, Target: next}

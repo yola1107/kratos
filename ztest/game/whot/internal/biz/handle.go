@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/library/work"
+	"github.com/yola1107/kratos/v2/library/xgo"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/transport/websocket"
 	v1 "github.com/yola1107/kratos/v2/ztest/game/whot/api/helloworld/v1"
@@ -137,7 +137,7 @@ func (uc *Usecase) CreateRobot(raw *player.Raw) (*player.Player, error) {
 		NickName:  fmt.Sprintf("robot_%d", raw.ID),
 		Avatar:    fmt.Sprintf("avatar_%d", raw.ID),
 		AvatarUrl: fmt.Sprintf("avatar_%d", raw.ID),
-		Money:     ext.RandFloat(uc.rc.Game.MinMoney, uc.rc.Game.MaxMoney),
+		Money:     xgo.RandFloat(uc.rc.Game.MinMoney, uc.rc.Game.MaxMoney),
 	}
 	// if err := uc.repo.SavePlayer(context.Background(), base); err != nil {
 	// 	return nil, err
@@ -167,7 +167,7 @@ func (uc *Usecase) createPlayer(raw *player.Raw) (*player.Player, error) {
 				NickName:  fmt.Sprintf("user_%d", raw.ID),
 				Avatar:    fmt.Sprintf("avatar_%d", raw.ID%15),
 				AvatarUrl: fmt.Sprintf("avatar_%d", raw.ID%15),
-				Money:     float64(int64(ext.RandFloat(uc.rc.Game.MinMoney, uc.rc.Game.MaxMoney))),
+				Money:     float64(int64(xgo.RandFloat(uc.rc.Game.MinMoney, uc.rc.Game.MaxMoney))),
 			}
 
 		} else {
@@ -177,7 +177,7 @@ func (uc *Usecase) createPlayer(raw *player.Raw) (*player.Player, error) {
 	}
 
 	if _OpenTest {
-		base.Money = float64(int64(ext.RandFloat(uc.rc.Game.MinMoney, uc.rc.Game.MaxMoney)))
+		base.Money = float64(int64(xgo.RandFloat(uc.rc.Game.MinMoney, uc.rc.Game.MaxMoney)))
 	}
 
 	p.SetBaseData(base)

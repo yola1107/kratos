@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/yola1107/kratos/v2/library/ext"
+	"github.com/yola1107/kratos/v2/library/xgo"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/transport/websocket/proto"
 	gproto "google.golang.org/protobuf/proto"
@@ -117,7 +117,7 @@ func (s *Session) Push(cmd int32, msg gproto.Message) error {
 }
 
 func (s *Session) readLoop() {
-	defer ext.RecoverFromError(nil)
+	defer xgo.RecoverFromError(nil)
 	defer s.Close(false)
 
 	for {

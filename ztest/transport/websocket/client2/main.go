@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/library/log/zap/conf"
+	"github.com/yola1107/kratos/v2/library/xgo"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/middleware/recovery"
 	transgrpc "github.com/yola1107/kratos/v2/transport/grpc"
@@ -161,7 +161,7 @@ func unmarshalProtoMsg(data []byte) string {
 		log.Errorf("err:%+v", err)
 		return fmt.Sprintf("err:%+v", err)
 	}
-	return fmt.Sprintf("%+v", ext.ToJSON(&resp))
+	return fmt.Sprintf("%+v", xgo.ToJSON(&resp))
 }
 
 func descPayload(p *wproto.Payload) string {
@@ -173,5 +173,5 @@ func descPayload(p *wproto.Payload) string {
 		_ = proto.Unmarshal(p.Body, &body)
 	}
 	return fmt.Sprintf("{op=%v place=%d seq=%v code=%v command=%d body=%+v",
-		p.Op, p.Place, p.Seq, p.Code, p.Command, ext.ToJSON(&body))
+		p.Op, p.Place, p.Seq, p.Code, p.Command, xgo.ToJSON(&body))
 }

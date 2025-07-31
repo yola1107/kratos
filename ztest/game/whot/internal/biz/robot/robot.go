@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yola1107/kratos/v2/library/ext"
+	"github.com/yola1107/kratos/v2/library/xgo"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/game/whot/internal/biz/player"
 	"github.com/yola1107/kratos/v2/ztest/game/whot/internal/biz/table"
@@ -187,7 +187,7 @@ func (m *Manager) reset(p *player.Player) {
 	maxMoney := min(m.conf.Robot.MaxMoney, m.conf.Game.MaxMoney)
 	money := p.GetBaseData().Money
 	if money < minMoney || money > maxMoney {
-		p.GetBaseData().Money = float64(int64(ext.RandFloat(minMoney, maxMoney)))
+		p.GetBaseData().Money = float64(int64(xgo.RandFloat(minMoney, maxMoney)))
 	}
 }
 

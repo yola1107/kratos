@@ -1,7 +1,7 @@
 package table
 
 import (
-	"github.com/yola1107/kratos/v2/library/ext"
+	"github.com/yola1107/kratos/v2/library/xgo"
 	"github.com/yola1107/kratos/v2/log"
 )
 
@@ -29,7 +29,7 @@ func (g *GameCards) Init() {
 func (g *GameCards) Shuffle() {
 	g.index = 0
 	for i := 0; i < 3; i++ {
-		ext.SliceShuffle(g.cardHeap)
+		xgo.SliceShuffle(g.cardHeap)
 	}
 }
 
@@ -41,5 +41,5 @@ func (g *GameCards) DispatchCards(n int) []int32 {
 
 	start := g.index
 	g.index += n
-	return ext.SliceCopy(g.cardHeap[start:g.index])
+	return xgo.SliceCopy(g.cardHeap[start:g.index])
 }

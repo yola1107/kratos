@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/library/log/file"
+	"github.com/yola1107/kratos/v2/library/xgo"
 	v1 "github.com/yola1107/kratos/v2/ztest/game/whot/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/game/whot/internal/biz/player"
 	"github.com/yola1107/kratos/v2/ztest/game/whot/internal/conf"
@@ -71,7 +71,7 @@ func (l *Log) begin(tb string, bet float64, seats []*player.Player, infos any) {
 }
 
 func (l *Log) activePush(p *player.Player, currCard int32, pending *v1.Pending, canOp []*v1.ActionOption) {
-	l.write("[操作通知] 玩家:%+v curr=%d, pending=%v, canOp=%v", p.Desc(), currCard, descPendingEffect(pending), ext.ToJSON(canOp))
+	l.write("[操作通知] 玩家:%+v curr=%d, pending=%v, canOp=%v", p.Desc(), currCard, descPendingEffect(pending), xgo.ToJSON(canOp))
 }
 
 func (l *Log) stage(s string, active int32) {

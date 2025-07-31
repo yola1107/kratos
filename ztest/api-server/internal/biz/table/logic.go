@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yola1107/kratos/v2/library/ext"
+	"github.com/yola1107/kratos/v2/library/xgo"
 	"github.com/yola1107/kratos/v2/log"
 	v1 "github.com/yola1107/kratos/v2/ztest/api-server/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
@@ -222,7 +222,7 @@ func (t *Table) intoGaming(seats []*player.Player) {
 
 // 计算庄家位置
 func (t *Table) calcBanker(seats []*player.Player) {
-	idx := ext.RandInt(0, len(seats))
+	idx := xgo.RandInt(0, len(seats))
 	t.banker = seats[int32(idx)].GetChairID()
 	t.curRound = 1
 	t.active = t.banker

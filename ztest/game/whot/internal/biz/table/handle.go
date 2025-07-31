@@ -3,7 +3,7 @@ package table
 import (
 	"fmt"
 
-	"github.com/yola1107/kratos/v2/library/ext"
+	"github.com/yola1107/kratos/v2/library/xgo"
 	"github.com/yola1107/kratos/v2/log"
 	v1 "github.com/yola1107/kratos/v2/ztest/game/whot/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/game/whot/internal/biz/player"
@@ -45,13 +45,13 @@ func (t *Table) OnPlayerActionReq(p *player.Player, in *v1.PlayerActionReq, time
 	}
 
 	infoReq := fmt.Sprintf("p=%v, curr=%v, req=%v, pending=%v, Timeout=%v",
-		p.Desc(), t.currCard, ext.ToJSON(in), descPendingEffect(t.pending), timeout)
+		p.Desc(), t.currCard, xgo.ToJSON(in), descPendingEffect(t.pending), timeout)
 	log.Debugf("onActionReq. %v", infoReq)
 
 	switch in.Action {
 	case v1.ACTION_PLAY_CARD:
 		if !t.canOutCard(t.currCard, p.GetCards(), in.OutCard) {
-			log.Errorf("playCard err: %v, canOp=%v", infoReq, ext.ToJSON(t.getCanOp(p)))
+			log.Errorf("playCard err: %v, canOp=%v", infoReq, xgo.ToJSON(t.getCanOp(p)))
 			return false
 		}
 		t.onPlayCard(p, in.OutCard, timeout)

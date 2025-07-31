@@ -21,64 +21,56 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// 游戏命令类型枚举
 type GameCommand int32
 
 const (
 	GameCommand_NONE GameCommand = 0
-	// push 消息（1~19）
-	GameCommand_MsRoomInfo         GameCommand = 1 // 初始化房间
-	GameCommand_MsUserEnterRoom    GameCommand = 2 // 玩家进入房间
-	GameCommand_MsFaPush           GameCommand = 3 // 发牌结果推送
-	GameCommand_MsActivePush       GameCommand = 4 // 通知操作玩家
-	GameCommand_MsResultPush       GameCommand = 5 // 结算
-	GameCommand_MsMarketResultPush GameCommand = 6 // 14牌：摸牌结果推送
-	// 客户端 -> 服务器（20~39）
-	GameCommand_MsC2SBetScore   GameCommand = 20 // 玩家下注  todo: 感觉可直接去掉
-	GameCommand_MsC2SLastCard   GameCommand = 21 // 最后一张宣告
-	GameCommand_MsC2SUserAction GameCommand = 22 // 玩家操作请求
-	GameCommand_MsC2SLeavRoom   GameCommand = 23 // 玩家离开房间
-	// 服务器 -> 客户端（120~139）
-	GameCommand_MsS2CBetScore   GameCommand = 120
-	GameCommand_MsS2CLastCard   GameCommand = 121
-	GameCommand_MsS2CUserAction GameCommand = 122
-	GameCommand_MsS2CLeavRoom   GameCommand = 123
+	// 服务器主动推送（1~19）
+	GameCommand_MsRoomInfoPush      GameCommand = 1 //房间信息推送
+	GameCommand_MsUserEnterRoomPush GameCommand = 2 //玩家进入房间推送
+	GameCommand_MsFaPush            GameCommand = 3 //发牌阶段推送
+	GameCommand_MsActivePush        GameCommand = 4 //当前玩家操作推送
+	GameCommand_MsResultPush        GameCommand = 5 //结算结果推送
+	GameCommand_MsMarketResultPush  GameCommand = 6 //14牌：摸牌结果推送
+	GameCommand_MsLastCardPush      GameCommand = 7 //宣告最后一张推送
+	// 客户端请求（20~39）
+	GameCommand_MsUserActionReq GameCommand = 22 //玩家操作请求
+	GameCommand_MsLeaveRoomReq  GameCommand = 23 //退出房间请求
+	// 服务器响应（120~139）
+	GameCommand_MsUserActionRsp GameCommand = 122 //玩家操作响应
+	GameCommand_MsLeaveRoomRsp  GameCommand = 123 //退出房间响应
 )
 
 // Enum value maps for GameCommand.
 var (
 	GameCommand_name = map[int32]string{
 		0:   "NONE",
-		1:   "MsRoomInfo",
-		2:   "MsUserEnterRoom",
+		1:   "MsRoomInfoPush",
+		2:   "MsUserEnterRoomPush",
 		3:   "MsFaPush",
 		4:   "MsActivePush",
 		5:   "MsResultPush",
 		6:   "MsMarketResultPush",
-		20:  "MsC2SBetScore",
-		21:  "MsC2SLastCard",
-		22:  "MsC2SUserAction",
-		23:  "MsC2SLeavRoom",
-		120: "MsS2CBetScore",
-		121: "MsS2CLastCard",
-		122: "MsS2CUserAction",
-		123: "MsS2CLeavRoom",
+		7:   "MsLastCardPush",
+		22:  "MsUserActionReq",
+		23:  "MsLeaveRoomReq",
+		122: "MsUserActionRsp",
+		123: "MsLeaveRoomRsp",
 	}
 	GameCommand_value = map[string]int32{
-		"NONE":               0,
-		"MsRoomInfo":         1,
-		"MsUserEnterRoom":    2,
-		"MsFaPush":           3,
-		"MsActivePush":       4,
-		"MsResultPush":       5,
-		"MsMarketResultPush": 6,
-		"MsC2SBetScore":      20,
-		"MsC2SLastCard":      21,
-		"MsC2SUserAction":    22,
-		"MsC2SLeavRoom":      23,
-		"MsS2CBetScore":      120,
-		"MsS2CLastCard":      121,
-		"MsS2CUserAction":    122,
-		"MsS2CLeavRoom":      123,
+		"NONE":                0,
+		"MsRoomInfoPush":      1,
+		"MsUserEnterRoomPush": 2,
+		"MsFaPush":            3,
+		"MsActivePush":        4,
+		"MsResultPush":        5,
+		"MsMarketResultPush":  6,
+		"MsLastCardPush":      7,
+		"MsUserActionReq":     22,
+		"MsLeaveRoomReq":      23,
+		"MsUserActionRsp":     122,
+		"MsLeaveRoomRsp":      123,
 	}
 )
 
@@ -109,15 +101,14 @@ func (GameCommand) EnumDescriptor() ([]byte, []int) {
 	return file_helloworld_api_api_proto_rawDescGZIP(), []int{0}
 }
 
-// 玩家动作类型
+// 玩家可执行操作类型
 type ACTION int32
 
 const (
-	ACTION_ACTION_NULL  ACTION = 0
+	ACTION_ACTION_NULL  ACTION = 0 //无操作
 	ACTION_PLAY_CARD    ACTION = 1 //出牌
-	ACTION_DRAW_CARD    ACTION = 2 //摸牌
+	ACTION_DRAW_CARD    ACTION = 2 //抓牌
 	ACTION_DECLARE_SUIT ACTION = 3 //声明花色
-	ACTION_SKIP_TURN    ACTION = 4 //跳过回合
 )
 
 // Enum value maps for ACTION.
@@ -127,14 +118,12 @@ var (
 		1: "PLAY_CARD",
 		2: "DRAW_CARD",
 		3: "DECLARE_SUIT",
-		4: "SKIP_TURN",
 	}
 	ACTION_value = map[string]int32{
 		"ACTION_NULL":  0,
 		"PLAY_CARD":    1,
 		"DRAW_CARD":    2,
 		"DECLARE_SUIT": 3,
-		"SKIP_TURN":    4,
 	}
 )
 
@@ -165,94 +154,35 @@ func (ACTION) EnumDescriptor() ([]byte, []int) {
 	return file_helloworld_api_api_proto_rawDescGZIP(), []int{1}
 }
 
-// 花色定义
-type SUIT_TYPE int32
-
-const (
-	SUIT_TYPE_SUIT_NONE     SUIT_TYPE = 0
-	SUIT_TYPE_SUIT_CIRCLE   SUIT_TYPE = 1
-	SUIT_TYPE_SUIT_CROSS    SUIT_TYPE = 2
-	SUIT_TYPE_SUIT_TRIANGLE SUIT_TYPE = 3
-	SUIT_TYPE_SUIT_STAR     SUIT_TYPE = 4
-	SUIT_TYPE_SUIT_WHOT     SUIT_TYPE = 5
-)
-
-// Enum value maps for SUIT_TYPE.
-var (
-	SUIT_TYPE_name = map[int32]string{
-		0: "SUIT_NONE",
-		1: "SUIT_CIRCLE",
-		2: "SUIT_CROSS",
-		3: "SUIT_TRIANGLE",
-		4: "SUIT_STAR",
-		5: "SUIT_WHOT",
-	}
-	SUIT_TYPE_value = map[string]int32{
-		"SUIT_NONE":     0,
-		"SUIT_CIRCLE":   1,
-		"SUIT_CROSS":    2,
-		"SUIT_TRIANGLE": 3,
-		"SUIT_STAR":     4,
-		"SUIT_WHOT":     5,
-	}
-)
-
-func (x SUIT_TYPE) Enum() *SUIT_TYPE {
-	p := new(SUIT_TYPE)
-	*p = x
-	return p
-}
-
-func (x SUIT_TYPE) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (SUIT_TYPE) Descriptor() protoreflect.EnumDescriptor {
-	return file_helloworld_api_api_proto_enumTypes[2].Descriptor()
-}
-
-func (SUIT_TYPE) Type() protoreflect.EnumType {
-	return &file_helloworld_api_api_proto_enumTypes[2]
-}
-
-func (x SUIT_TYPE) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use SUIT_TYPE.Descriptor instead.
-func (SUIT_TYPE) EnumDescriptor() ([]byte, []int) {
-	return file_helloworld_api_api_proto_rawDescGZIP(), []int{2}
-}
-
-// 牌的效果类型
+// 牌效果类型
 type CARD_EFFECT int32
 
 const (
-	CARD_EFFECT_EFFECT_NORMAL      CARD_EFFECT = 0
-	CARD_EFFECT_EFFECT_EXTRA_TURN  CARD_EFFECT = 1
-	CARD_EFFECT_EFFECT_DRAW_TWO    CARD_EFFECT = 2
-	CARD_EFFECT_EFFECT_SKIP_NEXT   CARD_EFFECT = 3
-	CARD_EFFECT_EFFECT_MARKET_PICK CARD_EFFECT = 4
-	CARD_EFFECT_EFFECT_WILD_CARD   CARD_EFFECT = 5
+	CARD_EFFECT_NORMAL   CARD_EFFECT = 0
+	CARD_EFFECT_HOLD_ON  CARD_EFFECT = 1 //1：立即再出一张
+	CARD_EFFECT_PICK_TWO CARD_EFFECT = 2 //2：下家抽两张并跳过
+	CARD_EFFECT_SUSPEND  CARD_EFFECT = 3 //8：跳过下家
+	CARD_EFFECT_MARKET   CARD_EFFECT = 4 //14：除当前玩家外，其他人各抽一张
+	CARD_EFFECT_WHOT     CARD_EFFECT = 5 //20：万能（可声明花色；不可终止2/8连锁）
 )
 
 // Enum value maps for CARD_EFFECT.
 var (
 	CARD_EFFECT_name = map[int32]string{
-		0: "EFFECT_NORMAL",
-		1: "EFFECT_EXTRA_TURN",
-		2: "EFFECT_DRAW_TWO",
-		3: "EFFECT_SKIP_NEXT",
-		4: "EFFECT_MARKET_PICK",
-		5: "EFFECT_WILD_CARD",
+		0: "NORMAL",
+		1: "HOLD_ON",
+		2: "PICK_TWO",
+		3: "SUSPEND",
+		4: "MARKET",
+		5: "WHOT",
 	}
 	CARD_EFFECT_value = map[string]int32{
-		"EFFECT_NORMAL":      0,
-		"EFFECT_EXTRA_TURN":  1,
-		"EFFECT_DRAW_TWO":    2,
-		"EFFECT_SKIP_NEXT":   3,
-		"EFFECT_MARKET_PICK": 4,
-		"EFFECT_WILD_CARD":   5,
+		"NORMAL":   0,
+		"HOLD_ON":  1,
+		"PICK_TWO": 2,
+		"SUSPEND":  3,
+		"MARKET":   4,
+		"WHOT":     5,
 	}
 )
 
@@ -267,11 +197,11 @@ func (x CARD_EFFECT) String() string {
 }
 
 func (CARD_EFFECT) Descriptor() protoreflect.EnumDescriptor {
-	return file_helloworld_api_api_proto_enumTypes[3].Descriptor()
+	return file_helloworld_api_api_proto_enumTypes[2].Descriptor()
 }
 
 func (CARD_EFFECT) Type() protoreflect.EnumType {
-	return &file_helloworld_api_api_proto_enumTypes[3]
+	return &file_helloworld_api_api_proto_enumTypes[2]
 }
 
 func (x CARD_EFFECT) Number() protoreflect.EnumNumber {
@@ -280,40 +210,102 @@ func (x CARD_EFFECT) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use CARD_EFFECT.Descriptor instead.
 func (CARD_EFFECT) EnumDescriptor() ([]byte, []int) {
+	return file_helloworld_api_api_proto_rawDescGZIP(), []int{2}
+}
+
+// 花色类型
+type SUIT int32
+
+const (
+	SUIT_INVALID   SUIT = 0
+	SUIT_CIRCLE    SUIT = 1
+	SUIT_TRIANGLE  SUIT = 2
+	SUIT_CROSS     SUIT = 3
+	SUIT_SQUARE    SUIT = 4
+	SUIT_STAR      SUIT = 5
+	SUIT_SUIT_WHOT SUIT = 6
+)
+
+// Enum value maps for SUIT.
+var (
+	SUIT_name = map[int32]string{
+		0: "INVALID",
+		1: "CIRCLE",
+		2: "TRIANGLE",
+		3: "CROSS",
+		4: "SQUARE",
+		5: "STAR",
+		6: "SUIT_WHOT",
+	}
+	SUIT_value = map[string]int32{
+		"INVALID":   0,
+		"CIRCLE":    1,
+		"TRIANGLE":  2,
+		"CROSS":     3,
+		"SQUARE":    4,
+		"STAR":      5,
+		"SUIT_WHOT": 6,
+	}
+)
+
+func (x SUIT) Enum() *SUIT {
+	p := new(SUIT)
+	*p = x
+	return p
+}
+
+func (x SUIT) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SUIT) Descriptor() protoreflect.EnumDescriptor {
+	return file_helloworld_api_api_proto_enumTypes[3].Descriptor()
+}
+
+func (SUIT) Type() protoreflect.EnumType {
+	return &file_helloworld_api_api_proto_enumTypes[3]
+}
+
+func (x SUIT) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SUIT.Descriptor instead.
+func (SUIT) EnumDescriptor() ([]byte, []int) {
 	return file_helloworld_api_api_proto_rawDescGZIP(), []int{3}
 }
 
-// 场景消息
-type RoomInfo struct {
+// 房间信息推送，通知所有玩家当前房间状态
+type RoomInfoPush struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	PlayerInfo    []*UserEnterRoom       `protobuf:"bytes,1,rep,name=playerInfo,proto3" json:"playerInfo,omitempty"`                       //玩家信息
-	Banner        int64                  `protobuf:"varint,2,opt,name=banner,proto3" json:"banner,omitempty"`                              //庄家
-	CurUid        int64                  `protobuf:"varint,3,opt,name=curUid,proto3" json:"curUid,omitempty"`                              //操作当前玩家
-	Ticker        int64                  `protobuf:"varint,4,opt,name=ticker,proto3" json:"ticker,omitempty"`                              //发言倒计时时长
-	BaseScore     float64                `protobuf:"fixed64,5,opt,name=baseScore,proto3" json:"baseScore,omitempty"`                       //入场底分
-	CurrCard      int32                  `protobuf:"varint,6,opt,name=currCard,proto3" json:"currCard,omitempty"`                          //当前牌（花色*100 + 牌值, 如whot牌=620）
-	DeclareSuit   SUIT_TYPE              `protobuf:"varint,7,opt,name=declareSuit,proto3,enum=api.SUIT_TYPE" json:"declareSuit,omitempty"` //是否有玩家正在申明的花色 (玩家打出whot牌后当前可继续操作)
-	LeftNum       int32                  `protobuf:"varint,8,opt,name=leftNum,proto3" json:"leftNum,omitempty"`                            //剩余牌堆牌数
-	Pending       *Pending               `protobuf:"bytes,9,opt,name=pending,proto3" json:"pending,omitempty"`                             //当前待处理动作响应（如等待反击,等待声明花色）
-	GameState     int32                  `protobuf:"varint,15,opt,name=gameState,proto3" json:"gameState,omitempty"`                       //房间游戏阶段
+	PlayerInfo    []*UserEnterRoomPush   `protobuf:"bytes,1,rep,name=playerInfo,proto3" json:"playerInfo,omitempty"`                  //房间内玩家信息列表
+	Banner        int64                  `protobuf:"varint,2,opt,name=banner,proto3" json:"banner,omitempty"`                         //庄家
+	CurUid        int64                  `protobuf:"varint,3,opt,name=curUid,proto3" json:"curUid,omitempty"`                         //当前轮到玩家的uid
+	Ticker        int64                  `protobuf:"varint,4,opt,name=ticker,proto3" json:"ticker,omitempty"`                         //游戏计时器(当前游戏状态下的剩余时间)
+	BaseScore     float64                `protobuf:"fixed64,5,opt,name=baseScore,proto3" json:"baseScore,omitempty"`                  //底分
+	CurrCard      int32                  `protobuf:"varint,6,opt,name=currCard,proto3" json:"currCard,omitempty"`                     //当前牌
+	DeclareSuit   SUIT                   `protobuf:"varint,7,opt,name=declareSuit,proto3,enum=api.SUIT" json:"declareSuit,omitempty"` //当前声明的花色
+	LeftNum       int32                  `protobuf:"varint,8,opt,name=leftNum,proto3" json:"leftNum,omitempty"`                       //剩余牌数(总牌堆)
+	Pending       *Pending               `protobuf:"bytes,9,opt,name=pending,proto3" json:"pending,omitempty"`                        //待处理效果信息
+	GameState     int32                  `protobuf:"varint,10,opt,name=gameState,proto3" json:"gameState,omitempty"`                  //当前游戏状态
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *RoomInfo) Reset() {
-	*x = RoomInfo{}
+func (x *RoomInfoPush) Reset() {
+	*x = RoomInfoPush{}
 	mi := &file_helloworld_api_api_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *RoomInfo) String() string {
+func (x *RoomInfoPush) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*RoomInfo) ProtoMessage() {}
+func (*RoomInfoPush) ProtoMessage() {}
 
-func (x *RoomInfo) ProtoReflect() protoreflect.Message {
+func (x *RoomInfoPush) ProtoReflect() protoreflect.Message {
 	mi := &file_helloworld_api_api_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -325,110 +317,113 @@ func (x *RoomInfo) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use RoomInfo.ProtoReflect.Descriptor instead.
-func (*RoomInfo) Descriptor() ([]byte, []int) {
+// Deprecated: Use RoomInfoPush.ProtoReflect.Descriptor instead.
+func (*RoomInfoPush) Descriptor() ([]byte, []int) {
 	return file_helloworld_api_api_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *RoomInfo) GetPlayerInfo() []*UserEnterRoom {
+func (x *RoomInfoPush) GetPlayerInfo() []*UserEnterRoomPush {
 	if x != nil {
 		return x.PlayerInfo
 	}
 	return nil
 }
 
-func (x *RoomInfo) GetBanner() int64 {
+func (x *RoomInfoPush) GetBanner() int64 {
 	if x != nil {
 		return x.Banner
 	}
 	return 0
 }
 
-func (x *RoomInfo) GetCurUid() int64 {
+func (x *RoomInfoPush) GetCurUid() int64 {
 	if x != nil {
 		return x.CurUid
 	}
 	return 0
 }
 
-func (x *RoomInfo) GetTicker() int64 {
+func (x *RoomInfoPush) GetTicker() int64 {
 	if x != nil {
 		return x.Ticker
 	}
 	return 0
 }
 
-func (x *RoomInfo) GetBaseScore() float64 {
+func (x *RoomInfoPush) GetBaseScore() float64 {
 	if x != nil {
 		return x.BaseScore
 	}
 	return 0
 }
 
-func (x *RoomInfo) GetCurrCard() int32 {
+func (x *RoomInfoPush) GetCurrCard() int32 {
 	if x != nil {
 		return x.CurrCard
 	}
 	return 0
 }
 
-func (x *RoomInfo) GetDeclareSuit() SUIT_TYPE {
+func (x *RoomInfoPush) GetDeclareSuit() SUIT {
 	if x != nil {
 		return x.DeclareSuit
 	}
-	return SUIT_TYPE_SUIT_NONE
+	return SUIT_INVALID
 }
 
-func (x *RoomInfo) GetLeftNum() int32 {
+func (x *RoomInfoPush) GetLeftNum() int32 {
 	if x != nil {
 		return x.LeftNum
 	}
 	return 0
 }
 
-func (x *RoomInfo) GetPending() *Pending {
+func (x *RoomInfoPush) GetPending() *Pending {
 	if x != nil {
 		return x.Pending
 	}
 	return nil
 }
 
-func (x *RoomInfo) GetGameState() int32 {
+func (x *RoomInfoPush) GetGameState() int32 {
 	if x != nil {
 		return x.GameState
 	}
 	return 0
 }
 
-// 玩家进房
-type UserEnterRoom struct {
+// 玩家进入房间推送，通知其他玩家新玩家加入
+type UserEnterRoomPush struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Uid           int64                  `protobuf:"varint,1,opt,name=uid,proto3" json:"uid,omitempty"`               //玩家uid
-	Head          int32                  `protobuf:"varint,2,opt,name=head,proto3" json:"head,omitempty"`             //头像id
-	UserName      string                 `protobuf:"bytes,3,opt,name=userName,proto3" json:"userName,omitempty"`      //暂时先随便传
-	Seat          int32                  `protobuf:"varint,4,opt,name=seat,proto3" json:"seat,omitempty"`             //座位号
-	Score         int64                  `protobuf:"varint,5,opt,name=score,proto3" json:"score,omitempty"`           //玩家金币
-	CanOp         []*ActionOption        `protobuf:"bytes,7,rep,name=canOp,proto3" json:"canOp,omitempty"`            //当前玩家允许的操作
-	GameState     int32                  `protobuf:"varint,8,opt,name=gameState,proto3" json:"gameState,omitempty"`   //玩家游戏状态
-	ResultInfo    *ResultPush            `protobuf:"bytes,11,opt,name=resultInfo,proto3" json:"resultInfo,omitempty"` //结算信息（当RoomInfo中的gameState为游戏结束阶段时处理该字段）
+	Uid           int64                  `protobuf:"varint,1,opt,name=uid,proto3" json:"uid,omitempty"`              //玩家ID
+	Head          int32                  `protobuf:"varint,2,opt,name=head,proto3" json:"head,omitempty"`            //玩家头像索引
+	UserName      string                 `protobuf:"bytes,3,opt,name=userName,proto3" json:"userName,omitempty"`     //玩家昵称
+	Seat          int32                  `protobuf:"varint,4,opt,name=seat,proto3" json:"seat,omitempty"`            //座位号
+	Score         int64                  `protobuf:"varint,5,opt,name=score,proto3" json:"score,omitempty"`          //当前积分
+	CanOp         []*ActionOption        `protobuf:"bytes,6,rep,name=canOp,proto3" json:"canOp,omitempty"`           //当前可执行操作选项
+	GameState     int32                  `protobuf:"varint,7,opt,name=gameState,proto3" json:"gameState,omitempty"`  //游戏状态
+	ResultInfo    *ResultPush            `protobuf:"bytes,8,opt,name=resultInfo,proto3" json:"resultInfo,omitempty"` //结算信息（若有）
+	Cards         []int32                `protobuf:"varint,9,rep,packed,name=cards,proto3" json:"cards,omitempty"`   //自己的手牌列表
+	HandsNum      int32                  `protobuf:"varint,10,opt,name=handsNum,proto3" json:"handsNum,omitempty"`   //手牌数量
+	PickTip       int32                  `protobuf:"varint,11,opt,name=pickTip,proto3" json:"pickTip,omitempty"`     //若本回合是被 2 惩罚，客户端可用于 UI 提示 0:没有,1:有
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *UserEnterRoom) Reset() {
-	*x = UserEnterRoom{}
+func (x *UserEnterRoomPush) Reset() {
+	*x = UserEnterRoomPush{}
 	mi := &file_helloworld_api_api_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *UserEnterRoom) String() string {
+func (x *UserEnterRoomPush) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*UserEnterRoom) ProtoMessage() {}
+func (*UserEnterRoomPush) ProtoMessage() {}
 
-func (x *UserEnterRoom) ProtoReflect() protoreflect.Message {
+func (x *UserEnterRoomPush) ProtoReflect() protoreflect.Message {
 	mi := &file_helloworld_api_api_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -440,92 +435,113 @@ func (x *UserEnterRoom) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use UserEnterRoom.ProtoReflect.Descriptor instead.
-func (*UserEnterRoom) Descriptor() ([]byte, []int) {
+// Deprecated: Use UserEnterRoomPush.ProtoReflect.Descriptor instead.
+func (*UserEnterRoomPush) Descriptor() ([]byte, []int) {
 	return file_helloworld_api_api_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *UserEnterRoom) GetUid() int64 {
+func (x *UserEnterRoomPush) GetUid() int64 {
 	if x != nil {
 		return x.Uid
 	}
 	return 0
 }
 
-func (x *UserEnterRoom) GetHead() int32 {
+func (x *UserEnterRoomPush) GetHead() int32 {
 	if x != nil {
 		return x.Head
 	}
 	return 0
 }
 
-func (x *UserEnterRoom) GetUserName() string {
+func (x *UserEnterRoomPush) GetUserName() string {
 	if x != nil {
 		return x.UserName
 	}
 	return ""
 }
 
-func (x *UserEnterRoom) GetSeat() int32 {
+func (x *UserEnterRoomPush) GetSeat() int32 {
 	if x != nil {
 		return x.Seat
 	}
 	return 0
 }
 
-func (x *UserEnterRoom) GetScore() int64 {
+func (x *UserEnterRoomPush) GetScore() int64 {
 	if x != nil {
 		return x.Score
 	}
 	return 0
 }
 
-func (x *UserEnterRoom) GetCanOp() []*ActionOption {
+func (x *UserEnterRoomPush) GetCanOp() []*ActionOption {
 	if x != nil {
 		return x.CanOp
 	}
 	return nil
 }
 
-func (x *UserEnterRoom) GetGameState() int32 {
+func (x *UserEnterRoomPush) GetGameState() int32 {
 	if x != nil {
 		return x.GameState
 	}
 	return 0
 }
 
-func (x *UserEnterRoom) GetResultInfo() *ResultPush {
+func (x *UserEnterRoomPush) GetResultInfo() *ResultPush {
 	if x != nil {
 		return x.ResultInfo
 	}
 	return nil
 }
 
-// 发牌
-type StageFa struct {
+func (x *UserEnterRoomPush) GetCards() []int32 {
+	if x != nil {
+		return x.Cards
+	}
+	return nil
+}
+
+func (x *UserEnterRoomPush) GetHandsNum() int32 {
+	if x != nil {
+		return x.HandsNum
+	}
+	return 0
+}
+
+func (x *UserEnterRoomPush) GetPickTip() int32 {
+	if x != nil {
+		return x.PickTip
+	}
+	return 0
+}
+
+// 发牌阶段推送，通知当前发牌信息
+type StageFaPush struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	BankerUid     int64                  `protobuf:"varint,1,opt,name=bankerUid,proto3" json:"bankerUid,omitempty"` //庄家uid
-	FirstCard     int32                  `protobuf:"varint,2,opt,name=firstCard,proto3" json:"firstCard,omitempty"` //第一张弃牌
-	LeftNum       int32                  `protobuf:"varint,3,opt,name=leftNum,proto3" json:"leftNum,omitempty"`     //剩余牌数
-	UserBet       []*FaBet               `protobuf:"bytes,4,rep,name=userBet,proto3" json:"userBet,omitempty"`      //手牌信息
+	BankerUid     int64                  `protobuf:"varint,1,opt,name=bankerUid,proto3" json:"bankerUid,omitempty"` //庄家UID
+	FirstCard     int32                  `protobuf:"varint,2,opt,name=firstCard,proto3" json:"firstCard,omitempty"` //第一张牌
+	LeftNum       int32                  `protobuf:"varint,3,opt,name=leftNum,proto3" json:"leftNum,omitempty"`     //剩余牌数(总牌堆)
+	UserBet       []*FaBet               `protobuf:"bytes,4,rep,name=userBet,proto3" json:"userBet,omitempty"`      //玩家下注列表
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *StageFa) Reset() {
-	*x = StageFa{}
+func (x *StageFaPush) Reset() {
+	*x = StageFaPush{}
 	mi := &file_helloworld_api_api_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *StageFa) String() string {
+func (x *StageFaPush) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*StageFa) ProtoMessage() {}
+func (*StageFaPush) ProtoMessage() {}
 
-func (x *StageFa) ProtoReflect() protoreflect.Message {
+func (x *StageFaPush) ProtoReflect() protoreflect.Message {
 	mi := &file_helloworld_api_api_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -537,46 +553,47 @@ func (x *StageFa) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use StageFa.ProtoReflect.Descriptor instead.
-func (*StageFa) Descriptor() ([]byte, []int) {
+// Deprecated: Use StageFaPush.ProtoReflect.Descriptor instead.
+func (*StageFaPush) Descriptor() ([]byte, []int) {
 	return file_helloworld_api_api_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *StageFa) GetBankerUid() int64 {
+func (x *StageFaPush) GetBankerUid() int64 {
 	if x != nil {
 		return x.BankerUid
 	}
 	return 0
 }
 
-func (x *StageFa) GetFirstCard() int32 {
+func (x *StageFaPush) GetFirstCard() int32 {
 	if x != nil {
 		return x.FirstCard
 	}
 	return 0
 }
 
-func (x *StageFa) GetLeftNum() int32 {
+func (x *StageFaPush) GetLeftNum() int32 {
 	if x != nil {
 		return x.LeftNum
 	}
 	return 0
 }
 
-func (x *StageFa) GetUserBet() []*FaBet {
+func (x *StageFaPush) GetUserBet() []*FaBet {
 	if x != nil {
 		return x.UserBet
 	}
 	return nil
 }
 
+// 玩家下注信息
 type FaBet struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Uid           int64                  `protobuf:"varint,1,opt,name=uid,proto3" json:"uid,omitempty"`            //玩家uid
-	Betscore      int64                  `protobuf:"varint,2,opt,name=betscore,proto3" json:"betscore,omitempty"`  //玩家下注金币
-	Score         int64                  `protobuf:"varint,3,opt,name=score,proto3" json:"score,omitempty"`        //玩家身上金币
-	HandsNum      int32                  `protobuf:"varint,4,opt,name=handsNum,proto3" json:"handsNum,omitempty"`  //手牌张数
-	Cards         []int32                `protobuf:"varint,5,rep,packed,name=cards,proto3" json:"cards,omitempty"` //自己手牌 (只发给自己)
+	Uid           int64                  `protobuf:"varint,1,opt,name=uid,proto3" json:"uid,omitempty"`            //玩家ID
+	Betscore      int64                  `protobuf:"varint,2,opt,name=betscore,proto3" json:"betscore,omitempty"`  //当前下注分数
+	Score         int64                  `protobuf:"varint,3,opt,name=score,proto3" json:"score,omitempty"`        //玩家当前积分
+	HandsNum      int32                  `protobuf:"varint,4,opt,name=handsNum,proto3" json:"handsNum,omitempty"`  //手牌数量
+	Cards         []int32                `protobuf:"varint,5,rep,packed,name=cards,proto3" json:"cards,omitempty"` //手牌列表
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -646,14 +663,15 @@ func (x *FaBet) GetCards() []int32 {
 	return nil
 }
 
-// 通知玩家操作
+// 当前活动玩家信息推送
 type ActivePush struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Time          int64                  `protobuf:"varint,1,opt,name=time,proto3" json:"time,omitempty"`                                  //时间 ms
-	Uid           int64                  `protobuf:"varint,2,opt,name=uid,proto3" json:"uid,omitempty"`                                    //玩家uid
-	CurrCard      int32                  `protobuf:"varint,3,opt,name=currCard,proto3" json:"currCard,omitempty"`                          //当前牌
-	DeclareSuit   SUIT_TYPE              `protobuf:"varint,4,opt,name=declareSuit,proto3,enum=api.SUIT_TYPE" json:"declareSuit,omitempty"` //是否有玩家正在申明的花色
-	CanOp         []*ActionOption        `protobuf:"bytes,5,rep,name=canOp,proto3" json:"canOp,omitempty"`                                 //当前玩家允许的操作
+	Time          int64                  `protobuf:"varint,1,opt,name=time,proto3" json:"time,omitempty"`                             //操作剩余时间
+	CurSeat       int32                  `protobuf:"varint,2,opt,name=curSeat,proto3" json:"curSeat,omitempty"`                       //当前操作的座位号  // int64 uid   = 2;  //当前操作玩家UID
+	CurrCard      int32                  `protobuf:"varint,3,opt,name=currCard,proto3" json:"currCard,omitempty"`                     //当前出的牌
+	DeclareSuit   SUIT                   `protobuf:"varint,4,opt,name=declareSuit,proto3,enum=api.SUIT" json:"declareSuit,omitempty"` //声明的花色
+	CanOp         []*ActionOption        `protobuf:"bytes,5,rep,name=canOp,proto3" json:"canOp,omitempty"`                            //可操作选项列表
+	PickTip       int32                  `protobuf:"varint,6,opt,name=pickTip,proto3" json:"pickTip,omitempty"`                       //若本回合是被 2 惩罚，客户端可用于 UI 提示 0:没有,1:有
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -695,9 +713,9 @@ func (x *ActivePush) GetTime() int64 {
 	return 0
 }
 
-func (x *ActivePush) GetUid() int64 {
+func (x *ActivePush) GetCurSeat() int32 {
 	if x != nil {
-		return x.Uid
+		return x.CurSeat
 	}
 	return 0
 }
@@ -709,11 +727,11 @@ func (x *ActivePush) GetCurrCard() int32 {
 	return 0
 }
 
-func (x *ActivePush) GetDeclareSuit() SUIT_TYPE {
+func (x *ActivePush) GetDeclareSuit() SUIT {
 	if x != nil {
 		return x.DeclareSuit
 	}
-	return SUIT_TYPE_SUIT_NONE
+	return SUIT_INVALID
 }
 
 func (x *ActivePush) GetCanOp() []*ActionOption {
@@ -723,158 +741,27 @@ func (x *ActivePush) GetCanOp() []*ActionOption {
 	return nil
 }
 
-// 当前待处理动作响应
-type Pending struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Effect        CARD_EFFECT            `protobuf:"varint,1,opt,name=effect,proto3,enum=api.CARD_EFFECT" json:"effect,omitempty"` //触发的牌面效果（如 +2、跳过、选花色）
-	Initiator     int64                  `protobuf:"varint,2,opt,name=initiator,proto3" json:"initiator,omitempty"`                //发起者（首次触发该特效的玩家）
-	Target        int64                  `protobuf:"varint,3,opt,name=target,proto3" json:"target,omitempty"`                      //当前目标玩家（效果指向）
-	Quantity      int32                  `protobuf:"varint,4,opt,name=quantity,proto3" json:"quantity,omitempty"`                  //作用数量（如 +2 的连锁数量）
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Pending) Reset() {
-	*x = Pending{}
-	mi := &file_helloworld_api_api_proto_msgTypes[5]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Pending) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Pending) ProtoMessage() {}
-
-func (x *Pending) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_api_api_proto_msgTypes[5]
+func (x *ActivePush) GetPickTip() int32 {
 	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Pending.ProtoReflect.Descriptor instead.
-func (*Pending) Descriptor() ([]byte, []int) {
-	return file_helloworld_api_api_proto_rawDescGZIP(), []int{5}
-}
-
-func (x *Pending) GetEffect() CARD_EFFECT {
-	if x != nil {
-		return x.Effect
-	}
-	return CARD_EFFECT_EFFECT_NORMAL
-}
-
-func (x *Pending) GetInitiator() int64 {
-	if x != nil {
-		return x.Initiator
+		return x.PickTip
 	}
 	return 0
 }
 
-func (x *Pending) GetTarget() int64 {
-	if x != nil {
-		return x.Target
-	}
-	return 0
-}
-
-func (x *Pending) GetQuantity() int32 {
-	if x != nil {
-		return x.Quantity
-	}
-	return 0
-}
-
-// 单个动作信息
-type ActionOption struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Action        ACTION                 `protobuf:"varint,1,opt,name=action,proto3,enum=api.ACTION" json:"action,omitempty"`         //可执行的动作类型（如 出牌、摸牌、声明花色等）
-	Cards         []int32                `protobuf:"varint,2,rep,packed,name=cards,proto3" json:"cards,omitempty"`                    //出牌可选
-	DrawCount     int32                  `protobuf:"varint,3,opt,name=drawCount,proto3" json:"drawCount,omitempty"`                   //需摸牌数量
-	Suits         []SUIT_TYPE            `protobuf:"varint,4,rep,packed,name=suits,proto3,enum=api.SUIT_TYPE" json:"suits,omitempty"` //选花可选
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ActionOption) Reset() {
-	*x = ActionOption{}
-	mi := &file_helloworld_api_api_proto_msgTypes[6]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ActionOption) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ActionOption) ProtoMessage() {}
-
-func (x *ActionOption) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_api_api_proto_msgTypes[6]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ActionOption.ProtoReflect.Descriptor instead.
-func (*ActionOption) Descriptor() ([]byte, []int) {
-	return file_helloworld_api_api_proto_rawDescGZIP(), []int{6}
-}
-
-func (x *ActionOption) GetAction() ACTION {
-	if x != nil {
-		return x.Action
-	}
-	return ACTION_ACTION_NULL
-}
-
-func (x *ActionOption) GetCards() []int32 {
-	if x != nil {
-		return x.Cards
-	}
-	return nil
-}
-
-func (x *ActionOption) GetDrawCount() int32 {
-	if x != nil {
-		return x.DrawCount
-	}
-	return 0
-}
-
-func (x *ActionOption) GetSuits() []SUIT_TYPE {
-	if x != nil {
-		return x.Suits
-	}
-	return nil
-}
-
-// 结算
+// 结算结果推送
 type ResultPush struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	WinUid        int64                  `protobuf:"varint,1,opt,name=winUid,proto3" json:"winUid,omitempty"`
-	WinScore      int64                  `protobuf:"varint,2,opt,name=winScore,proto3" json:"winScore,omitempty"`
-	FinishType    int32                  `protobuf:"varint,3,opt,name=finishType,proto3" json:"finishType,omitempty"` //结束类型 1:玩家出完手牌 2:剩余牌堆为空
-	PlayerInfo    []*PlayerResult        `protobuf:"bytes,4,rep,name=PlayerInfo,proto3" json:"PlayerInfo,omitempty"`  //玩家输赢情况
+	WinUid        int64                  `protobuf:"varint,1,opt,name=winUid,proto3" json:"winUid,omitempty"`         //胜利玩家UID
+	WinScore      int64                  `protobuf:"varint,2,opt,name=winScore,proto3" json:"winScore,omitempty"`     //赢得分数
+	FinishType    int32                  `protobuf:"varint,3,opt,name=finishType,proto3" json:"finishType,omitempty"` //结算类型 1:玩家出完手牌 2:剩余牌堆为空
+	PlayerInfo    []*PlayerResult        `protobuf:"bytes,4,rep,name=PlayerInfo,proto3" json:"PlayerInfo,omitempty"`  //玩家结算详细信息
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ResultPush) Reset() {
 	*x = ResultPush{}
-	mi := &file_helloworld_api_api_proto_msgTypes[7]
+	mi := &file_helloworld_api_api_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -886,7 +773,7 @@ func (x *ResultPush) String() string {
 func (*ResultPush) ProtoMessage() {}
 
 func (x *ResultPush) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_api_api_proto_msgTypes[7]
+	mi := &file_helloworld_api_api_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -899,7 +786,7 @@ func (x *ResultPush) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResultPush.ProtoReflect.Descriptor instead.
 func (*ResultPush) Descriptor() ([]byte, []int) {
-	return file_helloworld_api_api_proto_rawDescGZIP(), []int{7}
+	return file_helloworld_api_api_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ResultPush) GetWinUid() int64 {
@@ -930,20 +817,24 @@ func (x *ResultPush) GetPlayerInfo() []*PlayerResult {
 	return nil
 }
 
+// 玩家结算详情
 type PlayerResult struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	Uid            int64                  `protobuf:"varint,1,opt,name=uid,proto3" json:"uid,omitempty"`                       //玩家uid
-	IsWinner       bool                   `protobuf:"varint,2,opt,name=isWinner,proto3" json:"isWinner,omitempty"`             //是否获胜
-	WinScore       float64                `protobuf:"fixed64,3,opt,name=winScore,proto3" json:"winScore,omitempty"`            //赢分
-	HandCards      []int32                `protobuf:"varint,4,rep,packed,name=handCards,proto3" json:"handCards,omitempty"`    //剩余手牌
-	HandCardsScore int32                  `protobuf:"varint,5,opt,name=handCardsScore,proto3" json:"handCardsScore,omitempty"` //剩余手牌得分
+	Uid            int64                  `protobuf:"varint,1,opt,name=uid,proto3" json:"uid,omitempty"`                       //玩家ID
+	Name           string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`                      //昵称
+	Avatar         string                 `protobuf:"bytes,3,opt,name=avatar,proto3" json:"avatar,omitempty"`                  //头像
+	IsWinner       bool                   `protobuf:"varint,4,opt,name=isWinner,proto3" json:"isWinner,omitempty"`             //是否赢家
+	WinScore       float64                `protobuf:"fixed64,5,opt,name=winScore,proto3" json:"winScore,omitempty"`            //赢得积分
+	HandCards      []int32                `protobuf:"varint,6,rep,packed,name=handCards,proto3" json:"handCards,omitempty"`    //剩余手牌
+	HandCardsScore int32                  `protobuf:"varint,7,opt,name=handCardsScore,proto3" json:"handCardsScore,omitempty"` //手牌分数
+	Balance        int64                  `protobuf:"varint,8,opt,name=balance,proto3" json:"balance,omitempty"`               //余额
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
 
 func (x *PlayerResult) Reset() {
 	*x = PlayerResult{}
-	mi := &file_helloworld_api_api_proto_msgTypes[8]
+	mi := &file_helloworld_api_api_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -955,7 +846,7 @@ func (x *PlayerResult) String() string {
 func (*PlayerResult) ProtoMessage() {}
 
 func (x *PlayerResult) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_api_api_proto_msgTypes[8]
+	mi := &file_helloworld_api_api_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -968,7 +859,7 @@ func (x *PlayerResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlayerResult.ProtoReflect.Descriptor instead.
 func (*PlayerResult) Descriptor() ([]byte, []int) {
-	return file_helloworld_api_api_proto_rawDescGZIP(), []int{8}
+	return file_helloworld_api_api_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *PlayerResult) GetUid() int64 {
@@ -976,6 +867,20 @@ func (x *PlayerResult) GetUid() int64 {
 		return x.Uid
 	}
 	return 0
+}
+
+func (x *PlayerResult) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *PlayerResult) GetAvatar() string {
+	if x != nil {
+		return x.Avatar
+	}
+	return ""
 }
 
 func (x *PlayerResult) GetIsWinner() bool {
@@ -1006,23 +911,30 @@ func (x *PlayerResult) GetHandCardsScore() int32 {
 	return 0
 }
 
-// 14牌：摸牌结果推送 (所有其他玩家各抽一张)
+func (x *PlayerResult) GetBalance() int64 {
+	if x != nil {
+		return x.Balance
+	}
+	return 0
+}
+
+// 14牌抽牌结果推送
 type MarketResultPush struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Uid           int64                  `protobuf:"varint,1,opt,name=uid,proto3" json:"uid,omitempty"`            //用户ID
-	ChairID       int32                  `protobuf:"varint,2,opt,name=chairID,proto3" json:"chairID,omitempty"`    //椅子号
-	DrawNum       int32                  `protobuf:"varint,3,opt,name=drawNum,proto3" json:"drawNum,omitempty"`    //摸牌数量
-	HandsNum      int32                  `protobuf:"varint,4,opt,name=handsNum,proto3" json:"handsNum,omitempty"`  //手牌张数
-	Draw          []int32                `protobuf:"varint,5,rep,packed,name=draw,proto3" json:"draw,omitempty"`   //摸到的牌
-	Cards         []int32                `protobuf:"varint,6,rep,packed,name=cards,proto3" json:"cards,omitempty"` //最后手牌
-	LeftNum       int32                  `protobuf:"varint,7,opt,name=leftNum,proto3" json:"leftNum,omitempty"`    //牌堆剩余牌数
+	Uid           int64                  `protobuf:"varint,1,opt,name=uid,proto3" json:"uid,omitempty"`            //玩家ID
+	ChairID       int32                  `protobuf:"varint,2,opt,name=chairID,proto3" json:"chairID,omitempty"`    //座位号
+	DrawNum       int32                  `protobuf:"varint,3,opt,name=drawNum,proto3" json:"drawNum,omitempty"`    //抽牌数量
+	HandsNum      int32                  `protobuf:"varint,4,opt,name=handsNum,proto3" json:"handsNum,omitempty"`  //手牌数量
+	Draw          []int32                `protobuf:"varint,5,rep,packed,name=draw,proto3" json:"draw,omitempty"`   //抽到的牌
+	Cards         []int32                `protobuf:"varint,6,rep,packed,name=cards,proto3" json:"cards,omitempty"` //手牌列表
+	LeftNum       int32                  `protobuf:"varint,7,opt,name=leftNum,proto3" json:"leftNum,omitempty"`    //剩余牌数(总牌堆)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *MarketResultPush) Reset() {
 	*x = MarketResultPush{}
-	mi := &file_helloworld_api_api_proto_msgTypes[9]
+	mi := &file_helloworld_api_api_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1034,7 +946,7 @@ func (x *MarketResultPush) String() string {
 func (*MarketResultPush) ProtoMessage() {}
 
 func (x *MarketResultPush) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_api_api_proto_msgTypes[9]
+	mi := &file_helloworld_api_api_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1047,7 +959,7 @@ func (x *MarketResultPush) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MarketResultPush.ProtoReflect.Descriptor instead.
 func (*MarketResultPush) Descriptor() ([]byte, []int) {
-	return file_helloworld_api_api_proto_rawDescGZIP(), []int{9}
+	return file_helloworld_api_api_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *MarketResultPush) GetUid() int64 {
@@ -1099,28 +1011,33 @@ func (x *MarketResultPush) GetLeftNum() int32 {
 	return 0
 }
 
-// 最后一张宣告
-type LastCardReq struct {
+// 待处理效果信息
+type Pending struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Effect        CARD_EFFECT            `protobuf:"varint,1,opt,name=effect,proto3,enum=api.CARD_EFFECT" json:"effect,omitempty"`      //效果类型
+	FromSeat      int32                  `protobuf:"varint,2,opt,name=from_seat,json=fromSeat,proto3" json:"from_seat,omitempty"`       //发起者座位
+	ToSeat        []int32                `protobuf:"varint,3,rep,packed,name=to_seat,json=toSeat,proto3" json:"to_seat,omitempty"`      //受影响玩家列表. 客户端可用于 UI 提示
+	Value         int32                  `protobuf:"varint,4,opt,name=value,proto3" json:"value,omitempty"`                             //数量（如抽牌张数）
+	ActionSeat    int32                  `protobuf:"varint,5,opt,name=action_seat,json=actionSeat,proto3" json:"action_seat,omitempty"` //交给哪个玩家处理 （废弃）
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *LastCardReq) Reset() {
-	*x = LastCardReq{}
-	mi := &file_helloworld_api_api_proto_msgTypes[10]
+func (x *Pending) Reset() {
+	*x = Pending{}
+	mi := &file_helloworld_api_api_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *LastCardReq) String() string {
+func (x *Pending) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*LastCardReq) ProtoMessage() {}
+func (*Pending) ProtoMessage() {}
 
-func (x *LastCardReq) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_api_api_proto_msgTypes[10]
+func (x *Pending) ProtoReflect() protoreflect.Message {
+	mi := &file_helloworld_api_api_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1131,35 +1048,139 @@ func (x *LastCardReq) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use LastCardReq.ProtoReflect.Descriptor instead.
-func (*LastCardReq) Descriptor() ([]byte, []int) {
-	return file_helloworld_api_api_proto_rawDescGZIP(), []int{10}
+// Deprecated: Use Pending.ProtoReflect.Descriptor instead.
+func (*Pending) Descriptor() ([]byte, []int) {
+	return file_helloworld_api_api_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *Pending) GetEffect() CARD_EFFECT {
+	if x != nil {
+		return x.Effect
+	}
+	return CARD_EFFECT_NORMAL
+}
+
+func (x *Pending) GetFromSeat() int32 {
+	if x != nil {
+		return x.FromSeat
+	}
+	return 0
+}
+
+func (x *Pending) GetToSeat() []int32 {
+	if x != nil {
+		return x.ToSeat
+	}
+	return nil
+}
+
+func (x *Pending) GetValue() int32 {
+	if x != nil {
+		return x.Value
+	}
+	return 0
+}
+
+func (x *Pending) GetActionSeat() int32 {
+	if x != nil {
+		return x.ActionSeat
+	}
+	return 0
+}
+
+// 玩家可执行操作选项
+type ActionOption struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Action        ACTION                 `protobuf:"varint,1,opt,name=action,proto3,enum=api.ACTION" json:"action,omitempty"`    //操作类型
+	Cards         []int32                `protobuf:"varint,2,rep,packed,name=cards,proto3" json:"cards,omitempty"`               //相关牌
+	DrawCount     int32                  `protobuf:"varint,3,opt,name=drawCount,proto3" json:"drawCount,omitempty"`              //抓牌数
+	Suits         []SUIT                 `protobuf:"varint,4,rep,packed,name=suits,proto3,enum=api.SUIT" json:"suits,omitempty"` //相关花色
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ActionOption) Reset() {
+	*x = ActionOption{}
+	mi := &file_helloworld_api_api_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ActionOption) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ActionOption) ProtoMessage() {}
+
+func (x *ActionOption) ProtoReflect() protoreflect.Message {
+	mi := &file_helloworld_api_api_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ActionOption.ProtoReflect.Descriptor instead.
+func (*ActionOption) Descriptor() ([]byte, []int) {
+	return file_helloworld_api_api_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ActionOption) GetAction() ACTION {
+	if x != nil {
+		return x.Action
+	}
+	return ACTION_ACTION_NULL
+}
+
+func (x *ActionOption) GetCards() []int32 {
+	if x != nil {
+		return x.Cards
+	}
+	return nil
+}
+
+func (x *ActionOption) GetDrawCount() int32 {
+	if x != nil {
+		return x.DrawCount
+	}
+	return 0
+}
+
+func (x *ActionOption) GetSuits() []SUIT {
+	if x != nil {
+		return x.Suits
+	}
+	return nil
 }
 
 // 同步所有人最后一张宣告信息
-type LastCardRsp struct {
+type LastCardRush struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
-	Uid           int64                  `protobuf:"varint,2,opt,name=uid,proto3" json:"uid,omitempty"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"` //状态码
+	Uid           int64                  `protobuf:"varint,2,opt,name=uid,proto3" json:"uid,omitempty"`   //玩家ID
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *LastCardRsp) Reset() {
-	*x = LastCardRsp{}
-	mi := &file_helloworld_api_api_proto_msgTypes[11]
+func (x *LastCardRush) Reset() {
+	*x = LastCardRush{}
+	mi := &file_helloworld_api_api_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *LastCardRsp) String() string {
+func (x *LastCardRush) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*LastCardRsp) ProtoMessage() {}
+func (*LastCardRush) ProtoMessage() {}
 
-func (x *LastCardRsp) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_api_api_proto_msgTypes[11]
+func (x *LastCardRush) ProtoReflect() protoreflect.Message {
+	mi := &file_helloworld_api_api_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1170,39 +1191,42 @@ func (x *LastCardRsp) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use LastCardRsp.ProtoReflect.Descriptor instead.
-func (*LastCardRsp) Descriptor() ([]byte, []int) {
-	return file_helloworld_api_api_proto_rawDescGZIP(), []int{11}
+// Deprecated: Use LastCardRush.ProtoReflect.Descriptor instead.
+func (*LastCardRush) Descriptor() ([]byte, []int) {
+	return file_helloworld_api_api_proto_rawDescGZIP(), []int{10}
 }
 
-func (x *LastCardRsp) GetCode() int32 {
+func (x *LastCardRush) GetCode() int32 {
 	if x != nil {
 		return x.Code
 	}
 	return 0
 }
 
-func (x *LastCardRsp) GetUid() int64 {
+func (x *LastCardRush) GetUid() int64 {
 	if x != nil {
 		return x.Uid
 	}
 	return 0
 }
 
-// 玩家操作请求
+// 客户端发起动作：
+// - 出牌：action=PLAY_CARD, card=xxx
+// - 抓牌：action=DRAW_CARD
+// - 声明花色：action=DECLARE_SUIT, declare_suit=xxx
 type UserActionReq struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Uid           int64                  `protobuf:"varint,1,opt,name=uid,proto3" json:"uid,omitempty"`
-	Action        ACTION                 `protobuf:"varint,2,opt,name=action,proto3,enum=api.ACTION" json:"action,omitempty"`              // 请求的动作类型, 摸牌,出牌,万能牌声明花色
-	OutCard       int32                  `protobuf:"varint,3,opt,name=outCard,proto3" json:"outCard,omitempty"`                            // 请求要打出的牌, 卡牌ID（花色*100 + 牌值）
-	DeclareSuit   SUIT_TYPE              `protobuf:"varint,4,opt,name=declareSuit,proto3,enum=api.SUIT_TYPE" json:"declareSuit,omitempty"` //请求万能牌声明花色
+	Uid           int64                  `protobuf:"varint,1,opt,name=uid,proto3" json:"uid,omitempty"`                               //玩家ID
+	Action        ACTION                 `protobuf:"varint,2,opt,name=action,proto3,enum=api.ACTION" json:"action,omitempty"`         //操作类型
+	OutCard       int32                  `protobuf:"varint,3,opt,name=outCard,proto3" json:"outCard,omitempty"`                       //出牌值（若出牌操作）
+	DeclareSuit   SUIT                   `protobuf:"varint,4,opt,name=declareSuit,proto3,enum=api.SUIT" json:"declareSuit,omitempty"` //申明花色（若申明花色操作）
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UserActionReq) Reset() {
 	*x = UserActionReq{}
-	mi := &file_helloworld_api_api_proto_msgTypes[12]
+	mi := &file_helloworld_api_api_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1214,7 +1238,7 @@ func (x *UserActionReq) String() string {
 func (*UserActionReq) ProtoMessage() {}
 
 func (x *UserActionReq) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_api_api_proto_msgTypes[12]
+	mi := &file_helloworld_api_api_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1227,7 +1251,7 @@ func (x *UserActionReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserActionReq.ProtoReflect.Descriptor instead.
 func (*UserActionReq) Descriptor() ([]byte, []int) {
-	return file_helloworld_api_api_proto_rawDescGZIP(), []int{12}
+	return file_helloworld_api_api_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *UserActionReq) GetUid() int64 {
@@ -1251,34 +1275,33 @@ func (x *UserActionReq) GetOutCard() int32 {
 	return 0
 }
 
-func (x *UserActionReq) GetDeclareSuit() SUIT_TYPE {
+func (x *UserActionReq) GetDeclareSuit() SUIT {
 	if x != nil {
 		return x.DeclareSuit
 	}
-	return SUIT_TYPE_SUIT_NONE
+	return SUIT_INVALID
 }
 
-// 同步所有人玩家操作结果
+// 玩家操作响应
 type UserActionRsp struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	Code    int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
-	Message string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`                //错误信息
-	Uid     int64                  `protobuf:"varint,3,opt,name=uid,proto3" json:"uid,omitempty"`                       //用户ID
-	Seat    int32                  `protobuf:"varint,4,opt,name=seat,proto3" json:"seat,omitempty"`                     //椅子号
-	Action  ACTION                 `protobuf:"varint,5,opt,name=action,proto3,enum=api.ACTION" json:"action,omitempty"` //执行的动作
-	LeftNum int32                  `protobuf:"varint,6,opt,name=leftNum,proto3" json:"leftNum,omitempty"`               //牌堆剩余牌数
-	Effect  *Pending               `protobuf:"bytes,7,opt,name=effect,proto3" json:"effect,omitempty"`                  //触发的牌面效果及等待响应信息（如 +2、跳过、选花色）
-	// 执行结果
-	PlayResult    *PlayCardResult    `protobuf:"bytes,8,opt,name=playResult,proto3" json:"playResult,omitempty"`        //出牌结果
-	DrawResult    *DrawCardResult    `protobuf:"bytes,9,opt,name=drawResult,proto3" json:"drawResult,omitempty"`        //摸牌结果
-	DeclareResult *DeclareSuitResult `protobuf:"bytes,10,opt,name=DeclareResult,proto3" json:"DeclareResult,omitempty"` //花色声明结果
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`                     //状态码
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`                        //状态消息
+	Uid           int64                  `protobuf:"varint,3,opt,name=uid,proto3" json:"uid,omitempty"`                       //玩家ID
+	Seat          int32                  `protobuf:"varint,4,opt,name=seat,proto3" json:"seat,omitempty"`                     //玩家座位号
+	Action        ACTION                 `protobuf:"varint,5,opt,name=action,proto3,enum=api.ACTION" json:"action,omitempty"` //玩家执行的操作
+	LeftNum       int32                  `protobuf:"varint,6,opt,name=leftNum,proto3" json:"leftNum,omitempty"`               //剩余牌数(总牌堆)
+	Effect        *Pending               `protobuf:"bytes,7,opt,name=effect,proto3" json:"effect,omitempty"`                  //当前牌效
+	PlayResult    *PlayCardResult        `protobuf:"bytes,8,opt,name=playResult,proto3" json:"playResult,omitempty"`          //出牌结果
+	DrawResult    *DrawCardResult        `protobuf:"bytes,9,opt,name=drawResult,proto3" json:"drawResult,omitempty"`          //抓牌结果
+	DeclareResult *DeclareSuitResult     `protobuf:"bytes,10,opt,name=declareResult,proto3" json:"declareResult,omitempty"`   //变更花色结果
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UserActionRsp) Reset() {
 	*x = UserActionRsp{}
-	mi := &file_helloworld_api_api_proto_msgTypes[13]
+	mi := &file_helloworld_api_api_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1290,7 +1313,7 @@ func (x *UserActionRsp) String() string {
 func (*UserActionRsp) ProtoMessage() {}
 
 func (x *UserActionRsp) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_api_api_proto_msgTypes[13]
+	mi := &file_helloworld_api_api_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1303,7 +1326,7 @@ func (x *UserActionRsp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserActionRsp.ProtoReflect.Descriptor instead.
 func (*UserActionRsp) Descriptor() ([]byte, []int) {
-	return file_helloworld_api_api_proto_rawDescGZIP(), []int{13}
+	return file_helloworld_api_api_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *UserActionRsp) GetCode() int32 {
@@ -1313,9 +1336,9 @@ func (x *UserActionRsp) GetCode() int32 {
 	return 0
 }
 
-func (x *UserActionRsp) GetMessage() string {
+func (x *UserActionRsp) GetMsg() string {
 	if x != nil {
-		return x.Message
+		return x.Msg
 	}
 	return ""
 }
@@ -1379,16 +1402,16 @@ func (x *UserActionRsp) GetDeclareResult() *DeclareSuitResult {
 // 出牌结果
 type PlayCardResult struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Card          int32                  `protobuf:"varint,1,opt,name=card,proto3" json:"card,omitempty"`          //出牌玩家出的牌
-	HandsNum      int32                  `protobuf:"varint,2,opt,name=handsNum,proto3" json:"handsNum,omitempty"`  //出牌玩家手牌数量
-	Cards         []int32                `protobuf:"varint,3,rep,packed,name=cards,proto3" json:"cards,omitempty"` //出牌玩家自己的手牌 (只发送给出牌玩家)
+	Card          int32                  `protobuf:"varint,1,opt,name=card,proto3" json:"card,omitempty"`          //出牌值
+	HandsNum      int32                  `protobuf:"varint,2,opt,name=handsNum,proto3" json:"handsNum,omitempty"`  //剩余手牌数
+	Cards         []int32                `protobuf:"varint,3,rep,packed,name=cards,proto3" json:"cards,omitempty"` //当前手牌列表
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PlayCardResult) Reset() {
 	*x = PlayCardResult{}
-	mi := &file_helloworld_api_api_proto_msgTypes[14]
+	mi := &file_helloworld_api_api_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1400,7 +1423,7 @@ func (x *PlayCardResult) String() string {
 func (*PlayCardResult) ProtoMessage() {}
 
 func (x *PlayCardResult) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_api_api_proto_msgTypes[14]
+	mi := &file_helloworld_api_api_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1413,7 +1436,7 @@ func (x *PlayCardResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlayCardResult.ProtoReflect.Descriptor instead.
 func (*PlayCardResult) Descriptor() ([]byte, []int) {
-	return file_helloworld_api_api_proto_rawDescGZIP(), []int{14}
+	return file_helloworld_api_api_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *PlayCardResult) GetCard() int32 {
@@ -1437,20 +1460,20 @@ func (x *PlayCardResult) GetCards() []int32 {
 	return nil
 }
 
-// 摸牌结果
+// 抓牌结果
 type DrawCardResult struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	DrawNum       int32                  `protobuf:"varint,1,opt,name=drawNum,proto3" json:"drawNum,omitempty"`    //摸牌数量
-	HandsNum      int32                  `protobuf:"varint,2,opt,name=handsNum,proto3" json:"handsNum,omitempty"`  //玩家手牌数
-	Drawn         []int32                `protobuf:"varint,3,rep,packed,name=drawn,proto3" json:"drawn,omitempty"` //摸到的牌 (只发送给摸牌玩家)
-	Cards         []int32                `protobuf:"varint,4,rep,packed,name=cards,proto3" json:"cards,omitempty"` //摸牌玩家自己的手牌 (只发送给摸牌玩家)
+	DrawNum       int32                  `protobuf:"varint,1,opt,name=drawNum,proto3" json:"drawNum,omitempty"`    //抓牌张数
+	HandsNum      int32                  `protobuf:"varint,2,opt,name=handsNum,proto3" json:"handsNum,omitempty"`  //剩余手牌数
+	Drawn         []int32                `protobuf:"varint,3,rep,packed,name=drawn,proto3" json:"drawn,omitempty"` //抓到的牌
+	Cards         []int32                `protobuf:"varint,4,rep,packed,name=cards,proto3" json:"cards,omitempty"` //当前手牌列表
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DrawCardResult) Reset() {
 	*x = DrawCardResult{}
-	mi := &file_helloworld_api_api_proto_msgTypes[15]
+	mi := &file_helloworld_api_api_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1462,7 +1485,7 @@ func (x *DrawCardResult) String() string {
 func (*DrawCardResult) ProtoMessage() {}
 
 func (x *DrawCardResult) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_api_api_proto_msgTypes[15]
+	mi := &file_helloworld_api_api_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1475,7 +1498,7 @@ func (x *DrawCardResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DrawCardResult.ProtoReflect.Descriptor instead.
 func (*DrawCardResult) Descriptor() ([]byte, []int) {
-	return file_helloworld_api_api_proto_rawDescGZIP(), []int{15}
+	return file_helloworld_api_api_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *DrawCardResult) GetDrawNum() int32 {
@@ -1509,14 +1532,14 @@ func (x *DrawCardResult) GetCards() []int32 {
 // 声明花色结果
 type DeclareSuitResult struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Suit          SUIT_TYPE              `protobuf:"varint,1,opt,name=suit,proto3,enum=api.SUIT_TYPE" json:"suit,omitempty"` //打出万能牌后声明花色类型 1-5
+	Suit          SUIT                   `protobuf:"varint,1,opt,name=suit,proto3,enum=api.SUIT" json:"suit,omitempty"` //新声明的花色
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DeclareSuitResult) Reset() {
 	*x = DeclareSuitResult{}
-	mi := &file_helloworld_api_api_proto_msgTypes[16]
+	mi := &file_helloworld_api_api_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1528,7 +1551,7 @@ func (x *DeclareSuitResult) String() string {
 func (*DeclareSuitResult) ProtoMessage() {}
 
 func (x *DeclareSuitResult) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_api_api_proto_msgTypes[16]
+	mi := &file_helloworld_api_api_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1541,38 +1564,39 @@ func (x *DeclareSuitResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeclareSuitResult.ProtoReflect.Descriptor instead.
 func (*DeclareSuitResult) Descriptor() ([]byte, []int) {
-	return file_helloworld_api_api_proto_rawDescGZIP(), []int{16}
+	return file_helloworld_api_api_proto_rawDescGZIP(), []int{15}
 }
 
-func (x *DeclareSuitResult) GetSuit() SUIT_TYPE {
+func (x *DeclareSuitResult) GetSuit() SUIT {
 	if x != nil {
 		return x.Suit
 	}
-	return SUIT_TYPE_SUIT_NONE
+	return SUIT_INVALID
 }
 
-// 玩家退出房间
-type C2SLeavRoom struct {
+// 退出房间请求
+type LeaveRoomReq struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Uid           int64                  `protobuf:"varint,1,opt,name=uid,proto3" json:"uid,omitempty"` //玩家ID
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *C2SLeavRoom) Reset() {
-	*x = C2SLeavRoom{}
-	mi := &file_helloworld_api_api_proto_msgTypes[17]
+func (x *LeaveRoomReq) Reset() {
+	*x = LeaveRoomReq{}
+	mi := &file_helloworld_api_api_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *C2SLeavRoom) String() string {
+func (x *LeaveRoomReq) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*C2SLeavRoom) ProtoMessage() {}
+func (*LeaveRoomReq) ProtoMessage() {}
 
-func (x *C2SLeavRoom) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_api_api_proto_msgTypes[17]
+func (x *LeaveRoomReq) ProtoReflect() protoreflect.Message {
+	mi := &file_helloworld_api_api_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1583,60 +1607,75 @@ func (x *C2SLeavRoom) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use C2SLeavRoom.ProtoReflect.Descriptor instead.
-func (*C2SLeavRoom) Descriptor() ([]byte, []int) {
-	return file_helloworld_api_api_proto_rawDescGZIP(), []int{17}
+// Deprecated: Use LeaveRoomReq.ProtoReflect.Descriptor instead.
+func (*LeaveRoomReq) Descriptor() ([]byte, []int) {
+	return file_helloworld_api_api_proto_rawDescGZIP(), []int{16}
 }
 
-// 同步玩家退出房间
-type S2CLeavRoom struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Uid           int64                  `protobuf:"varint,1,opt,name=uid,proto3" json:"uid,omitempty"`   //离开玩家
-	Code          int32                  `protobuf:"varint,2,opt,name=code,proto3" json:"code,omitempty"` //消息状态
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *S2CLeavRoom) Reset() {
-	*x = S2CLeavRoom{}
-	mi := &file_helloworld_api_api_proto_msgTypes[18]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *S2CLeavRoom) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*S2CLeavRoom) ProtoMessage() {}
-
-func (x *S2CLeavRoom) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_api_api_proto_msgTypes[18]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use S2CLeavRoom.ProtoReflect.Descriptor instead.
-func (*S2CLeavRoom) Descriptor() ([]byte, []int) {
-	return file_helloworld_api_api_proto_rawDescGZIP(), []int{18}
-}
-
-func (x *S2CLeavRoom) GetUid() int64 {
+func (x *LeaveRoomReq) GetUid() int64 {
 	if x != nil {
 		return x.Uid
 	}
 	return 0
 }
 
-func (x *S2CLeavRoom) GetCode() int32 {
+// 退出房间响应
+type LeaveRoomRsp struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"` //状态码
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`    //状态消息
+	Uid           int64                  `protobuf:"varint,3,opt,name=uid,proto3" json:"uid,omitempty"`   //玩家ID
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LeaveRoomRsp) Reset() {
+	*x = LeaveRoomRsp{}
+	mi := &file_helloworld_api_api_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LeaveRoomRsp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LeaveRoomRsp) ProtoMessage() {}
+
+func (x *LeaveRoomRsp) ProtoReflect() protoreflect.Message {
+	mi := &file_helloworld_api_api_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LeaveRoomRsp.ProtoReflect.Descriptor instead.
+func (*LeaveRoomRsp) Descriptor() ([]byte, []int) {
+	return file_helloworld_api_api_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *LeaveRoomRsp) GetCode() int32 {
 	if x != nil {
 		return x.Code
+	}
+	return 0
+}
+
+func (x *LeaveRoomRsp) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *LeaveRoomRsp) GetUid() int64 {
+	if x != nil {
+		return x.Uid
 	}
 	return 0
 }
@@ -1645,32 +1684,37 @@ var File_helloworld_api_api_proto protoreflect.FileDescriptor
 
 const file_helloworld_api_api_proto_rawDesc = "" +
 	"\n" +
-	"\x18helloworld/api/api.proto\x12\x03api\"\xd2\x02\n" +
-	"\bRoomInfo\x122\n" +
+	"\x18helloworld/api/api.proto\x12\x03api\"\xd5\x02\n" +
+	"\fRoomInfoPush\x126\n" +
 	"\n" +
-	"playerInfo\x18\x01 \x03(\v2\x12.api.UserEnterRoomR\n" +
+	"playerInfo\x18\x01 \x03(\v2\x16.api.UserEnterRoomPushR\n" +
 	"playerInfo\x12\x16\n" +
 	"\x06banner\x18\x02 \x01(\x03R\x06banner\x12\x16\n" +
 	"\x06curUid\x18\x03 \x01(\x03R\x06curUid\x12\x16\n" +
 	"\x06ticker\x18\x04 \x01(\x03R\x06ticker\x12\x1c\n" +
 	"\tbaseScore\x18\x05 \x01(\x01R\tbaseScore\x12\x1a\n" +
-	"\bcurrCard\x18\x06 \x01(\x05R\bcurrCard\x120\n" +
-	"\vdeclareSuit\x18\a \x01(\x0e2\x0e.api.SUIT_TYPER\vdeclareSuit\x12\x18\n" +
+	"\bcurrCard\x18\x06 \x01(\x05R\bcurrCard\x12+\n" +
+	"\vdeclareSuit\x18\a \x01(\x0e2\t.api.SUITR\vdeclareSuit\x12\x18\n" +
 	"\aleftNum\x18\b \x01(\x05R\aleftNum\x12&\n" +
 	"\apending\x18\t \x01(\v2\f.api.PendingR\apending\x12\x1c\n" +
-	"\tgameState\x18\x0f \x01(\x05R\tgameState\"\xf3\x01\n" +
-	"\rUserEnterRoom\x12\x10\n" +
+	"\tgameState\x18\n" +
+	" \x01(\x05R\tgameState\"\xc3\x02\n" +
+	"\x11UserEnterRoomPush\x12\x10\n" +
 	"\x03uid\x18\x01 \x01(\x03R\x03uid\x12\x12\n" +
 	"\x04head\x18\x02 \x01(\x05R\x04head\x12\x1a\n" +
 	"\buserName\x18\x03 \x01(\tR\buserName\x12\x12\n" +
 	"\x04seat\x18\x04 \x01(\x05R\x04seat\x12\x14\n" +
 	"\x05score\x18\x05 \x01(\x03R\x05score\x12'\n" +
-	"\x05canOp\x18\a \x03(\v2\x11.api.ActionOptionR\x05canOp\x12\x1c\n" +
-	"\tgameState\x18\b \x01(\x05R\tgameState\x12/\n" +
+	"\x05canOp\x18\x06 \x03(\v2\x11.api.ActionOptionR\x05canOp\x12\x1c\n" +
+	"\tgameState\x18\a \x01(\x05R\tgameState\x12/\n" +
 	"\n" +
-	"resultInfo\x18\v \x01(\v2\x0f.api.ResultPushR\n" +
-	"resultInfo\"\x85\x01\n" +
-	"\aStageFa\x12\x1c\n" +
+	"resultInfo\x18\b \x01(\v2\x0f.api.ResultPushR\n" +
+	"resultInfo\x12\x14\n" +
+	"\x05cards\x18\t \x03(\x05R\x05cards\x12\x1a\n" +
+	"\bhandsNum\x18\n" +
+	" \x01(\x05R\bhandsNum\x12\x18\n" +
+	"\apickTip\x18\v \x01(\x05R\apickTip\"\x89\x01\n" +
+	"\vStageFaPush\x12\x1c\n" +
 	"\tbankerUid\x18\x01 \x01(\x03R\tbankerUid\x12\x1c\n" +
 	"\tfirstCard\x18\x02 \x01(\x05R\tfirstCard\x12\x18\n" +
 	"\aleftNum\x18\x03 \x01(\x05R\aleftNum\x12$\n" +
@@ -1681,24 +1725,15 @@ const file_helloworld_api_api_proto_rawDesc = "" +
 	"\bbetscore\x18\x02 \x01(\x03R\bbetscore\x12\x14\n" +
 	"\x05score\x18\x03 \x01(\x03R\x05score\x12\x1a\n" +
 	"\bhandsNum\x18\x04 \x01(\x05R\bhandsNum\x12\x14\n" +
-	"\x05cards\x18\x05 \x03(\x05R\x05cards\"\xa9\x01\n" +
+	"\x05cards\x18\x05 \x03(\x05R\x05cards\"\xc6\x01\n" +
 	"\n" +
 	"ActivePush\x12\x12\n" +
-	"\x04time\x18\x01 \x01(\x03R\x04time\x12\x10\n" +
-	"\x03uid\x18\x02 \x01(\x03R\x03uid\x12\x1a\n" +
-	"\bcurrCard\x18\x03 \x01(\x05R\bcurrCard\x120\n" +
-	"\vdeclareSuit\x18\x04 \x01(\x0e2\x0e.api.SUIT_TYPER\vdeclareSuit\x12'\n" +
-	"\x05canOp\x18\x05 \x03(\v2\x11.api.ActionOptionR\x05canOp\"\x85\x01\n" +
-	"\aPending\x12(\n" +
-	"\x06effect\x18\x01 \x01(\x0e2\x10.api.CARD_EFFECTR\x06effect\x12\x1c\n" +
-	"\tinitiator\x18\x02 \x01(\x03R\tinitiator\x12\x16\n" +
-	"\x06target\x18\x03 \x01(\x03R\x06target\x12\x1a\n" +
-	"\bquantity\x18\x04 \x01(\x05R\bquantity\"\x8d\x01\n" +
-	"\fActionOption\x12#\n" +
-	"\x06action\x18\x01 \x01(\x0e2\v.api.ACTIONR\x06action\x12\x14\n" +
-	"\x05cards\x18\x02 \x03(\x05R\x05cards\x12\x1c\n" +
-	"\tdrawCount\x18\x03 \x01(\x05R\tdrawCount\x12$\n" +
-	"\x05suits\x18\x04 \x03(\x0e2\x0e.api.SUIT_TYPER\x05suits\"\x93\x01\n" +
+	"\x04time\x18\x01 \x01(\x03R\x04time\x12\x18\n" +
+	"\acurSeat\x18\x02 \x01(\x05R\acurSeat\x12\x1a\n" +
+	"\bcurrCard\x18\x03 \x01(\x05R\bcurrCard\x12+\n" +
+	"\vdeclareSuit\x18\x04 \x01(\x0e2\t.api.SUITR\vdeclareSuit\x12'\n" +
+	"\x05canOp\x18\x05 \x03(\v2\x11.api.ActionOptionR\x05canOp\x12\x18\n" +
+	"\apickTip\x18\x06 \x01(\x05R\apickTip\"\x93\x01\n" +
 	"\n" +
 	"ResultPush\x12\x16\n" +
 	"\x06winUid\x18\x01 \x01(\x03R\x06winUid\x12\x1a\n" +
@@ -1708,13 +1743,16 @@ const file_helloworld_api_api_proto_rawDesc = "" +
 	"finishType\x121\n" +
 	"\n" +
 	"PlayerInfo\x18\x04 \x03(\v2\x11.api.PlayerResultR\n" +
-	"PlayerInfo\"\x9e\x01\n" +
+	"PlayerInfo\"\xe4\x01\n" +
 	"\fPlayerResult\x12\x10\n" +
-	"\x03uid\x18\x01 \x01(\x03R\x03uid\x12\x1a\n" +
-	"\bisWinner\x18\x02 \x01(\bR\bisWinner\x12\x1a\n" +
-	"\bwinScore\x18\x03 \x01(\x01R\bwinScore\x12\x1c\n" +
-	"\thandCards\x18\x04 \x03(\x05R\thandCards\x12&\n" +
-	"\x0ehandCardsScore\x18\x05 \x01(\x05R\x0ehandCardsScore\"\xb8\x01\n" +
+	"\x03uid\x18\x01 \x01(\x03R\x03uid\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +
+	"\x06avatar\x18\x03 \x01(\tR\x06avatar\x12\x1a\n" +
+	"\bisWinner\x18\x04 \x01(\bR\bisWinner\x12\x1a\n" +
+	"\bwinScore\x18\x05 \x01(\x01R\bwinScore\x12\x1c\n" +
+	"\thandCards\x18\x06 \x03(\x05R\thandCards\x12&\n" +
+	"\x0ehandCardsScore\x18\a \x01(\x05R\x0ehandCardsScore\x12\x18\n" +
+	"\abalance\x18\b \x01(\x03R\abalance\"\xb8\x01\n" +
 	"\x10MarketResultPush\x12\x10\n" +
 	"\x03uid\x18\x01 \x01(\x03R\x03uid\x12\x18\n" +
 	"\achairID\x18\x02 \x01(\x05R\achairID\x12\x18\n" +
@@ -1722,19 +1760,30 @@ const file_helloworld_api_api_proto_rawDesc = "" +
 	"\bhandsNum\x18\x04 \x01(\x05R\bhandsNum\x12\x12\n" +
 	"\x04draw\x18\x05 \x03(\x05R\x04draw\x12\x14\n" +
 	"\x05cards\x18\x06 \x03(\x05R\x05cards\x12\x18\n" +
-	"\aleftNum\x18\a \x01(\x05R\aleftNum\"\r\n" +
-	"\vLastCardReq\"3\n" +
-	"\vLastCardRsp\x12\x12\n" +
+	"\aleftNum\x18\a \x01(\x05R\aleftNum\"\xa0\x01\n" +
+	"\aPending\x12(\n" +
+	"\x06effect\x18\x01 \x01(\x0e2\x10.api.CARD_EFFECTR\x06effect\x12\x1b\n" +
+	"\tfrom_seat\x18\x02 \x01(\x05R\bfromSeat\x12\x17\n" +
+	"\ato_seat\x18\x03 \x03(\x05R\x06toSeat\x12\x14\n" +
+	"\x05value\x18\x04 \x01(\x05R\x05value\x12\x1f\n" +
+	"\vaction_seat\x18\x05 \x01(\x05R\n" +
+	"actionSeat\"\x88\x01\n" +
+	"\fActionOption\x12#\n" +
+	"\x06action\x18\x01 \x01(\x0e2\v.api.ACTIONR\x06action\x12\x14\n" +
+	"\x05cards\x18\x02 \x03(\x05R\x05cards\x12\x1c\n" +
+	"\tdrawCount\x18\x03 \x01(\x05R\tdrawCount\x12\x1f\n" +
+	"\x05suits\x18\x04 \x03(\x0e2\t.api.SUITR\x05suits\"4\n" +
+	"\fLastCardRush\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
-	"\x03uid\x18\x02 \x01(\x03R\x03uid\"\x92\x01\n" +
+	"\x03uid\x18\x02 \x01(\x03R\x03uid\"\x8d\x01\n" +
 	"\rUserActionReq\x12\x10\n" +
 	"\x03uid\x18\x01 \x01(\x03R\x03uid\x12#\n" +
 	"\x06action\x18\x02 \x01(\x0e2\v.api.ACTIONR\x06action\x12\x18\n" +
-	"\aoutCard\x18\x03 \x01(\x05R\aoutCard\x120\n" +
-	"\vdeclareSuit\x18\x04 \x01(\x0e2\x0e.api.SUIT_TYPER\vdeclareSuit\"\xf0\x02\n" +
+	"\aoutCard\x18\x03 \x01(\x05R\aoutCard\x12+\n" +
+	"\vdeclareSuit\x18\x04 \x01(\x0e2\t.api.SUITR\vdeclareSuit\"\xe8\x02\n" +
 	"\rUserActionRsp\x12\x12\n" +
-	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\x12\x10\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x10\n" +
 	"\x03uid\x18\x03 \x01(\x03R\x03uid\x12\x12\n" +
 	"\x04seat\x18\x04 \x01(\x05R\x04seat\x12#\n" +
 	"\x06action\x18\x05 \x01(\x0e2\v.api.ACTIONR\x06action\x12\x18\n" +
@@ -1746,8 +1795,8 @@ const file_helloworld_api_api_proto_rawDesc = "" +
 	"\n" +
 	"drawResult\x18\t \x01(\v2\x13.api.DrawCardResultR\n" +
 	"drawResult\x12<\n" +
-	"\rDeclareResult\x18\n" +
-	" \x01(\v2\x16.api.DeclareSuitResultR\rDeclareResult\"V\n" +
+	"\rdeclareResult\x18\n" +
+	" \x01(\v2\x16.api.DeclareSuitResultR\rdeclareResult\"V\n" +
 	"\x0ePlayCardResult\x12\x12\n" +
 	"\x04card\x18\x01 \x01(\x05R\x04card\x12\x1a\n" +
 	"\bhandsNum\x18\x02 \x01(\x05R\bhandsNum\x12\x14\n" +
@@ -1756,51 +1805,52 @@ const file_helloworld_api_api_proto_rawDesc = "" +
 	"\adrawNum\x18\x01 \x01(\x05R\adrawNum\x12\x1a\n" +
 	"\bhandsNum\x18\x02 \x01(\x05R\bhandsNum\x12\x14\n" +
 	"\x05drawn\x18\x03 \x03(\x05R\x05drawn\x12\x14\n" +
-	"\x05cards\x18\x04 \x03(\x05R\x05cards\"7\n" +
-	"\x11DeclareSuitResult\x12\"\n" +
-	"\x04suit\x18\x01 \x01(\x0e2\x0e.api.SUIT_TYPER\x04suit\"\r\n" +
-	"\vC2SLeavRoom\"3\n" +
-	"\vS2CLeavRoom\x12\x10\n" +
-	"\x03uid\x18\x01 \x01(\x03R\x03uid\x12\x12\n" +
-	"\x04code\x18\x02 \x01(\x05R\x04code*\xa2\x02\n" +
+	"\x05cards\x18\x04 \x03(\x05R\x05cards\"2\n" +
+	"\x11DeclareSuitResult\x12\x1d\n" +
+	"\x04suit\x18\x01 \x01(\x0e2\t.api.SUITR\x04suit\" \n" +
+	"\fLeaveRoomReq\x12\x10\n" +
+	"\x03uid\x18\x01 \x01(\x03R\x03uid\"F\n" +
+	"\fLeaveRoomRsp\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x10\n" +
+	"\x03uid\x18\x03 \x01(\x03R\x03uid*\xf4\x01\n" +
 	"\vGameCommand\x12\b\n" +
-	"\x04NONE\x10\x00\x12\x0e\n" +
-	"\n" +
-	"MsRoomInfo\x10\x01\x12\x13\n" +
-	"\x0fMsUserEnterRoom\x10\x02\x12\f\n" +
+	"\x04NONE\x10\x00\x12\x12\n" +
+	"\x0eMsRoomInfoPush\x10\x01\x12\x17\n" +
+	"\x13MsUserEnterRoomPush\x10\x02\x12\f\n" +
 	"\bMsFaPush\x10\x03\x12\x10\n" +
 	"\fMsActivePush\x10\x04\x12\x10\n" +
 	"\fMsResultPush\x10\x05\x12\x16\n" +
-	"\x12MsMarketResultPush\x10\x06\x12\x11\n" +
-	"\rMsC2SBetScore\x10\x14\x12\x11\n" +
-	"\rMsC2SLastCard\x10\x15\x12\x13\n" +
-	"\x0fMsC2SUserAction\x10\x16\x12\x11\n" +
-	"\rMsC2SLeavRoom\x10\x17\x12\x11\n" +
-	"\rMsS2CBetScore\x10x\x12\x11\n" +
-	"\rMsS2CLastCard\x10y\x12\x13\n" +
-	"\x0fMsS2CUserAction\x10z\x12\x11\n" +
-	"\rMsS2CLeavRoom\x10{*X\n" +
+	"\x12MsMarketResultPush\x10\x06\x12\x12\n" +
+	"\x0eMsLastCardPush\x10\a\x12\x13\n" +
+	"\x0fMsUserActionReq\x10\x16\x12\x12\n" +
+	"\x0eMsLeaveRoomReq\x10\x17\x12\x13\n" +
+	"\x0fMsUserActionRsp\x10z\x12\x12\n" +
+	"\x0eMsLeaveRoomRsp\x10{*I\n" +
 	"\x06ACTION\x12\x0f\n" +
 	"\vACTION_NULL\x10\x00\x12\r\n" +
 	"\tPLAY_CARD\x10\x01\x12\r\n" +
 	"\tDRAW_CARD\x10\x02\x12\x10\n" +
-	"\fDECLARE_SUIT\x10\x03\x12\r\n" +
-	"\tSKIP_TURN\x10\x04*l\n" +
-	"\tSUIT_TYPE\x12\r\n" +
-	"\tSUIT_NONE\x10\x00\x12\x0f\n" +
-	"\vSUIT_CIRCLE\x10\x01\x12\x0e\n" +
+	"\fDECLARE_SUIT\x10\x03*W\n" +
+	"\vCARD_EFFECT\x12\n" +
 	"\n" +
-	"SUIT_CROSS\x10\x02\x12\x11\n" +
-	"\rSUIT_TRIANGLE\x10\x03\x12\r\n" +
-	"\tSUIT_STAR\x10\x04\x12\r\n" +
-	"\tSUIT_WHOT\x10\x05*\x90\x01\n" +
-	"\vCARD_EFFECT\x12\x11\n" +
-	"\rEFFECT_NORMAL\x10\x00\x12\x15\n" +
-	"\x11EFFECT_EXTRA_TURN\x10\x01\x12\x13\n" +
-	"\x0fEFFECT_DRAW_TWO\x10\x02\x12\x14\n" +
-	"\x10EFFECT_SKIP_NEXT\x10\x03\x12\x16\n" +
-	"\x12EFFECT_MARKET_PICK\x10\x04\x12\x14\n" +
-	"\x10EFFECT_WILD_CARD\x10\x05B\x1dZ\x1bwhot/api/helloworld/api;apib\x06proto3"
+	"\x06NORMAL\x10\x00\x12\v\n" +
+	"\aHOLD_ON\x10\x01\x12\f\n" +
+	"\bPICK_TWO\x10\x02\x12\v\n" +
+	"\aSUSPEND\x10\x03\x12\n" +
+	"\n" +
+	"\x06MARKET\x10\x04\x12\b\n" +
+	"\x04WHOT\x10\x05*]\n" +
+	"\x04SUIT\x12\v\n" +
+	"\aINVALID\x10\x00\x12\n" +
+	"\n" +
+	"\x06CIRCLE\x10\x01\x12\f\n" +
+	"\bTRIANGLE\x10\x02\x12\t\n" +
+	"\x05CROSS\x10\x03\x12\n" +
+	"\n" +
+	"\x06SQUARE\x10\x04\x12\b\n" +
+	"\x04STAR\x10\x05\x12\r\n" +
+	"\tSUIT_WHOT\x10\x06B\bZ\x06./;apib\x06proto3"
 
 var (
 	file_helloworld_api_api_proto_rawDescOnce sync.Once
@@ -1815,53 +1865,52 @@ func file_helloworld_api_api_proto_rawDescGZIP() []byte {
 }
 
 var file_helloworld_api_api_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_helloworld_api_api_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_helloworld_api_api_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_helloworld_api_api_proto_goTypes = []any{
 	(GameCommand)(0),          // 0: api.GameCommand
 	(ACTION)(0),               // 1: api.ACTION
-	(SUIT_TYPE)(0),            // 2: api.SUIT_TYPE
-	(CARD_EFFECT)(0),          // 3: api.CARD_EFFECT
-	(*RoomInfo)(nil),          // 4: api.RoomInfo
-	(*UserEnterRoom)(nil),     // 5: api.UserEnterRoom
-	(*StageFa)(nil),           // 6: api.StageFa
+	(CARD_EFFECT)(0),          // 2: api.CARD_EFFECT
+	(SUIT)(0),                 // 3: api.SUIT
+	(*RoomInfoPush)(nil),      // 4: api.RoomInfoPush
+	(*UserEnterRoomPush)(nil), // 5: api.UserEnterRoomPush
+	(*StageFaPush)(nil),       // 6: api.StageFaPush
 	(*FaBet)(nil),             // 7: api.FaBet
 	(*ActivePush)(nil),        // 8: api.ActivePush
-	(*Pending)(nil),           // 9: api.Pending
-	(*ActionOption)(nil),      // 10: api.ActionOption
-	(*ResultPush)(nil),        // 11: api.ResultPush
-	(*PlayerResult)(nil),      // 12: api.PlayerResult
-	(*MarketResultPush)(nil),  // 13: api.MarketResultPush
-	(*LastCardReq)(nil),       // 14: api.LastCardReq
-	(*LastCardRsp)(nil),       // 15: api.LastCardRsp
-	(*UserActionReq)(nil),     // 16: api.UserActionReq
-	(*UserActionRsp)(nil),     // 17: api.UserActionRsp
-	(*PlayCardResult)(nil),    // 18: api.PlayCardResult
-	(*DrawCardResult)(nil),    // 19: api.DrawCardResult
-	(*DeclareSuitResult)(nil), // 20: api.DeclareSuitResult
-	(*C2SLeavRoom)(nil),       // 21: api.C2SLeavRoom
-	(*S2CLeavRoom)(nil),       // 22: api.S2CLeavRoom
+	(*ResultPush)(nil),        // 9: api.ResultPush
+	(*PlayerResult)(nil),      // 10: api.PlayerResult
+	(*MarketResultPush)(nil),  // 11: api.MarketResultPush
+	(*Pending)(nil),           // 12: api.Pending
+	(*ActionOption)(nil),      // 13: api.ActionOption
+	(*LastCardRush)(nil),      // 14: api.LastCardRush
+	(*UserActionReq)(nil),     // 15: api.UserActionReq
+	(*UserActionRsp)(nil),     // 16: api.UserActionRsp
+	(*PlayCardResult)(nil),    // 17: api.PlayCardResult
+	(*DrawCardResult)(nil),    // 18: api.DrawCardResult
+	(*DeclareSuitResult)(nil), // 19: api.DeclareSuitResult
+	(*LeaveRoomReq)(nil),      // 20: api.LeaveRoomReq
+	(*LeaveRoomRsp)(nil),      // 21: api.LeaveRoomRsp
 }
 var file_helloworld_api_api_proto_depIdxs = []int32{
-	5,  // 0: api.RoomInfo.playerInfo:type_name -> api.UserEnterRoom
-	2,  // 1: api.RoomInfo.declareSuit:type_name -> api.SUIT_TYPE
-	9,  // 2: api.RoomInfo.pending:type_name -> api.Pending
-	10, // 3: api.UserEnterRoom.canOp:type_name -> api.ActionOption
-	11, // 4: api.UserEnterRoom.resultInfo:type_name -> api.ResultPush
-	7,  // 5: api.StageFa.userBet:type_name -> api.FaBet
-	2,  // 6: api.ActivePush.declareSuit:type_name -> api.SUIT_TYPE
-	10, // 7: api.ActivePush.canOp:type_name -> api.ActionOption
-	3,  // 8: api.Pending.effect:type_name -> api.CARD_EFFECT
-	1,  // 9: api.ActionOption.action:type_name -> api.ACTION
-	2,  // 10: api.ActionOption.suits:type_name -> api.SUIT_TYPE
-	12, // 11: api.ResultPush.PlayerInfo:type_name -> api.PlayerResult
+	5,  // 0: api.RoomInfoPush.playerInfo:type_name -> api.UserEnterRoomPush
+	3,  // 1: api.RoomInfoPush.declareSuit:type_name -> api.SUIT
+	12, // 2: api.RoomInfoPush.pending:type_name -> api.Pending
+	13, // 3: api.UserEnterRoomPush.canOp:type_name -> api.ActionOption
+	9,  // 4: api.UserEnterRoomPush.resultInfo:type_name -> api.ResultPush
+	7,  // 5: api.StageFaPush.userBet:type_name -> api.FaBet
+	3,  // 6: api.ActivePush.declareSuit:type_name -> api.SUIT
+	13, // 7: api.ActivePush.canOp:type_name -> api.ActionOption
+	10, // 8: api.ResultPush.PlayerInfo:type_name -> api.PlayerResult
+	2,  // 9: api.Pending.effect:type_name -> api.CARD_EFFECT
+	1,  // 10: api.ActionOption.action:type_name -> api.ACTION
+	3,  // 11: api.ActionOption.suits:type_name -> api.SUIT
 	1,  // 12: api.UserActionReq.action:type_name -> api.ACTION
-	2,  // 13: api.UserActionReq.declareSuit:type_name -> api.SUIT_TYPE
+	3,  // 13: api.UserActionReq.declareSuit:type_name -> api.SUIT
 	1,  // 14: api.UserActionRsp.action:type_name -> api.ACTION
-	9,  // 15: api.UserActionRsp.effect:type_name -> api.Pending
-	18, // 16: api.UserActionRsp.playResult:type_name -> api.PlayCardResult
-	19, // 17: api.UserActionRsp.drawResult:type_name -> api.DrawCardResult
-	20, // 18: api.UserActionRsp.DeclareResult:type_name -> api.DeclareSuitResult
-	2,  // 19: api.DeclareSuitResult.suit:type_name -> api.SUIT_TYPE
+	12, // 15: api.UserActionRsp.effect:type_name -> api.Pending
+	17, // 16: api.UserActionRsp.playResult:type_name -> api.PlayCardResult
+	18, // 17: api.UserActionRsp.drawResult:type_name -> api.DrawCardResult
+	19, // 18: api.UserActionRsp.declareResult:type_name -> api.DeclareSuitResult
+	3,  // 19: api.DeclareSuitResult.suit:type_name -> api.SUIT
 	20, // [20:20] is the sub-list for method output_type
 	20, // [20:20] is the sub-list for method input_type
 	20, // [20:20] is the sub-list for extension type_name
@@ -1880,7 +1929,7 @@ func file_helloworld_api_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_helloworld_api_api_proto_rawDesc), len(file_helloworld_api_api_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   19,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

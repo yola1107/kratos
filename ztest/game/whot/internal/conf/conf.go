@@ -9,9 +9,9 @@ import (
 	"github.com/yola1107/kratos/v2/config"
 	"github.com/yola1107/kratos/v2/config/file"
 	"github.com/yola1107/kratos/v2/library/event"
-	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/library/log/zap"
 	zconf "github.com/yola1107/kratos/v2/library/log/zap/conf"
+	"github.com/yola1107/kratos/v2/library/xgo"
 	"github.com/yola1107/kratos/v2/log"
 )
 
@@ -98,7 +98,7 @@ func observer(key string, target any, bus *event.Bus) func(string, config.Value)
 			}
 		}
 
-		_, diff, err := ext.DiffLog(target, newVal)
+		_, diff, err := xgo.DiffLog(target, newVal)
 		if err != nil {
 			log.Errorf("[config] diff failed: key=%q, err=%v", key, err)
 			return
@@ -106,7 +106,7 @@ func observer(key string, target any, bus *event.Bus) func(string, config.Value)
 		if len(diff) > 0 {
 			log.Warnf("[config] [%q] updated:\n%s", key, diff)
 			// 刷新配置 深拷贝
-			if err := ext.DeepCopy(target, newVal); err != nil {
+			if err := xgo.DeepCopy(target, newVal); err != nil {
 				log.Errorf("[config] update failed: key=%q, err=%v", key, err)
 				return
 			}
@@ -123,7 +123,7 @@ func subscribeBus(bus *event.Bus, logger *zap.Logger) {
 			if v.Level != logger.GetLevel() {
 				logger.SetLevel(v.Level)
 			}
-			if changes, err := ext.Diff(v.Sensitive, logger.GetSensitive()); err == nil && len(changes) > 0 {
+			if changes, err := xgo.Diff(v.Sensitive, logger.GetSensitive()); err == nil && len(changes) > 0 {
 				logger.SetSensitive(v.Sensitive)
 			}
 		}
