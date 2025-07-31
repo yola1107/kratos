@@ -5,8 +5,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/library/work"
+	"github.com/yola1107/kratos/v2/library/xgo"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/transport/websocket"
 	v1 "github.com/yola1107/kratos/v2/ztest/game/whot/api/helloworld/v1"
@@ -43,7 +43,7 @@ func (u *User) IsFree() bool {
 		return true
 	}
 	// 模拟断线
-	if ws := u.client.Load(); ws != nil && ext.IsHitFloat(u.repo.GetConfig().OfflineRate) {
+	if ws := u.client.Load(); ws != nil && xgo.IsHitFloat(u.repo.GetConfig().OfflineRate) {
 		ws.Close()
 	}
 	return false
@@ -71,7 +71,7 @@ func (u *User) Init() {
 	u.client.Store(wsClient)
 
 	// login
-	dur := time.Duration(ext.RandInt(0, 5000)) * time.Millisecond
+	dur := time.Duration(xgo.RandInt(0, 5000)) * time.Millisecond
 	u.repo.GetTimer().Once(dur, func() {
 		u.Request(v1.GameCommand_OnLoginReq, &v1.LoginReq{
 			UserID: u.id,
@@ -211,7 +211,7 @@ func (u *User) OnResultPush(data []byte) {
 		if v.UserID != u.id {
 			continue
 		}
-		if ext.IsHitFloat(u.repo.GetConfig().LogoutRate) {
+		if xgo.IsHitFloat(u.repo.GetConfig().LogoutRate) {
 			u.sendLogoutReq()
 			return
 		}
@@ -223,7 +223,7 @@ func (u *User) sendLogoutReq() {
 	req := &v1.LogoutReq{
 		UserDBID: u.id,
 	}
-	dur := time.Duration(ext.RandInt(0, 6000)) * time.Millisecond
+	dur := time.Duration(xgo.RandInt(0, 6000)) * time.Millisecond
 	u.repo.GetTimer().Once(dur, func() {
 		u.Request(v1.GameCommand_OnLogoutReq, req)
 	})

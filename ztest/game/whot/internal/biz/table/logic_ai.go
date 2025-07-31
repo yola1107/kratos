@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/yola1107/kratos/v2/library/ext"
+	"github.com/yola1107/kratos/v2/library/xgo"
 	"github.com/yola1107/kratos/v2/log"
 	v1 "github.com/yola1107/kratos/v2/ztest/game/whot/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/game/whot/internal/biz/player"
@@ -41,12 +41,12 @@ func (r *RobotLogic) markExitNow() {
 
 func (r *RobotLogic) EnterTooShort() bool {
 	elapsedSec := time.Now().Unix() - r.lastEnterUnix.Load()
-	return elapsedSec < int64(ext.RandIntInclusive(EnterMinIntervalSec, EnterMaxIntervalSec))
+	return elapsedSec < int64(xgo.RandIntInclusive(EnterMinIntervalSec, EnterMaxIntervalSec))
 }
 
 func (r *RobotLogic) ExitTooShort() bool {
 	elapsedSec := time.Now().Unix() - r.lastExitUnix.Load()
-	return elapsedSec < int64(ext.RandIntInclusive(ExitMinIntervalSec, ExitMaxIntervalSec))
+	return elapsedSec < int64(xgo.RandIntInclusive(ExitMinIntervalSec, ExitMaxIntervalSec))
 }
 
 // CanEnter 判断机器人是否能进桌
@@ -97,7 +97,7 @@ func (r *RobotLogic) CanExit(p *player.Player) bool {
 	case money >= cfg.StandMaxMoney, money <= cfg.StandMinMoney:
 		return true
 	default:
-		return ext.IsHitFloat(ExitRandChance)
+		return xgo.IsHitFloat(ExitRandChance)
 	}
 }
 
@@ -113,7 +113,7 @@ func (r *RobotLogic) OnMessage(p *player.Player, cmd v1.GameCommand, msg proto.M
 	case v1.GameCommand_OnResultPush:
 		r.onExit(p, msg)
 	default:
-		r.onExit(p, msg) // 测试频繁进退桌 todo delete
+		// r.onExit(p, msg) // 测试频繁进退桌 todo delete
 	}
 }
 
@@ -122,7 +122,7 @@ func (r *RobotLogic) onExit(p *player.Player, _ proto.Message) {
 		return
 	}
 	r.markExitNow() // 记录离桌时间
-	dur := time.Duration(ext.RandInt(ExitMinIntervalSec, ExitMaxIntervalSec)) * time.Second
+	dur := time.Duration(xgo.RandInt(ExitMinIntervalSec, ExitMaxIntervalSec)) * time.Second
 
 	r.mTable.repo.GetTimer().Once(dur, func() {
 		r.mTable.OnExitGame(p, 0, "ai exit")
@@ -151,7 +151,7 @@ func (r *RobotLogic) ActivePlayer(p *player.Player, msg proto.Message) {
 		return
 	}
 
-	log.Debugf("=> p:%v, curr=%v, canOps=%v", p.Desc(), r.mTable.currCard, ext.ToJSON(ops))
+	log.Debugf("=> p:%v, curr=%v, canOps=%v", p.Desc(), r.mTable.currCard, xgo.ToJSON(ops))
 
 	// 对手的手牌数量
 	opponentHandSize := r.mTable.GetMinOpponentHandSize(p)
@@ -161,7 +161,7 @@ func (r *RobotLogic) ActivePlayer(p *player.Player, msg proto.Message) {
 		return
 	}
 
-	delay := time.Duration(ext.RandInt(1000, int(r.mTable.stage.Remaining().Milliseconds()*3/4))) * time.Millisecond
+	delay := time.Duration(xgo.RandInt(1000, int(r.mTable.stage.Remaining().Milliseconds()*3/4))) * time.Millisecond
 	r.mTable.repo.GetTimer().Once(delay, func() {
 		r.mTable.OnPlayerActionReq(p, req, false)
 	})

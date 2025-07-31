@@ -5,7 +5,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/yola1107/kratos/v2/library/ext"
+	"github.com/yola1107/kratos/v2/library/xgo"
 	"github.com/yola1107/kratos/v2/log"
 	v1 "github.com/yola1107/kratos/v2/ztest/game/whot/api/helloworld/v1"
 	"github.com/yola1107/kratos/v2/ztest/game/whot/internal/biz/player"
@@ -157,7 +157,7 @@ func (t *Table) intoGaming(seats []*player.Player) {
 
 // 计算庄家
 func (t *Table) calcBanker(seats []*player.Player) {
-	idx := ext.RandInt(0, len(seats))
+	idx := xgo.RandInt(0, len(seats))
 	t.active = seats[idx].GetChairID()
 	t.first = t.active
 }
@@ -208,7 +208,7 @@ func (t *Table) makeAutoActionReq(p *player.Player) (*v1.PlayerActionReq, error)
 		return nil, fmt.Errorf("no available options: player=%v table=%v", p.Desc(), t.Desc())
 	}
 
-	op := ops[ext.RandInt(0, len(ops))]
+	op := ops[xgo.RandInt(0, len(ops))]
 
 	req := &v1.PlayerActionReq{
 		UserId: p.GetPlayerID(),
@@ -218,13 +218,13 @@ func (t *Table) makeAutoActionReq(p *player.Player) (*v1.PlayerActionReq, error)
 	switch op.Action {
 	case v1.ACTION_PLAY_CARD:
 		if len(op.Cards) > 0 {
-			req.OutCard = op.Cards[ext.RandInt(0, len(op.Cards))]
+			req.OutCard = op.Cards[xgo.RandInt(0, len(op.Cards))]
 		}
 	case v1.ACTION_DRAW_CARD:
 		// no extra fields
 	case v1.ACTION_DECLARE_SUIT:
 		if len(op.Suits) > 0 {
-			req.DeclareSuit = op.Suits[ext.RandInt(0, len(op.Suits))]
+			req.DeclareSuit = op.Suits[xgo.RandInt(0, len(op.Suits))]
 		}
 	case v1.ACTION_SKIP_TURN:
 		// no extra fields
@@ -305,7 +305,7 @@ func (t *Table) settle() *SettleObj {
 	win := settle.WinScore
 	winner.AddMoney(win)
 
-	t.mLog.settle(winner, win, tax, ext.ToJSON(settle.GetResult()))
+	t.mLog.settle(winner, win, tax, xgo.ToJSON(settle.GetResult()))
 	log.Debugf("settle. tb=%s winner=%+v win=%v fee=%.1f info=%v",
 		t.Desc(), winner.Desc(), win, tax, settle.GetResult())
 	return settle

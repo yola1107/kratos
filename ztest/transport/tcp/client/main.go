@@ -5,9 +5,9 @@ import (
 	"time"
 
 	pb "github.com/yola1107/kratos/v2/internal/testdata/helloworld"
-	"github.com/yola1107/kratos/v2/library/ext"
 	"github.com/yola1107/kratos/v2/library/log/zap"
 	"github.com/yola1107/kratos/v2/library/log/zap/conf"
+	"github.com/yola1107/kratos/v2/library/xgo"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/transport/tcp"
 	"github.com/yola1107/kratos/v2/ztest/transport/api/helloworld/v1"
@@ -66,5 +66,5 @@ func unmarshalProtoMsg(data []byte) string {
 		log.Errorf("err:%+v", err)
 		return fmt.Sprintf("err:%+v", err)
 	}
-	return fmt.Sprintf("%+v", ext.ToJSON(&resp))
+	return fmt.Sprintf("%+v", xgo.ToJSON(&resp))
 }

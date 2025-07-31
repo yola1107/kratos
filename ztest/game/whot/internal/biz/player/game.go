@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/yola1107/kratos/v2/library/ext"
+	"github.com/yola1107/kratos/v2/library/xgo"
 	"github.com/yola1107/kratos/v2/log"
 )
 
@@ -195,7 +195,7 @@ func (p *Player) AddCards(cs []int32) {
 }
 
 func (p *Player) RemoveCard(card int32) {
-	p.gameData.cards = ext.SliceSubtract(p.gameData.cards, card)
+	p.gameData.cards = xgo.SliceSubtract(p.gameData.cards, card)
 	p.refreshCards()
 }
 

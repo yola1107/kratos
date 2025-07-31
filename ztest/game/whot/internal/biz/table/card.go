@@ -1,7 +1,7 @@
 package table
 
 import (
-	"github.com/yola1107/kratos/v2/library/ext"
+	"github.com/yola1107/kratos/v2/library/xgo"
 	v1 "github.com/yola1107/kratos/v2/ztest/game/whot/api/helloworld/v1"
 )
 
@@ -84,7 +84,7 @@ func NewGameCards() *GameCards {
 func (g *GameCards) Shuffle() {
 	g.index = 0
 	for i := 0; i < 3; i++ {
-		ext.SliceShuffle(g.cards)
+		xgo.SliceShuffle(g.cards)
 	}
 }
 
@@ -94,14 +94,14 @@ func (g *GameCards) DispatchCards(n int) []int32 {
 	if end > len(g.cards) {
 		end = len(g.cards)
 	}
-	cards := ext.SliceCopy(g.cards[g.index:end])
+	cards := xgo.SliceCopy(g.cards[g.index:end])
 	g.index = end
 	return cards
 }
 
 // GetCards 获取剩余牌堆
 func (g *GameCards) GetCards() []int32 {
-	return ext.SliceCopy(g.cards[g.index:])
+	return xgo.SliceCopy(g.cards[g.index:])
 }
 
 // GetCardNum 返回剩余牌数

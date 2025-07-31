@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/yola1107/kratos/v2/library/ext"
+	"github.com/yola1107/kratos/v2/library/xgo"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/transport/websocket/proto"
 	gproto "google.golang.org/protobuf/proto"
@@ -376,7 +376,7 @@ func (c *Client) Close(msg ...string) {
 
 // safeCall 用于安全调用回调，避免panic导致崩溃
 func safeCall(fn func()) {
-	defer ext.RecoverFromError(nil)
+	defer xgo.RecoverFromError(nil)
 	if fn != nil {
 		fn()
 	}

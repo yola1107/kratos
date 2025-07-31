@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/yola1107/kratos/v2/library/ext"
+	"github.com/yola1107/kratos/v2/library/xgo"
 	"github.com/yola1107/kratos/v2/ztest/api-server/internal/biz/player"
 	. "github.com/yola1107/kratos/v2/ztest/api-server/pkg/xredis"
 )
@@ -86,23 +86,23 @@ func AddList(keys []string, values []any) map[string]string {
 func FromRedisData(uid int64, data map[string]string) *player.BaseData {
 	b := &player.BaseData{}
 
-	b.UID = ext.StrToInt64(data[PlayerUIDField])
-	b.VIP = ext.StrToInt32(data[PlayerVIPField])
+	b.UID = xgo.StrToInt64(data[PlayerUIDField])
+	b.VIP = xgo.StrToInt32(data[PlayerVIPField])
 	b.NickName = data[PlayerNickNameField]
 	b.Avatar = data[PlayerAvatarField]
 	b.AvatarUrl = data[PlayerAvatarUrlField]
-	b.Money = ext.StrToFloat64(data[PlayerMoneyField])
-	b.ChannelID = ext.StrToInt32(data[PlayerChannelIDField])
-	b.PayTotal = ext.StrToFloat64(data[PlayerPayTotalField])
-	b.WithdrawTotal = ext.StrToFloat64(data[PlayerWithdrawTotalField])
-	b.PresentBet = ext.StrToFloat64(data[PlayerPresentBetField])
-	b.PresentProfit = ext.StrToFloat64(data[PlayerPresentProfitField])
-	b.PresentWinScore = ext.StrToFloat64(data[PlayerPresentWinScoreField])
-	b.PresentBoard = ext.StrToInt32(data[PlayerPresentBoardField])
-	b.TotalBoard = ext.StrToInt32(data[PlayerTotalBoardField])
-	b.TotalEarn = ext.StrToFloat64(data[PlayerTotalEarnField])
-	b.TotalConsume = ext.StrToFloat64(data[PlayerTotalConsumeField])
-	b.AllTotalBoard = ext.StrToInt64(data[PlayerAllTotalBoardField])
+	b.Money = xgo.StrToFloat64(data[PlayerMoneyField])
+	b.ChannelID = xgo.StrToInt32(data[PlayerChannelIDField])
+	b.PayTotal = xgo.StrToFloat64(data[PlayerPayTotalField])
+	b.WithdrawTotal = xgo.StrToFloat64(data[PlayerWithdrawTotalField])
+	b.PresentBet = xgo.StrToFloat64(data[PlayerPresentBetField])
+	b.PresentProfit = xgo.StrToFloat64(data[PlayerPresentProfitField])
+	b.PresentWinScore = xgo.StrToFloat64(data[PlayerPresentWinScoreField])
+	b.PresentBoard = xgo.StrToInt32(data[PlayerPresentBoardField])
+	b.TotalBoard = xgo.StrToInt32(data[PlayerTotalBoardField])
+	b.TotalEarn = xgo.StrToFloat64(data[PlayerTotalEarnField])
+	b.TotalConsume = xgo.StrToFloat64(data[PlayerTotalConsumeField])
+	b.AllTotalBoard = xgo.StrToInt64(data[PlayerAllTotalBoardField])
 
 	b.UID = uid
 	return b
@@ -111,22 +111,22 @@ func FromRedisData(uid int64, data map[string]string) *player.BaseData {
 // ToRedisMap 转为 Redis hash 的 map[string]string
 func ToRedisMap(b *player.BaseData) map[string]string {
 	m := make(map[string]string)
-	m[PlayerUIDField] = ext.Int64ToStr(b.UID)
-	m[PlayerMoneyField] = ext.Float64ToStr(b.Money)
-	m[PlayerChannelIDField] = ext.Int32ToStr(b.ChannelID)
-	m[PlayerPayTotalField] = ext.Float64ToStr(b.PayTotal)
-	m[PlayerWithdrawTotalField] = ext.Float64ToStr(b.WithdrawTotal)
-	m[PlayerVIPField] = ext.Int32ToStr(b.VIP)
+	m[PlayerUIDField] = xgo.Int64ToStr(b.UID)
+	m[PlayerMoneyField] = xgo.Float64ToStr(b.Money)
+	m[PlayerChannelIDField] = xgo.Int32ToStr(b.ChannelID)
+	m[PlayerPayTotalField] = xgo.Float64ToStr(b.PayTotal)
+	m[PlayerWithdrawTotalField] = xgo.Float64ToStr(b.WithdrawTotal)
+	m[PlayerVIPField] = xgo.Int32ToStr(b.VIP)
 	m[PlayerNickNameField] = b.NickName
 	m[PlayerAvatarField] = b.Avatar
 	m[PlayerAvatarUrlField] = b.AvatarUrl
-	m[PlayerPresentBetField] = ext.Float64ToStr(b.PresentBet)
-	m[PlayerPresentProfitField] = ext.Float64ToStr(b.PresentProfit)
-	m[PlayerPresentWinScoreField] = ext.Float64ToStr(b.PresentWinScore)
-	m[PlayerPresentBoardField] = ext.Int32ToStr(b.PresentBoard)
-	m[PlayerTotalBoardField] = ext.Int32ToStr(b.TotalBoard)
-	m[PlayerTotalEarnField] = ext.Float64ToStr(b.TotalEarn)
-	m[PlayerTotalConsumeField] = ext.Float64ToStr(b.TotalConsume)
-	m[PlayerAllTotalBoardField] = ext.Int64ToStr(b.AllTotalBoard)
+	m[PlayerPresentBetField] = xgo.Float64ToStr(b.PresentBet)
+	m[PlayerPresentProfitField] = xgo.Float64ToStr(b.PresentProfit)
+	m[PlayerPresentWinScoreField] = xgo.Float64ToStr(b.PresentWinScore)
+	m[PlayerPresentBoardField] = xgo.Int32ToStr(b.PresentBoard)
+	m[PlayerTotalBoardField] = xgo.Int32ToStr(b.TotalBoard)
+	m[PlayerTotalEarnField] = xgo.Float64ToStr(b.TotalEarn)
+	m[PlayerTotalConsumeField] = xgo.Float64ToStr(b.TotalConsume)
+	m[PlayerAllTotalBoardField] = xgo.Int64ToStr(b.AllTotalBoard)
 	return m
 }
