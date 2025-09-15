@@ -14,9 +14,9 @@ import (
 	"github.com/yola1107/kratos/v2/transport/tcp/internal/bufio"
 	"github.com/yola1107/kratos/v2/transport/tcp/internal/bytes"
 	"github.com/yola1107/kratos/v2/transport/tcp/internal/channel"
-	"github.com/yola1107/kratos/v2/transport/tcp/internal/proxy"
 	xtime "github.com/yola1107/kratos/v2/transport/tcp/internal/time"
 	"github.com/yola1107/kratos/v2/transport/tcp/proto"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -34,28 +34,33 @@ func (s *Server) StartTCP(accept int) (err error) {
 
 func (s *Server) acceptTCP(lis net.Listener) {
 	var (
-		conn net.Conn
+		conn *net.TCPConn
 		err  error
 		r    int
 	)
 	for {
-		if conn, err = lis.Accept(); err != nil {
+		tcpLn, ok := lis.(*net.TCPListener)
+		if !ok {
+			log.Fatal("listener is not a *net.TCPListener")
+			return
+		}
+		if conn, err = tcpLn.AcceptTCP(); err != nil {
 			// if listener close then return
 			log.Errorf("listener.Accept(\"%s\") error(%v)", lis.Addr().String(), err)
 			return
 		}
-		//if err = conn.SetKeepAlive(s.c.TCP.KeepAlive); err != nil {
-		//	log.Errorf("conn.SetKeepAlive() error(%v)", err)
-		//	return
-		//}
-		//if err = conn.SetReadBuffer(s.c.TCP.Rcvbuf); err != nil {
-		//	log.Errorf("conn.SetReadBuffer() error(%v)", err)
-		//	return
-		//}
-		//if err = conn.SetWriteBuffer(s.c.TCP.Sndbuf); err != nil {
-		//	log.Errorf("conn.SetWriteBuffer() error(%v)", err)
-		//	return
-		//}
+		if err = conn.SetKeepAlive(s.c.TCP.KeepAlive); err != nil {
+			log.Errorf("conn.SetKeepAlive() error(%v)", err)
+			return
+		}
+		if err = conn.SetReadBuffer(s.c.TCP.Rcvbuf); err != nil {
+			log.Errorf("conn.SetReadBuffer() error(%v)", err)
+			return
+		}
+		if err = conn.SetWriteBuffer(s.c.TCP.Sndbuf); err != nil {
+			log.Errorf("conn.SetWriteBuffer() error(%v)", err)
+			return
+		}
 		go s.serveTCP(conn, r)
 		if r++; r == maxInt {
 			r = 0
@@ -64,16 +69,12 @@ func (s *Server) acceptTCP(lis net.Listener) {
 }
 
 func (s *Server) serveTCP(conn net.Conn, r int) {
-	defer func() {
-		if err := s.recoveryServer(); err != nil {
-			log.Errorf("serceTcp %v", err)
-			conn.Close()
-		}
-	}()
 	var (
-		tr    = s.round.Timer(r)
-		rp    = s.round.Reader(r)
-		wp    = s.round.Writer(r)
+		// timer
+		tr = s.round.Timer(r)
+		rp = s.round.Reader(r)
+		wp = s.round.Writer(r)
+		// ip addr
 		lAddr = conn.LocalAddr().String()
 		rAddr = conn.RemoteAddr().String()
 	)
@@ -92,7 +93,9 @@ func (s *Server) serveTCP(conn net.Conn, r int) {
 	)
 	ch.Reader.ResetBuffer(conn, rb.Bytes())
 	ch.Writer.ResetBuffer(conn, wb.Bytes())
-	//handshake
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	// handshake
 	uid := uuid.New().String()
 	step := 0
 	trd = tr.Add(time.Duration(s.c.Protocol.HandshakeTimeout), func() {
@@ -100,44 +103,22 @@ func (s *Server) serveTCP(conn net.Conn, r int) {
 		conn.Close()
 		log.Errorf("key: %s remoteIP: %s step: %d tcp handshake timeout", ch.Key, conn.RemoteAddr().String(), step)
 	})
-	//proxy
-	if s.c.Protocol.Proxy {
-		proxyHeader, err := proxy.Read(rr)
-		//if err == proxy.ErrNoProxyProtocol {
-		//	err = nil
-		//}
-		if err != nil {
-			log.Errorf("proxy err %v", err)
-		} else {
-			lAddr = proxyHeader.LocalAddr().String()
-			rAddr = proxyHeader.RemoteAddr().String()
-			log.Infof("proxy tcp serve \"%s\" with \"%s\"", lAddr, rAddr)
+	ch.IP, _, _ = net.SplitHostPort(rAddr)
+	// must not setadv, only used in auth
+	step = 1
+	if p, err = ch.CliProto.Set(); err == nil {
+		if err = s.authTCP(conn, rr, p); err == nil {
+			err = wr.Flush()
+			ch.Key = uid
+			hb = time.Duration(s.c.Protocol.HandshakeTimeout)
+			b = s.GetBucket(ch.Key)
+			b.Put(ch)
+			ctx = metadata.NewServerContext(ctx, metadata.New(map[string][]string{
+				"remote_ip": {ch.IP},
+				"mid":       {ch.Key},
+			}))
 		}
 	}
-	ch.IP, _, _ = net.SplitHostPort(rAddr)
-	step = 1
-	////auth
-	//if s.c.Auth.Open {
-	//	if p, err = ch.CliProto.Set(); err == nil {
-	//		err = s.authTCP(conn, rr, p)
-	//	}
-	//}
-	ch.Key = uid
-	hb = time.Duration(s.c.Protocol.HandshakeTimeout)
-	b = s.GetBucket(ch.Key)
-	b.Put(ch)
-	//md := metadata.MD{
-	//	metadata.RemoteIP: ch.IP,
-	//	metadata.Mid:      ch.Key,
-	//}
-	//newCtx := metadata.NewContext(context.Background(), md)
-	md := metadata.New()
-	md.Set("remote_ip", ch.IP)
-	md.Set("mid", ch.Key)
-	newCtx := metadata.NewServerContext(context.Background(), md)
-	ctx, cancel := context.WithCancel(newCtx)
-	defer cancel()
-
 	step = 2
 	if err != nil {
 		conn.Close()
@@ -159,24 +140,19 @@ func (s *Server) serveTCP(conn net.Conn, r int) {
 		if err = p.ReadTCP(rr); err != nil {
 			break
 		}
-		tr.Set(trd, time.Duration(s.c.Protocol.HeartbeatTimeout))
+		// log.Infof("ReadTCP. p={op:%d place:%d type:%d seq:%d code:%d body:%+v}", p.Op, p.Place, p.Type, p.Seq, p.Code, p.Body)
 		if p.Type == int32(proto.Ping) {
-			p.Type = int32(proto.Ping)
+			tr.Set(trd, time.Duration(s.c.Protocol.HeartbeatTimeout))
 			p.Body = nil
-			//_metricServerReqCodeTotal.Inc("/Ping", "no_user", "0")
 			step++
-		} else {
-			if err = s.Operate(ctx, p); err != nil {
-				break
-			}
+		}
+		if err = s.Operate(ctx, p); err != nil {
+			st, _ := status.FromError(err)
+			log.Warnf("Operate err. st.Code=%d(%+v) st.Message=%v", st.Code(), st.Code(), st.Message())
+			// break
 		}
 		ch.CliProto.SetAdv()
 		ch.Signal()
-		//response为空的时候dispatchTCP不处理
-		if p.Body != nil || p.Type == int32(proto.Ping) {
-			ch.CliProto.SetAdv()
-			ch.Signal()
-		}
 	}
 	if err != nil && err != io.EOF && !strings.Contains(err.Error(), "closed") {
 		log.Errorf("key: %s server tcp failed error(%v)", ch.Key, err)
@@ -190,19 +166,7 @@ func (s *Server) serveTCP(conn net.Conn, r int) {
 	ch.Close()
 }
 
-// 请求/响应处理（dispatchTCP）：
-//
-// 函数dispatchTCP
-// 读取来自客户端的消息，处理它们，并发送适当的响应（例如，PING，PO
-// 处理来自服务器的响应，并通过 将它们写回客户端bufio.Writer。
-// 如果连接关闭或发生错误，它确保正确的
 func (s *Server) dispatchTCP(conn net.Conn, wr *bufio.Writer, wp *bytes.Pool, wb *bytes.Buffer, ch *channel.Channel) {
-	defer func() {
-		if err := s.recoveryServer(); err != nil {
-			log.Errorf("dispatchTCP %v", err)
-			conn.Close()
-		}
-	}()
 	var (
 		err    error
 		finish bool
@@ -219,16 +183,18 @@ func (s *Server) dispatchTCP(conn net.Conn, wr *bufio.Writer, wp *bytes.Pool, wb
 				if p, err = ch.CliProto.Get(); err != nil {
 					break
 				}
-				if p.Type == int32(proto.Ping) {
-					p.Type = int32(proto.Pong)
+				switch p.Type {
+				case int32(proto.Pong):
 					if err = p.WriteTCPHeart(wr); err != nil {
 						goto failed
 					}
-				} else if p.Type == int32(proto.Response) {
+				default:
+					// log.Infof("DispatchTCP. p={op:%d place:%d type:%d seq:%d code:%d body:%+v}", p.Op, p.Place, p.Type, p.Seq, p.Code, p.Body)
 					if err = p.WriteTCP(wr); err != nil {
 						goto failed
 					}
 				}
+				// reset payload back to ring
 				p.Body = nil // avoid memory leak
 				ch.CliProto.GetAdv()
 			}
@@ -248,7 +214,7 @@ failed:
 	if err != nil {
 		log.Errorf("key: %s dispatch tcp error(%v)", ch.Key, err)
 	}
-	//s.disconnectChan <- ch.Key
+	// s.disconnectChan <- ch.Key
 	conn.Close()
 	wp.Put(wb)
 	// must ensure all channel message discard, for reader won't blocking Signal
@@ -258,25 +224,28 @@ failed:
 	return
 }
 
-//func (s *Server) authTCP(conn *net.TCPConn, rr *bufio.Reader, p *proto.Payload) (err error) {
-//	reqBody := &proto.Body{}
-//	for {
-//		if err = p.ReadTCP(rr); err != nil {
-//			return
-//		}
-//		if p.Type == int32(proto.Request) {
-//			if err = gproto.Unmarshal(p.Body, reqBody); err != nil {
-//				return
-//			}
-//			if reqBody.Ops == proto.AuthOps {
-//				break
-//			} else {
-//				log.Errorf("tcp request ops(%d) not auth", reqBody.Ops)
-//			}
-//		}
-//	}
-//	token := string(reqBody.Data[:])
-//	ctx := grpcmd.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+token)
-//	_, err = s.atuhClient.VerifyToken(ctx, &empty.Empty{})
-//	return
-//}
+func (s *Server) authTCP(conn net.Conn, rr *bufio.Reader, p *proto.Payload) (err error) {
+	if !s.c.Auth.Open {
+		return nil
+	}
+	// reqBody := &proto.Body{}
+	// for {
+	// 	if err = p.ReadTCP(rr); err != nil {
+	// 		return
+	// 	}
+	// 	if p.Type == int32(proto.Request) {
+	// 		if err = gproto.Unmarshal(p.Body, reqBody); err != nil {
+	// 			return
+	// 		}
+	// 		if reqBody.Ops == proto.AuthOps {
+	// 			break
+	// 		} else {
+	// 			log.Errorf("tcp request ops(%d) not auth", reqBody.Ops)
+	// 		}
+	// 	}
+	// }
+	// token := string(reqBody.Data[:])
+	// ctx := grpcmd.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+token)
+	// _, err = s.atuhClient.VerifyToken(ctx, &empty.Empty{})
+	return
+}

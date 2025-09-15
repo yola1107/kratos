@@ -3,10 +3,11 @@
 kratos learn
 
 
-kratos new helloworld -r https://github.com/yola1107/kratos-layout.git
-
 kratos new helloworld
 
+kratos new helloworld -r https://github.com/yola1107/kratos-layout.git
+
+kratos new helloworld --repo-url=https://github.com/yola1107/kratos-layout.git
 
 
 
@@ -18,14 +19,9 @@ done
 
 
 
-
-last:     20250427 17:30   ==>  v2.8.6
-
-
 删除远端所有tag
 git fetch --tags
 git tag -l | xargs -n 1 git push --delete origin
-
 
 # 检查本地是否存在tag
 git tag -l | grep 'v2.8.6'
@@ -36,6 +32,51 @@ git ls-remote --tags origin v2.8.6
 # 推送tag到远端
 git push origin v2.8.6
 
+# 删除远端分支
+git push origin --delete dev2
+
+# git rebase 合并提交记录
+git rebase -i --autosquash HEAD~20
+:%s/^pick/squash/g
+git rebase main              # 当前分支变基到 main 分支上
+git rebase -i HEAD~3         # 最近3个提交交互式 rebase
+git rebase --continue        # 继续 rebase（冲突解决后）
+git rebase --abort           # 取消 rebase
+git pull --rebase origin dev # 拉取远程并合并（merge 或 rebase 均可
+git push origin dev          # 如果 pull 成功（没有冲突），就可以 push 了
 
 go clean -modcache
 go install github.com/go-delve/delve/cmd/dlv@master
+
+
+# -A5 表示往下多显示 5 行
+grep -A5 "\[config\] \"room.game\" updated" /var/log/myapp.log
+# 变更发生在 2025/06/14 16:55 这一分钟
+grep "2025/06/14 16:55" /var/log/myapp.log
+
+
+# 目录树状结构
+tree /f /a > tree.txt
+
+# 端口查询
+lsof -i -P | grep -E ':3102|:3103|:3104|:3105|:3106'
+watch -n 2 'ss -lntp | awk '\''/:(8000|9000|3102)/ {print $0}'\'
+
+# 日志过滤
+tail -F logs/ws-*.log | grep --color=always -E '[a-zA-Z0-9_/.-]+\.go:[0-9]+\]|$'
+
+# pprof #cpu block goroutine
+go tool pprof -http=0.0.0.0:8080 http://localhost:6060/debug/pprof/profile?seconds=60
+go tool pprof -http=0.0.0.0:8081 http://localhost:6060/debug/pprof/block?debug=1
+go tool pprof -http=0.0.0.0:8082 http://localhost:6060/debug/pprof/goroutine
+http://127.0.0.1:8080/ui
+
+
+# race
+Environment:         GORACE=log_path=logs\race.log
+Go tool arguments:   -race
+
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o app main.go
+nohup ./cmd -conf configs/ > /dev/null 2>&1 &
+nohup ./app -conf configs/ >> app.log 2>&1 &
+

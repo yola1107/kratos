@@ -1,0 +1,236 @@
+syntax = "proto3";
+package api;
+
+option go_package = "./;api";
+
+//游戏命令类型枚举
+enum GameCommand {
+    NONE = 0;
+
+    //服务器主动推送（1~19）
+    MsRoomInfoPush      = 1;  //房间信息推送
+    MsUserEnterRoomPush = 2;  //玩家进入房间推送
+    MsFaPush            = 3;  //发牌阶段推送
+    MsActivePush        = 4;  //当前玩家操作推送
+    MsResultPush        = 5;  //结算结果推送
+    MsMarketResultPush  = 6;  //14牌：摸牌结果推送
+    MsLastCardPush      = 7;  //宣告最后一张推送
+
+    //客户端请求（20~39）
+    MsUserActionReq = 22;  //玩家操作请求
+    MsLeaveRoomReq  = 23;  //退出房间请求
+
+    //服务器响应（120~139）
+    MsUserActionRsp = 122;  //玩家操作响应
+    MsLeaveRoomRsp  = 123;  //退出房间响应
+}
+
+//玩家可执行操作类型
+enum ACTION {
+    ACTION_NULL  = 0;  //无操作
+    PLAY_CARD    = 1;  //出牌
+    DRAW_CARD    = 2;  //抓牌
+    DECLARE_SUIT = 3;  //声明花色
+}
+
+//牌效果类型
+enum CARD_EFFECT {
+    NORMAL   = 0;
+    HOLD_ON  = 1;  //1：立即再出一张
+    PICK_TWO = 2;  //2：下家抽两张并跳过
+    SUSPEND  = 3;  //8：跳过下家
+    MARKET   = 4;  //14：除当前玩家外，其他人各抽一张
+    WHOT     = 5;  //20：万能（可声明花色；不可终止2/8连锁）
+}
+
+//花色类型
+enum SUIT {
+    INVALID   = 0;
+    CIRCLE    = 1;
+    TRIANGLE  = 2;
+    CROSS     = 3;
+    SQUARE    = 4;
+    STAR      = 5;
+    SUIT_WHOT = 6;
+}
+
+//房间信息推送，通知所有玩家当前房间状态
+message RoomInfoPush {
+    repeated UserEnterRoomPush playerInfo = 1;   //房间内玩家信息列表
+    int64 banner                          = 2;   //庄家
+    int64 curUid                          = 3;   //当前轮到玩家的uid
+    int64 ticker                          = 4;   //游戏计时器(当前游戏状态下的剩余时间)
+    double baseScore                      = 5;   //底分
+    int32 currCard                        = 6;   //当前牌
+    SUIT declareSuit                      = 7;   //当前声明的花色
+    int32 leftNum                         = 8;   //剩余牌数(总牌堆)
+    Pending pending                       = 9;   //待处理效果信息
+    int32 gameState                       = 10;  //当前游戏状态
+}
+
+//玩家进入房间推送，通知其他玩家新玩家加入
+message UserEnterRoomPush {
+    int64 uid                   = 1;   //玩家ID
+    int32 head                  = 2;   //玩家头像索引
+    string userName             = 3;   //玩家昵称
+    int32 seat                  = 4;   //座位号
+    int64 score                 = 5;   //当前积分
+    repeated ActionOption canOp = 6;   //当前可执行操作选项
+    int32 gameState             = 7;   //游戏状态
+    ResultPush resultInfo       = 8;   //结算信息（若有）
+    repeated int32 cards        = 9;   //自己的手牌列表
+    int32 handsNum              = 10;  //手牌数量
+
+    int32 pickTip = 11;  //若本回合是被 2 惩罚，客户端可用于 UI 提示 0:没有,1:有
+}
+
+//发牌阶段推送，通知当前发牌信息
+message StageFaPush {
+    int64 bankerUid        = 1;  //庄家UID
+    int32 firstCard        = 2;  //第一张牌
+    int32 leftNum          = 3;  //剩余牌数(总牌堆)
+    repeated FaBet userBet = 4;  //玩家下注列表
+}
+
+//玩家下注信息
+message FaBet {
+    int64 uid            = 1;  //玩家ID
+    int64 betscore       = 2;  //当前下注分数
+    int64 score          = 3;  //玩家当前积分
+    int32 handsNum       = 4;  //手牌数量
+    repeated int32 cards = 5;  //手牌列表
+}
+
+//当前活动玩家信息推送
+message ActivePush {
+    int64 time                  = 1;  //操作剩余时间
+    int32 curSeat               = 2;  //当前操作的座位号  // int64 uid   = 2;  //当前操作玩家UID
+    int32 currCard              = 3;  //当前出的牌
+    SUIT declareSuit            = 4;  //声明的花色
+    repeated ActionOption canOp = 5;  //可操作选项列表
+
+    int32 pickTip = 6;  //若本回合是被 2 惩罚，客户端可用于 UI 提示 0:没有,1:有
+}
+
+//结算结果推送
+message ResultPush {
+    int64 winUid                     = 1;  //胜利玩家UID
+    int64 winScore                   = 2;  //赢得分数
+    int32 finishType                 = 3;  //结算类型 1:玩家出完手牌 2:剩余牌堆为空
+    repeated PlayerResult PlayerInfo = 4;  //玩家结算详细信息
+}
+
+//玩家结算详情
+message PlayerResult {
+    int64 uid                = 1;  //玩家ID
+    string name              = 2;  //昵称
+    string avatar            = 3;  //头像
+    bool isWinner            = 4;  //是否赢家
+    double winScore          = 5;  //赢得积分
+    repeated int32 handCards = 6;  //剩余手牌
+    int32 handCardsScore     = 7;  //手牌分数
+    int64 balance            = 8;  //余额
+}
+
+//14牌抽牌结果推送
+message MarketResultPush {
+    int64 uid            = 1;  //玩家ID
+    int32 chairID        = 2;  //座位号
+    int32 drawNum        = 3;  //抽牌数量
+    int32 handsNum       = 4;  //手牌数量
+    repeated int32 draw  = 5;  //抽到的牌
+    repeated int32 cards = 6;  //手牌列表
+    int32 leftNum        = 7;  //剩余牌数(总牌堆)
+}
+
+////待处理效果信息
+//message Pending {
+//    CARD_EFFECT effect = 1;  //效果类型
+//    int64 initiator    = 2;  //发起者UID
+//    int64 target       = 3;  //目标玩家UID
+//    int32 quantity     = 4;  //数量（如抽牌张数）
+//}
+
+//待处理效果信息
+message Pending {
+    CARD_EFFECT effect     = 1;  //效果类型
+    int32 from_seat        = 2;  //发起者座位
+    repeated int32 to_seat = 3;  //受影响玩家列表. 客户端可用于 UI 提示
+    int32 value            = 4;  //数量（如抽牌张数）
+
+    int32 action_seat = 5;  //交给哪个玩家处理 （废弃）
+}
+
+//玩家可执行操作选项
+message ActionOption {
+    ACTION action        = 1;  //操作类型
+    repeated int32 cards = 2;  //相关牌
+    int32 drawCount      = 3;  //抓牌数
+    repeated SUIT suits  = 4;  //相关花色
+}
+
+//同步所有人最后一张宣告信息
+message LastCardRush {
+    int32 code = 1;  //状态码
+    int64 uid  = 2;  //玩家ID
+}
+
+//---------------- 客户端请求 + 服务器响应 ----------------
+
+//客户端发起动作：
+//- 出牌：action=PLAY_CARD, card=xxx
+//- 抓牌：action=DRAW_CARD
+//- 声明花色：action=DECLARE_SUIT, declare_suit=xxx
+message UserActionReq {
+    int64 uid        = 1;  //玩家ID
+    ACTION action    = 2;  //操作类型
+    int32 outCard    = 3;  //出牌值（若出牌操作）
+    SUIT declareSuit = 4;  //申明花色（若申明花色操作）
+}
+
+//玩家操作响应
+message UserActionRsp {
+    int32 code     = 1;  //状态码
+    string msg     = 2;  //状态消息
+    int64 uid      = 3;  //玩家ID
+    int32 seat     = 4;  //玩家座位号
+    ACTION action  = 5;  //玩家执行的操作
+    int32 leftNum  = 6;  //剩余牌数(总牌堆)
+    Pending effect = 7;  //当前牌效
+
+    PlayCardResult playResult       = 8;   //出牌结果
+    DrawCardResult drawResult       = 9;   //抓牌结果
+    DeclareSuitResult declareResult = 10;  //变更花色结果
+}
+
+//出牌结果
+message PlayCardResult {
+    int32 card           = 1;  //出牌值
+    int32 handsNum       = 2;  //剩余手牌数
+    repeated int32 cards = 3;  //当前手牌列表
+}
+
+//抓牌结果
+message DrawCardResult {
+    int32 drawNum        = 1;  //抓牌张数
+    int32 handsNum       = 2;  //剩余手牌数
+    repeated int32 drawn = 3;  //抓到的牌
+    repeated int32 cards = 4;  //当前手牌列表
+}
+
+//声明花色结果
+message DeclareSuitResult {
+    SUIT suit = 1;  //新声明的花色
+}
+
+//退出房间请求
+message LeaveRoomReq {
+    int64 uid = 1;  //玩家ID
+}
+
+//退出房间响应
+message LeaveRoomRsp {
+    int32 code = 1;  //状态码
+    string msg = 2;  //状态消息
+    int64 uid  = 3;  //玩家ID
+}

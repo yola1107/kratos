@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>WebSocket 登录 (protobuf)</title>
+  <script src="https://cdn.jsdelivr.net/npm/protobufjs@7.2.3/dist/protobuf.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    label { display: block; margin-top: 8px; }
+    input { width: 200px; padding: 4px; }
+    button { margin-top: 10px; padding: 6px 12px; }
+    #log {
+      margin-top: 15px;
+      width: 100%;
+      height: 200px;
+      border: 1px solid #ccc;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      background: #f9f9f9;
+      padding: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<h2>WebSocket 登录测试器 (protobuf)</h2>
+
+<label>用户ID (int64):</label>
+<input type="text" id="userID" value="200001" />
+<label>Token:</label>
+<input type="text" id="token" value="abc123" />
+<label>类型:</label>
+<input type="number" id="type" value="1" />
+<label>桌号:</label>
+<input type="number" id="tableID" value="0" />
+<label>椅子号:</label>
+<input type="number" id="chairID" value="0" />
+<br />
+<button id="connectBtn">连接 WebSocket</button>
+
+<div id="log"></div>
+
+<script>
+  const protoStr = `
+    syntax = "proto3";
+    package websocket.proto;
+
+    enum ACTION {
+      UNKNOWN = 0;
+      CALL = 1;    // 跟注
+      RAISE = 2;   // 加注
+      SEE = 3;     // 看牌
+      PACK = 4;    // 弃牌
+      SHOW = 5;    // 比牌
+      SIDE = 6;    // 提前比牌
+      SIDE_REPLY = 7; // 提前比牌回应
+    }
+
+    message Payload {
+      int32 op      = 1;
+      int32 place   = 2;
+      int32 seq     = 3;
+      int32 code    = 4;
+      int32 command = 5;
+      bytes body    = 6;
+    }
+
+    message LoginReq {
+      int64 userID  = 1;
+      string token  = 2;
+      int32 type    = 3;
+      int32 tableID = 4;
+      int32 chairID = 5;
+    }
+
+    message LoginRsp {
+      int32 code    = 1;  // 错误码
+      string msg    = 2;  // 错误信息
+      int64 userID  = 3;  // 用户ID
+      int32 tableID = 4;  // 桌号
+      int32 chairID = 5;  // 椅子号
+      int32 arenaID = 6;  // 竞技场ID
+    }
+
+    message ActivePush {
+      int32 stage           = 1;  // 游戏状态
+      int64 timeout         = 2;  // 剩余时间秒
+      int32 active          = 3;  // 当前操作位置（椅子号）
+      int32 curRound        = 4;
+      double curBet         = 5;
+      double totalBet       = 6;
+      double raiseBet       = 7;
+      repeated ACTION canOp = 8;  // 可操作列表
+    }
+
+    message ActionReq {
+      int64 userID        = 1;
+      ACTION action       = 2;
+      bool sideReplyAllow = 3;
+    }
+  `;
+
+  let root = null;
+  let Payload = null;
+  let LoginReq = null;
+  let LoginRsp = null;
+  let ActivePush = null;
+  let ActionReq = null;
+  let ACTION = null;
+
+  let socket = null;
+  let seq = 1;
+  let heartbeatInterval = null;
+  let myChairID = null;
+  let myUserID = null;
+
+  const logDiv = document.getElementById('log');
+  function log(msg) {
+    logDiv.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+    logDiv.scrollTop = logDiv.scrollHeight;
+  }
+
+  function loadProto() {
+    const parsed = protobuf.parse(protoStr);
+    root = parsed.root;
+    Payload = root.lookupType("websocket.proto.Payload");
+    LoginReq = root.lookupType("websocket.proto.LoginReq");
+    LoginRsp = root.lookupType("websocket.proto.LoginRsp");
+    ActivePush = root.lookupType("websocket.proto.ActivePush");
+    ActionReq = root.lookupType("websocket.proto.ActionReq");
+    ACTION = root.lookupEnum("websocket.proto.ACTION");
+    log("Proto 加载完成");
+  }
+
+  function createPayload(op, command, bodyBytes = null) {
+    const payload = Payload.create({
+      op,
+      place: 0,
+      seq: seq++,
+      code: 0,
+      command,
+      body: bodyBytes || new Uint8Array(0),
+    });
+    return Payload.encode(payload).finish();
+  }
+
+  function sendPing() {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      const pingPayload = createPayload(1, 0);
+      socket.send(pingPayload);
+      log("发送 Ping (op=1, command=0)");
+    }
+  }
+
+  function sendLoginRequest() {
+    const userIDStr = document.getElementById('userID').value.trim();
+    if (!userIDStr || isNaN(userIDStr)) {
+      log("请输入合法的 userID");
+      return;
+    }
+    // protobufjs 对 int64 支持用字符串，转成字符串传入
+    myUserID = userIDStr;
+
+    const token = document.getElementById('token').value.trim();
+    const type = parseInt(document.getElementById('type').value);
+    const tableID = parseInt(document.getElementById('tableID').value);
+    const chairID = parseInt(document.getElementById('chairID').value);
+
+    const loginPayload = LoginReq.create({
+      userID: myUserID,
+      token,
+      type,
+      tableID,
+      chairID,
+    });
+
+    const loginBytes = LoginReq.encode(loginPayload).finish();
+    const fullPayload = createPayload(3, 1001, loginBytes);
+
+    socket.send(fullPayload);
+    log("发送 LoginReq (op=3, command=1001)");
+  }
+
+  function sendAction(actionEnumValue, sideReplyAllow) {
+    if (!myUserID) {
+      log("用户ID 未定义，无法发送动作");
+      return;
+    }
+    const actionPayload = ActionReq.create({
+      userID: myUserID,
+      action: actionEnumValue,
+      sideReplyAllow,
+    });
+    const actionBytes = ActionReq.encode(actionPayload).finish();
+    const fullPayload = createPayload(1, 1101, actionBytes);
+    socket.send(fullPayload);
+    log(`发送 ActionReq (op=1, command=1101) 动作=${actionEnumValue}, sideReplyAllow=${sideReplyAllow}`);
+  }
+
+  document.getElementById('connectBtn').onclick = function () {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      log("已连接，无需重复连接");
+      return;
+    }
+
+    socket = new WebSocket("ws://localhost:3102");
+    socket.binaryType = "arraybuffer";
+
+    socket.onopen = () => {
+      log("WebSocket 已连接");
+      sendLoginRequest();
+      heartbeatInterval = setInterval(sendPing, 10000);
+    };
+
+    socket.onmessage = (event) => {
+      const bytes = new Uint8Array(event.data);
+      try {
+        const payloadMsg = Payload.decode(bytes);
+
+        if (payloadMsg.command === 1002) {
+          handleLoginRsp(payloadMsg.body);
+          return;
+        }
+
+        if (payloadMsg.op === 0) {
+          switch (payloadMsg.command) {
+            case 2100:
+              log("收到 庄家通知 (op=0, command=2100)");
+              break;
+            case 2101:
+              log("收到 发牌通知 (op=0, command=2101)");
+              break;
+            case 2102:
+              log("收到 活动玩家通知 (op=0, command=2102)");
+              handleActivePush(payloadMsg.body);
+              break;
+            default:
+              log(`收到 未处理命令 (op=0, command=${payloadMsg.command})`);
+          }
+        } else {
+          log(`收到其他消息 (op=${payloadMsg.op}, command=${payloadMsg.command})`);
+        }
+      } catch (e) {
+        log("解析消息异常: " + e.message);
+      }
+    };
+
+    socket.onclose = () => {
+      log("WebSocket 已关闭");
+      clearInterval(heartbeatInterval);
+      myChairID = null;
+      myUserID = null;
+    };
+
+    socket.onerror = (err) => {
+      log("WebSocket 错误: " + err.message);
+    };
+  };
+
+  function handleLoginRsp(bodyBytes) {
+    try {
+      const rsp = LoginRsp.decode(bodyBytes);
+      myChairID = Number(rsp.chairID);
+      log(`登录成功，保存 chairID=${myChairID}, code=${rsp.code}, msg=${rsp.msg}`);
+    } catch (e) {
+      log("解析 LoginRsp 失败: " + e.message);
+    }
+  }
+
+  function handleActivePush(bodyBytes) {
+    try {
+      const activePush = ActivePush.decode(bodyBytes);
+      log("ActivePush 数据: " + JSON.stringify(activePush));
+
+      if (myChairID !== null && activePush.active === myChairID && activePush.canOp.length > 0) {
+        // 随机选一个动作
+        const randomIndex = Math.floor(Math.random() * activePush.canOp.length);
+        const actionType = activePush.canOp[randomIndex];
+        // 50%概率 sideReplyAllow = true
+        const sideReplyAllow = Math.random() < 0.5;
+
+        sendAction(actionType, sideReplyAllow);
+      } else {
+        log(`当前未轮到自己操作或无可操作动作 (active=${activePush.active}, myChairID=${myChairID})`);
+      }
+    } catch (e) {
+      log("解析 ActivePush 失败: " + e.message);
+    }
+  }
+
+  loadProto();
+</script>
+
+</body>
+</html>

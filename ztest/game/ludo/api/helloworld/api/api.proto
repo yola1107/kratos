@@ -1,0 +1,277 @@
+syntax = "proto3";
+
+package api;
+
+option go_package = "./;api";
+
+// -------------------- Enums --------------------
+
+// 游戏指令类型 subCmd
+enum GameCommand {
+    MsVoid         = 0;   // 空
+    MsSenceReq     = 1;   // 请求场景
+    MsSenceResp    = 2;   // 响应场景（GameState）
+    MsRollDiceReq  = 5;   // 请求掷骰（RollDiceRequest）
+    MsRollDiceResp = 6;   // 响应掷骰（RollDiceResponse）
+    MsMoveReq      = 7;   // 请求移动棋子（MoveRequest）
+    MsMoveResp     = 8;   // 响应移动棋子（MoveResponse）
+    MsEmojiReq     = 9;   // 表情请求（EmojiRequest）
+    MsEmojiResp    = 10;  // 表情广播（BaseResponse）
+    MsChatReq      = 11;  // 聊天请求（ChatMsg）
+    MsChatResp     = 12;  // 聊天广播（ChatMsg）
+    MsActivePush   = 13;  // 激活当前玩家
+    MsStartNtf     = 14;  // 游戏开始通知（LudoStart）
+    MsSettleNtf    = 15;  // 游戏结算通知（Settle）
+    MsSitDown      = 16;  // 玩家坐下（PlayerSitDown）
+    MsLeaveReq     = 17;  // 请求离开房间
+    MsLeaveResp    = 18;  // 离开广播（S2CLeavRoom）
+    MsMasterStart  = 19;  // 房主强制开始游戏  空 -> BaseResponse
+
+    MsPrivateRoomLeaveReq = 20;  // 未开始时，玩家请求退出私有房间（房主则解散房间，非房主则离开）
+    MsPrivateRoomLeaveRsp = 21;  // 响应房间退出/解散请求
+}
+
+// 游戏阶段状态
+enum LudoGameStatus {
+    StVoid    = 0;  // 空
+    StUnReady = 1;  // 等待玩家准备
+    StStart   = 2;  // 游戏已开始
+    StDice    = 3;  // 投掷骰子阶段
+    StMove    = 4;  // 移动棋子阶段
+    StSettle  = 5;  // 结算阶段
+    StMoveAni = 6;  // 移动动画
+}
+
+// 服务器错误码定义
+enum ErrorCode {
+    SUCCESS              = 0;   // 成功
+    ROOM_FULL            = 1;   // 房间已满
+    INVALID_STAKE        = 2;   // 无效底注
+    NOT_YOUR_TURN        = 3;   // 非你的回合
+    INVALID_MOVE         = 4;   // 非法移动
+    GAME_ALREADY_STARTED = 5;   // 游戏已开始
+    PLAYER_NOT_FOUND     = 6;   // 玩家未找到
+    NETWORK_ERROR        = 7;   // 网络错误
+    TIMEOUT              = 8;   // 超时
+    INSUFFICIENT_BALANCE = 9;   // 余额不足
+    IsInGaming           = 10;  // 游戏中无法退出
+}
+
+// 玩家状态类型
+enum PlayerStatusType {
+    PlayerStatusTypeVoid    = 0;  // 空闲
+    PlayerStatusTypeIngame  = 1;  // 游戏中
+    PlayerStatusTypeOffline = 2;  // 离线
+    PlayerStatusTypeTrust   = 3;  // 托管
+}
+
+// 玩家动作类型
+enum ActionType {
+    ACVoid = 0;  // 空
+    ACDice = 1;  // 掷骰
+    ACMove = 2;  // 移动
+}
+
+// -------------------- Message --------------------
+
+// 通用响应结构
+message BaseResponse {
+    int32 code = 1;  // 错误码（0为成功）
+    string msg = 2;  // 提示信息
+}
+
+// 单个棋子信息
+message Piece {
+    int32 id     = 1;  // 棋子ID（全局唯一）
+    int32 pos    = 2;  // 当前棋盘坐标位置
+    int32 color  = 3;  // 所属颜色（0红，1黄，2绿，3蓝）
+    int32 status = 4;  // 状态（0基地，1公共路径，2终点路径，3到达终点）
+}
+
+// 玩家坐下消息
+message PlayerSitDown {
+    int64 player_id = 1;  // 玩家ID
+    int32 seat      = 2;  // 座位号（0-3）
+    string name     = 3;  // 昵称
+    string avatar   = 4;  // 头像
+    int32 color     = 5;  // 玩家颜色（0-3）
+    int64 balance   = 6;  // 当前余额
+}
+
+// 游戏中玩家信息
+message Player {
+    int64 id                = 1;  // 玩家ID
+    int32 seat              = 2;  // 座位号（0-3）
+    string name             = 3;  // 昵称
+    string avatar           = 4;  // 头像
+    int32 color             = 5;  // 0红 1黄 2绿 3蓝
+    PlayerStatusType status = 6;  // 当前状态 2:托管 3:离线
+    int64 balance           = 7;  // 余额
+    repeated Dice diceList  = 8;  // 骰子列表（当前或上轮）
+    ActionType canAction    = 9;  // 动作类型
+}
+
+// 棋盘信息
+message Board {
+    repeated int32 common = 1;  // 公共路径格子（0-51）
+    repeated int32 home   = 2;  // 各色基地（已废弃，用-1 表示）
+    repeated int32 entry  = 3;  // 出发点（0红，13黄，26绿，39蓝）
+    repeated int32 safe   = 4;  // 安全格子（不可吃子） 0, 8, 13, 21, 26, 34, 39, 47,
+    repeated int32 end    = 5;  // 终点路径（101~106, 111~116, 121~126, 131-136）
+    repeated int32 color  = 6;  // 颜色标记（0-3）
+}
+
+// 游戏场景状态
+message GameState {
+    string game_id               = 1;   // 游戏唯一ID
+    int32 mode                   = 2;   // 0=经典，1=快速
+    LudoGameStatus status        = 3;   // 当前阶段
+    int64 timeout                = 4;   // 倒计时，单位 ms
+    int32 curSeat                = 5;   // 当前操作的座位号
+    Board board                  = 6;   // 棋盘信息
+    repeated Player players      = 7;   // 玩家信息
+    repeated string winners      = 8;   // 胜利玩家 ID 列表
+    int64 baseScore              = 9;   // 底注
+    string tableId               = 10;  // 桌子ID
+    int64 level                  = 11;  // 游戏等级
+    int64 timeLeft               = 12;  // 快速场剩余时间（毫秒）
+    repeated FastScore cur_score = 13;  // 当前积分（快速场）
+    repeated Piece pieces        = 14;  // 棋盘所有棋子信息
+    int32 playerNum              = 15;  // 房间最大人数 (私有房间使用创建房间规则的人数)
+    int64 SN                     = 16;  // 6位数房间号 (私有房间创建房间时生成)
+}
+
+// 游戏开始通知
+message LudoStart {
+    int64 timeLeft                 = 1;  // 快速场剩余时间（毫秒）
+    repeated Piece pieces          = 2;  // 棋盘所有棋子信息
+    repeated GamePlayerInfo gamers = 3;  // 参与游戏的玩家信息
+}
+
+message GamePlayerInfo {
+    int64 uid   = 1;  // 玩家ID
+    int32 seat  = 2;  // 玩家椅子号
+    int32 color = 3;  // 玩家颜色持方: 0红 1黄 2绿 3蓝
+}
+
+// 单个骰子结果
+message Dice {
+    int32 value = 1;  // 骰子点数
+    bool used   = 2;  // 是否已使用
+}
+
+// 当前活动玩家操作提示
+message ActivePush {
+    int32 curSeat          = 1;  // 当前操作的座位号
+    ActionType type        = 2;  // 动作类型
+    int32 color            = 3;  // 玩家颜色
+    int64 timeout          = 4;  // 剩余时间（ms）
+    repeated Dice diceList = 5;  // 骰子列表
+}
+
+// 掷骰请求
+message RollDiceRequest {
+    int64 player_id = 1;
+}
+
+// 掷骰响应
+message RollDiceResponse {
+    int32 code              = 1;
+    string msg              = 2;
+    int64 player_id         = 3;
+    int32 dice              = 4;  // 当前骰子点数
+    repeated Dice diceList  = 5;  // 所有骰子
+    PlayerStatusType status = 6;  // 玩家状态（v2025-08-03）
+}
+
+// 移动棋子请求
+message MoveRequest {
+    int64 player_id  = 1;  // 玩家id
+    int32 piece_id   = 2;  // 棋子ID
+    int32 dice_value = 3;  // 使用的骰子点数
+}
+
+// 移动棋子响应
+message MoveResponse {
+    int32 code                    = 1;
+    string msg                    = 2;
+    int64 player_id               = 3;   // 玩家id
+    int32 piece_id                = 4;   // 棋子ID
+    int32 dice_value              = 5;   // 使用的骰子点数
+    DiceMove move                 = 6;   // 实际移动
+    repeated DiceMove killed      = 7;   // 被吃子
+    repeated FastScore cur_score  = 8;   //
+    repeated FastScore incr_score = 9;   //
+    PlayerStatusType status       = 10;  // 玩家状态（v2025-08-03）
+    repeated Piece pieces         = 11;  // 棋盘所有棋子当前状态
+}
+
+// 移动棋子信息
+message DiceMove {
+    int64 player_id = 1;  // 玩家id
+    int32 piece_id  = 2;  // 棋子ID
+    int32 from      = 3;  // 起始位置
+    int32 to        = 4;  // 目标位置
+}
+
+// 快速得分结构
+message FastScore {
+    int64 id    = 1;  // 玩家ID
+    int64 score = 2;  // 分数
+}
+
+// 单个玩家结算数据
+message SettlePlayer {
+    // 基础信息
+    int64 player_id = 1;  // 玩家ID
+    int32 seat      = 2;  // 座位号（0-3）
+    string name     = 3;  // 昵称
+    string avatar   = 4;  // 头像
+    int32 color     = 5;  // 0红 1黄 2绿 3蓝
+    // 结算信息
+    int64 betAll    = 6;   // 下注额
+    int64 score     = 7;   // 玩家得分
+    int64 rank      = 8;   // 排名
+    bool is_win     = 9;   // 是否胜利
+    int64 balance   = 10;  // 玩家余额
+    int64 fastScore = 11;  // 快速模式得分
+}
+
+// 结算数据
+message Settle {
+    int64 baseScore                      = 1;  // 底注
+    repeated SettlePlayer settle_players = 2;  // 结算玩家列表
+    int64 winType                        = 3;  // 0=正常，1=时间到
+}
+
+// 表情功能
+message EmojiRequest {
+    string room_id  = 1;
+    int64 player_id = 2;
+    int64 emoji_id  = 3;
+}
+
+// 聊天功能
+message ChatMsg {
+    string room_id  = 1;
+    int64 player_id = 2;
+    string text     = 3;
+}
+
+// 玩家主动退出
+message C2SLeavRoom {}
+
+// 玩家离开广播
+message S2CLeavRoom {
+    int64 uid  = 1;
+    int32 code = 2;
+}
+
+// 未开始时，玩家请求退出私有房间（房主则解散房间，非房主则离开）
+message PrivateRoomLeaveReq {
+}
+message PrivateRoomLeaveRsp {
+    int32 code     = 1;
+    int64 masterID = 2;  // 房主ID
+    int64 uid      = 3;  // 离开玩家ID
+}
