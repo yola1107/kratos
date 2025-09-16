@@ -36,7 +36,7 @@ var StageTimeouts = map[StageID]int64{
 	StDice:     7,
 	StMove:     7,
 	StWaitEnd:  3,
-	StEnd:      10,
+	StEnd:      1,
 }
 
 // StageNames maps each stage to its string name.
