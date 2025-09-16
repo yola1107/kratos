@@ -55,6 +55,7 @@ func (t *Table) OnDiceReq(p *player.Player, in *v1.DiceReq, timeout bool) bool {
 	movable := t.hasMovableOption(p)          // 是否存在可动棋子
 	tripleSix := dice == 6 && p.IsTripleSix() // 是否连续掷出三个6
 
+	t.mLog.Dice(p, dice, movable, tripleSix)
 	log.Debugf("OnDiceReq: p=%v, dice=%d, movable=%v, tripleSix=%v, timeout=%v",
 		p.Desc(), dice, movable, tripleSix, timeout)
 
@@ -97,6 +98,7 @@ func (t *Table) OnMoveReq(p *player.Player, in *v1.MoveReq, timeout bool) bool {
 	delta := t.CalcFastModeScore(color, step, arrived) // 快速模式 计算分数
 	t.broadcastMoveRsp(p, pieceID, dice, delta, step)  // 广播移动结果
 
+	t.mLog.Move(p, pieceID, dice, arrived, step, timeout)
 	log.Debugf("OnMoveReq. p=%v, req={Id:%d,X:%d} step=%v, timeout=%v",
 		p.Desc(), pieceID, dice, xgo.ToJSON(step), timeout)
 
@@ -107,7 +109,7 @@ func (t *Table) OnMoveReq(p *player.Player, in *v1.MoveReq, timeout bool) bool {
 		log.Debugf("===> 棋子进入终点. p=%v, id=%d, x=%d, finish=%v", p.Desc(), pieceID, dice, p.IsFinish())
 
 		// 是否结束游戏
-		if p.IsFinish() && t.checkGameOver() {
+		if p.IsFinish() {
 			t.settle(0)
 			return true
 		}
