@@ -37,6 +37,10 @@ func init() {
 	flag.StringVar(&ServerID, "sid", os.Getenv("HOSTNAME"), "specify the server PieceID.")
 }
 
+func IsFastMode() bool {
+	return GameMode == ModeFast
+}
+
 // LoadConfig 加载配置
 func LoadConfig(flagconf string) (config.Config, *Bootstrap, *zconf.Bootstrap) {
 	c := config.New(

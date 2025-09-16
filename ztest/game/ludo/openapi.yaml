@@ -243,18 +243,6 @@ components:
                         type: integer
                         format: int32
             description: 棋盘配置，描述棋盘的基础布局信息
-        ludo.v1.CanMoveDice:
-            type: object
-            properties:
-                dice:
-                    type: integer
-                    format: int32
-                pieces:
-                    type: array
-                    items:
-                        type: integer
-                        format: int32
-            description: 单个骰子及对应可移动棋子列表
         ludo.v1.ChatReq:
             type: object
             properties:
@@ -465,15 +453,6 @@ components:
                     items:
                         $ref: '#/components/schemas/ludo.v1.Piece'
             description: 玩家行动响应，包含移动结果和更新的棋盘状态
-        ludo.v1.Path:
-            type: object
-            properties:
-                Path:
-                    type: array
-                    items:
-                        type: integer
-                        format: int32
-            description: 单条移动路径描述
         ludo.v1.Piece:
             type: object
             properties:
@@ -515,12 +494,6 @@ components:
                 canAction:
                     type: integer
                     format: enum
-                moveDices:
-                    type: array
-                    items:
-                        $ref: '#/components/schemas/ludo.v1.CanMoveDice'
-                Ret:
-                    $ref: '#/components/schemas/ludo.v1.TagRetData'
             description: 玩家信息，描述单个玩家的状态及操作能力
         ludo.v1.ReadyReq:
             type: object
@@ -592,21 +565,5 @@ components:
                 userID:
                     type: string
             description: 换桌响应
-        ludo.v1.TagRetData:
-            type: object
-            properties:
-                Max:
-                    type: integer
-                    format: int32
-                Cache:
-                    type: array
-                    items:
-                        type: integer
-                        format: int32
-                Paths:
-                    type: array
-                    items:
-                        $ref: '#/components/schemas/ludo.v1.Path'
-            description: 全遍历结果，描述所有可移动路径
 tags:
     - name: Ludo

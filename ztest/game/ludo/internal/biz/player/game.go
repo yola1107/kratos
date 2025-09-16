@@ -6,7 +6,7 @@ import (
 
 	"github.com/yola1107/kratos/v2/library/xgo"
 	"github.com/yola1107/kratos/v2/log"
-	"github.com/yola1107/kratos/v2/ztest/game/ludo/internal/model"
+	"github.com/yola1107/kratos/v2/ztest/game/ludo/internal/conf"
 )
 
 const (
@@ -61,16 +61,15 @@ type GameData struct {
 	idleCount  int32   // 超时次数
 	isOffline  bool    // 是否离线
 
-	bet           float64           // 当前投注
-	color         int32             // 颜色：0红 1黄 2绿 3蓝
-	diceRollCount int               // 掷骰次数
-	hasGotSix     bool              // 是否投出过6
-	dices         []DiceSlot        // 当前轮骰子
-	lastDices     []DiceSlot        // 上轮骰子
-	paths         *model.TagRetData // 当前可行路径缓存
-	finish        bool              // 是否所有棋子进入终点
-	finishAt      int64             // 所有棋子到达终点时间
-	pieceIds      []int32           // 当前持有的棋子ID列表
+	bet          float64    // 当前投注
+	color        int32      // 颜色：0红 1黄 2绿 3蓝
+	initDiceList []int32    // 6点保护策略
+	lastRoll     int32      // 最近摇骰子点数 (未使用)
+	dices        []DiceSlot // 当前轮骰子
+	lastDices    []DiceSlot // 上轮骰子
+	allArrived   bool       // 是否所有棋子进入终点
+	allArrivedAt int64      // 所有棋子到达终点时间
+	pieceIds     []int32    // 当前持有的棋子ID列表
 }
 
 // Reset 清除玩家的游戏状态（不清除座位与桌号）
@@ -81,13 +80,12 @@ func (p *Player) Reset() {
 	p.gameData.isOffline = false
 	p.gameData.bet = 0
 	p.gameData.color = -1
-	p.gameData.diceRollCount = 0
-	p.gameData.hasGotSix = false
+	p.gameData.initDiceList = nil
+	p.gameData.lastRoll = -1
 	p.gameData.dices = nil
 	p.gameData.lastDices = nil
-	p.gameData.paths = nil
-	p.gameData.finish = false
-	p.gameData.finishAt = 0
+	p.gameData.allArrived = false
+	p.gameData.allArrivedAt = 0
 	p.gameData.pieceIds = nil
 }
 
@@ -104,13 +102,6 @@ func (p *Player) Desc() string {
 	return fmt.Sprintf("(%d %d T:%d St:%s ai:%d co:%v ids=%v dices:%v)",
 		p.GetPlayerID(), p.GetChairID(), p.GetTableID(), p.GetStatus().String(), bool2Int(p.isRobot),
 		p.GetColor(), xgo.ToJSON(p.GetPieces()), xgo.ToJSON(p.DiceListInt32()))
-}
-
-func (p *Player) DescPath() string {
-	if r := p.GetPaths(); r != nil {
-		return r.Desc()
-	}
-	return ""
 }
 
 func bool2Int(v bool) int {
@@ -190,6 +181,7 @@ func (p *Player) IntoGaming(bet float64) bool {
 		return false
 	}
 	p.gameData.bet += bet
+	p.InitDicesSequence()
 	return true
 }
 
@@ -235,23 +227,36 @@ func (p *Player) MarkPieceArrived(pieceId int32) {
 		}
 	}
 }
-func (p *Player) SetPaths(paths *model.TagRetData) {
-	p.gameData.paths = paths
-}
 
-func (p *Player) GetPaths() *model.TagRetData {
-	return p.gameData.paths
+// InitDicesSequence 生成 n+1 个骰子序列，保证前 n 次至少有一个 6
+func (p *Player) InitDicesSequence() {
+	if conf.IsFastMode() {
+		return
+	}
+
+	const n = 3
+
+	// 1. [1,5] 洗牌
+	base := []int32{1, 2, 3, 4, 5}
+	xgo.SliceShuffle(base)
+
+	// 2. 抽出前 n+1 个
+	seq := make([]int32, n+1)
+	copy(seq, base[:n+1])
+
+	// 3. 保证前 n 里有一个 6
+	seq[xgo.RandInt(0, n)] = 6
+
+	// 4. 最终赋值
+	p.gameData.initDiceList = seq
 }
 
 // AddDice 添加一个骰子（未使用状态）
 func (p *Player) AddDice(value int32) {
 	p.gameData.dices = append(p.gameData.dices, DiceSlot{Value: value, Used: false})
 
-	// 更新骰子次数 及 6点出现的情况
-	p.gameData.diceRollCount++
-	if value == 6 {
-		p.gameData.hasGotSix = true
-	}
+	// 更新最新骰子
+	p.gameData.lastRoll = value
 }
 
 // GetDiceSlot 返回当前骰子列表（含已用/未用）
@@ -331,14 +336,26 @@ func (p *Player) FinishTurn() {
 }
 
 func (p *Player) SetFinish() {
-	p.gameData.finish = true
-	p.gameData.finishAt = time.Now().Unix()
+	p.gameData.allArrived = true
+	p.gameData.allArrivedAt = time.Now().Unix()
 }
 
 func (p *Player) GetFinishAt() int64 {
-	return p.gameData.finishAt
+	return p.gameData.allArrivedAt
 }
 
 func (p *Player) IsFinish() bool {
-	return p.gameData.finish
+	return p.gameData.allArrived
+}
+
+func (p *Player) GetLastRoll() int32 {
+	return p.gameData.lastRoll
+}
+func (p *Player) RollInitDiceList() int32 {
+	if len(p.gameData.initDiceList) <= 0 {
+		return -1
+	}
+	dice := p.gameData.initDiceList[0]
+	p.gameData.initDiceList = p.gameData.initDiceList[1:]
+	return dice
 }

@@ -161,14 +161,14 @@ func (t *Table) intoGaming(seats []*player.Player) {
 	}
 
 	// 初始化棋盘
-	t.board = model.NewBoard(seatColors, 4, conf.GameMode)
+	t.board = model.NewBoard(seatColors, 4, conf.IsFastMode())
 
 	for _, p := range seats {
 		if p == nil || !p.IsGaming() {
 			continue
 		}
 		color := p.GetColor()
-		p.SetPieces(t.board.GetColorPieceIds(color))
+		p.SetPieces(t.board.GetPieceIDsByColor(color))
 		t.colorMap[color] = p.GetPlayerID()
 	}
 }
@@ -214,22 +214,14 @@ func (t *Table) onMoveTimeout() {
 		return
 	}
 
-	ret := p.GetPaths()
-	if ret == nil {
-		ret = model.Permute(t.board.Clone(), p.GetColor(), p.UnusedDice(), true)
-	}
-	if ret == nil || len(ret.Dst) == 0 || ret.Max == 0 {
-		log.Errorf("onMoveTimeout: ===== 找不到可移动的路径. tb=%v, p=%v", t.Desc(), p.Desc())
-		return
-	}
-	// 超时随机一条路径
-	pieceId, x := ret.Dst[0][0], ret.Dst[0][1]
-	idx := xgo.RandInt(0, len(ret.Dst))
-	if path := ret.Dst[idx]; len(path) >= 2 {
-		pieceId, x = path[0], path[1]
-	}
-	// 如果有多个色子可移动, 只消耗一颗色子 id=ret.Dst[0][0], dist=ret.Dst[0][1]
-	t.OnMoveReq(p, &v1.MoveReq{UserId: p.GetPlayerID(), PieceId: pieceId, DiceValue: x}, true)
+	t.repo.GetLoop().Post(func() {
+		id, x := model.FindBestMoveSequence(t.board.Clone(), p.UnusedDice(), p.GetColor())
+		if id <= -1 || x <= -1 {
+			log.Error("onMoveTimeout: 找不到可移动的路径. tb=%v, p=%v", t.Desc(), p.Desc())
+			return
+		}
+		t.OnMoveReq(p, &v1.MoveReq{UserId: p.GetPlayerID(), PieceId: id, DiceValue: x}, true)
+	})
 }
 
 func (t *Table) gameEnd() {

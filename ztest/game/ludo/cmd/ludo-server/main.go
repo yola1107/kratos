@@ -47,7 +47,7 @@ func main() {
 
 	go func() {
 		runtime.GOMAXPROCS(runtime.NumCPU())
-		runtime.SetBlockProfileRate(1) // 设置阻塞分析采样率 (每纳秒)
+		// runtime.SetBlockProfileRate(1) // 设置阻塞分析采样率 (每纳秒)
 		log.Fatal(xhttp.ListenAndServe(":6060", nil))
 	}()
 

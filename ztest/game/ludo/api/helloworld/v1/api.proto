@@ -318,16 +318,16 @@ message BoardConfig {
 
 //玩家信息，描述单个玩家的状态及操作能力
 message PlayerInfo {
-    int64 userId                    = 1;   //玩家ID
-    int32 chairId                   = 2;   //玩家座位号
-    int32 status                    = 3;   //玩家状态（0:空闲，1:坐下未准备，2:已准备，3:游戏中）
-    bool hosting                    = 4;   //是否处于托管状态（AI代打）
-    bool offline                    = 5;   //是否断线
-    int32 color                     = 6;   //玩家棋子颜色（0红，1黄，2绿，3蓝）
-    repeated Dice diceList          = 7;   //当前玩家持有的骰子列表
-    ACTION_TYPE canAction           = 8;   //玩家当前可执行的动作类型
-    repeated CanMoveDice move_dices = 9;   //当前可用骰子对应的可移动棋子列表
-    TagRetData Ret                  = 10;  //玩家全路径遍历可移动路径信息（如果有）
+    int64 userId           = 1;  //玩家ID
+    int32 chairId          = 2;  //玩家座位号
+    int32 status           = 3;  //玩家状态（0:空闲，1:坐下未准备，2:已准备，3:游戏中）
+    bool hosting           = 4;  //是否处于托管状态（AI代打）
+    bool offline           = 5;  //是否断线
+    int32 color            = 6;  //玩家棋子颜色（0红，1黄，2绿，3蓝）
+    repeated Dice diceList = 7;  //当前玩家持有的骰子列表
+    ACTION_TYPE canAction  = 8;  //玩家当前可执行的动作类型
+    //    repeated CanMoveDice move_dices = 9;   //当前可用骰子对应的可移动棋子列表
+    //    TagRetData Ret                  = 10;  //玩家全路径遍历可移动路径信息（如果有）
 }
 
 //请求掷骰色子
@@ -384,32 +384,32 @@ message Piece {
 
 //当前活动玩家信息推送，告知客户端谁可操作及可选动作
 message ActivePush {
-    int32 stage                     = 1;  //当前游戏阶段
-    int64 timeout                   = 2;  //当前阶段剩余时间（秒）
-    int32 active                    = 3;  //当前操作玩家椅子号
-    repeated int32 unusedDices      = 4;  //未使用的骰子点数列表
-    ACTION_TYPE canAction           = 5;  //当前可执行的动作
-    repeated CanMoveDice move_dices = 6;  //可用骰子对应的可移动棋子列表
-    TagRetData Ret                  = 7;  //全路径遍历移动路径信息（可选）
+    int32 stage                = 1;  //当前游戏阶段
+    int64 timeout              = 2;  //当前阶段剩余时间（秒）
+    int32 active               = 3;  //当前操作玩家椅子号
+    repeated int32 unusedDices = 4;  //未使用的骰子点数列表
+    ACTION_TYPE canAction      = 5;  //当前可执行的动作
+    //    repeated CanMoveDice move_dices = 6;  //可用骰子对应的可移动棋子列表
+    //    TagRetData Ret                  = 7;  //全路径遍历移动路径信息（可选）
 }
 
-//全遍历结果，描述所有可移动路径
-message TagRetData {
-    int32 Max            = 1;  //最大可移动步数
-    repeated int32 Cache = 2;  //预计算缓存数据
-    repeated Path Paths  = 3;  //所有可行路径集合
-}
+////全遍历结果，描述所有可移动路径
+//message TagRetData {
+//    int32 Max            = 1;  //最大可移动步数
+//    repeated int32 Cache = 2;  //预计算缓存数据
+//    repeated Path Paths  = 3;  //所有可行路径集合
+//}
 
-//单条移动路径描述
-message Path {
-    repeated int32 Path = 1;  //一条路径 格式为 [pieceID, 步数, pieceID, 步数, ...]
-}
+////单条移动路径描述
+//message Path {
+//    repeated int32 Path = 1;  //一条路径 格式为 [pieceID, 步数, pieceID, 步数, ...]
+//}
 
-//单个骰子及对应可移动棋子列表
-message CanMoveDice {
-    int32 dice            = 1;  //骰子点数
-    repeated int32 pieces = 2;  //可用该骰子移动的棋子ID列表
-}
+////单个骰子及对应可移动棋子列表
+//message CanMoveDice {
+//    int32 dice            = 1;  //骰子点数
+//    repeated int32 pieces = 2;  //可用该骰子移动的棋子ID列表
+//}
 
 //游戏结算推送
 message ResultPush {

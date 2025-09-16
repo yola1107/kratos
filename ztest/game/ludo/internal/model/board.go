@@ -1,9 +1,5 @@
 package model
 
-import (
-	"github.com/yola1107/kratos/v2/ztest/game/ludo/internal/conf"
-)
-
 const (
 	MoveOK               int32 = iota // 移动合法，无错误
 	ErrInvalidMoveCount               // 移动步数与骰子数量不一致
@@ -18,24 +14,27 @@ const (
 	ErrMovesIncomplete                // 有未使用的骰子点数，移动不完整
 )
 
-const _MaxSteps = 10
+const _MaxSteps = 10 // 保存的最大步数 (避免内存膨胀过大)
 
-// Board 代表一个ludo棋盘
+// Board 代表一个Ludo棋盘，管理棋子、步骤和颜色映射
 type Board struct {
-	Mode     conf.GameModeType // 游戏模式，0=经典模式，1=快速模式等
-	pieces   []*Piece          // 所有棋子，id == index
-	steps    []*Step           // 执行过的步数
-	colorMap map[int32][]int32 // color -> piece ids
+	fastMode bool              // 游戏模式，false=经典，true=快速
+	pieces   []*Piece          // 所有棋子，索引即棋子ID
+	steps    []*Step           // 执行过的移动步骤记录
+	colorMap map[int32][]int32 // 颜色 -> 棋子ID列表映射
 }
 
-// NewBoard 创建新的游戏棋盘，seatColors 颜色数组(seat数组)，per 每颜色棋子数
-func NewBoard(seatColors []int32, piecesPerSeat int, mode conf.GameModeType) *Board {
-	b := &Board{Mode: mode, colorMap: make(map[int32][]int32)}
+// NewBoard 创建新的棋盘，seatColors为玩家颜色数组，每色棋子数量piecesPerSeat，isFastMode标记快速模式
+func NewBoard(seatColors []int32, piecesPerSeat int, isFastMode bool) *Board {
+	b := &Board{
+		fastMode: isFastMode,
+		colorMap: make(map[int32][]int32),
+	}
 
 	var id int32
 	for _, color := range seatColors {
-		for j := 0; j < piecesPerSeat; j++ {
-			p := NewPiece(id, color, mode)
+		for i := 0; i < piecesPerSeat; i++ {
+			p := NewPiece(id, color, isFastMode)
 			b.pieces = append(b.pieces, p)
 			b.colorMap[color] = append(b.colorMap[color], id)
 			id++
@@ -44,18 +43,12 @@ func NewBoard(seatColors []int32, piecesPerSeat int, mode conf.GameModeType) *Bo
 	return b
 }
 
+// Pieces 返回所有棋子指针切片
 func (b *Board) Pieces() []*Piece {
 	return b.pieces
 }
 
-func (b *Board) Steps() []*Step {
-	return b.steps
-}
-
-func (b *Board) ColorMap() map[int32][]int32 {
-	return b.colorMap
-}
-
+// GetPieceByID 根据ID获取棋子，ID越界返回nil
 func (b *Board) GetPieceByID(id int32) *Piece {
 	if id < 0 || int(id) >= len(b.pieces) {
 		return nil
@@ -63,27 +56,35 @@ func (b *Board) GetPieceByID(id int32) *Piece {
 	return b.pieces[id]
 }
 
-// GetColorPieceIds 返回指定颜色所有棋子Id
-func (b *Board) GetColorPieceIds(color int32) []int32 {
+// GetPieceIDsByColor 返回指定颜色所有棋子ID切片
+func (b *Board) GetPieceIDsByColor(color int32) []int32 {
 	return b.colorMap[color]
 }
 
-// ActivePieceIDs 返回指定颜色未到达终点的棋子
-func (b *Board) ActivePieceIDs(color int32) []int32 {
-	var res []int32
+// GetActivePieceIDs 返回指定颜色且未到终点的棋子ID列表
+func (b *Board) GetActivePieceIDs(color int32) []int32 {
+	var active []int32
 	for _, id := range b.colorMap[color] {
-		if p := b.GetPieceByID(id); p == nil || p.IsArrived() {
-			continue
+		if p := b.GetPieceByID(id); p != nil && !p.IsArrived() {
+			active = append(active, id)
 		}
-		res = append(res, id)
 	}
-	return res
+	return active
 }
 
-// Clone 深拷贝棋盘
+// // BackToBaseByLeave 玩家中途离开，所有棋子回退起始状态
+// func (b *Board) BackToBaseByLeave(color int32) {
+// 	for _, id := range b.colorMap[color] {
+// 		if p := b.GetPieceByID(id); p != nil {
+// 			p.setPos(calcBasePos(p.color, b.fastMode))
+// 		}
+// 	}
+// }
+
+// Clone 深拷贝棋盘，包含所有棋子和步骤，颜色映射为引用
 func (b *Board) Clone() *Board {
 	c := &Board{
-		Mode:     b.Mode,
+		fastMode: b.fastMode,
 		pieces:   make([]*Piece, len(b.pieces)),
 		steps:    make([]*Step, len(b.steps)),
 		colorMap: make(map[int32][]int32),
@@ -96,18 +97,18 @@ func (b *Board) Clone() *Board {
 			c.steps[i] = s.Clone()
 		}
 	}
-	for k, v := range b.colorMap {
-		c.colorMap[k] = v
+	for color, ids := range b.colorMap {
+		c.colorMap[color] = ids
 	}
 	return c
 }
 
-// Move 单步执行
-func (b *Board) Move(pieceID, x int32) (steps *Step) {
-	return b.moveOne(pieceID, x)
+// Move 单步移动，返回步骤信息
+func (b *Board) Move(pieceID, steps int32) *Step {
+	return b.moveOne(pieceID, steps)
 }
 
-// CanMove 单步执行判断
+// CanMove 判断指定颜色棋子是否可以移动指定步数，返回能否移动及错误码
 func (b *Board) CanMove(color, pieceID, x int32) (bool, int32) {
 	// 校验持方与移动棋子的持方一致
 	p := b.GetPieceByID(pieceID)
@@ -124,7 +125,7 @@ func (b *Board) CanMove(color, pieceID, x int32) (bool, int32) {
 	return true, MoveOK
 }
 
-// canMoveOne 判断单个棋子能否移动点数x
+// canMoveOne 判断单个棋子是否能移动指定步数
 func (b *Board) canMoveOne(id, x int32) (bool, int32) {
 	p := b.GetPieceByID(id)
 	if p == nil {
@@ -143,26 +144,19 @@ func (b *Board) moveOne(id, x int32) *Step {
 		return nil
 	}
 	from, to := p.move(x)
-	step := &Step{
-		Id:     id,
-		From:   from,
-		To:     to,
-		X:      x,
-		Color:  p.color,
-		Killed: nil,
-	}
+	step := &Step{Id: id, From: from, To: to, X: x, Color: p.color, Killed: nil}
 	if from != to {
 		killed := p.canKillAt(b.pieces, to)
 		for _, v := range killed {
 			// 被击杀后的落点. class模式回到基地, fast模式回到起始点
-			basePos := calcBasePos(v.color, b.Mode)
+			kFrom := v.pos
+			v.setPos(calcBasePos(v.color, b.fastMode))
 			step.Killed = append(step.Killed, &KilledInfo{
 				Id:    v.id,
-				From:  v.pos,
-				To:    basePos,
+				From:  kFrom,
+				To:    v.pos,
 				Color: v.color,
 			})
-			v.setPos(basePos)
 		}
 	}
 	b.steps = append(b.steps, step)
@@ -173,7 +167,7 @@ func (b *Board) moveOne(id, x int32) *Step {
 	return step
 }
 
-// backOne 撤销最后一步移动
+// backOne 撤销最后一步移动，恢复棋子及被击杀棋子状态
 func (b *Board) backOne() *Step {
 	if len(b.steps) == 0 {
 		return nil
@@ -187,8 +181,8 @@ func (b *Board) backOne() *Step {
 
 	// 撤销击杀
 	for _, k := range s.Killed {
-		if v := b.GetPieceByID(k.Id); v != nil {
-			v.setPos(k.From)
+		if p := b.GetPieceByID(k.Id); p != nil {
+			p.setPos(k.From)
 		}
 	}
 
@@ -197,30 +191,32 @@ func (b *Board) backOne() *Step {
 	return s
 }
 
-type TagCanMoveDice struct {
-	Dice   int32   // 色子点数
-	Pieces []int32 // 可移动棋子
+// CalcCanMoveDice 是否可移动
+func (b *Board) CalcCanMoveDice(color int32, dices []int32) bool {
+	pieces := b.GetActivePieceIDs(color)
+	for _, dice := range dices {
+		for _, id := range pieces {
+			if can, _ := b.canMoveOne(id, dice); can {
+				return true
+			}
+		}
+	}
+	return false
 }
 
-// CalcCanMoveDice 根据给定颜色和骰子点数，计算所有能移动一步的棋子信息
-func (b *Board) CalcCanMoveDice(color int32, dices []int32) []TagCanMoveDice {
-	var res []TagCanMoveDice
+// CalcAllMovable 根据颜色和骰子列表，计算每个骰子能移动的棋子集合
+func (b *Board) CalcAllMovable(color int32, dices []int32) [][]int32 {
+	all := make([][]int32, 0) // 预估最大容量
 
-	pieces := b.ActivePieceIDs(color)
+	pieces := b.GetActivePieceIDs(color)
 	for _, dice := range dices {
-		ps := []int32(nil)
 		for _, id := range pieces {
-			if can, _ := b.canMoveOne(id, dice); !can {
-				continue
+			if can, _ := b.canMoveOne(id, dice); can {
+				all = append(all, []int32{id, dice})
 			}
-			ps = append(ps, id)
 		}
-		res = append(res, TagCanMoveDice{
-			Dice:   dice,
-			Pieces: ps,
-		})
 	}
-	return res
+	return all
 }
 
 // // Move 执行批量移动，moves 参数格式为 [pieceID, steps, pieceID, steps, ...]

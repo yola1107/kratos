@@ -47,10 +47,10 @@ func (t *Table) OnDiceReq(p *player.Player, in *v1.DiceReq, timeout bool) bool {
 	}
 
 	// 执行掷骰逻辑
-	dice := xgo.RandInt[int32](1, 7) // 生成骰子点数
-	p.AddDice(dice)                  // 加入到玩家骰子列表
-	p.IncrTimeoutCnt(timeout)        // 超时计数
-	t.broadcastDiceRsp(p, dice)      // 广播掷骰结果
+	dice := t.ctrlRollDice(p)   // 生成骰子点数
+	p.AddDice(dice)             // 加入到玩家骰子列表
+	p.IncrTimeoutCnt(timeout)   // 超时计数
+	t.broadcastDiceRsp(p, dice) // 广播掷骰结果
 
 	movable := t.hasMovableOption(p)          // 是否存在可动棋子
 	tripleSix := dice == 6 && p.IsTripleSix() // 是否连续掷出三个6
@@ -178,19 +178,14 @@ func (t *Table) checkGameOver() bool {
 
 // 是否所有棋子都进入终点
 func (t *Table) checkPlayerFinish(p *player.Player) {
-	if len(t.board.ActivePieceIDs(p.GetColor())) == 0 {
+	if len(t.board.GetActivePieceIDs(p.GetColor())) == 0 {
 		p.SetFinish()
 	}
 }
 
 // 判断玩家是否还有未使用的色子能继续移动
 func (t *Table) hasMovableOption(p *player.Player) bool {
-	ret := model.Permute(t.board.Clone(), p.GetColor(), p.UnusedDice(), true)
-	if ret == nil || ret.Max == 0 {
-		return false
-	}
-	p.SetPaths(ret)
-	return true
+	return t.board.CalcCanMoveDice(p.GetColor(), p.UnusedDice())
 }
 
 // 设置玩家为当前行动者，并切换至“移动”阶段
@@ -213,4 +208,16 @@ func (t *Table) endPlayerTurn(p *player.Player) {
 	t.active = t.getNextActiveChair()
 	t.updateStage(StDice)
 	t.broadcastActivePlayerPush()
+}
+
+func (t *Table) ctrlRollDice(p *player.Player) int32 {
+	// 6点保护策略 (非快速模式。 前 n 次必须至少出过一次6)
+	if x := p.RollInitDiceList(); x >= 1 && x <= 6 {
+		return x
+	}
+	// 避免频繁连续6点 66 666
+	if p.GetLastRoll() == 6 && xgo.IsHitFloat(0.75) {
+		return xgo.RandInt[int32](1, 6)
+	}
+	return xgo.RandInt[int32](1, 7)
 }

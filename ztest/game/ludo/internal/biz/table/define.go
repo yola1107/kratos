@@ -61,7 +61,7 @@ func (s StageID) String() string {
 // Timeout returns the timeout duration of the stage.
 func (s StageID) Timeout() int64 {
 	if timeout, ok := StageTimeouts[s]; ok {
-		if conf.GameMode == conf.ModeFast && (s == StDice || s == StMove) {
+		if conf.IsFastMode() && (s == StDice || s == StMove) {
 			return 5 // 5s
 		}
 		return timeout

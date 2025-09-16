@@ -130,7 +130,7 @@ func (r *RobotLogic) onExit(p *player.Player, _ proto.Message) {
 }
 
 /*
-	AI智能出牌策略
+	AI智能移动/策略
 */
 
 func (r *RobotLogic) ActivePlayer(p *player.Player, msg proto.Message) {
@@ -145,24 +145,24 @@ func (r *RobotLogic) ActivePlayer(p *player.Player, msg proto.Message) {
 	}
 
 	if stage == StDice {
-		delay := time.Duration(xgo.RandInt(1000, int(r.mTable.stage.Remaining().Milliseconds()/2))) * time.Millisecond
+		delay := time.Duration(xgo.RandInt(1000, 2200)) * time.Millisecond
 		r.mTable.repo.GetTimer().Once(delay, func() {
 			r.mTable.OnDiceReq(p, &v1.DiceReq{Uid: p.GetPlayerID()}, false)
 		})
 		return
 	}
 
+	c := p.GetColor()
+	b := r.mTable.board.Clone()
 	dices := p.UnusedDice()
-	bestId, bestX := model.FindBestMoveSequence(r.mTable.board.Clone(), dices, p.GetColor())
-	if bestId <= -1 || bestX <= -1 {
-		ret := model.Permute(r.mTable.board.Clone(), p.GetColor(), dices, true)
-		log.Errorf("Ai无法移动. 找寻不到路径. tb:%v,p:%v, xdieces=%v, bestId=%v, paths=%v, path2=%v",
-			r.mTable.Desc(), p.Desc(), dices, bestId, xgo.ToJSON(p.GetPaths()), xgo.ToJSON(ret))
-		return
-	}
-
 	delay := time.Duration(xgo.RandInt(1000, int(r.mTable.stage.Remaining().Milliseconds()*3/4))) * time.Millisecond
 	r.mTable.repo.GetTimer().Once(delay, func() {
+		bestId, bestX := model.FindBestMoveSequence(b, dices, c)
+		if bestId <= -1 || bestX <= -1 {
+			log.Errorf("Ai无法移动. 找寻不到路径. tb:%v,p:%v, xdieces=%v, bestId=%v, path2=%v",
+				r.mTable.Desc(), p.Desc(), dices, bestId, xgo.ToJSON(rsp))
+			return
+		}
 		r.mTable.OnMoveReq(p, &v1.MoveReq{
 			UserId:    p.GetPlayerID(),
 			PieceId:   bestId,

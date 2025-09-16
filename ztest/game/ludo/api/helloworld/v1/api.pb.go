@@ -1784,8 +1784,6 @@ type PlayerInfo struct {
 	Color         int32                  `protobuf:"varint,6,opt,name=color,proto3" json:"color,omitempty"`                                  //玩家棋子颜色（0红，1黄，2绿，3蓝）
 	DiceList      []*Dice                `protobuf:"bytes,7,rep,name=diceList,proto3" json:"diceList,omitempty"`                             //当前玩家持有的骰子列表
 	CanAction     ACTION_TYPE            `protobuf:"varint,8,opt,name=canAction,proto3,enum=ludo.v1.ACTION_TYPE" json:"canAction,omitempty"` //玩家当前可执行的动作类型
-	MoveDices     []*CanMoveDice         `protobuf:"bytes,9,rep,name=move_dices,json=moveDices,proto3" json:"move_dices,omitempty"`          //当前可用骰子对应的可移动棋子列表
-	Ret           *TagRetData            `protobuf:"bytes,10,opt,name=Ret,proto3" json:"Ret,omitempty"`                                      //玩家全路径遍历可移动路径信息（如果有）
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1874,20 +1872,6 @@ func (x *PlayerInfo) GetCanAction() ACTION_TYPE {
 		return x.CanAction
 	}
 	return ACTION_TYPE_AcVoid
-}
-
-func (x *PlayerInfo) GetMoveDices() []*CanMoveDice {
-	if x != nil {
-		return x.MoveDices
-	}
-	return nil
-}
-
-func (x *PlayerInfo) GetRet() *TagRetData {
-	if x != nil {
-		return x.Ret
-	}
-	return nil
 }
 
 // 请求掷骰色子
@@ -2356,8 +2340,6 @@ type ActivePush struct {
 	Active        int32                  `protobuf:"varint,3,opt,name=active,proto3" json:"active,omitempty"`                                //当前操作玩家椅子号
 	UnusedDices   []int32                `protobuf:"varint,4,rep,packed,name=unusedDices,proto3" json:"unusedDices,omitempty"`               //未使用的骰子点数列表
 	CanAction     ACTION_TYPE            `protobuf:"varint,5,opt,name=canAction,proto3,enum=ludo.v1.ACTION_TYPE" json:"canAction,omitempty"` //当前可执行的动作
-	MoveDices     []*CanMoveDice         `protobuf:"bytes,6,rep,name=move_dices,json=moveDices,proto3" json:"move_dices,omitempty"`          //可用骰子对应的可移动棋子列表
-	Ret           *TagRetData            `protobuf:"bytes,7,opt,name=Ret,proto3" json:"Ret,omitempty"`                                       //全路径遍历移动路径信息（可选）
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2427,179 +2409,6 @@ func (x *ActivePush) GetCanAction() ACTION_TYPE {
 	return ACTION_TYPE_AcVoid
 }
 
-func (x *ActivePush) GetMoveDices() []*CanMoveDice {
-	if x != nil {
-		return x.MoveDices
-	}
-	return nil
-}
-
-func (x *ActivePush) GetRet() *TagRetData {
-	if x != nil {
-		return x.Ret
-	}
-	return nil
-}
-
-// 全遍历结果，描述所有可移动路径
-type TagRetData struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Max           int32                  `protobuf:"varint,1,opt,name=Max,proto3" json:"Max,omitempty"`            //最大可移动步数
-	Cache         []int32                `protobuf:"varint,2,rep,packed,name=Cache,proto3" json:"Cache,omitempty"` //预计算缓存数据
-	Paths         []*Path                `protobuf:"bytes,3,rep,name=Paths,proto3" json:"Paths,omitempty"`         //所有可行路径集合
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *TagRetData) Reset() {
-	*x = TagRetData{}
-	mi := &file_helloworld_v1_api_proto_msgTypes[33]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *TagRetData) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TagRetData) ProtoMessage() {}
-
-func (x *TagRetData) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_v1_api_proto_msgTypes[33]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use TagRetData.ProtoReflect.Descriptor instead.
-func (*TagRetData) Descriptor() ([]byte, []int) {
-	return file_helloworld_v1_api_proto_rawDescGZIP(), []int{33}
-}
-
-func (x *TagRetData) GetMax() int32 {
-	if x != nil {
-		return x.Max
-	}
-	return 0
-}
-
-func (x *TagRetData) GetCache() []int32 {
-	if x != nil {
-		return x.Cache
-	}
-	return nil
-}
-
-func (x *TagRetData) GetPaths() []*Path {
-	if x != nil {
-		return x.Paths
-	}
-	return nil
-}
-
-// 单条移动路径描述
-type Path struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Path          []int32                `protobuf:"varint,1,rep,packed,name=Path,proto3" json:"Path,omitempty"` //一条路径 格式为 [pieceID, 步数, pieceID, 步数, ...]
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Path) Reset() {
-	*x = Path{}
-	mi := &file_helloworld_v1_api_proto_msgTypes[34]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Path) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Path) ProtoMessage() {}
-
-func (x *Path) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_v1_api_proto_msgTypes[34]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Path.ProtoReflect.Descriptor instead.
-func (*Path) Descriptor() ([]byte, []int) {
-	return file_helloworld_v1_api_proto_rawDescGZIP(), []int{34}
-}
-
-func (x *Path) GetPath() []int32 {
-	if x != nil {
-		return x.Path
-	}
-	return nil
-}
-
-// 单个骰子及对应可移动棋子列表
-type CanMoveDice struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Dice          int32                  `protobuf:"varint,1,opt,name=dice,proto3" json:"dice,omitempty"`            //骰子点数
-	Pieces        []int32                `protobuf:"varint,2,rep,packed,name=pieces,proto3" json:"pieces,omitempty"` //可用该骰子移动的棋子ID列表
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CanMoveDice) Reset() {
-	*x = CanMoveDice{}
-	mi := &file_helloworld_v1_api_proto_msgTypes[35]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CanMoveDice) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CanMoveDice) ProtoMessage() {}
-
-func (x *CanMoveDice) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_v1_api_proto_msgTypes[35]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CanMoveDice.ProtoReflect.Descriptor instead.
-func (*CanMoveDice) Descriptor() ([]byte, []int) {
-	return file_helloworld_v1_api_proto_rawDescGZIP(), []int{35}
-}
-
-func (x *CanMoveDice) GetDice() int32 {
-	if x != nil {
-		return x.Dice
-	}
-	return 0
-}
-
-func (x *CanMoveDice) GetPieces() []int32 {
-	if x != nil {
-		return x.Pieces
-	}
-	return nil
-}
-
 // 游戏结算推送
 type ResultPush struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -2612,7 +2421,7 @@ type ResultPush struct {
 
 func (x *ResultPush) Reset() {
 	*x = ResultPush{}
-	mi := &file_helloworld_v1_api_proto_msgTypes[36]
+	mi := &file_helloworld_v1_api_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2624,7 +2433,7 @@ func (x *ResultPush) String() string {
 func (*ResultPush) ProtoMessage() {}
 
 func (x *ResultPush) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_v1_api_proto_msgTypes[36]
+	mi := &file_helloworld_v1_api_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2637,7 +2446,7 @@ func (x *ResultPush) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResultPush.ProtoReflect.Descriptor instead.
 func (*ResultPush) Descriptor() ([]byte, []int) {
-	return file_helloworld_v1_api_proto_rawDescGZIP(), []int{36}
+	return file_helloworld_v1_api_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ResultPush) GetFinishType() FINISH_TYPE {
@@ -2676,7 +2485,7 @@ type PlayerResult struct {
 
 func (x *PlayerResult) Reset() {
 	*x = PlayerResult{}
-	mi := &file_helloworld_v1_api_proto_msgTypes[37]
+	mi := &file_helloworld_v1_api_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2688,7 +2497,7 @@ func (x *PlayerResult) String() string {
 func (*PlayerResult) ProtoMessage() {}
 
 func (x *PlayerResult) ProtoReflect() protoreflect.Message {
-	mi := &file_helloworld_v1_api_proto_msgTypes[37]
+	mi := &file_helloworld_v1_api_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2701,7 +2510,7 @@ func (x *PlayerResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlayerResult.ProtoReflect.Descriptor instead.
 func (*PlayerResult) Descriptor() ([]byte, []int) {
-	return file_helloworld_v1_api_proto_rawDescGZIP(), []int{37}
+	return file_helloworld_v1_api_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *PlayerResult) GetUserID() int64 {
@@ -2861,7 +2670,7 @@ const file_helloworld_v1_api_proto_rawDesc = "" +
 	"\x05entry\x18\x03 \x03(\x05R\x05entry\x12\x12\n" +
 	"\x04safe\x18\x04 \x03(\x05R\x04safe\x12\x10\n" +
 	"\x03end\x18\x05 \x03(\x05R\x03end\x12\x14\n" +
-	"\x05color\x18\x06 \x03(\x05R\x05color\"\xdb\x02\n" +
+	"\x05color\x18\x06 \x03(\x05R\x05color\"\xff\x01\n" +
 	"\n" +
 	"PlayerInfo\x12\x16\n" +
 	"\x06userId\x18\x01 \x01(\x03R\x06userId\x12\x18\n" +
@@ -2871,11 +2680,7 @@ const file_helloworld_v1_api_proto_rawDesc = "" +
 	"\aoffline\x18\x05 \x01(\bR\aoffline\x12\x14\n" +
 	"\x05color\x18\x06 \x01(\x05R\x05color\x12)\n" +
 	"\bdiceList\x18\a \x03(\v2\r.ludo.v1.DiceR\bdiceList\x122\n" +
-	"\tcanAction\x18\b \x01(\x0e2\x14.ludo.v1.ACTION_TYPER\tcanAction\x123\n" +
-	"\n" +
-	"move_dices\x18\t \x03(\v2\x14.ludo.v1.CanMoveDiceR\tmoveDices\x12%\n" +
-	"\x03Ret\x18\n" +
-	" \x01(\v2\x13.ludo.v1.TagRetDataR\x03Ret\"\x1b\n" +
+	"\tcanAction\x18\b \x01(\x0e2\x14.ludo.v1.ACTION_TYPER\tcanAction\"\x1b\n" +
 	"\aDiceReq\x12\x10\n" +
 	"\x03uid\x18\x01 \x01(\x03R\x03uid\"\x80\x01\n" +
 	"\aDiceRsp\x12\x12\n" +
@@ -2909,27 +2714,14 @@ const file_helloworld_v1_api_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x10\n" +
 	"\x03pos\x18\x02 \x01(\x05R\x03pos\x12\x14\n" +
 	"\x05color\x18\x03 \x01(\x05R\x05color\x12\x16\n" +
-	"\x06status\x18\x04 \x01(\x05R\x06status\"\x86\x02\n" +
+	"\x06status\x18\x04 \x01(\x05R\x06status\"\xaa\x01\n" +
 	"\n" +
 	"ActivePush\x12\x14\n" +
 	"\x05stage\x18\x01 \x01(\x05R\x05stage\x12\x18\n" +
 	"\atimeout\x18\x02 \x01(\x03R\atimeout\x12\x16\n" +
 	"\x06active\x18\x03 \x01(\x05R\x06active\x12 \n" +
 	"\vunusedDices\x18\x04 \x03(\x05R\vunusedDices\x122\n" +
-	"\tcanAction\x18\x05 \x01(\x0e2\x14.ludo.v1.ACTION_TYPER\tcanAction\x123\n" +
-	"\n" +
-	"move_dices\x18\x06 \x03(\v2\x14.ludo.v1.CanMoveDiceR\tmoveDices\x12%\n" +
-	"\x03Ret\x18\a \x01(\v2\x13.ludo.v1.TagRetDataR\x03Ret\"Y\n" +
-	"\n" +
-	"TagRetData\x12\x10\n" +
-	"\x03Max\x18\x01 \x01(\x05R\x03Max\x12\x14\n" +
-	"\x05Cache\x18\x02 \x03(\x05R\x05Cache\x12#\n" +
-	"\x05Paths\x18\x03 \x03(\v2\r.ludo.v1.PathR\x05Paths\"\x1a\n" +
-	"\x04Path\x12\x12\n" +
-	"\x04Path\x18\x01 \x03(\x05R\x04Path\"9\n" +
-	"\vCanMoveDice\x12\x12\n" +
-	"\x04dice\x18\x01 \x01(\x05R\x04dice\x12\x16\n" +
-	"\x06pieces\x18\x02 \x03(\x05R\x06pieces\"\x8f\x01\n" +
+	"\tcanAction\x18\x05 \x01(\x0e2\x14.ludo.v1.ACTION_TYPER\tcanAction\"\x8f\x01\n" +
 	"\n" +
 	"ResultPush\x124\n" +
 	"\n" +
@@ -3023,7 +2815,7 @@ func file_helloworld_v1_api_proto_rawDescGZIP() []byte {
 }
 
 var file_helloworld_v1_api_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_helloworld_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
+var file_helloworld_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 35)
 var file_helloworld_v1_api_proto_goTypes = []any{
 	(GameCommand)(0),        // 0: ludo.v1.GameCommand
 	(ACTION_TYPE)(0),        // 1: ludo.v1.ACTION_TYPE
@@ -3061,11 +2853,8 @@ var file_helloworld_v1_api_proto_goTypes = []any{
 	(*DiceMove)(nil),        // 33: ludo.v1.DiceMove
 	(*Piece)(nil),           // 34: ludo.v1.Piece
 	(*ActivePush)(nil),      // 35: ludo.v1.ActivePush
-	(*TagRetData)(nil),      // 36: ludo.v1.TagRetData
-	(*Path)(nil),            // 37: ludo.v1.Path
-	(*CanMoveDice)(nil),     // 38: ludo.v1.CanMoveDice
-	(*ResultPush)(nil),      // 39: ludo.v1.ResultPush
-	(*PlayerResult)(nil),    // 40: ludo.v1.PlayerResult
+	(*ResultPush)(nil),      // 36: ludo.v1.ResultPush
+	(*PlayerResult)(nil),    // 37: ludo.v1.PlayerResult
 }
 var file_helloworld_v1_api_proto_depIdxs = []int32{
 	34, // 0: ludo.v1.SendCardPush.pieces:type_name -> ludo.v1.Piece
@@ -3074,45 +2863,40 @@ var file_helloworld_v1_api_proto_depIdxs = []int32{
 	34, // 3: ludo.v1.SceneRsp.pieces:type_name -> ludo.v1.Piece
 	30, // 4: ludo.v1.PlayerInfo.diceList:type_name -> ludo.v1.Dice
 	1,  // 5: ludo.v1.PlayerInfo.canAction:type_name -> ludo.v1.ACTION_TYPE
-	38, // 6: ludo.v1.PlayerInfo.move_dices:type_name -> ludo.v1.CanMoveDice
-	36, // 7: ludo.v1.PlayerInfo.Ret:type_name -> ludo.v1.TagRetData
-	30, // 8: ludo.v1.DiceRsp.diceList:type_name -> ludo.v1.Dice
-	33, // 9: ludo.v1.MoveRsp.move:type_name -> ludo.v1.DiceMove
-	33, // 10: ludo.v1.MoveRsp.killed:type_name -> ludo.v1.DiceMove
-	34, // 11: ludo.v1.MoveRsp.pieces:type_name -> ludo.v1.Piece
-	1,  // 12: ludo.v1.ActivePush.canAction:type_name -> ludo.v1.ACTION_TYPE
-	38, // 13: ludo.v1.ActivePush.move_dices:type_name -> ludo.v1.CanMoveDice
-	36, // 14: ludo.v1.ActivePush.Ret:type_name -> ludo.v1.TagRetData
-	37, // 15: ludo.v1.TagRetData.Paths:type_name -> ludo.v1.Path
-	2,  // 16: ludo.v1.ResultPush.finishType:type_name -> ludo.v1.FINISH_TYPE
-	40, // 17: ludo.v1.ResultPush.results:type_name -> ludo.v1.PlayerResult
-	3,  // 18: ludo.v1.Ludo.SayHelloReq:input_type -> ludo.v1.HelloRequest
-	5,  // 19: ludo.v1.Ludo.OnLoginReq:input_type -> ludo.v1.LoginReq
-	7,  // 20: ludo.v1.Ludo.OnLogoutReq:input_type -> ludo.v1.LogoutReq
-	9,  // 21: ludo.v1.Ludo.OnReadyReq:input_type -> ludo.v1.ReadyReq
-	11, // 22: ludo.v1.Ludo.OnSwitchTableReq:input_type -> ludo.v1.SwitchTableReq
-	24, // 23: ludo.v1.Ludo.OnSceneReq:input_type -> ludo.v1.SceneReq
-	13, // 24: ludo.v1.Ludo.OnChatReq:input_type -> ludo.v1.ChatReq
-	17, // 25: ludo.v1.Ludo.OnHostingReq:input_type -> ludo.v1.HostingReq
-	15, // 26: ludo.v1.Ludo.OnForwardReq:input_type -> ludo.v1.ForwardReq
-	31, // 27: ludo.v1.Ludo.OnMoveReq:input_type -> ludo.v1.MoveReq
-	28, // 28: ludo.v1.Ludo.OnDiceReq:input_type -> ludo.v1.DiceReq
-	4,  // 29: ludo.v1.Ludo.SayHelloReq:output_type -> ludo.v1.HelloReply
-	6,  // 30: ludo.v1.Ludo.OnLoginReq:output_type -> ludo.v1.LoginRsp
-	8,  // 31: ludo.v1.Ludo.OnLogoutReq:output_type -> ludo.v1.LogoutRsp
-	10, // 32: ludo.v1.Ludo.OnReadyReq:output_type -> ludo.v1.ReadyRsp
-	12, // 33: ludo.v1.Ludo.OnSwitchTableReq:output_type -> ludo.v1.SwitchTableRsp
-	25, // 34: ludo.v1.Ludo.OnSceneReq:output_type -> ludo.v1.SceneRsp
-	14, // 35: ludo.v1.Ludo.OnChatReq:output_type -> ludo.v1.ChatRsp
-	18, // 36: ludo.v1.Ludo.OnHostingReq:output_type -> ludo.v1.HostingRsp
-	16, // 37: ludo.v1.Ludo.OnForwardReq:output_type -> ludo.v1.ForwardRsp
-	32, // 38: ludo.v1.Ludo.OnMoveReq:output_type -> ludo.v1.MoveRsp
-	29, // 39: ludo.v1.Ludo.OnDiceReq:output_type -> ludo.v1.DiceRsp
-	29, // [29:40] is the sub-list for method output_type
-	18, // [18:29] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	30, // 6: ludo.v1.DiceRsp.diceList:type_name -> ludo.v1.Dice
+	33, // 7: ludo.v1.MoveRsp.move:type_name -> ludo.v1.DiceMove
+	33, // 8: ludo.v1.MoveRsp.killed:type_name -> ludo.v1.DiceMove
+	34, // 9: ludo.v1.MoveRsp.pieces:type_name -> ludo.v1.Piece
+	1,  // 10: ludo.v1.ActivePush.canAction:type_name -> ludo.v1.ACTION_TYPE
+	2,  // 11: ludo.v1.ResultPush.finishType:type_name -> ludo.v1.FINISH_TYPE
+	37, // 12: ludo.v1.ResultPush.results:type_name -> ludo.v1.PlayerResult
+	3,  // 13: ludo.v1.Ludo.SayHelloReq:input_type -> ludo.v1.HelloRequest
+	5,  // 14: ludo.v1.Ludo.OnLoginReq:input_type -> ludo.v1.LoginReq
+	7,  // 15: ludo.v1.Ludo.OnLogoutReq:input_type -> ludo.v1.LogoutReq
+	9,  // 16: ludo.v1.Ludo.OnReadyReq:input_type -> ludo.v1.ReadyReq
+	11, // 17: ludo.v1.Ludo.OnSwitchTableReq:input_type -> ludo.v1.SwitchTableReq
+	24, // 18: ludo.v1.Ludo.OnSceneReq:input_type -> ludo.v1.SceneReq
+	13, // 19: ludo.v1.Ludo.OnChatReq:input_type -> ludo.v1.ChatReq
+	17, // 20: ludo.v1.Ludo.OnHostingReq:input_type -> ludo.v1.HostingReq
+	15, // 21: ludo.v1.Ludo.OnForwardReq:input_type -> ludo.v1.ForwardReq
+	31, // 22: ludo.v1.Ludo.OnMoveReq:input_type -> ludo.v1.MoveReq
+	28, // 23: ludo.v1.Ludo.OnDiceReq:input_type -> ludo.v1.DiceReq
+	4,  // 24: ludo.v1.Ludo.SayHelloReq:output_type -> ludo.v1.HelloReply
+	6,  // 25: ludo.v1.Ludo.OnLoginReq:output_type -> ludo.v1.LoginRsp
+	8,  // 26: ludo.v1.Ludo.OnLogoutReq:output_type -> ludo.v1.LogoutRsp
+	10, // 27: ludo.v1.Ludo.OnReadyReq:output_type -> ludo.v1.ReadyRsp
+	12, // 28: ludo.v1.Ludo.OnSwitchTableReq:output_type -> ludo.v1.SwitchTableRsp
+	25, // 29: ludo.v1.Ludo.OnSceneReq:output_type -> ludo.v1.SceneRsp
+	14, // 30: ludo.v1.Ludo.OnChatReq:output_type -> ludo.v1.ChatRsp
+	18, // 31: ludo.v1.Ludo.OnHostingReq:output_type -> ludo.v1.HostingRsp
+	16, // 32: ludo.v1.Ludo.OnForwardReq:output_type -> ludo.v1.ForwardRsp
+	32, // 33: ludo.v1.Ludo.OnMoveReq:output_type -> ludo.v1.MoveRsp
+	29, // 34: ludo.v1.Ludo.OnDiceReq:output_type -> ludo.v1.DiceRsp
+	24, // [24:35] is the sub-list for method output_type
+	13, // [13:24] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_helloworld_v1_api_proto_init() }
@@ -3126,7 +2910,7 @@ func file_helloworld_v1_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_helloworld_v1_api_proto_rawDesc), len(file_helloworld_v1_api_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   38,
+			NumMessages:   35,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

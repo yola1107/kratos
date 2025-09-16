@@ -216,12 +216,7 @@ func (t *Table) getScene(p *player.Player) *v1.PlayerInfo {
 		Offline:   p.IsOffline(),
 		Color:     p.GetColor(),
 		DiceList:  t.getDiceList(p),
-		CanAction: 0,
-		MoveDices: nil,
-		Ret:       nil,
-	}
-	if p.IsGaming() && !p.IsFinish() {
-		info.CanAction, info.MoveDices, info.Ret = t.getCanAction(p)
+		CanAction: t.getCanAction(p),
 	}
 	return info
 }
@@ -244,76 +239,35 @@ func (t *Table) getDiceList(p *player.Player) []*v1.Dice {
 
 // 当前活动玩家推送
 func (t *Table) broadcastActivePlayerPush() {
-	for _, p := range t.seats {
-		if p == nil {
-			continue
-		}
-		rsp := &v1.ActivePush{
-			Stage:       int32(t.stage.GetState()),
-			Timeout:     int64(t.stage.Remaining().Seconds()),
-			Active:      t.active,
-			UnusedDices: p.UnusedDice(), // 当前玩家的色子列表
-			CanAction:   0,
-			MoveDices:   nil,
-			Ret:         nil,
-		}
-		if p.GetChairID() == t.active && p.IsGaming() && !p.IsFinish() {
-			rsp.CanAction, rsp.MoveDices, rsp.Ret = t.getCanAction(p)
-			// log debug.
-			canMoveDiceStr, retStr := "", ""
-			if rsp.CanAction == v1.ACTION_TYPE_AcMove {
-				canMoveDiceStr, retStr = xgo.ToJSON(rsp.MoveDices), p.DescPath()
-			}
-			t.mLog.activePush(p, rsp.CanAction, canMoveDiceStr, retStr)
-			log.Debugf("ActivePush. p:%v, canOp=%q, moveDices=%v, ret=%v\n",
-				p.Desc(), rsp.CanAction, canMoveDiceStr, retStr)
-		}
-		t.SendPacketToClient(p, v1.GameCommand_OnActivePush, rsp)
+	push := &v1.ActivePush{
+		Stage:   int32(t.stage.GetState()),
+		Timeout: int64(t.stage.Remaining().Seconds()),
+		Active:  t.active,
 	}
+	if active := t.GetActivePlayer(); active != nil {
+		push.UnusedDices = active.UnusedDice()
+		push.CanAction = t.getCanAction(active)
+		retStr := ""
+		if push.CanAction == v1.ACTION_TYPE_AcMove {
+			retStr = xgo.ToJSON(t.board.CalcAllMovable(active.GetColor(), active.UnusedDice()))
+		}
+		t.mLog.activePush(active, push.CanAction, "", retStr)
+		log.Debugf("ActivePush. p:%v, canOp=%q, ret=%v\n", active.Desc(), push.CanAction, retStr)
+	}
+	t.SendPacketToAll(v1.GameCommand_OnActivePush, push)
 }
 
-func (t *Table) getCanAction(p *player.Player) (v1.ACTION_TYPE, []*v1.CanMoveDice, *v1.TagRetData) {
-	if p == nil || !p.IsGaming() || p.GetChairID() != t.active {
-		return 0, nil, nil
+func (t *Table) getCanAction(p *player.Player) v1.ACTION_TYPE {
+	if p == nil || !p.IsGaming() || p.GetChairID() != t.active || p.IsFinish() {
+		return 0
 	}
 	switch t.stage.GetState() {
 	case StDice:
-		return v1.ACTION_TYPE_AcDice, nil, nil
+		return v1.ACTION_TYPE_AcDice
 	case StMove:
-		return v1.ACTION_TYPE_AcMove, t.getCanMoveDice(p), t.getTagRetData(p)
+		return v1.ACTION_TYPE_AcMove
 	default:
-		return 0, nil, nil
-	}
-}
-
-func (t *Table) getCanMoveDice(p *player.Player) []*v1.CanMoveDice {
-	res := make([]*v1.CanMoveDice, 0)
-	moves := t.board.CalcCanMoveDice(p.GetColor(), p.UnusedDice())
-	for _, m := range moves {
-		res = append(res, &v1.CanMoveDice{
-			Dice:   m.Dice,
-			Pieces: m.Pieces,
-		})
-	}
-	return res
-}
-
-func (t *Table) getTagRetData(p *player.Player) *v1.TagRetData {
-	r := p.GetPaths()
-	if r == nil {
-		log.Errorf("getTagRetData. paths is nil")
-		return nil
-	}
-	paths := make([]*v1.Path, 0)
-	for _, v := range r.Dst {
-		paths = append(paths, &v1.Path{
-			Path: v,
-		})
-	}
-	return &v1.TagRetData{
-		Max:   int32(r.Max),
-		Cache: r.Cache,
-		Paths: paths,
+		return 0
 	}
 }
 
