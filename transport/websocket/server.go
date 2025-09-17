@@ -111,7 +111,7 @@ func NewServer(opts ...ServerOption) *Server {
 			WriteTimeout: 10 * time.Second,
 			PingInterval: 15 * time.Second,
 			ReadDeadline: 60 * time.Second,
-			SendChanSize: 128,
+			SendChanSize: 32,
 		},
 		maxConnLimit: 10000,
 		upgrader: &websocket.Upgrader{

@@ -132,7 +132,7 @@ func NewClient(ctx context.Context, opts ...ClientOption) (*Client, error) {
 			WriteTimeout: 10 * time.Second,
 			PingInterval: 10 * time.Second,
 			ReadDeadline: 60 * time.Second,
-			SendChanSize: 128,
+			SendChanSize: 32,
 		},
 		retryPolicy: &retryPolicy{
 			baseDelay:  3 * time.Second,
