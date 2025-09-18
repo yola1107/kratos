@@ -26,7 +26,7 @@ var _ robot.Repo = (*Usecase)(nil)
 // 任务线程池容量
 var defaultPendingNum = 10000
 
-var defaultStatusInterval = 120 * time.Second
+var defaultStatusInterval = 60 * time.Second
 
 // DataRepo is a data repo.
 type DataRepo interface {
@@ -37,16 +37,14 @@ type DataRepo interface {
 
 // Usecase is a Data usecase.
 type Usecase struct {
-	repo DataRepo    // 数据访问层接口，持久化玩家信息
-	log  *log.Helper // 日志记录器
-
+	repo  DataRepo            // 数据访问层接口，持久化玩家信息
+	log   *log.Helper         // 日志记录器
 	loop  work.ITaskLoop      // 任务循环
 	timer work.ITaskScheduler // 定时任务
-
-	rc *conf.Room      // 房间配置（从配置文件读取）
-	pm *player.Manager // 玩家管理器
-	tm *table.Manager  // 桌子管理器
-	rm *robot.Manager  // 机器人管理器
+	rc    *conf.Room          // 房间配置（从配置文件读取）
+	pm    *player.Manager     // 玩家管理器
+	tm    *table.Manager      // 桌子管理器
+	rm    *robot.Manager      // 机器人管理器
 }
 
 // NewUsecase new a data usecase.
@@ -56,7 +54,7 @@ func NewUsecase(repo DataRepo, logger log.Logger, c *conf.Room) (*Usecase, func(
 
 	// 初始化顺序：loop -> timer -> Table -> Player -> Robot
 	uc.loop = work.NewAntsLoop(work.WithSize(defaultPendingNum))
-	uc.timer = work.NewTaskScheduler(work.WithContext(ctx), work.WithExecutor(uc.loop), work.WithTick(time.Second/2))
+	uc.timer = work.NewTaskScheduler(work.WithContext(ctx), work.WithExecutor(uc.loop))
 	uc.tm = table.NewManager(c, uc)
 	uc.pm = player.NewManager()
 	uc.rm = robot.NewManager(c, uc)
