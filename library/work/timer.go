@@ -263,13 +263,8 @@ func (s *Scheduler) schedule(delay time.Duration, repeated bool, f func()) int64
 
 func (s *Scheduler) executeAsync(f func()) {
 	wrapped := func() {
-		select {
-		case <-s.ctx.Done():
-			return
-		default:
-			defer RecoverFromError(nil)
-			f()
-		}
+		defer RecoverFromError(nil)
+		f()
 	}
 	if s.executor != nil {
 		s.executor.Post(wrapped)
