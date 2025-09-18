@@ -218,14 +218,14 @@ func (uc *Usecase) LogoutGame(p *player.Player, code int32, msg string) {
 	if p.IsRobot() {
 		uc.rm.Leave(uid)
 		return
-	} else {
-		uc.pm.Remove(uid)
 	}
-
-	log.Infof("logoutGame. p:%+v code=%d msg=%q", p.Desc(), code, msg)
 
 	// 异步释放玩家
 	uc.loop.Post(func() {
+
+		// 删除列表
+		uc.pm.Remove(uid)
+
 		// 数据入库
 		baseData := *(p.GetBaseData()) // 复制一份
 
@@ -235,5 +235,7 @@ func (uc *Usecase) LogoutGame(p *player.Player, code int32, msg string) {
 
 		// 通知并清理
 		p.LogoutGame(code, msg)
+
+		log.Infof("logoutGame. p:%+v code=%d msg=%q", uid, code, msg)
 	})
 }
