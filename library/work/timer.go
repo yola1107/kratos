@@ -12,32 +12,33 @@ import (
 )
 
 const (
-	defaultTickPrecision = 100 * time.Millisecond
-	defaultWheelSize     = 512
+	defaultTickPrecision = 500 * time.Millisecond // 默认调度循环精度
+	defaultWheelSize     = 128                    // 默认时间轮槽位
 	maxIntervalJumps     = 10000
 )
 
+// ITaskScheduler 任务调度器接口
 type ITaskScheduler interface {
-	Len() int         // 当前注册的任务数量
-	Running() int32   // 当前执行中的任务数
-	Monitor() Monitor //
-	Once(delay time.Duration, f func()) int64
-	Forever(interval time.Duration, f func()) int64
-	ForeverNow(interval time.Duration, f func()) int64
-	Cancel(taskID int64)
-	CancelAll()
-	Stop()
+	Len() int                                          // 当前注册任务数量
+	Running() int32                                    // 当前正在执行的任务数量
+	Monitor() Monitor                                  // 获取任务池状态信息
+	Once(delay time.Duration, f func()) int64          // 注册一次性任务
+	Forever(interval time.Duration, f func()) int64    // 注册周期任务
+	ForeverNow(interval time.Duration, f func()) int64 // 注册周期任务并立即执行一次
+	Cancel(taskID int64)                               // 取消指定任务
+	CancelAll()                                        // 取消所有任务
+	Stop()                                             // 停止调度器
 }
 
-// ITaskExecutor 自定义执行器接口，支持线程池等
+// ITaskExecutor 可选的自定义执行器接口（如线程池）
 type ITaskExecutor interface {
 	Post(job func())
 }
 
-// Monitor 任务池当前状态
+// Monitor 任务池状态信息
 type Monitor struct {
-	Len     int   // 当前注册的任务数量
-	Running int32 // 当前执行中的任务数
+	Len     int   // 当前注册任务数量
+	Running int32 // 当前执行中的任务数量
 }
 
 // preciseEvery 实现精准的周期性定时器，防止时间漂移
@@ -64,6 +65,7 @@ func (p *preciseEvery) Next(t time.Time) time.Time {
 	return next
 }
 
+// SchedulerOption 调度器选项
 type SchedulerOption func(*Scheduler)
 
 func WithTick(d time.Duration) SchedulerOption {
@@ -82,21 +84,21 @@ func WithExecutor(exec ITaskExecutor) SchedulerOption {
 	return func(s *Scheduler) { s.executor = exec }
 }
 
+// Scheduler 定时任务调度器，基于时间轮实现
 type Scheduler struct {
-	tick      time.Duration
-	wheelSize int64
-	executor  ITaskExecutor
-	tw        *timingwheel.TimingWheel
+	tick      time.Duration            // 精度
+	wheelSize int64                    // 槽位
+	executor  ITaskExecutor            // 执行器 (如协程池)
+	tw        *timingwheel.TimingWheel // 时间轮
 
 	tasks    sync.Map     // map[int64]*taskEntry
 	nextID   atomic.Int64 // 任务ID递增
 	running  atomic.Int32 // 当前执行中任务数
 	shutdown atomic.Bool  // 是否关闭
-
-	ctx    context.Context
-	cancel context.CancelFunc
-	wg     sync.WaitGroup
-	once   sync.Once
+	ctx      context.Context
+	cancel   context.CancelFunc
+	wg       sync.WaitGroup
+	once     sync.Once
 }
 
 type taskEntry struct {
@@ -107,6 +109,7 @@ type taskEntry struct {
 	task      func()
 }
 
+// NewTaskScheduler 创建调度器实例
 func NewTaskScheduler(opts ...SchedulerOption) ITaskScheduler {
 	s := &Scheduler{
 		tick:      defaultTickPrecision,
@@ -141,22 +144,23 @@ func (s *Scheduler) Running() int32 {
 }
 
 func (s *Scheduler) Monitor() Monitor {
-	count := s.Len()
-	running := s.Running()
 	return Monitor{
-		Len:     count,
-		Running: running,
+		Len:     s.Len(),
+		Running: s.Running(),
 	}
 }
 
+// Once 注册一次性任务
 func (s *Scheduler) Once(delay time.Duration, f func()) int64 {
 	return s.schedule(delay, false, f)
 }
 
+// Forever 注册周期任务
 func (s *Scheduler) Forever(interval time.Duration, f func()) int64 {
 	return s.schedule(interval, true, f)
 }
 
+// ForeverNow 注册周期任务并立即执行一次
 func (s *Scheduler) ForeverNow(interval time.Duration, f func()) int64 {
 	s.executeAsync(f)
 	return s.schedule(interval, true, f)
@@ -189,6 +193,7 @@ func (s *Scheduler) removeTask(taskID int64) {
 	}
 }
 
+// Stop 停止调度器，等待正在执行任务完成
 func (s *Scheduler) Stop() {
 	s.once.Do(func() {
 		s.shutdown.Store(true)
@@ -201,12 +206,13 @@ func (s *Scheduler) Stop() {
 		}()
 		select {
 		case <-done:
-		case <-time.After(100 * time.Millisecond):
+		case <-time.After(500 * time.Millisecond):
 			log.Warn("scheduler shutdown timed out, some tasks may still be running")
 		}
 	})
 }
 
+// schedule 注册任务
 func (s *Scheduler) schedule(delay time.Duration, repeated bool, f func()) int64 {
 	if s.shutdown.Load() || s.ctx.Err() != nil {
 		log.Warn("scheduler is shut down; task rejected")
@@ -257,10 +263,14 @@ func (s *Scheduler) schedule(delay time.Duration, repeated bool, f func()) int64
 
 func (s *Scheduler) executeAsync(f func()) {
 	wrapped := func() {
-		defer RecoverFromError(nil)
-		f()
+		select {
+		case <-s.ctx.Done():
+			return
+		default:
+			defer RecoverFromError(nil)
+			f()
+		}
 	}
-
 	if s.executor != nil {
 		s.executor.Post(wrapped)
 	} else {
@@ -282,6 +292,7 @@ func (s *Scheduler) lazy(taskID int64, delay time.Duration, startAt, execAt, wra
 	}
 }
 
+// RecoverFromError 任务执行错误恢复
 func RecoverFromError(cb func(e any)) {
 	if e := recover(); e != nil {
 		log.Errorf("Recover => %v\n%s\n", e, debug.Stack())
