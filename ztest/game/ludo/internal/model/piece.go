@@ -55,10 +55,10 @@ func (p *Piece) IsOnBoard() bool       { return p.state == PieceOnBoard }
 func (p *Piece) IsArrived() bool       { return p.state == PieceArrived }
 func (p *Piece) IsEnemy(o *Piece) bool { return p.color != o.color }
 
-func (p *Piece) Clone() *Piece {
-	cp := *p
-	return &cp
-}
+// func (p *Piece) Clone() *Piece {
+// 	cp := *p
+// 	return &cp
+// }
 
 // calcBasePos 计算初始点. class模式初始点在基地. fast模式初始点在起始点(出基地的第一格)
 func calcBasePos(color int32, isFastMode bool) int32 {
