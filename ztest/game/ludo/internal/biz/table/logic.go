@@ -215,9 +215,11 @@ func (t *Table) onMoveTimeout() {
 	}
 
 	t.repo.GetLoop().Post(func() {
-		id, x := model.FindBestMoveSequence(t.board.Clone(), p.UnusedDice(), p.GetColor())
+		cp := t.board.Clone()
+		defer func() { cp = nil }()
+		id, x := model.FindBestMoveSequence(cp, p.UnusedDice(), p.GetColor())
 		if id <= -1 || x <= -1 {
-			log.Error("onMoveTimeout: 找不到可移动的路径. tb=%v, p=%v", t.Desc(), p.Desc())
+			log.Errorf("onMoveTimeout: 找不到可移动的路径. tb=%v, p=%v", t.Desc(), p.Desc())
 			return
 		}
 		t.OnMoveReq(p, &v1.MoveReq{UserId: p.GetPlayerID(), PieceId: id, DiceValue: x}, true)

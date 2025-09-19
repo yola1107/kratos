@@ -80,11 +80,11 @@ func (t *Table) OnMoveReq(p *player.Player, in *v1.MoveReq, timeout bool) bool {
 		return false
 	}
 	if !p.HasUnusedDice(in.DiceValue) {
-		log.Error("OnMoveReq failed: unused dice mismatch. p=%v, in=%v, code=%d", p.Desc(), in, model.ErrDiceMismatch)
+		log.Errorf("OnMoveReq failed: unused dice mismatch. p=%v, in=%v, code=%d", p.Desc(), in, model.ErrDiceMismatch)
 		return false
 	}
 	if ok, code := t.board.CanMove(p.GetColor(), in.GetPieceId(), in.DiceValue); !ok {
-		log.Error("OnMoveReq failed: move not allowed. p=%v, in=%v, code=%d", p.Desc(), in, code)
+		log.Errorf("OnMoveReq failed: move not allowed. p=%v, in=%v, code=%d", p.Desc(), in, code)
 		return false
 	}
 
@@ -218,7 +218,7 @@ func (t *Table) ctrlRollDice(p *player.Player) int32 {
 		return x
 	}
 	// 避免频繁连续6点 66 666
-	if p.GetLastRoll() == 6 && xgo.IsHitFloat(0.75) {
+	if p.GetLastRoll() == 6 && xgo.IsHitFloat(0.9) {
 		return xgo.RandInt[int32](1, 6)
 	}
 	return xgo.RandInt[int32](1, 7)

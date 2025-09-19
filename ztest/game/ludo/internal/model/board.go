@@ -87,18 +87,26 @@ func (b *Board) Clone() *Board {
 		fastMode: b.fastMode,
 		pieces:   make([]*Piece, len(b.pieces)),
 		steps:    make([]*Step, len(b.steps)),
-		colorMap: make(map[int32][]int32),
+		colorMap: make(map[int32][]int32, len(b.colorMap)),
 	}
 	for i, p := range b.pieces {
-		c.pieces[i] = p.Clone()
+		cp := *p
+		c.pieces[i] = &cp
 	}
 	for i, s := range b.steps {
 		if s != nil {
-			c.steps[i] = s.Clone()
+			cp := *s
+			if len(s.Killed) > 0 {
+				cp.Killed = make([]KilledInfo, len(s.Killed))
+				copy(cp.Killed, s.Killed)
+			} else {
+				cp.Killed = nil
+			}
+			c.steps[i] = &cp
 		}
 	}
-	for color, ids := range b.colorMap {
-		c.colorMap[color] = ids
+	for k, v := range b.colorMap {
+		c.colorMap[k] = v
 	}
 	return c
 }
@@ -151,7 +159,7 @@ func (b *Board) moveOne(id, x int32) *Step {
 			// 被击杀后的落点. class模式回到基地, fast模式回到起始点
 			kFrom := v.pos
 			v.setPos(calcBasePos(v.color, b.fastMode))
-			step.Killed = append(step.Killed, &KilledInfo{
+			step.Killed = append(step.Killed, KilledInfo{
 				Id:    v.id,
 				From:  kFrom,
 				To:    v.pos,
