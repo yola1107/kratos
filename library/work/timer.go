@@ -1,20 +1,19 @@
 package work
 
 import (
+	"container/heap"
 	"context"
 	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/RussellLuo/timingwheel"
 	"github.com/yola1107/kratos/v2/log"
 )
 
 const (
-	defaultTickPrecision = 500 * time.Millisecond // 默认调度循环精度
-	defaultWheelSize     = 128                    // 默认时间轮槽位
-	maxIntervalJumps     = 10000
+	defaultTickPrecision = 100 * time.Millisecond // 默认调度循环精度
+	maxIntervalJumps     = 10000                  // 防止周期任务因为滞后而无限补跑
 )
 
 // ITaskScheduler 任务调度器接口
@@ -41,102 +40,173 @@ type Monitor struct {
 	Running int32 // 当前执行中的任务数量
 }
 
-// preciseEvery 实现精准的周期性定时器，防止时间漂移
-type preciseEvery struct {
-	Interval time.Duration
-	last     atomic.Value // time.Time
+// taskEntry 任务结构体
+type taskEntry struct {
+	id        int64         // 任务ID
+	execAt    time.Time     // 下一次执行时间
+	interval  time.Duration // 周期任务间隔
+	repeated  bool          // 是否周期任务
+	cancelled atomic.Bool   // 是否已取消
+	task      func()        // 任务函数
+	index     int           // 堆索引，用于从堆中删除
 }
 
-func (p *preciseEvery) Next(t time.Time) time.Time {
-	last, _ := p.last.Load().(time.Time)
-	if last.IsZero() {
-		last = t
-	}
-	steps := 0
-	next := last.Add(p.Interval)
-	for !next.After(t) {
-		next = next.Add(p.Interval)
-		if steps++; steps > maxIntervalJumps {
-			log.Warnf("[preciseEvery] skipped too many steps: %d", steps)
-			break
-		}
-	}
-	p.last.Store(next)
-	return next
+// 小顶堆，用于按任务执行时间排序
+type taskHeap []*taskEntry
+
+func (h taskHeap) Len() int           { return len(h) }
+func (h taskHeap) Less(i, j int) bool { return h[i].execAt.Before(h[j].execAt) }
+func (h taskHeap) Swap(i, j int) {
+	h[i], h[j] = h[j], h[i]
+	h[i].index = i
+	h[j].index = j
+}
+func (h *taskHeap) Push(x any) {
+	entry := x.(*taskEntry)
+	entry.index = len(*h)
+	*h = append(*h, entry)
+}
+func (h *taskHeap) Pop() any {
+	old := *h
+	n := len(old)
+	entry := old[n-1]
+	entry.index = -1
+	*h = old[0 : n-1]
+	return entry
 }
 
 // SchedulerOption 调度器选项
 type SchedulerOption func(*Scheduler)
 
-func WithTick(d time.Duration) SchedulerOption {
-	return func(s *Scheduler) { s.tick = d }
-}
-
-func WithWheelSize(size int64) SchedulerOption {
-	return func(s *Scheduler) { s.wheelSize = size }
+func WithExecutor(exec ITaskExecutor) SchedulerOption {
+	return func(s *Scheduler) { s.executor = exec }
 }
 
 func WithContext(ctx context.Context) SchedulerOption {
 	return func(s *Scheduler) { s.ctx = ctx }
 }
 
-func WithExecutor(exec ITaskExecutor) SchedulerOption {
-	return func(s *Scheduler) { s.executor = exec }
-}
-
-// Scheduler 定时任务调度器，基于时间轮实现
+// Scheduler 定时任务调度器，基于最小堆实现
 type Scheduler struct {
-	tick      time.Duration            // 精度
-	wheelSize int64                    // 槽位
-	executor  ITaskExecutor            // 执行器 (如协程池)
-	tw        *timingwheel.TimingWheel // 时间轮
-
-	tasks    sync.Map     // map[int64]*taskEntry
-	nextID   atomic.Int64 // 任务ID递增
-	running  atomic.Int32 // 当前执行中任务数
-	shutdown atomic.Bool  // 是否关闭
-	ctx      context.Context
-	cancel   context.CancelFunc
-	wg       sync.WaitGroup
-	once     sync.Once
-}
-
-type taskEntry struct {
-	timer     *timingwheel.Timer
-	cancelled atomic.Bool
-	repeated  bool
-	executing atomic.Bool
-	task      func()
+	executor ITaskExecutor // 可选自定义执行器
+	mu       sync.Mutex
+	tasks    map[int64]*taskEntry // 所有任务映射
+	h        taskHeap             // 小顶堆
+	nextID   atomic.Int64         // 任务ID递增
+	running  atomic.Int32         // 当前执行任务数
+	shutdown atomic.Bool          // 调度器是否关闭
+	timer    *time.Timer          //
+	ctx      context.Context      //
+	cancel   context.CancelFunc   //
+	wg       sync.WaitGroup       //
+	once     sync.Once            //
+	wakeup   chan struct{}        // 唤醒循环的新任务信号
 }
 
 // NewTaskScheduler 创建调度器实例
 func NewTaskScheduler(opts ...SchedulerOption) ITaskScheduler {
 	s := &Scheduler{
-		tick:      defaultTickPrecision,
-		wheelSize: defaultWheelSize,
-		ctx:       context.Background(),
+		tasks:  make(map[int64]*taskEntry),
+		wakeup: make(chan struct{}, 1),
+		ctx:    context.Background(),
 	}
 	for _, opt := range opts {
 		opt(s)
 	}
 
 	s.ctx, s.cancel = context.WithCancel(s.ctx)
-	s.tw = timingwheel.NewTimingWheel(s.tick, s.wheelSize)
-	go func() {
-		s.tw.Start()
-		<-s.ctx.Done()
-		s.tw.Stop()
-	}()
+	s.timer = time.NewTimer(time.Hour)
+	if !s.timer.Stop() {
+		select {
+		case <-s.timer.C:
+		default:
+		}
+	}
+
+	go s.loop() // 启动调度主循环
 	return s
 }
 
+// loop 主循环，按堆顶任务时间执行任务
+func (s *Scheduler) loop() {
+	defer RecoverFromError(func(e any) { go s.loop() }) // 异常恢复并重启循环
+
+	for {
+		s.mu.Lock()
+		var expired []*taskEntry
+		now := time.Now()
+
+		// 批量弹出已到期任务
+		for len(s.h) > 0 && !s.h[0].execAt.After(now) {
+			entry := heap.Pop(&s.h).(*taskEntry)
+			if entry.cancelled.Load() {
+				delete(s.tasks, entry.id)
+				continue
+			}
+			delete(s.tasks, entry.id)
+			expired = append(expired, entry)
+		}
+		s.mu.Unlock()
+
+		// 异步执行到期任务
+		for _, entry := range expired {
+			s.running.Add(1)
+			s.wg.Add(1)
+			t := entry
+			s.executeAsync(func() {
+				defer func() {
+					RecoverFromError(nil)
+					s.wg.Done()
+					s.running.Add(-1)
+				}()
+				t.task()
+			})
+
+			// 周期任务，重新入堆
+			if t.repeated && !t.cancelled.Load() {
+				t.execAt = t.execAt.Add(t.interval) // 精准周期
+				s.mu.Lock()
+				s.tasks[t.id] = t
+				heap.Push(&s.h, t)
+				s.signalWakeup() // 唤醒 loop 重新计算等待时间
+				s.mu.Unlock()
+			}
+		}
+
+		// 计算下一次等待时间
+		s.mu.Lock()
+		var wait time.Duration
+		if len(s.h) == 0 {
+			wait = time.Hour // 没有任务时长时间等待
+		} else {
+			wait = s.h[0].execAt.Sub(now)
+			if wait < 0 {
+				wait = 0
+			}
+		}
+		if !s.timer.Stop() {
+			select {
+			case <-s.timer.C:
+			default:
+			}
+		}
+		s.timer.Reset(wait)
+		s.mu.Unlock()
+
+		// 阻塞等待下一次任务或唤醒信号
+		select {
+		case <-s.timer.C:
+		case <-s.wakeup:
+		case <-s.ctx.Done():
+			return
+		}
+	}
+}
+
 func (s *Scheduler) Len() int {
-	count := 0
-	s.tasks.Range(func(_, _ any) bool {
-		count++
-		return true
-	})
-	return count
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.tasks)
 }
 
 func (s *Scheduler) Running() int32 {
@@ -168,29 +238,28 @@ func (s *Scheduler) ForeverNow(interval time.Duration, f func()) int64 {
 
 // Cancel 取消指定任务
 func (s *Scheduler) Cancel(taskID int64) {
-	s.removeTask(taskID)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if entry, ok := s.tasks[taskID]; ok {
+		entry.cancelled.Store(true)
+		delete(s.tasks, taskID)
+		if entry.index >= 0 && entry.index < len(s.h) {
+			heap.Remove(&s.h, entry.index)
+		}
+		s.signalWakeup() // 唤醒 loop，避免阻塞等待已取消任务
+	}
 }
 
 // CancelAll 取消所有任务
 func (s *Scheduler) CancelAll() {
-	s.tasks.Range(func(key, _ any) bool {
-		s.removeTask(key.(int64))
-		return true
-	})
-}
-
-func (s *Scheduler) removeTask(taskID int64) {
-	val, ok := s.tasks.Load(taskID)
-	if !ok {
-		return
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, entry := range s.tasks {
+		entry.cancelled.Store(true)
 	}
-	entry := val.(*taskEntry)
-	if entry.cancelled.CompareAndSwap(false, true) {
-		if entry.timer != nil {
-			entry.timer.Stop()
-		}
-		s.tasks.Delete(taskID)
-	}
+	s.tasks = make(map[int64]*taskEntry)
+	s.h = taskHeap{}
+	s.signalWakeup()
 }
 
 // Stop 停止调度器，等待正在执行任务完成
@@ -220,47 +289,23 @@ func (s *Scheduler) schedule(delay time.Duration, repeated bool, f func()) int64
 	}
 
 	taskID := s.nextID.Add(1)
-	entry := &taskEntry{repeated: repeated, task: f}
-	startAt := time.Now()
-
-	wrapped := func() {
-		wrappedAt := time.Now()
-		if entry.cancelled.Load() || !entry.executing.CompareAndSwap(false, true) {
-			return
-		}
-		s.running.Add(1)
-		s.wg.Add(1)
-
-		s.executeAsync(func() {
-			execAt := time.Now()
-			defer func() {
-				RecoverFromError(nil)
-				s.wg.Done()
-				s.running.Add(-1)
-				entry.executing.Store(false)
-				if !repeated {
-					s.removeTask(taskID)
-					s.lazy(taskID, delay, startAt, execAt, wrappedAt)
-				}
-			}()
-
-			if entry.cancelled.Load() {
-				return
-			}
-			f()
-		})
+	entry := &taskEntry{
+		id:       taskID,
+		execAt:   time.Now().Add(delay),
+		interval: delay,
+		repeated: repeated,
+		task:     f,
 	}
 
-	if repeated {
-		entry.timer = s.tw.ScheduleFunc(&preciseEvery{Interval: delay}, wrapped)
-	} else {
-		entry.timer = s.tw.AfterFunc(delay, wrapped)
-	}
-
-	s.tasks.Store(taskID, entry)
+	s.mu.Lock()
+	s.tasks[taskID] = entry
+	heap.Push(&s.h, entry)
+	s.signalWakeup() // 唤醒 loop 重新计算等待时间
+	s.mu.Unlock()
 	return taskID
 }
 
+// executeAsync 执行任务函数（支持自定义执行器）
 func (s *Scheduler) executeAsync(f func()) {
 	wrapped := func() {
 		defer RecoverFromError(nil)
@@ -273,17 +318,11 @@ func (s *Scheduler) executeAsync(f func()) {
 	}
 }
 
-// log debug
-func (s *Scheduler) lazy(taskID int64, delay time.Duration, startAt, execAt, wrappedAt time.Time) {
-	now := time.Now()
-	lazy := now.Sub(startAt)
-	latency := lazy - delay
-
-	if latency >= s.tick {
-		exec, wrapped := now.Sub(execAt), now.Sub(wrappedAt)
-		log.Errorf("[scheduler] taskID=%d delay=%v precision=%v lazy=%v latency=%v exec=%+v wrap=%+v",
-			taskID, delay, s.tick, lazy, latency, exec, wrapped-exec,
-		)
+// signalWakeup 发送唤醒信号
+func (s *Scheduler) signalWakeup() {
+	select {
+	case s.wakeup <- struct{}{}:
+	default: // 避免阻塞
 	}
 }
 
