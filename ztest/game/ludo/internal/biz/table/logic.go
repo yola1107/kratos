@@ -33,10 +33,8 @@ func (t *Table) OnTimer() {
 		t.onDiceTimeout()
 	case StMove:
 		t.onMoveTimeout()
-	case StWaitEnd:
+	case StResult:
 		t.gameEnd()
-	case StEnd:
-		t.onEndTimeout()
 	default:
 		log.Errorf("unhandled stage timeout: %v", state)
 	}
@@ -163,6 +161,11 @@ func (t *Table) intoGaming(seats []*player.Player) {
 	// 初始化棋盘
 	t.board = model.NewBoard(seatColors, 4, conf.IsFastMode())
 
+	// 快速场定时器
+	if conf.IsFastMode() {
+		t.timerJobFast = time.AfterFunc(time.Minute*5, func() { t.settle(1) })
+	}
+
 	for _, p := range seats {
 		if p == nil || !p.IsGaming() {
 			continue
@@ -171,6 +174,7 @@ func (t *Table) intoGaming(seats []*player.Player) {
 		p.SetPieces(t.board.GetPieceIDsByColor(color))
 		t.colorMap[color] = p.GetPlayerID()
 	}
+
 }
 
 // 计算庄家
@@ -214,50 +218,34 @@ func (t *Table) onMoveTimeout() {
 		return
 	}
 
+	// 提前准备所需数据
+	uid := p.GetPlayerID()
+	dice := p.UnusedDice()
+	color := p.GetColor()
+	cp := t.board.Clone() // Clone board 数据量大，但我们只在闭包里用，不捕获 t
+
 	t.repo.GetLoop().Post(func() {
-		cp := t.board.Clone()
-		defer func() { cp = nil }()
-		id, x := model.FindBestMoveSequence(cp, p.UnusedDice(), p.GetColor())
+		defer func() { cp.Clear(); cp = nil }() // 及时释放引用
+		id, x := model.FindBestMoveSequence(cp, dice, color)
 		if id <= -1 || x <= -1 {
 			log.Errorf("onMoveTimeout: 找不到可移动的路径. tb=%v, p=%v", t.Desc(), p.Desc())
 			return
 		}
-		t.OnMoveReq(p, &v1.MoveReq{UserId: p.GetPlayerID(), PieceId: id, DiceValue: x}, true)
+		t.OnMoveReq(p, &v1.MoveReq{UserId: uid, PieceId: id, DiceValue: x}, true)
 	})
 }
 
 func (t *Table) gameEnd() {
-	t.broadcastResult(nil)
-
-	// 状态进入 StEnd
-	t.updateStage(StEnd)
-
-	// 保存每一局记录 // todo
-
-	// 检查踢人
-	t.checkKick()
-
 	// 清理数据
 	t.Reset()
 
-	// todo delete test
-	t.SendPacketToAll(v1.GameCommand_Nothing, nil) // todo test ai exit
-
-	// log
-	log.Debugf("结束清理完成。tb=%v \n\n\n", t.Desc())
-	t.mLog.end(fmt.Sprintf("结束清理完成。%s %s", t.Desc(), logPlayers(t.seats)))
-}
-
-func (t *Table) settle(endTy int32) *SettleObj {
-	t.updateStage(StWaitEnd)
-	return nil
-}
-
-func (t *Table) onEndTimeout() {
-	// 状态进入 StWait
+	// 状态进入 StEnd
 	t.updateStage(StWait)
 
-	// 再次检查踢人
+	// // todo delete test
+	// t.SendPacketToAll(v1.GameCommand_Nothing, nil) // todo test ai exit
+
+	// 检查踢人
 	t.checkKick()
 
 	// 是否自动准备
@@ -265,4 +253,14 @@ func (t *Table) onEndTimeout() {
 
 	// // 是否可以下一局
 	// t.checkCanStart()
+
+	// log
+	log.Debugf("结束清理完成。tb=%v \n\n\n", t.Desc())
+	t.mLog.end(fmt.Sprintf("结束清理完成。%s %s", t.Desc(), logPlayers(t.seats)))
+}
+
+func (t *Table) settle(endTy int32) *SettleObj {
+	t.updateStage(StResult)
+	t.broadcastResult(nil)
+	return nil
 }

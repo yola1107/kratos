@@ -36,8 +36,9 @@ type ITaskExecutor interface {
 
 // Monitor 任务池状态信息
 type Monitor struct {
-	Len     int   // 当前注册任务数量
-	Running int32 // 当前执行中的任务数量
+	Capacity int   // 堆底层切片容量
+	Len      int   // 当前注册任务数量
+	Running  int32 // 当前执行中的任务数量
 }
 
 // taskEntry 任务结构体
@@ -141,6 +142,7 @@ func (s *Scheduler) loop() {
 			entry := heap.Pop(&s.h).(*taskEntry)
 			if entry.cancelled.Load() {
 				delete(s.tasks, entry.id)
+				entry.task = nil // 已取消任务，帮助 GC 释放闭包引用
 				continue
 			}
 			delete(s.tasks, entry.id)
@@ -158,7 +160,14 @@ func (s *Scheduler) loop() {
 					RecoverFromError(nil)
 					s.wg.Done()
 					s.running.Add(-1)
+					// 一次性任务执行完，释放闭包引用
+					if !t.repeated {
+						t.task = nil // 执行完任务后帮助 GC 释放闭包引用
+					}
 				}()
+				if t.cancelled.Load() {
+					return
+				}
 				t.task()
 			})
 
@@ -214,9 +223,12 @@ func (s *Scheduler) Running() int32 {
 }
 
 func (s *Scheduler) Monitor() Monitor {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return Monitor{
-		Len:     s.Len(),
-		Running: s.Running(),
+		Capacity: cap(s.h),
+		Len:      len(s.tasks),
+		Running:  s.Running(),
 	}
 }
 
@@ -246,6 +258,7 @@ func (s *Scheduler) Cancel(taskID int64) {
 		if entry.index >= 0 && entry.index < len(s.h) {
 			heap.Remove(&s.h, entry.index)
 		}
+		entry.task = nil // 帮助 GC 释放闭包引用
 		s.signalWakeup() // 唤醒 loop，避免阻塞等待已取消任务
 	}
 }
@@ -256,6 +269,7 @@ func (s *Scheduler) CancelAll() {
 	defer s.mu.Unlock()
 	for _, entry := range s.tasks {
 		entry.cancelled.Store(true)
+		entry.task = nil // 帮助 GC 释放闭包引用
 	}
 	s.tasks = make(map[int64]*taskEntry)
 	s.h = taskHeap{}

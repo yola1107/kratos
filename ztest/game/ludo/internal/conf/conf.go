@@ -38,7 +38,8 @@ func init() {
 }
 
 func IsFastMode() bool {
-	return GameMode == ModeFast
+	return true
+	// return GameMode == ModeFast
 }
 
 // LoadConfig 加载配置

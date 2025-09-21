@@ -24,8 +24,7 @@ const (
 	StSendCard                // 发牌
 	StDice                    // 投掷色子
 	StMove                    // 移动棋子
-	StWaitEnd                 // 等待结束
-	StEnd                     // 游戏结束
+	StResult                  // 结算
 )
 
 // StageTimeouts maps each stage to its timeout duration (in seconds).
@@ -35,8 +34,7 @@ var StageTimeouts = map[StageID]int64{
 	StSendCard: 3,
 	StDice:     7,
 	StMove:     7,
-	StWaitEnd:  3,
-	StEnd:      1,
+	StResult:   3,
 }
 
 // StageNames maps each stage to its string name.
@@ -46,8 +44,7 @@ var StageNames = map[StageID]string{
 	StSendCard: "StSendCard",
 	StDice:     "StDice",
 	StMove:     "StMove",
-	StWaitEnd:  "StWaitEnd",
-	StEnd:      "StEnd",
+	StResult:   "StResult",
 }
 
 // String returns the string representation of the StageID.
