@@ -162,13 +162,14 @@ func TestCalcNextPos(t *testing.T) {
 }
 
 func TestNewBoard(t *testing.T) {
-	b := NewBoard([]int32{0, 1, 3}, 4, 0)
+	b := NewBoard([]int32{0, 1, 3}, 4, false)
 	if b == nil {
 		t.Error("NewBoard returned nil")
 		return
 	}
 
 	c := b.Clone()
+	defer c.Clear()
 	if c == nil {
 		t.Error("Clone returned nil")
 		return

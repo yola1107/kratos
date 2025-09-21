@@ -86,29 +86,54 @@ func (b *Board) Clone() *Board {
 	c := &Board{
 		fastMode: b.fastMode,
 		pieces:   make([]*Piece, len(b.pieces)),
-		steps:    make([]*Step, len(b.steps)),
+		steps:    nil, // make([]*Step, len(b.steps)),
 		colorMap: make(map[int32][]int32, len(b.colorMap)),
 	}
 	for i, p := range b.pieces {
-		cp := *p
-		c.pieces[i] = &cp
-	}
-	for i, s := range b.steps {
-		if s != nil {
-			cp := *s
-			if len(s.Killed) > 0 {
-				cp.Killed = make([]KilledInfo, len(s.Killed))
-				copy(cp.Killed, s.Killed)
-			} else {
-				cp.Killed = nil
-			}
-			c.steps[i] = &cp
+		if p != nil {
+			cp := *p // 值拷贝
+			c.pieces[i] = &cp
 		}
 	}
+	// for i, s := range b.steps {
+	// 	if s != nil {
+	// 		cp := *s
+	// 		if len(s.Killed) > 0 {
+	// 			cp.Killed = append([]KilledInfo(nil), s.Killed...)
+	// 		} else {
+	// 			cp.Killed = nil
+	// 		}
+	// 		c.steps[i] = &cp
+	// 	}
+	// }
 	for k, v := range b.colorMap {
-		c.colorMap[k] = v
+		c.colorMap[k] = append([]int32(nil), v...) // 切片深拷贝
 	}
 	return c
+}
+
+// Clear 清空引用
+func (b *Board) Clear() {
+	if b == nil {
+		return
+	}
+
+	for i := range b.pieces {
+		b.pieces[i] = nil
+	}
+	b.pieces = nil
+
+	for i := range b.steps {
+		b.steps[i].Killed = nil // 清理内部切片
+		b.steps[i] = nil
+	}
+	b.steps = nil
+
+	for k := range b.colorMap {
+		b.colorMap[k] = nil // 清理切片
+		delete(b.colorMap, k)
+	}
+	b.colorMap = nil
 }
 
 // Move 单步移动，返回步骤信息

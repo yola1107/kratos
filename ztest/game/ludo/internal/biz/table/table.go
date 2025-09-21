@@ -2,6 +2,7 @@ package table
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/game/ludo/internal/biz/player"
@@ -30,6 +31,8 @@ type Table struct {
 	fastScore map[int32]int64  // 快速场积分 color->score
 	colorMap  map[int32]int64  // 玩家持方映射 color->uid
 	fleeUsers []*player.Player // 逃跑玩家 uid -> *api.SettlePlayer
+
+	timerJobFast *time.Timer //
 }
 
 func NewTable(id int32, typ TYPE, c *conf.Room, repo Repo) *Table {
@@ -48,6 +51,9 @@ func NewTable(id int32, typ TYPE, c *conf.Room, repo Repo) *Table {
 		board:     nil,
 		fastScore: make(map[int32]int64),
 		colorMap:  make(map[int32]int64),
+		fleeUsers: nil,
+
+		timerJobFast: nil,
 	}
 	t.aiLogic.init(t)
 	return t
@@ -56,15 +62,27 @@ func NewTable(id int32, typ TYPE, c *conf.Room, repo Repo) *Table {
 func (t *Table) Reset() {
 	t.active = -1
 	t.first = -1
+	t.board.Clear()
 	t.board = nil
 	t.fastScore = make(map[int32]int64)
 	t.colorMap = make(map[int32]int64)
+	t.fleeUsers = nil
 
 	for _, seat := range t.seats {
 		if seat == nil {
 			continue
 		}
 		seat.Reset()
+	}
+
+	if t.timerJobFast != nil {
+		if !t.timerJobFast.Stop() {
+			select {
+			case <-t.timerJobFast.C:
+			default:
+			}
+		}
+		t.timerJobFast = nil
 	}
 }
 
@@ -187,7 +205,7 @@ func (t *Table) CanEnter(p *player.Player) bool {
 
 func (t *Table) CanExit(p *player.Player) bool {
 	s := t.stage.GetState()
-	return p != nil && !p.IsGaming() && (s == StWait || s == StEnd)
+	return p != nil && !p.IsGaming() && (s == StWait || s == StResult)
 }
 
 func (t *Table) CanSwitchTable(p *player.Player) bool {
@@ -314,7 +332,7 @@ func (t *Table) checkKickPlayer(p *player.Player, conf *conf.Room_Game) (int32, 
 		if code, msg := CheckRoomLimit(p, conf); code != 0 {
 			return code, msg
 		}
-	case StWaitEnd, StEnd:
+	case StResult:
 		if p.IsOffline() {
 			return codes.KICK_BY_BROKE, "KICK_BY_BROKE"
 		}

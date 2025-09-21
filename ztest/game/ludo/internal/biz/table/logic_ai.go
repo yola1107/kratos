@@ -14,9 +14,9 @@ import (
 
 const (
 	EnterMinIntervalSec = 1
-	EnterMaxIntervalSec = 7
-	ExitMinIntervalSec  = 3
-	ExitMaxIntervalSec  = 10
+	EnterMaxIntervalSec = 5
+	ExitMinIntervalSec  = 1
+	ExitMaxIntervalSec  = 5
 	ExitRandChance      = 0.05
 )
 
@@ -152,20 +152,22 @@ func (r *RobotLogic) ActivePlayer(p *player.Player, msg proto.Message) {
 		return
 	}
 
-	c := p.GetColor()
+	uid := p.GetPlayerID()
 	dices := p.UnusedDice()
+	color := p.GetColor()
+	cp := r.mTable.board.Clone()
 	delay := time.Duration(xgo.RandInt(1000, int(r.mTable.stage.Remaining().Milliseconds()*3/4))) * time.Millisecond
+
 	r.mTable.repo.GetTimer().Once(delay, func() {
-		cp := r.mTable.board.Clone()
-		defer func() { cp = nil }()
-		bestId, bestX := model.FindBestMoveSequence(cp, dices, c)
+		defer func() { cp.Clear(); cp = nil }()
+		bestId, bestX := model.FindBestMoveSequence(cp, dices, color)
 		if bestId <= -1 || bestX <= -1 {
 			log.Errorf("Ai无法移动. 找寻不到路径. tb:%v,p:%v, xdieces=%v, bestId=%v, path2=%v",
 				r.mTable.Desc(), p.Desc(), dices, bestId, xgo.ToJSON(rsp))
 			return
 		}
 		r.mTable.OnMoveReq(p, &v1.MoveReq{
-			UserId:    p.GetPlayerID(),
+			UserId:    uid,
 			PieceId:   bestId,
 			DiceValue: bestX,
 		}, false)

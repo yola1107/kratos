@@ -188,8 +188,10 @@ func (s *Scheduler) removeTask(taskID int64) {
 	if entry.cancelled.CompareAndSwap(false, true) {
 		if entry.timer != nil {
 			entry.timer.Stop()
+			entry.timer = nil // GC
 		}
 		s.tasks.Delete(taskID)
+		entry.task = nil // GC
 	}
 }
 
@@ -221,6 +223,7 @@ func (s *Scheduler) schedule(delay time.Duration, repeated bool, f func()) int64
 
 	taskID := s.nextID.Add(1)
 	entry := &taskEntry{repeated: repeated, task: f}
+	s.tasks.Store(taskID, entry) // 先存储到 map，防止 timer 先触发 wrapped 导致 removeTask 找不到
 	startAt := time.Now()
 
 	wrapped := func() {
@@ -257,7 +260,6 @@ func (s *Scheduler) schedule(delay time.Duration, repeated bool, f func()) int64
 		entry.timer = s.tw.AfterFunc(delay, wrapped)
 	}
 
-	s.tasks.Store(taskID, entry)
 	return taskID
 }
 
