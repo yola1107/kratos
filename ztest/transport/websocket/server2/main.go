@@ -26,7 +26,7 @@ import (
 // go build -ldflags "-X main.Version=x.y.z"
 var (
 	Name   = "ws-server"
-	wsLoop work.ITaskLoop
+	wsLoop work.Loop
 )
 
 type server struct {
@@ -35,7 +35,7 @@ type server struct {
 	sessionsMap sync.Map
 }
 
-func (s *server) GetLoop() work.ITaskLoop {
+func (s *server) GetLoop() work.Loop {
 	return wsLoop
 }
 
@@ -175,7 +175,7 @@ func main() {
 		kratos.Logger(zapLogger), // 使用自定义 Logger
 		// kratos.Registrar(etcd.New(etcdClient)), // 注册中心 ETCD
 		kratos.BeforeStart(func(ctx context.Context) error {
-			wsLoop = work.NewAntsLoop(work.WithSize(10000))
+			wsLoop = work.NewLoop(work.WithSize(10000))
 			return wsLoop.Start()
 		}),
 		kratos.AfterStop(func(ctx context.Context) error {

@@ -41,7 +41,7 @@ func (m *mockExecutor) Post(job func()) {
 func (m *mockExecutor) Stop() {}
 
 func TestAntsLoop(t *testing.T) {
-	l := NewAntsLoop(WithSize(2))
+	l := NewLoop(WithSize(2))
 	err := l.Start()
 	require.NoError(t, err)
 	defer l.Stop()
@@ -147,7 +147,7 @@ func TestTaskScheduler_BasicOperations(t *testing.T) {
 	defer cancel()
 
 	executor := newMockExecutor()
-	scheduler := NewTaskScheduler(WithExecutor(executor), WithContext(ctx))
+	scheduler := NewScheduler(WithExecutor(executor), WithContext(ctx))
 	defer scheduler.Stop()
 
 	t.Run("Once task executes", func(t *testing.T) {
@@ -206,7 +206,7 @@ func TestTaskScheduler_Cancellation(t *testing.T) {
 	defer cancel()
 
 	executor := newMockExecutor()
-	scheduler := NewTaskScheduler(WithExecutor(executor), WithContext(ctx))
+	scheduler := NewScheduler(WithExecutor(executor), WithContext(ctx))
 	defer scheduler.Stop()
 
 	t.Run("Cancel single task", func(t *testing.T) {
@@ -238,7 +238,7 @@ func TestTaskScheduler_Stop(t *testing.T) {
 	defer cancel()
 
 	executor := newMockExecutor()
-	scheduler := NewTaskScheduler(WithExecutor(executor), WithContext(ctx))
+	scheduler := NewScheduler(WithExecutor(executor), WithContext(ctx))
 
 	scheduler.Once(defaultTickPrecision, func() { t.Error("Once task executed after shutdown") })
 	scheduler.Forever(defaultTickPrecision, func() { t.Error("Forever task executed after shutdown") })
@@ -258,7 +258,7 @@ func TestTaskScheduler_PanicRecovery(t *testing.T) {
 	defer cancel()
 
 	executor := newMockExecutor()
-	scheduler := NewTaskScheduler(WithExecutor(executor), WithContext(ctx))
+	scheduler := NewScheduler(WithExecutor(executor), WithContext(ctx))
 	defer scheduler.Stop()
 
 	t.Run("Recover from panic in Once task", func(t *testing.T) {
@@ -294,10 +294,10 @@ func TestTaskScheduler_PanicRecovery(t *testing.T) {
 func TestTaskScheduler_ContextCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	executor := newMockExecutor()
-	scheduler := NewTaskScheduler(WithExecutor(executor), WithContext(ctx))
+	scheduler := NewScheduler(WithExecutor(executor), WithContext(ctx))
 	defer scheduler.Stop()
 
-	t.Run("Context cancel stops scheduler", func(t *testing.T) {
+	t.Run("Context cancel stops wheelScheduler", func(t *testing.T) {
 		var executed atomic.Bool
 		scheduler.Once(defaultTickPrecision, func() {
 			executed.Store(true)
@@ -322,7 +322,7 @@ func TestTaskScheduler_TaskIDSequence_WithCancel(t *testing.T) {
 	defer cancel()
 
 	executor := newMockExecutor()
-	scheduler := NewTaskScheduler(WithExecutor(executor), WithContext(ctx))
+	scheduler := NewScheduler(WithExecutor(executor), WithContext(ctx))
 	defer scheduler.Stop()
 
 	const count = 5
@@ -409,7 +409,7 @@ func TestTaskScheduler_TaskIDSequence(t *testing.T) {
 	defer cancel()
 
 	executor := newMockExecutor()
-	scheduler := NewTaskScheduler(WithExecutor(executor), WithContext(ctx))
+	scheduler := NewScheduler(WithExecutor(executor), WithContext(ctx))
 	defer scheduler.Stop()
 
 	prevID := int64(0)

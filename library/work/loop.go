@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/panjf2000/ants/v2"
+
 	"github.com/yola1107/kratos/v2/log"
 )
 
@@ -25,24 +26,47 @@ type LoopMonitor struct {
 	Free     int // 空闲协程数（Capacity - Running）
 }
 
-// ITaskLoop 定义协程池接口
-type ITaskLoop interface {
+// Loop 定义协程池接口
+// 协程池用于管理和复用 goroutine，防止无限制创建导致的资源耗尽
+type Loop interface {
+	// Start 启动协程池，初始化内部资源
+	// 可安全地重复调用，后续调用会被忽略
 	Start() error
+
+	// Stop 停止协程池，释放所有资源
+	// 注意：Stop 后不应再调用 Post 方法
 	Stop()
+
+	// Monitor 返回协程池的当前状态
 	Monitor() LoopMonitor
+
+	// Post 异步提交任务，不等待执行结果
+	// 使用 context.Background() 作为上下文
 	Post(job func())
+
+	// PostCtx 异步提交任务，支持上下文控制
+	// 如果 ctx 已取消，任务不会被提交
 	PostCtx(ctx context.Context, job func())
+
+	// PostAndWait 同步提交任务并等待结果
+	// 使用 context.Background() 作为上下文
 	PostAndWait(job func() ([]byte, error)) ([]byte, error)
+
+	// PostAndWaitCtx 同步提交任务并等待结果，支持超时和取消
+	// 如果 ctx 超时或取消，返回相应的错误
 	PostAndWaitCtx(ctx context.Context, job func() ([]byte, error)) ([]byte, error)
 }
 
 type Option func(*antsLoop)
 
 // WithSize 设置池大小
+// size 必须大于 0，否则使用默认值 defaultPendingNum
 func WithSize(size int) Option {
 	return func(l *antsLoop) {
 		if size > 0 {
 			l.size = size
+		} else {
+			log.Warnf("Invalid size %d, using default %d", size, defaultPendingNum)
 		}
 	}
 }
@@ -54,8 +78,8 @@ func WithFallback(fallback func(ctx context.Context, fn func())) Option {
 	}
 }
 
-// WithPoolOptions 自定义ants池选项
-func WithPoolOptions(opts ...ants.Option) Option {
+// WithAntsOptions 自定义ants池选项
+func WithAntsOptions(opts ...ants.Option) Option {
 	return func(l *antsLoop) {
 		l.poolOptions = append(l.poolOptions, opts...)
 	}
@@ -69,8 +93,8 @@ type antsLoop struct {
 	poolOptions []ants.Option
 }
 
-// NewAntsLoop 创建协程池实例，支持传入参数
-func NewAntsLoop(opts ...Option) ITaskLoop {
+// NewLoop 创建协程池实例，支持传入参数
+func NewLoop(opts ...Option) Loop {
 	l := &antsLoop{
 		size: defaultPendingNum,
 		fallback: func(ctx context.Context, fn func()) {
@@ -95,7 +119,7 @@ func (l *antsLoop) Start() error {
 	defer l.mu.Unlock()
 
 	if l.pool != nil {
-		log.Warnf("antsLoop already started.")
+		log.Warnf("antsLoop already started, ignoring duplicate Start() call")
 		return nil
 	}
 

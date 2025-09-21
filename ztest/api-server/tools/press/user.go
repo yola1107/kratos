@@ -15,8 +15,8 @@ import (
 )
 
 type Repo interface {
-	GetTimer() work.ITaskScheduler
-	GetLoop() work.ITaskLoop
+	GetTimer() work.Scheduler
+	GetLoop() work.Loop
 	GetContext() context.Context
 	GetConfig() Press
 	GetUrl() string

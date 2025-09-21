@@ -21,7 +21,7 @@ import (
 
 // LudoTCPServer is the server API for Ludo service.
 type LudoTCPServer interface {
-	GetTCPLoop() work.ITaskLoop
+	GetTCPLoop() work.Loop
 	SetCometChan(cl *tcp.ChanList, cs *tcp.Server)
 	SayHelloReq(context.Context, *HelloRequest) (*HelloReply, error)
 	OnLoginReq(context.Context, *LoginReq) (*LoginRsp, error)

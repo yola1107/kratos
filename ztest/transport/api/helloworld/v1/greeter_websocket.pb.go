@@ -21,7 +21,7 @@ import (
 
 // GreeterWebsocketServer is the server API for Greeter service.
 type GreeterWebsocketServer interface {
-	GetLoop() work.ITaskLoop
+	GetLoop() work.Loop
 	OnSessionOpen(*websocket.Session)
 	OnSessionClose(*websocket.Session)
 	SayHelloReq(context.Context, *HelloRequest) (*HelloReply, error)

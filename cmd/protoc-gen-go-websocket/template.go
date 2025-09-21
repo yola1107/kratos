@@ -26,13 +26,8 @@ type methodDesc struct {
 	Request      string
 	Reply        string
 	Comment      string
-	// http_rule
-	Path         string
-	Method       string
-	HasVars      bool
-	HasBody      bool
-	Body         string
-	ResponseBody string
+	// websocket specific
+	Ops string // Operation code from GameCommand enum
 }
 
 func (s *serviceDesc) execute() string {

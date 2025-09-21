@@ -8,7 +8,7 @@ import (
 
 // Repo 抽象接口
 type Repo interface {
-	GetTimer() work.ITaskScheduler
+	GetTimer() work.Scheduler
 	CreateRobot(raw *player.Raw) (*player.Player, error)
 	GetTableList() []*table.Table
 }

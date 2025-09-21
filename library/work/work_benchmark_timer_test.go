@@ -17,32 +17,32 @@ type mockScheduler struct {
 	context.Context
 	context.CancelFunc
 	iMockExecutor
-	ITaskScheduler
+	Scheduler
 }
 
 func (s *mockScheduler) Stop() {
 	s.CancelFunc()
-	s.ITaskScheduler.Stop()
+	s.Scheduler.Stop()
 	s.iMockExecutor.Stop()
 }
 
 func createScheduler(b *testing.B, timeout time.Duration) (context.Context, context.CancelFunc, *mockScheduler) {
 	const size = 10000
 	// ants
-	// loop := NewAntsLoop(WithSize(size))
+	// loop := NewLoop(WithSize(size))
 	// _ = loop.Start()
 
 	// goroutine
 	loop := newMockExecutor(size)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	timer := NewTaskScheduler(WithContext(ctx), WithExecutor(loop))
+	timer := NewScheduler(WithContext(ctx), WithExecutor(loop))
 
 	return ctx, cancel, &mockScheduler{
-		Context:        ctx,
-		CancelFunc:     cancel,
-		ITaskScheduler: timer,
-		iMockExecutor:  loop,
+		Context:       ctx,
+		CancelFunc:    cancel,
+		Scheduler:     timer,
+		iMockExecutor: loop,
 	}
 }
 

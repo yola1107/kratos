@@ -2,6 +2,7 @@ package table
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/game/ludo/internal/biz/player"
@@ -26,28 +27,24 @@ type Table struct {
 	first   int32            // 第一个操作玩家
 	aiLogic RobotLogic       // 机器人逻辑
 
-	board     *model.Board     // 游戏棋盘
-	fastScore map[int32]int64  // 快速场积分 color->score
-	colorMap  map[int32]int64  // 玩家持方映射 color->uid
-	fleeUsers []*player.Player // 逃跑玩家 uid -> *api.SettlePlayer
+	board        *model.Board // 游戏棋盘
+	timerJobFast *time.Timer  // 快速场结算定时器
 }
 
 func NewTable(id int32, typ TYPE, c *conf.Room, repo Repo) *Table {
 	t := &Table{
-		ID:     id,
-		Type:   typ,
-		MaxCnt: int16(c.Table.ChairNum),
-		repo:   repo,
-		stage:  &Stage{},
-		sitCnt: 0,
-		active: -1,
-		first:  -1,
-		mLog:   NewTableLog(id, c.LogCache),
-		seats:  make([]*player.Player, c.Table.ChairNum),
-
-		board:     nil,
-		fastScore: make(map[int32]int64),
-		colorMap:  make(map[int32]int64),
+		ID:           id,
+		Type:         typ,
+		MaxCnt:       int16(c.Table.ChairNum),
+		repo:         repo,
+		stage:        &Stage{},
+		sitCnt:       0,
+		active:       -1,
+		first:        -1,
+		mLog:         NewTableLog(id, c.LogCache),
+		seats:        make([]*player.Player, c.Table.ChairNum),
+		board:        nil,
+		timerJobFast: nil,
 	}
 	t.aiLogic.init(t)
 	return t
@@ -56,9 +53,8 @@ func NewTable(id int32, typ TYPE, c *conf.Room, repo Repo) *Table {
 func (t *Table) Reset() {
 	t.active = -1
 	t.first = -1
+	t.board.Clear()
 	t.board = nil
-	t.fastScore = make(map[int32]int64)
-	t.colorMap = make(map[int32]int64)
 
 	for _, seat := range t.seats {
 		if seat == nil {
@@ -187,7 +183,7 @@ func (t *Table) CanEnter(p *player.Player) bool {
 
 func (t *Table) CanExit(p *player.Player) bool {
 	s := t.stage.GetState()
-	return p != nil && !p.IsGaming() && (s == StWait || s == StEnd)
+	return p != nil && !p.IsGaming() && (s == StWait || s == StResult)
 }
 
 func (t *Table) CanSwitchTable(p *player.Player) bool {
@@ -314,7 +310,7 @@ func (t *Table) checkKickPlayer(p *player.Player, conf *conf.Room_Game) (int32, 
 		if code, msg := CheckRoomLimit(p, conf); code != 0 {
 			return code, msg
 		}
-	case StWaitEnd, StEnd:
+	case StResult:
 		if p.IsOffline() {
 			return codes.KICK_BY_BROKE, "KICK_BY_BROKE"
 		}

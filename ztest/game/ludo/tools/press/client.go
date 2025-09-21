@@ -16,8 +16,8 @@ type Runner struct {
 	conf   *LoadTest
 	logger *zap.Logger
 
-	loop   work.ITaskLoop      // 任务循环
-	timer  work.ITaskScheduler // 定时任务
+	loop   work.Loop      // 任务循环
+	timer  work.Scheduler // 定时任务
 	ctx    context.Context
 	cancel context.CancelFunc
 
@@ -28,8 +28,8 @@ type Runner struct {
 
 func NewRunner(conf *LoadTest, logger *zap.Logger) *Runner {
 	ctx, cancel := context.WithCancel(context.Background())
-	loop := work.NewAntsLoop(work.WithSize(10000))
-	timer := work.NewTaskScheduler(
+	loop := work.NewLoop(work.WithSize(10000))
+	timer := work.NewScheduler(
 		work.WithContext(ctx),
 		work.WithExecutor(loop),
 	)
@@ -45,11 +45,11 @@ func NewRunner(conf *LoadTest, logger *zap.Logger) *Runner {
 	return r
 }
 
-func (r *Runner) GetTimer() work.ITaskScheduler {
+func (r *Runner) GetTimer() work.Scheduler {
 	return r.timer
 }
 
-func (r *Runner) GetLoop() work.ITaskLoop {
+func (r *Runner) GetLoop() work.Loop {
 	return r.loop
 }
 

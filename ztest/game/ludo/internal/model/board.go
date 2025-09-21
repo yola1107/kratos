@@ -18,17 +18,15 @@ const _MaxSteps = 10 // 保存的最大步数 (避免内存膨胀过大)
 
 // Board 代表一个Ludo棋盘，管理棋子、步骤和颜色映射
 type Board struct {
-	fastMode bool              // 游戏模式，false=经典，true=快速
-	pieces   []*Piece          // 所有棋子，索引即棋子ID
-	steps    []*Step           // 执行过的移动步骤记录
-	colorMap map[int32][]int32 // 颜色 -> 棋子ID列表映射
+	fastMode bool     // 游戏模式，false=经典，true=快速
+	pieces   []*Piece // 所有棋子，索引即棋子ID
+	steps    []*Step  // 执行过的移动步骤记录
 }
 
 // NewBoard 创建新的棋盘，seatColors为玩家颜色数组，每色棋子数量piecesPerSeat，isFastMode标记快速模式
 func NewBoard(seatColors []int32, piecesPerSeat int, isFastMode bool) *Board {
 	b := &Board{
 		fastMode: isFastMode,
-		colorMap: make(map[int32][]int32),
 	}
 
 	var id int32
@@ -36,7 +34,6 @@ func NewBoard(seatColors []int32, piecesPerSeat int, isFastMode bool) *Board {
 		for i := 0; i < piecesPerSeat; i++ {
 			p := NewPiece(id, color, isFastMode)
 			b.pieces = append(b.pieces, p)
-			b.colorMap[color] = append(b.colorMap[color], id)
 			id++
 		}
 	}
@@ -58,15 +55,21 @@ func (b *Board) GetPieceByID(id int32) *Piece {
 
 // GetPieceIDsByColor 返回指定颜色所有棋子ID切片
 func (b *Board) GetPieceIDsByColor(color int32) []int32 {
-	return b.colorMap[color]
+	var ids []int32
+	for _, p := range b.pieces {
+		if p != nil && p.color == color {
+			ids = append(ids, p.id)
+		}
+	}
+	return ids
 }
 
 // GetActivePieceIDs 返回指定颜色且未到终点的棋子ID列表
 func (b *Board) GetActivePieceIDs(color int32) []int32 {
 	var active []int32
-	for _, id := range b.colorMap[color] {
-		if p := b.GetPieceByID(id); p != nil && !p.IsArrived() {
-			active = append(active, id)
+	for _, p := range b.pieces {
+		if p != nil && p.color == color && !p.IsArrived() {
+			active = append(active, p.id)
 		}
 	}
 	return active
@@ -86,29 +89,44 @@ func (b *Board) Clone() *Board {
 	c := &Board{
 		fastMode: b.fastMode,
 		pieces:   make([]*Piece, len(b.pieces)),
-		steps:    make([]*Step, len(b.steps)),
-		colorMap: make(map[int32][]int32, len(b.colorMap)),
+		steps:    nil, // make([]*Step, len(b.steps)),
 	}
 	for i, p := range b.pieces {
-		cp := *p
-		c.pieces[i] = &cp
-	}
-	for i, s := range b.steps {
-		if s != nil {
-			cp := *s
-			if len(s.Killed) > 0 {
-				cp.Killed = make([]KilledInfo, len(s.Killed))
-				copy(cp.Killed, s.Killed)
-			} else {
-				cp.Killed = nil
-			}
-			c.steps[i] = &cp
+		if p != nil {
+			cp := *p // 值拷贝
+			c.pieces[i] = &cp
 		}
 	}
-	for k, v := range b.colorMap {
-		c.colorMap[k] = v
-	}
+	// for i, s := range b.steps {
+	// 	if s != nil {
+	// 		cp := *s
+	// 		if len(s.Killed) > 0 {
+	// 			cp.Killed = append([]KilledInfo(nil), s.Killed...)
+	// 		} else {
+	// 			cp.Killed = nil
+	// 		}
+	// 		c.steps[i] = &cp
+	// 	}
+	// }
 	return c
+}
+
+// Clear 清空引用
+func (b *Board) Clear() {
+	if b == nil {
+		return
+	}
+
+	for i := range b.pieces {
+		b.pieces[i] = nil
+	}
+	b.pieces = nil
+
+	for i := range b.steps {
+		b.steps[i].Killed = nil // 清理内部切片
+		b.steps[i] = nil
+	}
+	b.steps = nil
 }
 
 // Move 单步移动，返回步骤信息

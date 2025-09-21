@@ -21,7 +21,7 @@ import (
 
 // MetadataTCPServer is the server API for Metadata service.
 type MetadataTCPServer interface {
-	GetTCPLoop() work.ITaskLoop
+	GetTCPLoop() work.Loop
 	SetCometChan(cl *tcp.ChanList, cs *tcp.Server)
 	ListServices(context.Context, *ListServicesRequest) (*ListServicesReply, error)
 	GetServiceDesc(context.Context, *GetServiceDescRequest) (*GetServiceDescReply, error)
@@ -57,14 +57,14 @@ func _Metadata_ListServices_TCP_Handler(srv interface{}, ctx context.Context, da
 		Server:     srv,
 		FullMethod: "/kratos.api.Metadata/ListServices",
 	}
-	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {
+	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*ListServicesRequest)
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *ListServicesRequest, Not: %T", req)
 		}
 		return doFunc(ctx, r)
 	}
-	return interceptor(ctx, in, info, interceptorHandler)
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Metadata_GetServiceDesc_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
@@ -92,14 +92,14 @@ func _Metadata_GetServiceDesc_TCP_Handler(srv interface{}, ctx context.Context, 
 		Server:     srv,
 		FullMethod: "/kratos.api.Metadata/GetServiceDesc",
 	}
-	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {
+	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*GetServiceDescRequest)
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *GetServiceDescRequest, Not: %T", req)
 		}
 		return doFunc(ctx, r)
 	}
-	return interceptor(ctx, in, info, interceptorHandler)
+	return interceptor(ctx, in, info, handler)
 }
 
 var Metadata_TCP_ServiceDesc = tcp.ServiceDesc{

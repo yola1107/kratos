@@ -21,7 +21,7 @@ import (
 
 // GreeterTCPServer is the server API for Greeter service.
 type GreeterTCPServer interface {
-	GetTCPLoop() work.ITaskLoop
+	GetTCPLoop() work.Loop
 	SetCometChan(cl *tcp.ChanList, cs *tcp.Server)
 	SayHelloReq(context.Context, *HelloRequest) (*HelloReply, error)
 	SayHello2Req(context.Context, *Hello2Request) (*Hello2Reply, error)

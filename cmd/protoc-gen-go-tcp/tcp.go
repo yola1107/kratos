@@ -123,7 +123,7 @@ func genService(gen *protogen.Plugin, file *protogen.File, g *protogen.Generated
 func generateTCPInterface(g *protogen.GeneratedFile, serviceName string, service *protogen.Service) {
 	g.P("// ", serviceName, "TCPServer is the server API for ", serviceName, " service.")
 	g.P("type ", serviceName, "TCPServer interface {")
-	g.P(`	GetTCPLoop() work.ITaskLoop`)
+	g.P(`	GetTCPLoop() work.Loop`)
 	g.P(`	SetCometChan(cl *tcp.ChanList, cs *tcp.Server)`)
 
 	for _, method := range service.Methods {
