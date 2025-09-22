@@ -301,7 +301,6 @@ func (t *Table) broadcastMoveRsp(p *player.Player, pieceId, dice int32, _ map[in
 		}
 		for _, kill := range step.Killed {
 			Killed = append(Killed, &v1.DiceMove{
-				// PlayerId: t.colorMap[kill.Color],
 				PieceId: kill.Id,
 				From:    kill.From,
 				To:      kill.To,

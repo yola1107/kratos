@@ -132,33 +132,6 @@ func (t *Table) OnMoveReq(p *player.Player, in *v1.MoveReq, timeout bool) bool {
 	return true
 }
 
-// // CalcFastModeScore Fast 模式下计分逻辑
-// func (t *Table) CalcFastModeScore(color int32, step *model.Step, arrived bool) map[int32]int64 {
-// 	deltaMap := make(map[int32]int64)
-// 	if step == nil || step.From == step.To {
-// 		return deltaMap
-// 	}
-//
-// 	deltaMap[color] += int64(step.X)
-// 	if arrived {
-// 		deltaMap[color] += 50 // 到达终点奖励50分
-// 	}
-//
-// 	for _, v := range step.Killed {
-// 		if killed := t.board.GetPieceByID(v.Id); killed != nil {
-// 			dis := model.StepsFromStart(v.From, killed.Color())
-// 			deltaMap[killed.Color()] -= int64(dis) // 被吃棋子减掉移动的步数
-// 			deltaMap[color] += 20                  // 吃一颗棋子奖励20分
-// 		}
-// 	}
-//
-// 	// 加减分
-// 	for k, v := range deltaMap {
-// 		t.fastScore[k] += v
-// 	}
-// 	return deltaMap
-// }
-
 // 检查是否玩家棋子已全部到达终点
 func (t *Table) checkGameOver() bool {
 	maxCnt := int(t.MaxCnt)

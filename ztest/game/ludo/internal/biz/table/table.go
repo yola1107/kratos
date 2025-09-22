@@ -29,31 +29,21 @@ type Table struct {
 
 	board        *model.Board // 游戏棋盘
 	timerJobFast *time.Timer  // 快速场结算定时器
-
-	// colorMap map[int32]int64 // 玩家持方映射 color->uid
-	// fastScore map[int32]int64  // 快速场积分 color->score
-	// fleeUsers []*player.Player // 逃跑玩家 uid -> *api.SettlePlayer
-
 }
 
 func NewTable(id int32, typ TYPE, c *conf.Room, repo Repo) *Table {
 	t := &Table{
-		ID:     id,
-		Type:   typ,
-		MaxCnt: int16(c.Table.ChairNum),
-		repo:   repo,
-		stage:  &Stage{},
-		sitCnt: 0,
-		active: -1,
-		first:  -1,
-		mLog:   NewTableLog(id, c.LogCache),
-		seats:  make([]*player.Player, c.Table.ChairNum),
-
-		board: nil,
-		// colorMap: make(map[int32]int64),
-		// fastScore: make(map[int32]int64),
-		// fleeUsers: nil,
-
+		ID:           id,
+		Type:         typ,
+		MaxCnt:       int16(c.Table.ChairNum),
+		repo:         repo,
+		stage:        &Stage{},
+		sitCnt:       0,
+		active:       -1,
+		first:        -1,
+		mLog:         NewTableLog(id, c.LogCache),
+		seats:        make([]*player.Player, c.Table.ChairNum),
+		board:        nil,
 		timerJobFast: nil,
 	}
 	t.aiLogic.init(t)
@@ -65,25 +55,12 @@ func (t *Table) Reset() {
 	t.first = -1
 	t.board.Clear()
 	t.board = nil
-	// t.colorMap = make(map[int32]int64)
-	// t.fastScore = make(map[int32]int64)
-	// t.fleeUsers = nil
 
 	for _, seat := range t.seats {
 		if seat == nil {
 			continue
 		}
 		seat.Reset()
-	}
-
-	if t.timerJobFast != nil {
-		if !t.timerJobFast.Stop() {
-			select {
-			case <-t.timerJobFast.C:
-			default:
-			}
-		}
-		t.timerJobFast = nil
 	}
 }
 

@@ -216,7 +216,5 @@ func buildResult(p *player.Player, isWinner bool, score float64) *v1.PlayerResul
 		ChairID:  p.GetChairID(),
 		IsWinner: isWinner,
 		WinScore: score,
-		// HandCards:      p.GetCards(),
-		// HandCardsScore: p.GetHandScore(),
 	}
 }
