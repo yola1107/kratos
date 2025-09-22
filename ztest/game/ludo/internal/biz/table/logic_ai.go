@@ -152,22 +152,17 @@ func (r *RobotLogic) ActivePlayer(p *player.Player, msg proto.Message) {
 		return
 	}
 
-	uid := p.GetPlayerID()
-	dices := p.UnusedDice()
-	color := p.GetColor()
-	cp := r.mTable.board.Clone()
 	delay := time.Duration(xgo.RandInt(1000, int(r.mTable.stage.Remaining().Milliseconds()*3/4))) * time.Millisecond
-
 	r.mTable.repo.GetTimer().Once(delay, func() {
-		defer func() { cp.Clear(); cp = nil }()
-		bestId, bestX := model.FindBestMoveSequence(cp, dices, color)
+		dices := p.UnusedDice()
+		bestId, bestX := model.FindBestMoveSequence(r.mTable.board, dices, p.GetColor())
 		if bestId <= -1 || bestX <= -1 {
 			log.Errorf("Ai无法移动. 找寻不到路径. tb:%v,p:%v, xdieces=%v, bestId=%v, path2=%v",
 				r.mTable.Desc(), p.Desc(), dices, bestId, xgo.ToJSON(rsp))
 			return
 		}
 		r.mTable.OnMoveReq(p, &v1.MoveReq{
-			UserId:    uid,
+			UserId:    p.GetPlayerID(),
 			PieceId:   bestId,
 			DiceValue: bestX,
 		}, false)
