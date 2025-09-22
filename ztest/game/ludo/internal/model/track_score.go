@@ -10,6 +10,7 @@ var (
 type bestMoveData struct {
 	bestScore int32
 	bestPath  []int32
+	maxStep   int // 记录最佳序列的步数
 }
 
 // FindBestMoveSequence 返回最佳移动序列第一步
@@ -49,7 +50,7 @@ func FindBestMoveSequence(b *Board, dices []int32, color int32) (int32, int32) {
 		totalDiceSum += d
 	}
 
-	dfsEvaluate(c, color, dices, visited, cache, stepsBuf, data, ids, enemy, totalDiceSum)
+	dfsEvaluate(c, color, dices, visited, len(dices), cache, stepsBuf, data, ids, enemy, totalDiceSum)
 
 	if len(data.bestPath) > 1 {
 		return data.bestPath[0], data.bestPath[1]
@@ -58,16 +59,48 @@ func FindBestMoveSequence(b *Board, dices []int32, color int32) (int32, int32) {
 }
 
 // dfsEvaluate 遍历所有移动序列，同时计算分数，避免生成所有路径
-func dfsEvaluate(b *Board, color int32, dices []int32, visited []bool, cache []int32, steps []*Step, data *bestMoveData, ids, enemy []int32, totalDiceSum int32) {
-	// DFS 递归传下来的 steps 就可以直接评估，无需重复 moveOne
+func dfsEvaluate(b *Board, color int32, dices []int32, visited []bool, remainingDice int,
+	cache []int32, steps []*Step, data *bestMoveData, ids, enemy []int32, totalDiceSum int32) {
+
+	// 剪枝 1：当前路径 + 剩余骰子 < 当前最大步数，直接回溯
+	if len(steps)+remainingDice < data.maxStep {
+		return
+	}
+
+	// 剪枝 2：剩余骰子无法移动任何棋子，直接回溯
+	canMoveAny := false
+	for j, d := range dices {
+		if visited[j] {
+			continue
+		}
+		for _, pid := range ids {
+			if ok, _ := b.canMoveOne(pid, d); ok {
+				canMoveAny = true
+				break
+			}
+		}
+		if canMoveAny {
+			break
+		}
+	}
+	if !canMoveAny {
+		return
+	}
+
+	// DFS 递归传下来的 steps 就可以直接评估
 	if len(steps) > 0 {
 		score := b.evaluateMoveSequence(steps, totalDiceSum, color, ids, enemy)
-		if score > data.bestScore {
+		// 1>优先选择步数最多的路径（用完更多骰子）
+		// 2>步数相同的情况下选择分数最高的路径
+		if len(steps) > data.maxStep ||
+			(score > data.bestScore && len(steps) == data.maxStep) {
+			data.maxStep = len(steps)
 			data.bestScore = score
 			data.bestPath = append(data.bestPath[:0], cache...)
 		}
 	}
 
+	// 遍历每个骰子和棋子
 	for j := 0; j < len(dices); j++ {
 		if visited[j] {
 			continue
@@ -86,8 +119,8 @@ func dfsEvaluate(b *Board, color int32, dices []int32, visited []bool, cache []i
 			step := b.moveOne(pid, dices[j])
 			steps = append(steps, step)
 
-			// 递归
-			dfsEvaluate(b, color, dices, visited, cache, steps, data, ids, enemy, totalDiceSum)
+			// 递归下一层，remainingDice-1
+			dfsEvaluate(b, color, dices, visited, remainingDice-1, cache, steps, data, ids, enemy, totalDiceSum)
 
 			// 回溯
 			b.backOne()
@@ -107,9 +140,8 @@ func (b *Board) evaluateMoveSequence(steps []*Step, totalDiceSum, color int32, i
 		if step.From == step.To {
 			continue
 		}
-		moved := step.X
-		score += moved * 2 // 基础移动奖励
-		usedDiceSum += moved
+		score += step.X * 2 // 基础移动奖励
+		usedDiceSum += step.X
 
 		// 击杀奖励
 		for _, killed := range step.Killed {
@@ -152,16 +184,17 @@ func (b *Board) evaluateMoveSequence(steps []*Step, totalDiceSum, color int32, i
 					continue
 				}
 
-				dis := p.pos - e.pos
+				forwardDist := (e.pos - p.pos + TotalPositions) % TotalPositions  // p到e的顺时针距离
+				backwardDist := (p.pos - e.pos + TotalPositions) % TotalPositions // e到p的顺时针距离
 
 				// 危险：敌人在我后面，可能追上来
-				if dis > 0 && dis <= _dangerousDis {
-					score -= (_dangerousDis - dis + 1) * 2 // 越近惩罚越大
+				if backwardDist > 0 && backwardDist <= _dangerousDis {
+					score -= (_dangerousDis - backwardDist + 1) * 2 // 越近惩罚越大
 				}
 
 				// 威胁：我在敌人后面，可以追杀
-				if dis < 0 && -dis <= _threatenedDis {
-					score += (_threatenedDis + dis + 1) / 2 // 越近奖励越大
+				if forwardDist > 0 && forwardDist <= _threatenedDis {
+					score += (_threatenedDis - forwardDist + 1) / 2 // 越近奖励越大
 				}
 			}
 		}
