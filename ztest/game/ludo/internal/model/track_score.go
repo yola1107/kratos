@@ -1,0 +1,176 @@
+package model
+
+import "math"
+
+var (
+	_threatenedDis = int32(6)
+	_dangerousDis  = int32(6)
+)
+
+type bestMoveData struct {
+	bestScore int32
+	bestPath  []int32
+}
+
+// FindBestMoveSequence 返回最佳移动序列第一步，内存优化版
+func FindBestMoveSequence(c *Board, dices []int32, color int32) (int32, int32) {
+	if c == nil || len(dices) == 0 {
+		return -1, -1
+	}
+
+	var ids, enemy []int32
+	for _, p := range c.Pieces() {
+		if p == nil {
+			continue
+		}
+		if p.color == color {
+			ids = append(ids, p.id)
+		} else {
+			enemy = append(enemy, p.id)
+		}
+	}
+	if len(ids) == 0 {
+		return -1, -1
+	}
+
+	data := &bestMoveData{
+		bestScore: math.MinInt32,
+		bestPath:  nil,
+	}
+
+	cache := make([]int32, 0, len(dices)*2)  // 当前路径缓存
+	visited := make([]bool, len(dices))      // 标记骰子是否使用
+	stepsBuf := make([]*Step, 0, len(dices)) // 复用 steps slice
+	totalDiceSum := int32(0)
+	for _, d := range dices {
+		totalDiceSum += d
+	}
+
+	dfsEvaluate(c, color, dices, visited, cache, stepsBuf, data, ids, enemy, totalDiceSum)
+
+	if len(data.bestPath) > 1 {
+		return data.bestPath[0], data.bestPath[1]
+	}
+	return -1, -1
+}
+
+// dfsEvaluate 遍历所有移动序列，同时计算分数，避免生成所有路径
+func dfsEvaluate(b *Board, color int32, dices []int32, visited []bool, cache []int32, steps []*Step, data *bestMoveData, ids, enemy []int32, totalDiceSum int32) {
+	// DFS 递归传下来的 steps 就可以直接评估，无需重复 moveOne
+	if len(steps) > 0 {
+		score := b.evaluateMoveSequence(steps, totalDiceSum, color, ids, enemy)
+		if score > data.bestScore {
+			data.bestScore = score
+			data.bestPath = append(data.bestPath[:0], cache...)
+		}
+	}
+
+	for j := 0; j < len(dices); j++ {
+		if visited[j] {
+			continue
+		}
+
+		for _, pid := range ids {
+			if ok, _ := b.canMoveOne(pid, dices[j]); !ok {
+				continue
+			}
+
+			// 标记使用
+			visited[j] = true
+			cache = append(cache, pid, dices[j])
+
+			// 执行动作并加入 steps
+			step := b.moveOne(pid, dices[j])
+			steps = append(steps, step)
+
+			// 递归
+			dfsEvaluate(b, color, dices, visited, cache, steps, data, ids, enemy, totalDiceSum)
+
+			// 回溯
+			b.backOne()
+			cache = cache[:len(cache)-2]
+			steps = steps[:len(steps)-1]
+			visited[j] = false
+		}
+	}
+}
+
+// evaluateMoveSequence 评估移动序列的得分函数，考虑击杀数、移动距离、特殊奖励和惩罚
+func (b *Board) evaluateMoveSequence(steps []*Step, totalDiceSum, color int32, ids, enemy []int32) int32 {
+	score := int32(0)
+	usedDiceSum := int32(0)
+
+	for i, step := range steps {
+		if step.From == step.To {
+			continue
+		}
+		moved := step.X
+		score += moved * 2 // 基础移动奖励
+		usedDiceSum += moved
+
+		// 击杀奖励
+		for _, killed := range step.Killed {
+			score += StepsFromStart(killed.From, killed.Color)*2 + int32(len(steps)-i)*2 + 20
+		}
+
+		// 出基地奖励
+		if step.From == BasePos {
+			score += 60
+		}
+
+		// 到达终点奖励
+		if mover := b.GetPieceByID(step.Id); mover != nil && mover.IsArrived() {
+			score += 80
+		}
+	}
+
+	// 危险/威胁
+	for _, id := range ids {
+		p := b.GetPieceByID(id)
+		if p == nil {
+			continue
+		}
+		if _, safe := SafePositions[p.pos]; safe {
+			score += 15 // 占安全点轻微加分
+		}
+		if p.state == PieceInHomePath {
+			score += 2 // 家路径轻微加分
+		}
+
+		if p.IsOnBoard() {
+			// 越靠近终点，奖励越高（尽量推进）
+			stepsToEnd := (p.pos - HomeEntrances[p.color] + TotalPositions) % TotalPositions
+			score += (TotalPositions - stepsToEnd) / 5
+
+			// 危险/威胁
+			for _, eID := range enemy {
+				e := b.GetPieceByID(eID)
+				if !e.IsOnBoard() || !p.IsEnemy(e) {
+					continue
+				}
+
+				dis := p.pos - e.pos
+
+				// 危险：敌人在我后面，可能追上来
+				if dis > 0 && dis <= _dangerousDis {
+					score -= (_dangerousDis - dis + 1) * 2 // 越近惩罚越大
+				}
+
+				// 威胁：我在敌人后面，可以追杀
+				if dis < 0 && -dis <= _threatenedDis {
+					score += (_threatenedDis + dis + 1) / 2 // 越近奖励越大
+				}
+			}
+		}
+	}
+
+	// 奖励用完点数
+	score += usedDiceSum
+
+	// 惩罚浪费
+	if wasted := totalDiceSum - usedDiceSum; wasted > 0 {
+		score -= wasted
+	}
+
+	return score
+}

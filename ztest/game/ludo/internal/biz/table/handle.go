@@ -221,5 +221,9 @@ func (t *Table) ctrlRollDice(p *player.Player) int32 {
 	if p.GetLastRoll() == 6 && xgo.IsHitFloat(0.9) {
 		return xgo.RandInt[int32](1, 6)
 	}
+	// 控制数量
+	if len(p.GetDiceSlot()) >= 4 {
+		return xgo.RandInt[int32](1, 6)
+	}
 	return xgo.RandInt[int32](1, 7)
 }

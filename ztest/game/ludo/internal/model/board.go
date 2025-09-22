@@ -18,17 +18,15 @@ const _MaxSteps = 10 // 保存的最大步数 (避免内存膨胀过大)
 
 // Board 代表一个Ludo棋盘，管理棋子、步骤和颜色映射
 type Board struct {
-	fastMode bool              // 游戏模式，false=经典，true=快速
-	pieces   []*Piece          // 所有棋子，索引即棋子ID
-	steps    []*Step           // 执行过的移动步骤记录
-	colorMap map[int32][]int32 // 颜色 -> 棋子ID列表映射
+	fastMode bool     // 游戏模式，false=经典，true=快速
+	pieces   []*Piece // 所有棋子，索引即棋子ID
+	steps    []*Step  // 执行过的移动步骤记录
 }
 
 // NewBoard 创建新的棋盘，seatColors为玩家颜色数组，每色棋子数量piecesPerSeat，isFastMode标记快速模式
 func NewBoard(seatColors []int32, piecesPerSeat int, isFastMode bool) *Board {
 	b := &Board{
 		fastMode: isFastMode,
-		colorMap: make(map[int32][]int32),
 	}
 
 	var id int32
@@ -36,7 +34,6 @@ func NewBoard(seatColors []int32, piecesPerSeat int, isFastMode bool) *Board {
 		for i := 0; i < piecesPerSeat; i++ {
 			p := NewPiece(id, color, isFastMode)
 			b.pieces = append(b.pieces, p)
-			b.colorMap[color] = append(b.colorMap[color], id)
 			id++
 		}
 	}
@@ -58,15 +55,21 @@ func (b *Board) GetPieceByID(id int32) *Piece {
 
 // GetPieceIDsByColor 返回指定颜色所有棋子ID切片
 func (b *Board) GetPieceIDsByColor(color int32) []int32 {
-	return b.colorMap[color]
+	var ids []int32
+	for _, p := range b.pieces {
+		if p != nil && p.color == color {
+			ids = append(ids, p.id)
+		}
+	}
+	return ids
 }
 
 // GetActivePieceIDs 返回指定颜色且未到终点的棋子ID列表
 func (b *Board) GetActivePieceIDs(color int32) []int32 {
 	var active []int32
-	for _, id := range b.colorMap[color] {
-		if p := b.GetPieceByID(id); p != nil && !p.IsArrived() {
-			active = append(active, id)
+	for _, p := range b.pieces {
+		if p != nil && p.color == color && !p.IsArrived() {
+			active = append(active, p.id)
 		}
 	}
 	return active
@@ -87,7 +90,6 @@ func (b *Board) Clone() *Board {
 		fastMode: b.fastMode,
 		pieces:   make([]*Piece, len(b.pieces)),
 		steps:    nil, // make([]*Step, len(b.steps)),
-		colorMap: make(map[int32][]int32, len(b.colorMap)),
 	}
 	for i, p := range b.pieces {
 		if p != nil {
@@ -106,9 +108,6 @@ func (b *Board) Clone() *Board {
 	// 		c.steps[i] = &cp
 	// 	}
 	// }
-	for k, v := range b.colorMap {
-		c.colorMap[k] = append([]int32(nil), v...) // 切片深拷贝
-	}
 	return c
 }
 
@@ -128,12 +127,6 @@ func (b *Board) Clear() {
 		b.steps[i] = nil
 	}
 	b.steps = nil
-
-	for k := range b.colorMap {
-		b.colorMap[k] = nil // 清理切片
-		delete(b.colorMap, k)
-	}
-	b.colorMap = nil
 }
 
 // Move 单步移动，返回步骤信息
