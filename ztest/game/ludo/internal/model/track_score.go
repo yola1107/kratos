@@ -67,26 +67,6 @@ func dfsEvaluate(b *Board, color int32, dices []int32, visited []bool, remaining
 		return
 	}
 
-	// 剪枝 2：剩余骰子无法移动任何棋子，直接回溯
-	canMoveAny := false
-	for j, d := range dices {
-		if visited[j] {
-			continue
-		}
-		for _, pid := range ids {
-			if ok, _ := b.canMoveOne(pid, d); ok {
-				canMoveAny = true
-				break
-			}
-		}
-		if canMoveAny {
-			break
-		}
-	}
-	if !canMoveAny {
-		return
-	}
-
 	// DFS 递归传下来的 steps 就可以直接评估
 	if len(steps) > 0 {
 		score := b.evaluateMoveSequence(steps, totalDiceSum, color, ids, enemy)
