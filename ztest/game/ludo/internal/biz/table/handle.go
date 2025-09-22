@@ -89,14 +89,13 @@ func (t *Table) OnMoveReq(p *player.Player, in *v1.MoveReq, timeout bool) bool {
 	}
 
 	// 执行移动逻辑
-	pieceID, dice, color := in.PieceId, in.DiceValue, p.GetColor()
-	step := t.board.Move(pieceID, dice)                // 实际移动
-	piece := t.board.GetPieceByID(pieceID)             // 获取棋子
-	arrived := piece.IsArrived()                       // 棋子是否到达终点
-	p.UseDice(dice)                                    // 消耗骰子点数
-	p.IncrTimeoutCnt(timeout)                          // 超时计数
-	delta := t.CalcFastModeScore(color, step, arrived) // 快速模式 计算分数
-	t.broadcastMoveRsp(p, pieceID, dice, delta, step)  // 广播移动结果
+	pieceID, dice := in.PieceId, in.DiceValue
+	step := t.board.Move(pieceID, dice)             // 实际移动
+	piece := t.board.GetPieceByID(pieceID)          // 获取棋子
+	arrived := piece.IsArrived()                    // 棋子是否到达终点
+	p.UseDice(dice)                                 // 消耗骰子点数
+	p.IncrTimeoutCnt(timeout)                       // 超时计数
+	t.broadcastMoveRsp(p, pieceID, dice, nil, step) // 广播移动结果
 
 	t.mLog.Move(p, pieceID, dice, arrived, step, timeout)
 	log.Debugf("OnMoveReq. p=%v, req={Id:%d,X:%d} step=%v, timeout=%v",
@@ -133,37 +132,37 @@ func (t *Table) OnMoveReq(p *player.Player, in *v1.MoveReq, timeout bool) bool {
 	return true
 }
 
-// CalcFastModeScore Fast 模式下计分逻辑
-func (t *Table) CalcFastModeScore(color int32, step *model.Step, arrived bool) map[int32]int64 {
-	deltaMap := make(map[int32]int64)
-	if step == nil || step.From == step.To {
-		return deltaMap
-	}
-
-	deltaMap[color] += int64(step.X)
-	if arrived {
-		deltaMap[color] += 50 // 到达终点奖励50分
-	}
-
-	for _, v := range step.Killed {
-		if killed := t.board.GetPieceByID(v.Id); killed != nil {
-			dis := model.StepsFromStart(v.From, killed.Color())
-			deltaMap[killed.Color()] -= int64(dis) // 被吃棋子减掉移动的步数
-			deltaMap[color] += 20                  // 吃一颗棋子奖励20分
-		}
-	}
-
-	// 加减分
-	for k, v := range deltaMap {
-		t.fastScore[k] += v
-	}
-	return deltaMap
-}
+// // CalcFastModeScore Fast 模式下计分逻辑
+// func (t *Table) CalcFastModeScore(color int32, step *model.Step, arrived bool) map[int32]int64 {
+// 	deltaMap := make(map[int32]int64)
+// 	if step == nil || step.From == step.To {
+// 		return deltaMap
+// 	}
+//
+// 	deltaMap[color] += int64(step.X)
+// 	if arrived {
+// 		deltaMap[color] += 50 // 到达终点奖励50分
+// 	}
+//
+// 	for _, v := range step.Killed {
+// 		if killed := t.board.GetPieceByID(v.Id); killed != nil {
+// 			dis := model.StepsFromStart(v.From, killed.Color())
+// 			deltaMap[killed.Color()] -= int64(dis) // 被吃棋子减掉移动的步数
+// 			deltaMap[color] += 20                  // 吃一颗棋子奖励20分
+// 		}
+// 	}
+//
+// 	// 加减分
+// 	for k, v := range deltaMap {
+// 		t.fastScore[k] += v
+// 	}
+// 	return deltaMap
+// }
 
 // 检查是否玩家棋子已全部到达终点
 func (t *Table) checkGameOver() bool {
 	maxCnt := int(t.MaxCnt)
-	fleeCnt := len(t.fleeUsers)
+	fleeCnt := 0 // len(t.fleeUsers)
 	finishCnt := 0
 
 	for _, p := range t.seats {

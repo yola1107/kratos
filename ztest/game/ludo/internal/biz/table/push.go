@@ -288,7 +288,7 @@ func (t *Table) broadcastDiceRsp(p *player.Player, dice int32) {
 	})
 }
 
-func (t *Table) broadcastMoveRsp(p *player.Player, pieceId, dice int32, delta map[int32]int64, step *model.Step) {
+func (t *Table) broadcastMoveRsp(p *player.Player, pieceId, dice int32, _ map[int32]int64, step *model.Step) {
 	move := &v1.DiceMove{}
 	Killed := []*v1.DiceMove(nil)
 
@@ -301,10 +301,10 @@ func (t *Table) broadcastMoveRsp(p *player.Player, pieceId, dice int32, delta ma
 		}
 		for _, kill := range step.Killed {
 			Killed = append(Killed, &v1.DiceMove{
-				PlayerId: t.colorMap[kill.Color],
-				PieceId:  kill.Id,
-				From:     kill.From,
-				To:       kill.To,
+				// PlayerId: t.colorMap[kill.Color],
+				PieceId: kill.Id,
+				From:    kill.From,
+				To:      kill.To,
 			})
 		}
 	}

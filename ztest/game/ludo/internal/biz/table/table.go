@@ -27,12 +27,13 @@ type Table struct {
 	first   int32            // 第一个操作玩家
 	aiLogic RobotLogic       // 机器人逻辑
 
-	board     *model.Board     // 游戏棋盘
-	fastScore map[int32]int64  // 快速场积分 color->score
-	colorMap  map[int32]int64  // 玩家持方映射 color->uid
-	fleeUsers []*player.Player // 逃跑玩家 uid -> *api.SettlePlayer
+	board        *model.Board // 游戏棋盘
+	timerJobFast *time.Timer  // 快速场结算定时器
 
-	timerJobFast *time.Timer //
+	// colorMap map[int32]int64 // 玩家持方映射 color->uid
+	// fastScore map[int32]int64  // 快速场积分 color->score
+	// fleeUsers []*player.Player // 逃跑玩家 uid -> *api.SettlePlayer
+
 }
 
 func NewTable(id int32, typ TYPE, c *conf.Room, repo Repo) *Table {
@@ -48,10 +49,10 @@ func NewTable(id int32, typ TYPE, c *conf.Room, repo Repo) *Table {
 		mLog:   NewTableLog(id, c.LogCache),
 		seats:  make([]*player.Player, c.Table.ChairNum),
 
-		board:     nil,
-		fastScore: make(map[int32]int64),
-		colorMap:  make(map[int32]int64),
-		fleeUsers: nil,
+		board: nil,
+		// colorMap: make(map[int32]int64),
+		// fastScore: make(map[int32]int64),
+		// fleeUsers: nil,
 
 		timerJobFast: nil,
 	}
@@ -64,9 +65,9 @@ func (t *Table) Reset() {
 	t.first = -1
 	t.board.Clear()
 	t.board = nil
-	t.fastScore = make(map[int32]int64)
-	t.colorMap = make(map[int32]int64)
-	t.fleeUsers = nil
+	// t.colorMap = make(map[int32]int64)
+	// t.fastScore = make(map[int32]int64)
+	// t.fleeUsers = nil
 
 	for _, seat := range t.seats {
 		if seat == nil {

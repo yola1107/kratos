@@ -172,7 +172,7 @@ func (t *Table) intoGaming(seats []*player.Player) {
 		}
 		color := p.GetColor()
 		p.SetPieces(t.board.GetPieceIDsByColor(color))
-		t.colorMap[color] = p.GetPlayerID()
+		// t.colorMap[color] = p.GetPlayerID()
 	}
 
 }
