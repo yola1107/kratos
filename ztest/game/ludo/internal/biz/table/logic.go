@@ -222,11 +222,13 @@ func (t *Table) onMoveTimeout() {
 	uid := p.GetPlayerID()
 	dice := p.UnusedDice()
 	color := p.GetColor()
-	cp := t.board.Clone() // Clone board 数据量大，但我们只在闭包里用，不捕获 t
+	chair := p.GetChairID()
 
 	t.repo.GetLoop().Post(func() {
-		defer func() { cp.Clear(); cp = nil }() // 及时释放引用
-		id, x := model.FindBestMoveSequence(cp, dice, color)
+		if t.active != chair || t.board == nil || t.stage.GetState() != StMove {
+			return
+		}
+		id, x := model.FindBestMoveSequence(t.board, dice, color)
 		if id <= -1 || x <= -1 {
 			log.Errorf("onMoveTimeout: 找不到可移动的路径. tb=%v, p=%v", t.Desc(), p.Desc())
 			return
