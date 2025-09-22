@@ -172,7 +172,6 @@ func (t *Table) intoGaming(seats []*player.Player) {
 		}
 		color := p.GetColor()
 		p.SetPieces(t.board.GetPieceIDsByColor(color))
-		t.colorMap[color] = p.GetPlayerID()
 	}
 
 }
@@ -244,9 +243,6 @@ func (t *Table) gameEnd() {
 	// 状态进入 StEnd
 	t.updateStage(StWait)
 
-	// // todo delete test
-	// t.SendPacketToAll(v1.GameCommand_Nothing, nil) // todo test ai exit
-
 	// 检查踢人
 	t.checkKick()
 
@@ -262,6 +258,18 @@ func (t *Table) gameEnd() {
 }
 
 func (t *Table) settle(endTy int32) *SettleObj {
+	// 停止快速场定时器
+	if t.timerJobFast != nil {
+		if !t.timerJobFast.Stop() {
+			select {
+			case <-t.timerJobFast.C:
+			default:
+			}
+		}
+		t.timerJobFast = nil
+	}
+
+	// 广播结算
 	t.updateStage(StResult)
 	t.broadcastResult(nil)
 	return nil
