@@ -144,27 +144,48 @@ func (r *RobotLogic) ActivePlayer(p *player.Player, msg proto.Message) {
 		return
 	}
 
+	// 如果是掷骰子阶段
 	if stage == StDice {
+		chair := p.GetChairID()
+		uid := p.GetPlayerID()
+
 		delay := time.Duration(xgo.RandInt(1000, 2200)) * time.Millisecond
 		r.mTable.repo.GetTimer().Once(delay, func() {
-			r.mTable.OnDiceReq(p, &v1.DiceReq{Uid: p.GetPlayerID()}, false)
+			if p == nil || r.mTable.active != chair || r.mTable.stage.GetState() != StDice {
+				return
+			}
+			r.mTable.OnDiceReq(p, &v1.DiceReq{Uid: uid}, false)
 		})
 		return
 	}
 
+	// 移动阶段：提前做快照，避免闭包依赖 Player 对象
+	uid := p.GetPlayerID()
+	chair := p.GetChairID()
+	color := p.GetColor()
+	dices := append([]int32(nil), p.UnusedDice()...)
+	playerDesc := p.Desc() // 仅用于日志快照
 	delay := time.Duration(xgo.RandInt(1000, int(r.mTable.stage.Remaining().Milliseconds()*3/4))) * time.Millisecond
-	r.mTable.repo.GetTimer().Once(delay, func() {
-		dices := p.UnusedDice()
-		bestId, bestX := model.FindBestMoveSequence(r.mTable.board, dices, p.GetColor())
+
+	// 在线程池里计算最佳移动
+	r.mTable.repo.GetLoop().Post(func() {
+		bestId, bestX := model.FindBestMoveSequence(r.mTable.board, dices, color)
 		if bestId <= -1 || bestX <= -1 {
-			log.Errorf("Ai无法移动. 找寻不到路径. tb:%v,p:%v, xdieces=%v, bestId=%v, path2=%v",
-				r.mTable.Desc(), p.Desc(), dices, bestId, xgo.ToJSON(rsp))
+			log.Errorf("Ai无法移动. 找寻不到路径. tb:%v, p=%v, xdieces=%v, bestId=%v, push=%v",
+				r.mTable.Desc(), playerDesc, dices, bestId, xgo.ToJSON(rsp))
 			return
 		}
-		r.mTable.OnMoveReq(p, &v1.MoveReq{
-			UserId:    p.GetPlayerID(),
-			PieceId:   bestId,
-			DiceValue: bestX,
-		}, false)
+
+		// 定时器里只用 uid/chair，不再依赖 p 本身
+		r.mTable.repo.GetTimer().Once(delay, func() {
+			if p == nil || r.mTable.active != chair || r.mTable.stage.GetState() != StMove {
+				return
+			}
+			r.mTable.OnMoveReq(p, &v1.MoveReq{
+				UserId:    uid,
+				PieceId:   bestId,
+				DiceValue: bestX,
+			}, false)
+		})
 	})
 }

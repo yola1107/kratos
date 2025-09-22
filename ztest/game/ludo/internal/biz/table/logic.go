@@ -218,13 +218,22 @@ func (t *Table) onMoveTimeout() {
 		return
 	}
 
+	// 提前准备所需数据
+	uid := p.GetPlayerID()
+	dice := p.UnusedDice()
+	color := p.GetColor()
+	chair := p.GetChairID()
+
 	t.repo.GetLoop().Post(func() {
-		id, x := model.FindBestMoveSequence(t.board, p.UnusedDice(), p.GetColor())
+		if t.active != chair || t.board == nil || t.stage.GetState() != StMove {
+			return
+		}
+		id, x := model.FindBestMoveSequence(t.board, dice, color)
 		if id <= -1 || x <= -1 {
 			log.Errorf("onMoveTimeout: 找不到可移动的路径. tb=%v, p=%v", t.Desc(), p.Desc())
 			return
 		}
-		t.OnMoveReq(p, &v1.MoveReq{UserId: p.GetPlayerID(), PieceId: id, DiceValue: x}, true)
+		t.OnMoveReq(p, &v1.MoveReq{UserId: uid, PieceId: id, DiceValue: x}, true)
 	})
 }
 

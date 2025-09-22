@@ -12,7 +12,7 @@ type bestMoveData struct {
 	bestPath  []int32
 }
 
-// FindBestMoveSequence 返回最佳移动序列第一步，内存优化版
+// FindBestMoveSequence 返回最佳移动序列第一步
 func FindBestMoveSequence(b *Board, dices []int32, color int32) (int32, int32) {
 	if b == nil || len(dices) == 0 {
 		return -1, -1
@@ -23,7 +23,7 @@ func FindBestMoveSequence(b *Board, dices []int32, color int32) (int32, int32) {
 
 	var ids, enemy []int32
 	for _, p := range c.Pieces() {
-		if p == nil {
+		if p == nil || p.IsArrived() {
 			continue
 		}
 		if p.color == color {
