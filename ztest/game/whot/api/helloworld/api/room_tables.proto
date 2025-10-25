@@ -1,0 +1,63 @@
+syntax = "proto3";
+package api;
+
+option go_package = "./;api";
+
+//// protoc -I=. --go_out=. --go-grpc_opt=require_unimplemented_servers=false --go-grpc_out=. room_state.proto
+//syntax = "proto3";
+//package msg;
+//
+//option go_package = "./;msg";
+
+// 房间列表响应
+message RoomListResponse {
+    repeated RoomState rooms = 1;
+}
+
+// 房间状态信息
+message RoomState {
+    RoomConfig RoomConfig          = 1;  // 房间信息
+    repeated TableInfo tables      = 2;  // 桌子列表
+    repeated PlayerInfo allPlayers = 3;  // 玩家列表列表
+}
+
+message RoomConfig {
+    int64 RoomId               = 1;  //房间ID
+    int64 GameId               = 2;  //游戏ID
+    int64 EntranceRestrictions = 3;  //入场限制
+    int32 Level                = 4;  //0免费1初级2中级3高级
+    string RoomName            = 5;  //游戏房间名称
+    int64 RoomRate             = 6;  //房间明税率
+    string ServerUrl           = 7;
+    int32 GameType             = 8;  //游戏类型
+    string AdviceConfig        = 9;
+    int32 TableNum             = 10;
+    int32 Max                  = 11;
+    int32 Min                  = 12;
+    string Runmode             = 13;
+    int32 Port                 = 14;
+    int32 Boot                 = 15;  //底注
+    int32 PotLimit             = 16;  //最大投注
+    int32 ControlRate          = 17;  //控点
+    int32 ControlNum           = 18;  //额度
+    int32 ControlTime          = 19;  //时间
+    bool ControlSwitch         = 20;
+    int32 Start                = 21;  //房间状态 1-可以进入 2-需要充值才能进入
+}
+
+// 桌子信息
+message TableInfo {
+    int32 table_id              = 1;  // 桌子ID
+    int32 table_sn              = 2;  // 桌子序列号
+    int32 min_players           = 3;  // 最小玩家数
+    int32 max_players           = 4;  // 最大玩家数
+    repeated PlayerInfo players = 5;  // 玩家列表
+}
+
+// 玩家信息
+message PlayerInfo {
+    int64 user_id   = 1;  // 玩家ID
+    int32 avatar_id = 2;  // 头像ID
+    string nickname = 3;  // 玩家昵称
+    int32 seat_id   = 4;  // 座位ID
+}

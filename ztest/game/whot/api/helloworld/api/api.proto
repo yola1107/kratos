@@ -17,12 +17,19 @@ enum GameCommand {
     MsLastCardPush      = 7;  //宣告最后一张推送
 
     //客户端请求（20~39）
-    MsUserActionReq = 22;  //玩家操作请求
-    MsLeaveRoomReq  = 23;  //退出房间请求
+    MsEmojiReq            = 20;  //表情请求（EmojiRequest）
+    MsChatReq             = 21;  //聊天请求（ChatMsg）
+    MsUserActionReq       = 22;  //玩家操作请求
+    MsLeaveRoomReq        = 23;  //退出房间请求
+    MsMasterStart         = 24;  //房主强制开始游戏  空 -> BaseResponse
+    MsPrivateRoomLeaveReq = 25;  //未开始时，玩家请求退出私有房间（房主则解散房间，非房主则离开）
 
     //服务器响应（120~139）
-    MsUserActionRsp = 122;  //玩家操作响应
-    MsLeaveRoomRsp  = 123;  //退出房间响应
+    MsEmojiRsp            = 120;  //表情广播（BaseResponse）
+    MsChatRsp             = 121;  //聊天广播（ChatMsg）
+    MsUserActionRsp       = 122;  //玩家操作响应
+    MsLeaveRoomRsp        = 123;  //退出房间响应
+    MsPrivateRoomLeaveRsp = 125;  //响应房间退出/解散请求
 }
 
 //玩家可执行操作类型
@@ -66,6 +73,7 @@ message RoomInfoPush {
     int32 leftNum                         = 8;   //剩余牌数(总牌堆)
     Pending pending                       = 9;   //待处理效果信息
     int32 gameState                       = 10;  //当前游戏状态
+    int64 SN                              = 11;  // 6位数房间号 (私有房间创建房间时生成)
 }
 
 //玩家进入房间推送，通知其他玩家新玩家加入
@@ -233,4 +241,33 @@ message LeaveRoomRsp {
     int32 code = 1;  //状态码
     string msg = 2;  //状态消息
     int64 uid  = 3;  //玩家ID
+}
+
+// 表情功能
+message EmojiRequest {
+    string room_id  = 1;
+    int64 player_id = 2;
+    int64 emoji_id  = 3;
+}
+
+// 聊天功能
+message ChatMsg {
+    string room_id  = 1;
+    int64 player_id = 2;
+    string text     = 3;
+}
+
+// 未开始时，玩家请求退出私有房间（房主则解散房间，非房主则离开）
+message PrivateRoomLeaveReq {
+}
+message PrivateRoomLeaveRsp {
+    int32 code     = 1;
+    int64 masterID = 2;  // 房主ID
+    int64 uid      = 3;  // 离开玩家ID
+}
+
+// 通用响应结构
+message BaseResponse {
+    int32 code = 1;  // 错误码（0为成功）
+    string msg = 2;  // 提示信息
 }
