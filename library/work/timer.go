@@ -30,7 +30,7 @@ type ITaskScheduler interface {
 	Stop()                                             // 停止调度器
 }
 
-// ITaskExecutor 可选的自定义执行器接口（如线程池）
+// ITaskExecutor 任务执行器接口（如协程池）
 type ITaskExecutor interface {
 	Post(job func())
 }
@@ -69,11 +69,23 @@ func (p *preciseEvery) Next(t time.Time) time.Time {
 type SchedulerOption func(*Scheduler)
 
 func WithTick(d time.Duration) SchedulerOption {
-	return func(s *Scheduler) { s.tick = d }
+	return func(s *Scheduler) {
+		if d > 0 {
+			s.tick = d
+		} else {
+			log.Warnf("Invalid tick %v, using default %v", d, defaultTickPrecision)
+		}
+	}
 }
 
 func WithWheelSize(size int64) SchedulerOption {
-	return func(s *Scheduler) { s.wheelSize = size }
+	return func(s *Scheduler) {
+		if size > 0 {
+			s.wheelSize = size
+		} else {
+			log.Warnf("Invalid wheelSize %d, using default %d", size, defaultWheelSize)
+		}
+	}
 }
 
 func WithContext(ctx context.Context) SchedulerOption {
@@ -84,21 +96,29 @@ func WithExecutor(exec ITaskExecutor) SchedulerOption {
 	return func(s *Scheduler) { s.executor = exec }
 }
 
+func WithStopTimeout(timeout time.Duration) SchedulerOption {
+	return func(s *Scheduler) {
+		if timeout > 0 {
+			s.stopTimeout = timeout
+		}
+	}
+}
+
 // Scheduler 定时任务调度器，基于时间轮实现
 type Scheduler struct {
-	tick      time.Duration            // 精度
-	wheelSize int64                    // 槽位
-	executor  ITaskExecutor            // 执行器 (如协程池)
-	tw        *timingwheel.TimingWheel // 时间轮
-
-	tasks    sync.Map     // map[int64]*taskEntry
-	nextID   atomic.Int64 // 任务ID递增
-	running  atomic.Int32 // 当前执行中任务数
-	shutdown atomic.Bool  // 是否关闭
-	ctx      context.Context
-	cancel   context.CancelFunc
-	wg       sync.WaitGroup
-	once     sync.Once
+	tick        time.Duration            // 精度
+	wheelSize   int64                    // 槽位
+	executor    ITaskExecutor            // 执行器 (如协程池)
+	tw          *timingwheel.TimingWheel // 时间轮
+	stopTimeout time.Duration            // Stop 超时时间
+	tasks       sync.Map                 // map[int64]*taskEntry
+	nextID      atomic.Int64             // 任务ID递增
+	running     atomic.Int32             // 当前执行中任务数
+	shutdown    atomic.Bool              // 是否关闭
+	ctx         context.Context
+	cancel      context.CancelFunc
+	wg          sync.WaitGroup
+	once        sync.Once
 }
 
 type taskEntry struct {
@@ -112,12 +132,17 @@ type taskEntry struct {
 // NewTaskScheduler 创建调度器实例
 func NewTaskScheduler(opts ...SchedulerOption) ITaskScheduler {
 	s := &Scheduler{
-		tick:      defaultTickPrecision,
-		wheelSize: defaultWheelSize,
-		ctx:       context.Background(),
+		tick:        defaultTickPrecision,
+		wheelSize:   defaultWheelSize,
+		ctx:         context.Background(),
+		stopTimeout: 3 * time.Second, // 默认超时 3 秒
 	}
 	for _, opt := range opts {
 		opt(s)
+	}
+
+	if s.executor == nil {
+		log.Warn("[Scheduler] No executor provided, tasks will run in unlimited goroutines")
 	}
 
 	s.ctx, s.cancel = context.WithCancel(s.ctx)
@@ -185,14 +210,25 @@ func (s *Scheduler) removeTask(taskID int64) {
 		return
 	}
 	entry := val.(*taskEntry)
-	if entry.cancelled.CompareAndSwap(false, true) {
-		if entry.timer != nil {
-			entry.timer.Stop()
-			entry.timer = nil // GC
-		}
-		s.tasks.Delete(taskID)
-		entry.task = nil // GC
+
+	// 标记为取消
+	if !entry.cancelled.CompareAndSwap(false, true) {
+		return
 	}
+
+	// 停止 timer
+	if entry.timer != nil {
+		entry.timer.Stop()
+		entry.timer = nil
+	}
+
+	// 等待执行完成（最多 100ms）
+	for i := 0; i < 10 && entry.executing.Load(); i++ {
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	s.tasks.Delete(taskID)
+	entry.task = nil
 }
 
 // Stop 停止调度器，等待正在执行任务完成
@@ -201,15 +237,23 @@ func (s *Scheduler) Stop() {
 		s.shutdown.Store(true)
 		s.cancel()
 		s.CancelAll()
+
 		done := make(chan struct{})
 		go func() {
 			s.wg.Wait()
 			close(done)
 		}()
+
+		timeout := s.stopTimeout
+		if timeout <= 0 {
+			timeout = 3 * time.Second
+		}
+
 		select {
 		case <-done:
-		case <-time.After(500 * time.Millisecond):
-			log.Warn("scheduler shutdown timed out, some tasks may still be running")
+			log.Info("[Scheduler] stopped gracefully")
+		case <-time.After(timeout):
+			log.Warnf("[Scheduler] shutdown timed out after %v, some tasks may still be running", timeout)
 		}
 	})
 }
@@ -228,7 +272,14 @@ func (s *Scheduler) schedule(delay time.Duration, repeated bool, f func()) int64
 
 	wrapped := func() {
 		wrappedAt := time.Now()
-		if entry.cancelled.Load() || !entry.executing.CompareAndSwap(false, true) {
+
+		// 检查取消状态
+		if entry.cancelled.Load() {
+			return
+		}
+
+		// 仅对一次性任务防止重复执行
+		if !repeated && !entry.executing.CompareAndSwap(false, true) {
 			return
 		}
 		s.running.Add(1)
@@ -264,14 +315,14 @@ func (s *Scheduler) schedule(delay time.Duration, repeated bool, f func()) int64
 }
 
 func (s *Scheduler) executeAsync(f func()) {
-	wrapped := func() {
+	run := func() {
 		defer RecoverFromError(nil)
 		f()
 	}
 	if s.executor != nil {
-		s.executor.Post(wrapped)
+		s.executor.Post(run)
 	} else {
-		go wrapped()
+		go run()
 	}
 }
 
