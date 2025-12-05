@@ -67,6 +67,7 @@ const (
 	KindHTTP      Kind = "http"
 	KindTCP       Kind = "tcp"
 	KindWebsocket Kind = "websocket"
+	KindGNet      Kind = "gnet"
 )
 
 type (

@@ -5,7 +5,7 @@ go 1.24.2
 require (
 	github.com/go-resty/resty/v2 v2.11.0
 	github.com/pkg/errors v0.9.1
-	github.com/yola1107/kratos/v2 v2.8.6
+	github.com/yola1107/kratos/v2 v2.8.8
 )
 
 require golang.org/x/net v0.41.0 // indirect

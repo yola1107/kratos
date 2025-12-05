@@ -24,13 +24,13 @@ git fetch --tags
 git tag -l | xargs -n 1 git push --delete origin
 
 # 检查本地是否存在tag
-git tag -l | grep 'v2.8.6'
+git tag -l | grep 'v2.8.8'
 
 # 验证远端tag是否存在
-git ls-remote --tags origin v2.8.6
+git ls-remote --tags origin v2.8.8
 
 # 推送tag到远端
-git push origin v2.8.6
+git push origin v2.8.8
 
 # 删除远端分支
 git push origin --delete dev2
