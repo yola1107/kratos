@@ -19,7 +19,7 @@ func mockCtxJob() func() {
 }
 
 func BenchmarkAntsLoop_Post(b *testing.B) {
-	loop := NewAntsLoop(WithSize(128)) // 使用 128 个协程池大小
+	loop := NewLoop(WithSize(128)) // 使用 128 个协程池大小
 	if err := loop.Start(); err != nil {
 		b.Fatalf("start failed: %v", err)
 	}
@@ -33,7 +33,7 @@ func BenchmarkAntsLoop_Post(b *testing.B) {
 
 func BenchmarkAntsLoop_PostCtx(b *testing.B) {
 	ctx := context.Background()
-	loop := NewAntsLoop(WithSize(128))
+	loop := NewLoop(WithSize(128))
 	if err := loop.Start(); err != nil {
 		b.Fatalf("start failed: %v", err)
 	}
@@ -46,7 +46,7 @@ func BenchmarkAntsLoop_PostCtx(b *testing.B) {
 }
 
 func BenchmarkAntsLoop_PostAndWait(b *testing.B) {
-	loop := NewAntsLoop(WithSize(128))
+	loop := NewLoop(WithSize(128))
 	if err := loop.Start(); err != nil {
 		b.Fatalf("start failed: %v", err)
 	}
@@ -66,7 +66,7 @@ func BenchmarkAntsLoop_PostAndWait(b *testing.B) {
 }
 
 func BenchmarkAntsLoop_PostAndWaitCtx(b *testing.B) {
-	loop := NewAntsLoop(WithSize(128))
+	loop := NewLoop(WithSize(128))
 	if err := loop.Start(); err != nil {
 		b.Fatalf("start failed: %v", err)
 	}

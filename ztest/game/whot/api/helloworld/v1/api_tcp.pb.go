@@ -21,7 +21,7 @@ import (
 
 // WhotTCPServer is the server API for Whot service.
 type WhotTCPServer interface {
-	GetTCPLoop() work.ITaskLoop
+	GetTCPLoop() work.Loop
 	SetCometChan(cl *tcp.ChanList, cs *tcp.Server)
 	SayHelloReq(context.Context, *HelloRequest) (*HelloReply, error)
 	OnLoginReq(context.Context, *LoginReq) (*LoginRsp, error)

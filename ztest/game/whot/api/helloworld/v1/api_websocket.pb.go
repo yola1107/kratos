@@ -21,7 +21,7 @@ import (
 
 // WhotWebsocketServer is the server API for Whot service.
 type WhotWebsocketServer interface {
-	GetLoop() work.ITaskLoop
+	GetLoop() work.Loop
 	OnSessionOpen(*websocket.Session)
 	OnSessionClose(*websocket.Session)
 	SayHelloReq(context.Context, *HelloRequest) (*HelloReply, error)

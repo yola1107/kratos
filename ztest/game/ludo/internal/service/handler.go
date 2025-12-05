@@ -9,7 +9,7 @@ import (
 )
 
 // GetLoop 获取任务池
-func (s *Service) GetLoop() work.ITaskLoop {
+func (s *Service) GetLoop() work.Loop {
 	return s.uc.GetLoop()
 }
 

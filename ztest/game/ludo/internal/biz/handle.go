@@ -22,12 +22,12 @@ const (
 )
 
 // GetLoop 获取任务队列
-func (uc *Usecase) GetLoop() work.ITaskLoop {
+func (uc *Usecase) GetLoop() work.Loop {
 	return uc.loop
 }
 
 // GetTimer 获取定时器
-func (uc *Usecase) GetTimer() work.ITaskScheduler {
+func (uc *Usecase) GetTimer() work.Scheduler {
 	return uc.timer
 }
 

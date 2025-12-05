@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/RussellLuo/timingwheel"
+
 	"github.com/yola1107/kratos/v2/log"
 )
 
@@ -17,8 +18,8 @@ const (
 	maxIntervalJumps     = 10000
 )
 
-// ITaskScheduler 任务调度器接口
-type ITaskScheduler interface {
+// Scheduler 任务调度器接口
+type Scheduler interface {
 	Len() int                                          // 当前注册任务数量
 	Running() int32                                    // 当前正在执行的任务数量
 	Monitor() Monitor                                  // 获取任务池状态信息
@@ -30,8 +31,8 @@ type ITaskScheduler interface {
 	Stop()                                             // 停止调度器
 }
 
-// ITaskExecutor 任务执行器接口（如协程池）
-type ITaskExecutor interface {
+// IExecutor 任务执行器接口（如协程池）
+type IExecutor interface {
 	Post(job func())
 }
 
@@ -66,10 +67,10 @@ func (p *preciseEvery) Next(t time.Time) time.Time {
 }
 
 // SchedulerOption 调度器选项
-type SchedulerOption func(*Scheduler)
+type SchedulerOption func(*scheduler)
 
 func WithTick(d time.Duration) SchedulerOption {
-	return func(s *Scheduler) {
+	return func(s *scheduler) {
 		if d > 0 {
 			s.tick = d
 		} else {
@@ -79,7 +80,7 @@ func WithTick(d time.Duration) SchedulerOption {
 }
 
 func WithWheelSize(size int64) SchedulerOption {
-	return func(s *Scheduler) {
+	return func(s *scheduler) {
 		if size > 0 {
 			s.wheelSize = size
 		} else {
@@ -89,26 +90,26 @@ func WithWheelSize(size int64) SchedulerOption {
 }
 
 func WithContext(ctx context.Context) SchedulerOption {
-	return func(s *Scheduler) { s.ctx = ctx }
+	return func(s *scheduler) { s.ctx = ctx }
 }
 
-func WithExecutor(exec ITaskExecutor) SchedulerOption {
-	return func(s *Scheduler) { s.executor = exec }
+func WithExecutor(exec IExecutor) SchedulerOption {
+	return func(s *scheduler) { s.executor = exec }
 }
 
 func WithStopTimeout(timeout time.Duration) SchedulerOption {
-	return func(s *Scheduler) {
+	return func(s *scheduler) {
 		if timeout > 0 {
 			s.stopTimeout = timeout
 		}
 	}
 }
 
-// Scheduler 定时任务调度器，基于时间轮实现
-type Scheduler struct {
+// scheduler 定时任务调度器，基于时间轮实现
+type scheduler struct {
 	tick        time.Duration            // 精度
 	wheelSize   int64                    // 槽位
-	executor    ITaskExecutor            // 执行器 (如协程池)
+	executor    IExecutor                // 执行器 (如协程池)
 	tw          *timingwheel.TimingWheel // 时间轮
 	stopTimeout time.Duration            // Stop 超时时间
 	tasks       sync.Map                 // map[int64]*taskEntry
@@ -129,9 +130,9 @@ type taskEntry struct {
 	task      func()
 }
 
-// NewTaskScheduler 创建调度器实例
-func NewTaskScheduler(opts ...SchedulerOption) ITaskScheduler {
-	s := &Scheduler{
+// NewScheduler 创建调度器实例
+func NewScheduler(opts ...SchedulerOption) Scheduler {
+	s := &scheduler{
 		tick:        defaultTickPrecision,
 		wheelSize:   defaultWheelSize,
 		ctx:         context.Background(),
@@ -142,7 +143,7 @@ func NewTaskScheduler(opts ...SchedulerOption) ITaskScheduler {
 	}
 
 	if s.executor == nil {
-		log.Warn("[Scheduler] No executor provided, tasks will run in unlimited goroutines")
+		log.Warn("[scheduler] No executor provided, tasks will run in unlimited goroutines")
 	}
 
 	s.ctx, s.cancel = context.WithCancel(s.ctx)
@@ -155,7 +156,7 @@ func NewTaskScheduler(opts ...SchedulerOption) ITaskScheduler {
 	return s
 }
 
-func (s *Scheduler) Len() int {
+func (s *scheduler) Len() int {
 	count := 0
 	s.tasks.Range(func(_, _ any) bool {
 		count++
@@ -164,11 +165,11 @@ func (s *Scheduler) Len() int {
 	return count
 }
 
-func (s *Scheduler) Running() int32 {
+func (s *scheduler) Running() int32 {
 	return s.running.Load()
 }
 
-func (s *Scheduler) Monitor() Monitor {
+func (s *scheduler) Monitor() Monitor {
 	return Monitor{
 		Len:     s.Len(),
 		Running: s.Running(),
@@ -176,35 +177,35 @@ func (s *Scheduler) Monitor() Monitor {
 }
 
 // Once 注册一次性任务
-func (s *Scheduler) Once(delay time.Duration, f func()) int64 {
+func (s *scheduler) Once(delay time.Duration, f func()) int64 {
 	return s.schedule(delay, false, f)
 }
 
 // Forever 注册周期任务
-func (s *Scheduler) Forever(interval time.Duration, f func()) int64 {
+func (s *scheduler) Forever(interval time.Duration, f func()) int64 {
 	return s.schedule(interval, true, f)
 }
 
 // ForeverNow 注册周期任务并立即执行一次
-func (s *Scheduler) ForeverNow(interval time.Duration, f func()) int64 {
+func (s *scheduler) ForeverNow(interval time.Duration, f func()) int64 {
 	s.executeAsync(f)
 	return s.schedule(interval, true, f)
 }
 
 // Cancel 取消指定任务
-func (s *Scheduler) Cancel(taskID int64) {
+func (s *scheduler) Cancel(taskID int64) {
 	s.removeTask(taskID)
 }
 
 // CancelAll 取消所有任务
-func (s *Scheduler) CancelAll() {
+func (s *scheduler) CancelAll() {
 	s.tasks.Range(func(key, _ any) bool {
 		s.removeTask(key.(int64))
 		return true
 	})
 }
 
-func (s *Scheduler) removeTask(taskID int64) {
+func (s *scheduler) removeTask(taskID int64) {
 	val, ok := s.tasks.Load(taskID)
 	if !ok {
 		return
@@ -232,7 +233,7 @@ func (s *Scheduler) removeTask(taskID int64) {
 }
 
 // Stop 停止调度器，等待正在执行任务完成
-func (s *Scheduler) Stop() {
+func (s *scheduler) Stop() {
 	s.once.Do(func() {
 		s.shutdown.Store(true)
 		s.cancel()
@@ -251,15 +252,15 @@ func (s *Scheduler) Stop() {
 
 		select {
 		case <-done:
-			log.Info("[Scheduler] stopped gracefully")
+			log.Info("[scheduler] stopped gracefully")
 		case <-time.After(timeout):
-			log.Warnf("[Scheduler] shutdown timed out after %v, some tasks may still be running", timeout)
+			log.Warnf("[scheduler] shutdown timed out after %v, some tasks may still be running", timeout)
 		}
 	})
 }
 
 // schedule 注册任务
-func (s *Scheduler) schedule(delay time.Duration, repeated bool, f func()) int64 {
+func (s *scheduler) schedule(delay time.Duration, repeated bool, f func()) int64 {
 	if s.shutdown.Load() || s.ctx.Err() != nil {
 		log.Warn("scheduler is shut down; task rejected")
 		return -1
@@ -314,7 +315,7 @@ func (s *Scheduler) schedule(delay time.Duration, repeated bool, f func()) int64
 	return taskID
 }
 
-func (s *Scheduler) executeAsync(f func()) {
+func (s *scheduler) executeAsync(f func()) {
 	run := func() {
 		defer RecoverFromError(nil)
 		f()
@@ -327,7 +328,7 @@ func (s *Scheduler) executeAsync(f func()) {
 }
 
 // log debug
-func (s *Scheduler) lazy(taskID int64, delay time.Duration, startAt, execAt, wrappedAt time.Time) {
+func (s *scheduler) lazy(taskID int64, delay time.Duration, startAt, execAt, wrappedAt time.Time) {
 	now := time.Now()
 	lazy := now.Sub(startAt)
 	latency := lazy - delay

@@ -31,7 +31,7 @@ var (
 type server struct {
 	v2.UnimplementedGreeterServer
 
-	tcpLoop work.ITaskLoop
+	tcpLoop work.Loop
 	session *tcp.ChanList
 }
 
@@ -41,7 +41,7 @@ func (s *server) SetCometChan(cl *tcp.ChanList, cs *tcp.Server) {
 	s.session = cl
 }
 
-func (s *server) GetTCPLoop() work.ITaskLoop {
+func (s *server) GetTCPLoop() work.Loop {
 	return s.tcpLoop
 }
 
@@ -133,7 +133,7 @@ func main() {
 			tcpSrv,
 		),
 		kratos.BeforeStart(func(ctx context.Context) error {
-			s.tcpLoop = work.NewAntsLoop(work.WithSize(10000))
+			s.tcpLoop = work.NewLoop(work.WithSize(10000))
 			return s.tcpLoop.Start()
 		}),
 		kratos.AfterStop(func(ctx context.Context) error {

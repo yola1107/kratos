@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/panjf2000/ants/v2"
+
 	"github.com/yola1107/kratos/v2/log"
 )
 
@@ -25,9 +26,9 @@ type LoopMonitor struct {
 	Free     int // 空闲协程数（Capacity - Running）
 }
 
-// ITaskLoop 定义协程池接口
+// Loop 定义协程池接口
 // 协程池用于管理和复用 goroutine，防止无限制创建导致的资源耗尽
-type ITaskLoop interface {
+type Loop interface {
 	// Start 启动协程池，初始化内部资源
 	// 可安全地重复调用，后续调用会被忽略
 	Start() error
@@ -77,8 +78,8 @@ func WithFallback(fallback func(ctx context.Context, fn func())) Option {
 	}
 }
 
-// WithPoolOptions 自定义ants池选项
-func WithPoolOptions(opts ...ants.Option) Option {
+// WithAntsOptions 自定义ants池选项
+func WithAntsOptions(opts ...ants.Option) Option {
 	return func(l *antsLoop) {
 		l.poolOptions = append(l.poolOptions, opts...)
 	}
@@ -92,8 +93,8 @@ type antsLoop struct {
 	poolOptions []ants.Option
 }
 
-// NewAntsLoop 创建协程池实例，支持传入参数
-func NewAntsLoop(opts ...Option) ITaskLoop {
+// NewLoop 创建协程池实例，支持传入参数
+func NewLoop(opts ...Option) Loop {
 	l := &antsLoop{
 		size: defaultPendingNum,
 		fallback: func(ctx context.Context, fn func()) {

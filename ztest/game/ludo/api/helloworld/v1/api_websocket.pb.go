@@ -21,7 +21,7 @@ import (
 
 // LudoWebsocketServer is the server API for Ludo service.
 type LudoWebsocketServer interface {
-	GetLoop() work.ITaskLoop
+	GetLoop() work.Loop
 	OnSessionOpen(*websocket.Session)
 	OnSessionClose(*websocket.Session)
 	SayHelloReq(context.Context, *HelloRequest) (*HelloReply, error)

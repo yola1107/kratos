@@ -21,7 +21,7 @@ import (
 
 // MetadataWebsocketServer is the server API for Metadata service.
 type MetadataWebsocketServer interface {
-	GetLoop() work.ITaskLoop
+	GetLoop() work.Loop
 	OnSessionOpen(*websocket.Session)
 	OnSessionClose(*websocket.Session)
 	ListServices(context.Context, *ListServicesRequest) (*ListServicesReply, error)
