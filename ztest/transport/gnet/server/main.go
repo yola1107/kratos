@@ -5,10 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
-
 	"github.com/yola1107/kratos/v2"
 	"github.com/yola1107/kratos/v2/library/log/zap"
 	"github.com/yola1107/kratos/v2/library/log/zap/conf"
@@ -23,18 +19,7 @@ const (
 	Name = "gnet-echo-server"
 )
 
-// 使用现有的 HelloRequest 和 HelloReply 作为 Echo 消息
-
-type EchoRequest = v1.HelloRequest
-type EchoReply = v1.HelloReply
-
-// EchoServer gnet echo 服务接口
-type EchoServer interface {
-	GetLoop() work.Loop
-	Echo(ctx context.Context, req *EchoRequest) (*EchoReply, error)
-}
-
-// server 实现 EchoServer 接口
+// server 实现 GreeterGNETServer 接口
 type server struct {
 	gnetLoop work.Loop
 }
@@ -42,6 +27,63 @@ type server struct {
 func (s *server) GetLoop() work.Loop {
 	return s.gnetLoop
 }
+
+func (s *server) SayHelloReq(ctx context.Context, req *v1.HelloRequest) (*v1.HelloReply, error) {
+	log.Infof("[gnet] SayHelloReq received: %s", req.Name)
+	return &v1.HelloReply{
+		Message: fmt.Sprintf("Echo: %s", req.Name),
+	}, nil
+}
+
+func (s *server) SayHello2Req(ctx context.Context, req *v1.Hello2Request) (*v1.Hello2Reply, error) {
+	log.Infof("[gnet] SayHello2Req received: name=%s, seq=%d", req.Name, req.Seq)
+	return &v1.Hello2Reply{
+		Message: fmt.Sprintf("Echo2: name=%s, seq=%d", req.Name, req.Seq),
+	}, nil
+}
+
+func main() {
+	logger := zap.NewLogger(conf.DefaultConfig(
+		conf.WithAppName(Name),
+	))
+	defer logger.Close()
+	log.SetLogger(logger)
+
+	s := &server{}
+
+	gnetSrv := gnet.NewServer(
+		gnet.Address(":3200"),
+		gnet.Timeout(5*time.Second),
+		gnet.Middleware(
+			recovery.Recovery(),
+		),
+	)
+
+	// 注册 Greeter 服务（使用生成的协议）
+	v1.RegisterGreeterGNETServer(gnetSrv, s)
+
+	app := kratos.New(
+		kratos.Name(Name),
+		kratos.Logger(logger),
+		kratos.Server(gnetSrv),
+		kratos.BeforeStart(func(ctx context.Context) error {
+			s.gnetLoop = work.NewLoop(work.WithSize(1000))
+			return s.gnetLoop.Start()
+		}),
+		kratos.AfterStop(func(ctx context.Context) error {
+			if s.gnetLoop != nil {
+				s.gnetLoop.Stop()
+			}
+			return nil
+		}),
+	)
+
+	if err := app.Run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+/*
 
 func (s *server) Echo(ctx context.Context, req *EchoRequest) (*EchoReply, error) {
 	log.Infof("[gnet] Echo received: %s", req.Name)
@@ -104,43 +146,4 @@ var EchoServiceDesc = gnet.ServiceDesc{
 	},
 }
 
-func main() {
-	logger := zap.NewLogger(conf.DefaultConfig(
-		conf.WithAppName(Name),
-	))
-	defer logger.Close()
-	log.SetLogger(logger)
-
-	s := &server{}
-
-	gnetSrv := gnet.NewServer(
-		gnet.Address(":3200"),
-		gnet.Timeout(5*time.Second),
-		gnet.Middleware(
-			recovery.Recovery(),
-		),
-	)
-
-	// 注册 echo 服务
-	gnetSrv.RegisterService(&EchoServiceDesc, s)
-
-	app := kratos.New(
-		kratos.Name(Name),
-		kratos.Logger(logger),
-		kratos.Server(gnetSrv),
-		kratos.BeforeStart(func(ctx context.Context) error {
-			s.gnetLoop = work.NewLoop(work.WithSize(1000))
-			return s.gnetLoop.Start()
-		}),
-		kratos.AfterStop(func(ctx context.Context) error {
-			if s.gnetLoop != nil {
-				s.gnetLoop.Stop()
-			}
-			return nil
-		}),
-	)
-
-	if err := app.Run(); err != nil {
-		log.Fatal(err)
-	}
-}
+*/
