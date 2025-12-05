@@ -297,7 +297,7 @@ func TestTaskScheduler_ContextCancel(t *testing.T) {
 	scheduler := NewScheduler(WithExecutor(executor), WithContext(ctx))
 	defer scheduler.Stop()
 
-	t.Run("Context cancel stops scheduler", func(t *testing.T) {
+	t.Run("Context cancel stops wheelScheduler", func(t *testing.T) {
 		var executed atomic.Bool
 		scheduler.Once(defaultTickPrecision, func() {
 			executed.Store(true)
