@@ -24,6 +24,7 @@ init:
 	go install github.com/yola1107/kratos/cmd/protoc-gen-go-http/v2@latest
 	go install github.com/yola1107/kratos/cmd/protoc-gen-go-tcp/v2@latest
 	go install github.com/yola1107/kratos/cmd/protoc-gen-go-websocket/v2@latest
+	go install github.com/yola1107/kratos/cmd/protoc-gen-go-gnet/v2@latest
 	go install github.com/google/gnostic/cmd/protoc-gen-openapi@latest
 	go install github.com/google/wire/cmd/wire@latest
 	go install github.com/envoyproxy/protoc-gen-validate@latest
@@ -47,6 +48,7 @@ api:
  	       --go-grpc_out=paths=source_relative:./api \
  	       --go-tcp_out=paths=source_relative:./api \
  	       --go-websocket_out=paths=source_relative:./api \
+ 	       --go-gnet_out=paths=source_relative:./api \
 	       --openapi_out=fq_schema_naming=true,default_response=false:. \
 	       $(API_PROTO_FILES)
 
