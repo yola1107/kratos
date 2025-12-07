@@ -21,7 +21,7 @@ import (
 
 // WhotTCPServer is the server API for Whot service.
 type WhotTCPServer interface {
-	GetTCPLoop() work.Loop
+	GetLoop() work.Loop
 	SetCometChan(cl *tcp.ChanList, cs *tcp.Server)
 	OnChatReq(context.Context, *ChatReq) (*ChatRsp, error)
 	OnForwardReq(context.Context, *ForwardReq) (*ForwardRsp, error)
@@ -55,7 +55,7 @@ func _Whot_SayHelloReq_TCP_Handler(srv interface{}, ctx context.Context, data []
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(WhotTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(WhotTCPServer).GetLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -90,7 +90,7 @@ func _Whot_OnLoginReq_TCP_Handler(srv interface{}, ctx context.Context, data []b
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(WhotTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(WhotTCPServer).GetLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -125,7 +125,7 @@ func _Whot_OnLogoutReq_TCP_Handler(srv interface{}, ctx context.Context, data []
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(WhotTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(WhotTCPServer).GetLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -160,7 +160,7 @@ func _Whot_OnReadyReq_TCP_Handler(srv interface{}, ctx context.Context, data []b
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(WhotTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(WhotTCPServer).GetLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -195,7 +195,7 @@ func _Whot_OnSwitchTableReq_TCP_Handler(srv interface{}, ctx context.Context, da
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(WhotTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(WhotTCPServer).GetLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -230,7 +230,7 @@ func _Whot_OnSceneReq_TCP_Handler(srv interface{}, ctx context.Context, data []b
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(WhotTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(WhotTCPServer).GetLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -265,7 +265,7 @@ func _Whot_OnChatReq_TCP_Handler(srv interface{}, ctx context.Context, data []by
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(WhotTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(WhotTCPServer).GetLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -300,7 +300,7 @@ func _Whot_OnHostingReq_TCP_Handler(srv interface{}, ctx context.Context, data [
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(WhotTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(WhotTCPServer).GetLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -335,7 +335,7 @@ func _Whot_OnForwardReq_TCP_Handler(srv interface{}, ctx context.Context, data [
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(WhotTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(WhotTCPServer).GetLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -370,7 +370,7 @@ func _Whot_OnPlayerActionReq_TCP_Handler(srv interface{}, ctx context.Context, d
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(WhotTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(WhotTCPServer).GetLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()

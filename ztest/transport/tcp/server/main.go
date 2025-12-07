@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	gproto "google.golang.org/protobuf/proto"
+
 	"github.com/yola1107/kratos/v2/library/log/zap"
 	"github.com/yola1107/kratos/v2/library/log/zap/conf"
 	"github.com/yola1107/kratos/v2/library/work"
@@ -11,7 +13,6 @@ import (
 	"github.com/yola1107/kratos/v2/middleware"
 	"github.com/yola1107/kratos/v2/middleware/ratelimit"
 	v2 "github.com/yola1107/kratos/v2/ztest/transport/api/helloworld/v1"
-	gproto "google.golang.org/protobuf/proto"
 
 	"github.com/yola1107/kratos/v2"
 	"github.com/yola1107/kratos/v2/log"
@@ -37,13 +38,8 @@ type server struct {
 
 var seed int64
 
-func (s *server) SetCometChan(cl *tcp.ChanList, cs *tcp.Server) {
-	s.session = cl
-}
-
-func (s *server) GetTCPLoop() work.Loop {
-	return s.tcpLoop
-}
+func (s *server) SetCometChan(cl *tcp.ChanList, cs *tcp.Server) { s.session = cl }
+func (s *server) GetLoop() work.Loop                            { return s.tcpLoop }
 
 func (s *server) SayHelloReq(ctx context.Context, in *v2.HelloRequest) (*v2.HelloReply, error) {
 	// panic("tcp panic test")

@@ -21,7 +21,7 @@ import (
 
 // MetadataTCPServer is the server API for Metadata service.
 type MetadataTCPServer interface {
-	GetTCPLoop() work.Loop
+	GetLoop() work.Loop
 	SetCometChan(cl *tcp.ChanList, cs *tcp.Server)
 	ListServices(context.Context, *ListServicesRequest) (*ListServicesReply, error)
 	GetServiceDesc(context.Context, *GetServiceDescRequest) (*GetServiceDescReply, error)
@@ -37,34 +37,35 @@ func _Metadata_ListServices_TCP_Handler(srv interface{}, ctx context.Context, da
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *ListServicesRequest) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(MetadataTCPServer).ListServices(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *ListServicesRequest) ([]byte, error) {
+		resp, err := srv.(MetadataTCPServer).ListServices(ctx, req)
+		if err != nil {
+			return nil, err
 		}
-		if loop := srv.(MetadataTCPServer).GetTCPLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
-		return doRequest()
+		if loop := srv.(MetadataTCPServer).GetLoop(); loop != nil {
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
+		}
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &tcp.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/kratos.api.Metadata/ListServices",
 	}
-	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
+	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*ListServicesRequest)
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *ListServicesRequest, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
-	return interceptor(ctx, in, info, handler)
+	return interceptor(ctx, in, info, interceptorHandler)
 }
 
 func _Metadata_GetServiceDesc_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
@@ -72,34 +73,35 @@ func _Metadata_GetServiceDesc_TCP_Handler(srv interface{}, ctx context.Context, 
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *GetServiceDescRequest) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(MetadataTCPServer).GetServiceDesc(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *GetServiceDescRequest) ([]byte, error) {
+		resp, err := srv.(MetadataTCPServer).GetServiceDesc(ctx, req)
+		if err != nil {
+			return nil, err
 		}
-		if loop := srv.(MetadataTCPServer).GetTCPLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
-		return doRequest()
+		if loop := srv.(MetadataTCPServer).GetLoop(); loop != nil {
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
+		}
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &tcp.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/kratos.api.Metadata/GetServiceDesc",
 	}
-	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
+	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*GetServiceDescRequest)
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *GetServiceDescRequest, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
-	return interceptor(ctx, in, info, handler)
+	return interceptor(ctx, in, info, interceptorHandler)
 }
 
 var Metadata_TCP_ServiceDesc = tcp.ServiceDesc{

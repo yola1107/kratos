@@ -24,34 +24,35 @@ func _{{$svrType}}_{{.Name}}_Websocket_Handler(srv interface{}, ctx context.Cont
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *{{.Request}}) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.({{$svrType}}WebsocketServer).{{.Name}}(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *{{.Request}}) ([]byte, error) {
+		resp, err := srv.({{$svrType}}WebsocketServer).{{.Name}}(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
 		if loop := srv.({{$svrType}}WebsocketServer).GetLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
 		}
-		return doRequest()
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &websocket.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/{{$svrName}}/{{.OriginalName}}",
 	}
-	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
+	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*{{.Request}})
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *{{.Request}}, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
-	return interceptor(ctx, in, info, handler)
+	return interceptor(ctx, in, info, interceptorHandler)
 }
 {{end}}
 

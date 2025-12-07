@@ -3,7 +3,7 @@
 
 // {{$svrType}}TCPServer is the server API for {{$svrType}} service.
 type {{$svrType}}TCPServer interface {
-	GetTCPLoop() work.Loop
+	GetLoop() work.Loop
 	SetCometChan(cl *tcp.ChanList, cs *tcp.Server)
 {{- range .Methods}}
 	{{- if ne .Comment ""}}
@@ -24,21 +24,22 @@ func _{{$svrType}}_{{.Name}}_TCP_Handler(srv interface{}, ctx context.Context, d
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *{{.Request}}) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.({{$svrType}}TCPServer).{{.Name}}(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *{{.Request}}) ([]byte, error) {
+		resp, err := srv.({{$svrType}}TCPServer).{{.Name}}(ctx, req)
+		if err != nil {
+			return nil, err
 		}
-		if loop := srv.({{$svrType}}TCPServer).GetTCPLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
-		return doRequest()
+		if loop := srv.({{$svrType}}TCPServer).GetLoop(); loop != nil {
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
+		}
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &tcp.UnaryServerInfo{
 		Server:     srv,
@@ -49,7 +50,7 @@ func _{{$svrType}}_{{.Name}}_TCP_Handler(srv interface{}, ctx context.Context, d
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *{{.Request}}, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
 	return interceptor(ctx, in, info, interceptorHandler)
 }

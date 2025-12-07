@@ -9,10 +9,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	wproto "github.com/yola1107/kratos/v2/transport/websocket/proto"
-	v1 "github.com/yola1107/kratos/v2/ztest/transport/api/helloworld/v1"
 	"google.golang.org/protobuf/proto"
 	"nhooyr.io/websocket"
+
+	wproto "github.com/yola1107/kratos/v2/transport/websocket/proto"
+	v1 "github.com/yola1107/kratos/v2/ztest/transport/api/helloworld/v1"
 )
 
 var (

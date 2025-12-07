@@ -46,21 +46,22 @@ func _Greeter_SayHelloReq_GNET_Handler(srv interface{}, ctx context.Context, dat
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *HelloRequest) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterGNETServer).SayHelloReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *HelloRequest) ([]byte, error) {
+		resp, err := srv.(GreeterGNETServer).SayHelloReq(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
 		if loop := srv.(GreeterGNETServer).GetLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
 		}
-		return doRequest()
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &gnet.UnaryServerInfo{
 		Server:     srv,
@@ -71,7 +72,7 @@ func _Greeter_SayHelloReq_GNET_Handler(srv interface{}, ctx context.Context, dat
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *HelloRequest, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
 	return interceptor(ctx, in, info, interceptorHandler)
 }
@@ -81,21 +82,22 @@ func _Greeter_OnLoginReq_GNET_Handler(srv interface{}, ctx context.Context, data
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *LoginReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterGNETServer).OnLoginReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *LoginReq) ([]byte, error) {
+		resp, err := srv.(GreeterGNETServer).OnLoginReq(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
 		if loop := srv.(GreeterGNETServer).GetLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
 		}
-		return doRequest()
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &gnet.UnaryServerInfo{
 		Server:     srv,
@@ -106,7 +108,7 @@ func _Greeter_OnLoginReq_GNET_Handler(srv interface{}, ctx context.Context, data
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *LoginReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
 	return interceptor(ctx, in, info, interceptorHandler)
 }
@@ -116,21 +118,22 @@ func _Greeter_OnLogoutReq_GNET_Handler(srv interface{}, ctx context.Context, dat
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *LogoutReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterGNETServer).OnLogoutReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *LogoutReq) ([]byte, error) {
+		resp, err := srv.(GreeterGNETServer).OnLogoutReq(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
 		if loop := srv.(GreeterGNETServer).GetLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
 		}
-		return doRequest()
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &gnet.UnaryServerInfo{
 		Server:     srv,
@@ -141,7 +144,7 @@ func _Greeter_OnLogoutReq_GNET_Handler(srv interface{}, ctx context.Context, dat
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *LogoutReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
 	return interceptor(ctx, in, info, interceptorHandler)
 }
@@ -151,21 +154,22 @@ func _Greeter_OnReadyReq_GNET_Handler(srv interface{}, ctx context.Context, data
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *ReadyReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterGNETServer).OnReadyReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *ReadyReq) ([]byte, error) {
+		resp, err := srv.(GreeterGNETServer).OnReadyReq(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
 		if loop := srv.(GreeterGNETServer).GetLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
 		}
-		return doRequest()
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &gnet.UnaryServerInfo{
 		Server:     srv,
@@ -176,7 +180,7 @@ func _Greeter_OnReadyReq_GNET_Handler(srv interface{}, ctx context.Context, data
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *ReadyReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
 	return interceptor(ctx, in, info, interceptorHandler)
 }
@@ -186,21 +190,22 @@ func _Greeter_OnSwitchTableReq_GNET_Handler(srv interface{}, ctx context.Context
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *SwitchTableReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterGNETServer).OnSwitchTableReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *SwitchTableReq) ([]byte, error) {
+		resp, err := srv.(GreeterGNETServer).OnSwitchTableReq(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
 		if loop := srv.(GreeterGNETServer).GetLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
 		}
-		return doRequest()
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &gnet.UnaryServerInfo{
 		Server:     srv,
@@ -211,7 +216,7 @@ func _Greeter_OnSwitchTableReq_GNET_Handler(srv interface{}, ctx context.Context
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *SwitchTableReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
 	return interceptor(ctx, in, info, interceptorHandler)
 }
@@ -221,21 +226,22 @@ func _Greeter_OnSceneReq_GNET_Handler(srv interface{}, ctx context.Context, data
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *SceneReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterGNETServer).OnSceneReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *SceneReq) ([]byte, error) {
+		resp, err := srv.(GreeterGNETServer).OnSceneReq(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
 		if loop := srv.(GreeterGNETServer).GetLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
 		}
-		return doRequest()
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &gnet.UnaryServerInfo{
 		Server:     srv,
@@ -246,7 +252,7 @@ func _Greeter_OnSceneReq_GNET_Handler(srv interface{}, ctx context.Context, data
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *SceneReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
 	return interceptor(ctx, in, info, interceptorHandler)
 }
@@ -256,21 +262,22 @@ func _Greeter_OnChatReq_GNET_Handler(srv interface{}, ctx context.Context, data 
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *ChatReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterGNETServer).OnChatReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *ChatReq) ([]byte, error) {
+		resp, err := srv.(GreeterGNETServer).OnChatReq(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
 		if loop := srv.(GreeterGNETServer).GetLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
 		}
-		return doRequest()
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &gnet.UnaryServerInfo{
 		Server:     srv,
@@ -281,7 +288,7 @@ func _Greeter_OnChatReq_GNET_Handler(srv interface{}, ctx context.Context, data 
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *ChatReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
 	return interceptor(ctx, in, info, interceptorHandler)
 }
@@ -291,21 +298,22 @@ func _Greeter_OnHostingReq_GNET_Handler(srv interface{}, ctx context.Context, da
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *HostingReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterGNETServer).OnHostingReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *HostingReq) ([]byte, error) {
+		resp, err := srv.(GreeterGNETServer).OnHostingReq(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
 		if loop := srv.(GreeterGNETServer).GetLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
 		}
-		return doRequest()
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &gnet.UnaryServerInfo{
 		Server:     srv,
@@ -316,7 +324,7 @@ func _Greeter_OnHostingReq_GNET_Handler(srv interface{}, ctx context.Context, da
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *HostingReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
 	return interceptor(ctx, in, info, interceptorHandler)
 }
@@ -326,21 +334,22 @@ func _Greeter_OnForwardReq_GNET_Handler(srv interface{}, ctx context.Context, da
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *ForwardReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterGNETServer).OnForwardReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *ForwardReq) ([]byte, error) {
+		resp, err := srv.(GreeterGNETServer).OnForwardReq(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
 		if loop := srv.(GreeterGNETServer).GetLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
 		}
-		return doRequest()
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &gnet.UnaryServerInfo{
 		Server:     srv,
@@ -351,7 +360,7 @@ func _Greeter_OnForwardReq_GNET_Handler(srv interface{}, ctx context.Context, da
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *ForwardReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
 	return interceptor(ctx, in, info, interceptorHandler)
 }
@@ -361,21 +370,22 @@ func _Greeter_OnActionReq_GNET_Handler(srv interface{}, ctx context.Context, dat
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *ActionReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterGNETServer).OnActionReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *ActionReq) ([]byte, error) {
+		resp, err := srv.(GreeterGNETServer).OnActionReq(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
 		if loop := srv.(GreeterGNETServer).GetLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
 		}
-		return doRequest()
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &gnet.UnaryServerInfo{
 		Server:     srv,
@@ -386,7 +396,7 @@ func _Greeter_OnActionReq_GNET_Handler(srv interface{}, ctx context.Context, dat
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *ActionReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
 	return interceptor(ctx, in, info, interceptorHandler)
 }
@@ -396,21 +406,22 @@ func _Greeter_OnAutoCallReq_GNET_Handler(srv interface{}, ctx context.Context, d
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *AutoCallReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterGNETServer).OnAutoCallReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *AutoCallReq) ([]byte, error) {
+		resp, err := srv.(GreeterGNETServer).OnAutoCallReq(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
 		if loop := srv.(GreeterGNETServer).GetLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
 		}
-		return doRequest()
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &gnet.UnaryServerInfo{
 		Server:     srv,
@@ -421,7 +432,7 @@ func _Greeter_OnAutoCallReq_GNET_Handler(srv interface{}, ctx context.Context, d
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *AutoCallReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
 	return interceptor(ctx, in, info, interceptorHandler)
 }

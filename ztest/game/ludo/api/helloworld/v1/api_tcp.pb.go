@@ -21,7 +21,7 @@ import (
 
 // LudoTCPServer is the server API for Ludo service.
 type LudoTCPServer interface {
-	GetTCPLoop() work.Loop
+	GetLoop() work.Loop
 	SetCometChan(cl *tcp.ChanList, cs *tcp.Server)
 	SayHelloReq(context.Context, *HelloRequest) (*HelloReply, error)
 	OnLoginReq(context.Context, *LoginReq) (*LoginRsp, error)
@@ -54,7 +54,7 @@ func _Ludo_SayHelloReq_TCP_Handler(srv interface{}, ctx context.Context, data []
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(LudoTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(LudoTCPServer).GetLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -89,7 +89,7 @@ func _Ludo_OnLoginReq_TCP_Handler(srv interface{}, ctx context.Context, data []b
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(LudoTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(LudoTCPServer).GetLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -124,7 +124,7 @@ func _Ludo_OnLogoutReq_TCP_Handler(srv interface{}, ctx context.Context, data []
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(LudoTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(LudoTCPServer).GetLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -159,7 +159,7 @@ func _Ludo_OnReadyReq_TCP_Handler(srv interface{}, ctx context.Context, data []b
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(LudoTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(LudoTCPServer).GetLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -194,7 +194,7 @@ func _Ludo_OnSwitchTableReq_TCP_Handler(srv interface{}, ctx context.Context, da
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(LudoTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(LudoTCPServer).GetLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -229,7 +229,7 @@ func _Ludo_OnSceneReq_TCP_Handler(srv interface{}, ctx context.Context, data []b
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(LudoTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(LudoTCPServer).GetLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -264,7 +264,7 @@ func _Ludo_OnChatReq_TCP_Handler(srv interface{}, ctx context.Context, data []by
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(LudoTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(LudoTCPServer).GetLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -299,7 +299,7 @@ func _Ludo_OnHostingReq_TCP_Handler(srv interface{}, ctx context.Context, data [
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(LudoTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(LudoTCPServer).GetLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -334,7 +334,7 @@ func _Ludo_OnForwardReq_TCP_Handler(srv interface{}, ctx context.Context, data [
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(LudoTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(LudoTCPServer).GetLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -369,7 +369,7 @@ func _Ludo_OnMoveReq_TCP_Handler(srv interface{}, ctx context.Context, data []by
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(LudoTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(LudoTCPServer).GetLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()
@@ -404,7 +404,7 @@ func _Ludo_OnDiceReq_TCP_Handler(srv interface{}, ctx context.Context, data []by
 			}
 			return proto.Marshal(resp)
 		}
-		if loop := srv.(LudoTCPServer).GetTCPLoop(); loop != nil {
+		if loop := srv.(LudoTCPServer).GetLoop(); loop != nil {
 			return loop.PostAndWaitCtx(ctx, doRequest)
 		}
 		return doRequest()

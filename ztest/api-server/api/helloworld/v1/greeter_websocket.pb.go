@@ -48,34 +48,35 @@ func _Greeter_SayHelloReq_Websocket_Handler(srv interface{}, ctx context.Context
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *HelloRequest) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterWebsocketServer).SayHelloReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *HelloRequest) ([]byte, error) {
+		resp, err := srv.(GreeterWebsocketServer).SayHelloReq(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
 		if loop := srv.(GreeterWebsocketServer).GetLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
 		}
-		return doRequest()
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &websocket.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/helloworld.v1.Greeter/SayHelloReq",
 	}
-	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
+	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*HelloRequest)
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *HelloRequest, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
-	return interceptor(ctx, in, info, handler)
+	return interceptor(ctx, in, info, interceptorHandler)
 }
 
 func _Greeter_OnLoginReq_Websocket_Handler(srv interface{}, ctx context.Context, data []byte, interceptor websocket.UnaryServerInterceptor) ([]byte, error) {
@@ -83,34 +84,35 @@ func _Greeter_OnLoginReq_Websocket_Handler(srv interface{}, ctx context.Context,
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *LoginReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterWebsocketServer).OnLoginReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *LoginReq) ([]byte, error) {
+		resp, err := srv.(GreeterWebsocketServer).OnLoginReq(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
 		if loop := srv.(GreeterWebsocketServer).GetLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
 		}
-		return doRequest()
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &websocket.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/helloworld.v1.Greeter/OnLoginReq",
 	}
-	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
+	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*LoginReq)
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *LoginReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
-	return interceptor(ctx, in, info, handler)
+	return interceptor(ctx, in, info, interceptorHandler)
 }
 
 func _Greeter_OnLogoutReq_Websocket_Handler(srv interface{}, ctx context.Context, data []byte, interceptor websocket.UnaryServerInterceptor) ([]byte, error) {
@@ -118,34 +120,35 @@ func _Greeter_OnLogoutReq_Websocket_Handler(srv interface{}, ctx context.Context
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *LogoutReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterWebsocketServer).OnLogoutReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *LogoutReq) ([]byte, error) {
+		resp, err := srv.(GreeterWebsocketServer).OnLogoutReq(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
 		if loop := srv.(GreeterWebsocketServer).GetLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
 		}
-		return doRequest()
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &websocket.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/helloworld.v1.Greeter/OnLogoutReq",
 	}
-	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
+	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*LogoutReq)
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *LogoutReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
-	return interceptor(ctx, in, info, handler)
+	return interceptor(ctx, in, info, interceptorHandler)
 }
 
 func _Greeter_OnReadyReq_Websocket_Handler(srv interface{}, ctx context.Context, data []byte, interceptor websocket.UnaryServerInterceptor) ([]byte, error) {
@@ -153,34 +156,35 @@ func _Greeter_OnReadyReq_Websocket_Handler(srv interface{}, ctx context.Context,
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *ReadyReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterWebsocketServer).OnReadyReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *ReadyReq) ([]byte, error) {
+		resp, err := srv.(GreeterWebsocketServer).OnReadyReq(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
 		if loop := srv.(GreeterWebsocketServer).GetLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
 		}
-		return doRequest()
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &websocket.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/helloworld.v1.Greeter/OnReadyReq",
 	}
-	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
+	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*ReadyReq)
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *ReadyReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
-	return interceptor(ctx, in, info, handler)
+	return interceptor(ctx, in, info, interceptorHandler)
 }
 
 func _Greeter_OnSwitchTableReq_Websocket_Handler(srv interface{}, ctx context.Context, data []byte, interceptor websocket.UnaryServerInterceptor) ([]byte, error) {
@@ -188,34 +192,35 @@ func _Greeter_OnSwitchTableReq_Websocket_Handler(srv interface{}, ctx context.Co
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *SwitchTableReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterWebsocketServer).OnSwitchTableReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *SwitchTableReq) ([]byte, error) {
+		resp, err := srv.(GreeterWebsocketServer).OnSwitchTableReq(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
 		if loop := srv.(GreeterWebsocketServer).GetLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
 		}
-		return doRequest()
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &websocket.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/helloworld.v1.Greeter/OnSwitchTableReq",
 	}
-	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
+	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*SwitchTableReq)
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *SwitchTableReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
-	return interceptor(ctx, in, info, handler)
+	return interceptor(ctx, in, info, interceptorHandler)
 }
 
 func _Greeter_OnSceneReq_Websocket_Handler(srv interface{}, ctx context.Context, data []byte, interceptor websocket.UnaryServerInterceptor) ([]byte, error) {
@@ -223,34 +228,35 @@ func _Greeter_OnSceneReq_Websocket_Handler(srv interface{}, ctx context.Context,
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *SceneReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterWebsocketServer).OnSceneReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *SceneReq) ([]byte, error) {
+		resp, err := srv.(GreeterWebsocketServer).OnSceneReq(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
 		if loop := srv.(GreeterWebsocketServer).GetLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
 		}
-		return doRequest()
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &websocket.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/helloworld.v1.Greeter/OnSceneReq",
 	}
-	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
+	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*SceneReq)
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *SceneReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
-	return interceptor(ctx, in, info, handler)
+	return interceptor(ctx, in, info, interceptorHandler)
 }
 
 func _Greeter_OnChatReq_Websocket_Handler(srv interface{}, ctx context.Context, data []byte, interceptor websocket.UnaryServerInterceptor) ([]byte, error) {
@@ -258,34 +264,35 @@ func _Greeter_OnChatReq_Websocket_Handler(srv interface{}, ctx context.Context, 
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *ChatReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterWebsocketServer).OnChatReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *ChatReq) ([]byte, error) {
+		resp, err := srv.(GreeterWebsocketServer).OnChatReq(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
 		if loop := srv.(GreeterWebsocketServer).GetLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
 		}
-		return doRequest()
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &websocket.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/helloworld.v1.Greeter/OnChatReq",
 	}
-	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
+	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*ChatReq)
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *ChatReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
-	return interceptor(ctx, in, info, handler)
+	return interceptor(ctx, in, info, interceptorHandler)
 }
 
 func _Greeter_OnHostingReq_Websocket_Handler(srv interface{}, ctx context.Context, data []byte, interceptor websocket.UnaryServerInterceptor) ([]byte, error) {
@@ -293,34 +300,35 @@ func _Greeter_OnHostingReq_Websocket_Handler(srv interface{}, ctx context.Contex
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *HostingReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterWebsocketServer).OnHostingReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *HostingReq) ([]byte, error) {
+		resp, err := srv.(GreeterWebsocketServer).OnHostingReq(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
 		if loop := srv.(GreeterWebsocketServer).GetLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
 		}
-		return doRequest()
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &websocket.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/helloworld.v1.Greeter/OnHostingReq",
 	}
-	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
+	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*HostingReq)
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *HostingReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
-	return interceptor(ctx, in, info, handler)
+	return interceptor(ctx, in, info, interceptorHandler)
 }
 
 func _Greeter_OnForwardReq_Websocket_Handler(srv interface{}, ctx context.Context, data []byte, interceptor websocket.UnaryServerInterceptor) ([]byte, error) {
@@ -328,34 +336,35 @@ func _Greeter_OnForwardReq_Websocket_Handler(srv interface{}, ctx context.Contex
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *ForwardReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterWebsocketServer).OnForwardReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *ForwardReq) ([]byte, error) {
+		resp, err := srv.(GreeterWebsocketServer).OnForwardReq(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
 		if loop := srv.(GreeterWebsocketServer).GetLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
 		}
-		return doRequest()
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &websocket.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/helloworld.v1.Greeter/OnForwardReq",
 	}
-	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
+	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*ForwardReq)
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *ForwardReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
-	return interceptor(ctx, in, info, handler)
+	return interceptor(ctx, in, info, interceptorHandler)
 }
 
 func _Greeter_OnActionReq_Websocket_Handler(srv interface{}, ctx context.Context, data []byte, interceptor websocket.UnaryServerInterceptor) ([]byte, error) {
@@ -363,34 +372,35 @@ func _Greeter_OnActionReq_Websocket_Handler(srv interface{}, ctx context.Context
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *ActionReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterWebsocketServer).OnActionReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *ActionReq) ([]byte, error) {
+		resp, err := srv.(GreeterWebsocketServer).OnActionReq(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
 		if loop := srv.(GreeterWebsocketServer).GetLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
 		}
-		return doRequest()
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &websocket.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/helloworld.v1.Greeter/OnActionReq",
 	}
-	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
+	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*ActionReq)
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *ActionReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
-	return interceptor(ctx, in, info, handler)
+	return interceptor(ctx, in, info, interceptorHandler)
 }
 
 func _Greeter_OnAutoCallReq_Websocket_Handler(srv interface{}, ctx context.Context, data []byte, interceptor websocket.UnaryServerInterceptor) ([]byte, error) {
@@ -398,34 +408,35 @@ func _Greeter_OnAutoCallReq_Websocket_Handler(srv interface{}, ctx context.Conte
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *AutoCallReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterWebsocketServer).OnAutoCallReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *AutoCallReq) ([]byte, error) {
+		resp, err := srv.(GreeterWebsocketServer).OnAutoCallReq(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
 		if loop := srv.(GreeterWebsocketServer).GetLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
 		}
-		return doRequest()
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &websocket.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/helloworld.v1.Greeter/OnAutoCallReq",
 	}
-	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
+	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*AutoCallReq)
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *AutoCallReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
-	return interceptor(ctx, in, info, handler)
+	return interceptor(ctx, in, info, interceptorHandler)
 }
 
 var Greeter_Websocket_ServiceDesc = websocket.ServiceDesc{

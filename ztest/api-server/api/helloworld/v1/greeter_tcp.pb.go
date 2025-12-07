@@ -21,7 +21,7 @@ import (
 
 // GreeterTCPServer is the server API for Greeter service.
 type GreeterTCPServer interface {
-	GetTCPLoop() work.Loop
+	GetLoop() work.Loop
 	SetCometChan(cl *tcp.ChanList, cs *tcp.Server)
 	SayHelloReq(context.Context, *HelloRequest) (*HelloReply, error)
 	OnLoginReq(context.Context, *LoginReq) (*LoginRsp, error)
@@ -46,34 +46,35 @@ func _Greeter_SayHelloReq_TCP_Handler(srv interface{}, ctx context.Context, data
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *HelloRequest) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterTCPServer).SayHelloReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *HelloRequest) ([]byte, error) {
+		resp, err := srv.(GreeterTCPServer).SayHelloReq(ctx, req)
+		if err != nil {
+			return nil, err
 		}
-		if loop := srv.(GreeterTCPServer).GetTCPLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
-		return doRequest()
+		if loop := srv.(GreeterTCPServer).GetLoop(); loop != nil {
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
+		}
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &tcp.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/helloworld.v1.Greeter/SayHelloReq",
 	}
-	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
+	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*HelloRequest)
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *HelloRequest, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
-	return interceptor(ctx, in, info, handler)
+	return interceptor(ctx, in, info, interceptorHandler)
 }
 
 func _Greeter_OnLoginReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
@@ -81,34 +82,35 @@ func _Greeter_OnLoginReq_TCP_Handler(srv interface{}, ctx context.Context, data 
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *LoginReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterTCPServer).OnLoginReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *LoginReq) ([]byte, error) {
+		resp, err := srv.(GreeterTCPServer).OnLoginReq(ctx, req)
+		if err != nil {
+			return nil, err
 		}
-		if loop := srv.(GreeterTCPServer).GetTCPLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
-		return doRequest()
+		if loop := srv.(GreeterTCPServer).GetLoop(); loop != nil {
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
+		}
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &tcp.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/helloworld.v1.Greeter/OnLoginReq",
 	}
-	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
+	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*LoginReq)
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *LoginReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
-	return interceptor(ctx, in, info, handler)
+	return interceptor(ctx, in, info, interceptorHandler)
 }
 
 func _Greeter_OnLogoutReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
@@ -116,34 +118,35 @@ func _Greeter_OnLogoutReq_TCP_Handler(srv interface{}, ctx context.Context, data
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *LogoutReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterTCPServer).OnLogoutReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *LogoutReq) ([]byte, error) {
+		resp, err := srv.(GreeterTCPServer).OnLogoutReq(ctx, req)
+		if err != nil {
+			return nil, err
 		}
-		if loop := srv.(GreeterTCPServer).GetTCPLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
-		return doRequest()
+		if loop := srv.(GreeterTCPServer).GetLoop(); loop != nil {
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
+		}
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &tcp.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/helloworld.v1.Greeter/OnLogoutReq",
 	}
-	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
+	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*LogoutReq)
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *LogoutReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
-	return interceptor(ctx, in, info, handler)
+	return interceptor(ctx, in, info, interceptorHandler)
 }
 
 func _Greeter_OnReadyReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
@@ -151,34 +154,35 @@ func _Greeter_OnReadyReq_TCP_Handler(srv interface{}, ctx context.Context, data 
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *ReadyReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterTCPServer).OnReadyReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *ReadyReq) ([]byte, error) {
+		resp, err := srv.(GreeterTCPServer).OnReadyReq(ctx, req)
+		if err != nil {
+			return nil, err
 		}
-		if loop := srv.(GreeterTCPServer).GetTCPLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
-		return doRequest()
+		if loop := srv.(GreeterTCPServer).GetLoop(); loop != nil {
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
+		}
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &tcp.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/helloworld.v1.Greeter/OnReadyReq",
 	}
-	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
+	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*ReadyReq)
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *ReadyReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
-	return interceptor(ctx, in, info, handler)
+	return interceptor(ctx, in, info, interceptorHandler)
 }
 
 func _Greeter_OnSwitchTableReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
@@ -186,34 +190,35 @@ func _Greeter_OnSwitchTableReq_TCP_Handler(srv interface{}, ctx context.Context,
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *SwitchTableReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterTCPServer).OnSwitchTableReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *SwitchTableReq) ([]byte, error) {
+		resp, err := srv.(GreeterTCPServer).OnSwitchTableReq(ctx, req)
+		if err != nil {
+			return nil, err
 		}
-		if loop := srv.(GreeterTCPServer).GetTCPLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
-		return doRequest()
+		if loop := srv.(GreeterTCPServer).GetLoop(); loop != nil {
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
+		}
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &tcp.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/helloworld.v1.Greeter/OnSwitchTableReq",
 	}
-	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
+	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*SwitchTableReq)
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *SwitchTableReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
-	return interceptor(ctx, in, info, handler)
+	return interceptor(ctx, in, info, interceptorHandler)
 }
 
 func _Greeter_OnSceneReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
@@ -221,34 +226,35 @@ func _Greeter_OnSceneReq_TCP_Handler(srv interface{}, ctx context.Context, data 
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *SceneReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterTCPServer).OnSceneReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *SceneReq) ([]byte, error) {
+		resp, err := srv.(GreeterTCPServer).OnSceneReq(ctx, req)
+		if err != nil {
+			return nil, err
 		}
-		if loop := srv.(GreeterTCPServer).GetTCPLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
-		return doRequest()
+		if loop := srv.(GreeterTCPServer).GetLoop(); loop != nil {
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
+		}
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &tcp.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/helloworld.v1.Greeter/OnSceneReq",
 	}
-	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
+	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*SceneReq)
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *SceneReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
-	return interceptor(ctx, in, info, handler)
+	return interceptor(ctx, in, info, interceptorHandler)
 }
 
 func _Greeter_OnChatReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
@@ -256,34 +262,35 @@ func _Greeter_OnChatReq_TCP_Handler(srv interface{}, ctx context.Context, data [
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *ChatReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterTCPServer).OnChatReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *ChatReq) ([]byte, error) {
+		resp, err := srv.(GreeterTCPServer).OnChatReq(ctx, req)
+		if err != nil {
+			return nil, err
 		}
-		if loop := srv.(GreeterTCPServer).GetTCPLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
-		return doRequest()
+		if loop := srv.(GreeterTCPServer).GetLoop(); loop != nil {
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
+		}
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &tcp.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/helloworld.v1.Greeter/OnChatReq",
 	}
-	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
+	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*ChatReq)
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *ChatReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
-	return interceptor(ctx, in, info, handler)
+	return interceptor(ctx, in, info, interceptorHandler)
 }
 
 func _Greeter_OnHostingReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
@@ -291,34 +298,35 @@ func _Greeter_OnHostingReq_TCP_Handler(srv interface{}, ctx context.Context, dat
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *HostingReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterTCPServer).OnHostingReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *HostingReq) ([]byte, error) {
+		resp, err := srv.(GreeterTCPServer).OnHostingReq(ctx, req)
+		if err != nil {
+			return nil, err
 		}
-		if loop := srv.(GreeterTCPServer).GetTCPLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
-		return doRequest()
+		if loop := srv.(GreeterTCPServer).GetLoop(); loop != nil {
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
+		}
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &tcp.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/helloworld.v1.Greeter/OnHostingReq",
 	}
-	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
+	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*HostingReq)
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *HostingReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
-	return interceptor(ctx, in, info, handler)
+	return interceptor(ctx, in, info, interceptorHandler)
 }
 
 func _Greeter_OnForwardReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
@@ -326,34 +334,35 @@ func _Greeter_OnForwardReq_TCP_Handler(srv interface{}, ctx context.Context, dat
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *ForwardReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterTCPServer).OnForwardReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *ForwardReq) ([]byte, error) {
+		resp, err := srv.(GreeterTCPServer).OnForwardReq(ctx, req)
+		if err != nil {
+			return nil, err
 		}
-		if loop := srv.(GreeterTCPServer).GetTCPLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
-		return doRequest()
+		if loop := srv.(GreeterTCPServer).GetLoop(); loop != nil {
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
+		}
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &tcp.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/helloworld.v1.Greeter/OnForwardReq",
 	}
-	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
+	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*ForwardReq)
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *ForwardReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
-	return interceptor(ctx, in, info, handler)
+	return interceptor(ctx, in, info, interceptorHandler)
 }
 
 func _Greeter_OnActionReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
@@ -361,34 +370,35 @@ func _Greeter_OnActionReq_TCP_Handler(srv interface{}, ctx context.Context, data
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *ActionReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterTCPServer).OnActionReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *ActionReq) ([]byte, error) {
+		resp, err := srv.(GreeterTCPServer).OnActionReq(ctx, req)
+		if err != nil {
+			return nil, err
 		}
-		if loop := srv.(GreeterTCPServer).GetTCPLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
-		return doRequest()
+		if loop := srv.(GreeterTCPServer).GetLoop(); loop != nil {
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
+		}
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &tcp.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/helloworld.v1.Greeter/OnActionReq",
 	}
-	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
+	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*ActionReq)
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *ActionReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
-	return interceptor(ctx, in, info, handler)
+	return interceptor(ctx, in, info, interceptorHandler)
 }
 
 func _Greeter_OnAutoCallReq_TCP_Handler(srv interface{}, ctx context.Context, data []byte, interceptor tcp.UnaryServerInterceptor) ([]byte, error) {
@@ -396,34 +406,35 @@ func _Greeter_OnAutoCallReq_TCP_Handler(srv interface{}, ctx context.Context, da
 	if err := proto.Unmarshal(data, in); err != nil {
 		return nil, err
 	}
-	doFunc := func(ctx context.Context, req *AutoCallReq) ([]byte, error) {
-		doRequest := func() ([]byte, error) {
-			resp, err := srv.(GreeterTCPServer).OnAutoCallReq(ctx, req)
-			if err != nil || resp == nil {
-				return nil, err
-			}
-			return proto.Marshal(resp)
+	handler := func(ctx context.Context, req *AutoCallReq) ([]byte, error) {
+		resp, err := srv.(GreeterTCPServer).OnAutoCallReq(ctx, req)
+		if err != nil {
+			return nil, err
 		}
-		if loop := srv.(GreeterTCPServer).GetTCPLoop(); loop != nil {
-			return loop.PostAndWaitCtx(ctx, doRequest)
+		data, err := proto.Marshal(resp)
+		if err != nil {
+			return nil, err
 		}
-		return doRequest()
+		if loop := srv.(GreeterTCPServer).GetLoop(); loop != nil {
+			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })
+		}
+		return data, nil
 	}
 	if interceptor == nil {
-		return doFunc(ctx, in)
+		return handler(ctx, in)
 	}
 	info := &tcp.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/helloworld.v1.Greeter/OnAutoCallReq",
 	}
-	handler := func(ctx context.Context, req interface{}) ([]byte, error) {
+	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {
 		r, ok := req.(*AutoCallReq)
 		if !ok {
 			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *AutoCallReq, Not: %T", req)
 		}
-		return doFunc(ctx, r)
+		return handler(ctx, r)
 	}
-	return interceptor(ctx, in, info, handler)
+	return interceptor(ctx, in, info, interceptorHandler)
 }
 
 var Greeter_TCP_ServiceDesc = tcp.ServiceDesc{

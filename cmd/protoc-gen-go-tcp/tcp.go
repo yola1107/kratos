@@ -123,7 +123,7 @@ func genService(gen *protogen.Plugin, file *protogen.File, g *protogen.Generated
 func generateTCPInterface(g *protogen.GeneratedFile, serviceName string, service *protogen.Service) {
 	g.P("// ", serviceName, "TCPServer is the server API for ", serviceName, " service.")
 	g.P("type ", serviceName, "TCPServer interface {")
-	g.P(`	GetTCPLoop() work.Loop`)
+	g.P(`	GetLoop() work.Loop`)
 	g.P(`	SetCometChan(cl *tcp.ChanList, cs *tcp.Server)`)
 
 	for _, method := range service.Methods {
@@ -150,25 +150,25 @@ func generateServerMethod(g *protogen.GeneratedFile, servName, fullServName stri
 	// g.P()
 
 	// 核心处理逻辑
-	g.P(`	doFunc := func(ctx context.Context, req *`, inputType, `) ([]byte, error) {`)
-	g.P(`		doRequest := func() ([]byte, error) {`)
-	g.P(`			resp, err := srv.(`, servName, `TCPServer).`, methName, `(ctx, req)`)
-	g.P(`			if err != nil || resp == nil {`)
-	g.P(`				return nil, err`)
-	g.P(`			}`)
-	g.P(`			return proto.Marshal(resp)`)
+	g.P(`	handler := func(ctx context.Context, req *`, inputType, `) ([]byte, error) {`)
+	g.P(`		resp, err := srv.(`, servName, `TCPServer).`, methName, `(ctx, req)`)
+	g.P(`		if err != nil {`)
+	g.P(`			return nil, err`)
 	g.P(`		}`)
-	// g.P()
-	g.P(`		if loop := srv.(`, servName, `TCPServer).GetTCPLoop(); loop != nil {`)
-	g.P(`			return loop.PostAndWaitCtx(ctx, doRequest)`)
+	g.P(`		data, err := proto.Marshal(resp)`)
+	g.P(`		if err != nil {`)
+	g.P(`			return nil, err`)
 	g.P(`		}`)
-	g.P(`		return doRequest()`)
+	g.P(`		if loop := srv.(`, servName, `TCPServer).GetLoop(); loop != nil {`)
+	g.P(`			return loop.PostAndWaitCtx(ctx, func() ([]byte, error) { return data, nil })`)
+	g.P(`		}`)
+	g.P(`		return data, nil`)
 	g.P(`	}`)
 	// g.P()
 
 	// 无拦截器时直接处理
 	g.P(`	if interceptor == nil {`)
-	g.P(`		return doFunc(ctx, in)`)
+	g.P(`		return handler(ctx, in)`)
 	g.P(`	}`)
 	// g.P()
 
@@ -180,16 +180,16 @@ func generateServerMethod(g *protogen.GeneratedFile, servName, fullServName stri
 	// g.P()
 
 	// 拦截器处理函数
-	g.P(`	handler := func(ctx context.Context, req interface{}) ([]byte, error) {`)
+	g.P(`	interceptorHandler := func(ctx context.Context, req interface{}) ([]byte, error) {`)
 	g.P(`		r, ok := req.(*`, inputType, `)`)
 	g.P(`		if !ok {`)
 	g.P(`			return nil, status.Errorf(codes.InvalidArgument, "Invalid Request Argument, expect: *`, inputType, `, Not: %T", req)`)
 	g.P(`		}`)
-	g.P(`		return doFunc(ctx, r)`)
+	g.P(`		return handler(ctx, r)`)
 	g.P(`	}`)
 	// g.P()
 
-	g.P(`	return interceptor(ctx, in, info, handler)`)
+	g.P(`	return interceptor(ctx, in, info, interceptorHandler)`)
 	g.P(`}`)
 	g.P()
 
