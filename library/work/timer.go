@@ -2,6 +2,7 @@ package work
 
 import (
 	"runtime/debug"
+	"sync/atomic"
 	"time"
 
 	"github.com/yola1107/kratos/v2/log"
@@ -47,18 +48,6 @@ func RecoverFromError(cb func(e any)) {
 	}
 }
 
-// --- 默认调度器实现 ---
-
-// goroutineExecutor 简单的 go 协程执行器
-type goroutineExecutor struct{}
-
-func (g *goroutineExecutor) Post(job func()) {
-	go func() {
-		defer RecoverFromError(nil)
-		job()
-	}()
-}
-
 // ExecuteAsync 通用异步任务执行函数
 func ExecuteAsync(executor IExecutor, f func()) {
 	run := func() {
@@ -70,4 +59,28 @@ func ExecuteAsync(executor IExecutor, f func()) {
 	} else {
 		go run()
 	}
+}
+
+// --- 通用基础结构 ---
+
+// baseScheduler 提供通用调度器功能的基础实现
+type baseScheduler struct {
+	executor IExecutor
+	running  atomic.Int32
+}
+
+func (s *baseScheduler) executeAsync(f func()) {
+	ExecuteAsync(s.executor, f)
+}
+
+func (s *baseScheduler) incrementRunning() {
+	s.running.Add(1)
+}
+
+func (s *baseScheduler) decrementRunning() {
+	s.running.Add(-1)
+}
+
+func (s *baseScheduler) getRunning() int32 {
+	return s.running.Load()
 }

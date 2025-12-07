@@ -81,19 +81,18 @@ func WithStopTimeout(timeout time.Duration) WheelSchedulerOption {
 
 // wheelScheduler 定时任务调度器，基于时间轮实现
 type wheelScheduler struct {
-	tick        time.Duration            // 精度
-	wheelSize   int64                    // 槽位
-	executor    IExecutor                // 执行器 (如协程池)
-	tw          *timingwheel.TimingWheel // 时间轮
-	stopTimeout time.Duration            // Stop 超时时间
-	tasks       sync.Map                 // map[int64]*wheelTaskEntry
-	nextID      atomic.Int64             // 任务ID递增
-	running     atomic.Int32             // 当前执行中任务数
-	shutdown    atomic.Bool              // 是否关闭
-	ctx         context.Context
-	cancel      context.CancelFunc
-	wg          sync.WaitGroup
-	once        sync.Once
+	baseScheduler                          // 嵌入通用基础功能
+	tick          time.Duration            // 精度
+	wheelSize     int64                    // 槽位
+	tw            *timingwheel.TimingWheel // 时间轮
+	stopTimeout   time.Duration            // Stop 超时时间
+	tasks         sync.Map                 // map[int64]*wheelTaskEntry
+	nextID        atomic.Int64             // 任务ID递增
+	shutdown      atomic.Bool              // 是否关闭
+	ctx           context.Context
+	cancel        context.CancelFunc
+	wg            sync.WaitGroup
+	once          sync.Once
 }
 
 type wheelTaskEntry struct {
@@ -140,7 +139,7 @@ func (s *wheelScheduler) Len() int {
 }
 
 func (s *wheelScheduler) Running() int32 {
-	return s.running.Load()
+	return s.getRunning()
 }
 
 func (s *wheelScheduler) Monitor() Monitor {
@@ -259,7 +258,7 @@ func (s *wheelScheduler) schedule(delay time.Duration, repeated bool, f func()) 
 		if !repeated && !entry.executing.CompareAndSwap(false, true) {
 			return
 		}
-		s.running.Add(1)
+		s.incrementRunning()
 		s.wg.Add(1)
 
 		s.executeAsync(func() {
@@ -267,7 +266,7 @@ func (s *wheelScheduler) schedule(delay time.Duration, repeated bool, f func()) 
 			defer func() {
 				RecoverFromError(nil)
 				s.wg.Done()
-				s.running.Add(-1)
+				s.decrementRunning()
 				entry.executing.Store(false)
 				if !repeated {
 					s.removeTask(taskID)
@@ -292,7 +291,7 @@ func (s *wheelScheduler) schedule(delay time.Duration, repeated bool, f func()) 
 }
 
 func (s *wheelScheduler) executeAsync(f func()) {
-	ExecuteAsync(s.executor, f)
+	s.baseScheduler.executeAsync(f)
 }
 
 // log debug
