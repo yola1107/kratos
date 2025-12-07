@@ -13,10 +13,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/yola1107/kratos/v2/library/xgo"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/transport/websocket/proto"
+
+	"github.com/gorilla/websocket"
 	gproto "google.golang.org/protobuf/proto"
 )
 
@@ -29,64 +30,63 @@ var (
 type PushHandler func(data []byte)
 type ResponseHandler func(data []byte, code int32)
 
+// ClientOption Legacy option functions for backward compatibility
 type ClientOption func(*clientOptions)
 
-func WithTlsConf(tlsConfig *tls.Config) ClientOption {
-	return func(o *clientOptions) { o.tlsConf = tlsConfig }
-}
-
-func WithTimeout(timeout time.Duration) ClientOption {
-	return func(o *clientOptions) { o.timeout = timeout }
-}
-
-func WithSessionConfig(c *SessionConfig) ClientOption {
-	return func(o *clientOptions) { o.session = c }
-}
-
-func WithHeartbeat(readDeadline, pingInterval, writeTimeout time.Duration) ClientOption {
-	return func(o *clientOptions) {
-		o.session.ReadDeadline = readDeadline
-		o.session.PingInterval = pingInterval
-		o.session.WriteTimeout = writeTimeout
-	}
-}
-
-func WithSendChanSize(size int) ClientOption {
-	return func(o *clientOptions) { o.session.SendChanSize = size }
-}
-
+// WithEndpoint with client endpoint.
 func WithEndpoint(endpoint string) ClientOption {
 	return func(o *clientOptions) { o.endpoint = endpoint }
 }
 
+// WithTimeout with client timeout.
+func WithTimeout(timeout time.Duration) ClientOption {
+	return func(o *clientOptions) { o.timeout = timeout }
+}
+
+// WithToken with authentication token.
 func WithToken(token string) ClientOption {
 	return func(o *clientOptions) { o.token = token }
 }
 
+// WithTLSConfig with TLS config.
+func WithTLSConfig(c *tls.Config) ClientOption {
+	return func(o *clientOptions) { o.tlsConf = c }
+}
+
+// WithSessionConfig with session configuration.
+func WithSessionConfig(c *SessionConfig) ClientOption {
+	return func(o *clientOptions) { o.session = c }
+}
+
+// WithConnectFunc with connection callback.
 func WithConnectFunc(fn func(*Session)) ClientOption {
 	return func(o *clientOptions) { o.connectFunc = fn }
 }
 
+// WithDisconnectFunc with disconnection callback.
 func WithDisconnectFunc(fn func(*Session)) ClientOption {
 	return func(o *clientOptions) { o.disconnectFunc = fn }
 }
 
+// WithPushHandler with push message handlers.
 func WithPushHandler(handler map[int32]PushHandler) ClientOption {
 	return func(o *clientOptions) { o.pushHandler = handler }
 }
 
+// WithResponseHandler with response message handlers.
 func WithResponseHandler(handler map[int32]ResponseHandler) ClientOption {
 	return func(o *clientOptions) { o.responseHandler = handler }
 }
 
-func WithRetryPolicy(baseDelay, maxDelay time.Duration, maxAttempt int32) ClientOption {
+// WithRetryPolicy with reconnection policy.
+func WithRetryPolicy(delay time.Duration, maxAttempt int32) ClientOption {
 	return func(o *clientOptions) {
-		o.retryPolicy.baseDelay = baseDelay
-		o.retryPolicy.maxDelay = maxDelay
-		o.retryPolicy.maxAttempt = maxAttempt
+		o.retryDelay = delay
+		o.retryMaxAttempt = maxAttempt
 	}
 }
 
+// clientOptions is websocket client options
 type clientOptions struct {
 	ctx             context.Context
 	tlsConf         *tls.Config
@@ -98,13 +98,8 @@ type clientOptions struct {
 	pushHandler     map[int32]PushHandler
 	responseHandler map[int32]ResponseHandler
 	session         *SessionConfig
-	retryPolicy     *retryPolicy
-}
-
-type retryPolicy struct {
-	baseDelay  time.Duration
-	maxDelay   time.Duration
-	maxAttempt int32 // <0: unlimited retry
+	retryDelay      time.Duration
+	retryMaxAttempt int32
 }
 
 type Client struct {
@@ -114,33 +109,28 @@ type Client struct {
 	reqPool    sync.Map // seq -> command(int32)
 	session    *Session
 	retryCount atomic.Int32
-	wg         sync.WaitGroup
 }
 
+// NewClient creates a Websocket client by options.
 func NewClient(ctx context.Context, opts ...ClientOption) (*Client, error) {
+	// 默认配置
 	options := &clientOptions{
 		ctx:             ctx,
-		timeout:         2 * time.Second,
-		tlsConf:         nil,
 		endpoint:        "ws://0.0.0.0:3102",
-		token:           "",
-		connectFunc:     nil,
-		disconnectFunc:  nil,
+		timeout:         2 * time.Second,
 		pushHandler:     make(map[int32]PushHandler),
 		responseHandler: make(map[int32]ResponseHandler),
 		session: &SessionConfig{
 			WriteTimeout: 10 * time.Second,
-			PingInterval: 10 * time.Second,
+			PingInterval: 15 * time.Second,
 			ReadDeadline: 60 * time.Second,
 			SendChanSize: 32,
 		},
-		retryPolicy: &retryPolicy{
-			baseDelay:  3 * time.Second,
-			maxDelay:   15 * time.Second,
-			maxAttempt: 0,
-		},
+		retryDelay:      3 * time.Second,
+		retryMaxAttempt: -1, // unlimited retry
 	}
 
+	// 应用选项
 	for _, o := range opts {
 		o(options)
 	}
@@ -176,50 +166,25 @@ func parseURL(endpoint string, insecure bool) (*url.URL, error) {
 	return url.Parse(endpoint)
 }
 
-// IsAlive returns true if the session is established and open
+// IsAlive returns true if the client is connected
 func (c *Client) IsAlive() bool {
-	if c == nil {
-		return false
-	}
-	sess := c.session
-	return sess != nil && !sess.Closed()
+	return c != nil && c.session != nil && !c.session.Closed()
 }
 
 func (c *Client) GetSession() *Session {
 	return c.session
 }
 
-// canRetry 判断是否允许重试
-func (c *Client) canRetry() bool {
-	maxAttempt := c.opts.retryPolicy.maxAttempt
-	if maxAttempt < 0 {
-		return true // 无限重试
-	}
-	if maxAttempt == 0 {
-		return false // 不允许重试
-	}
-
-	curr := c.retryCount.Load()
-	return curr < maxAttempt
-}
-
-// Reconnect 执行连接操作
+// Reconnect establishes connection with exponential backoff retry
 func (c *Client) Reconnect() error {
 	dialer := websocket.Dialer{
 		HandshakeTimeout: c.opts.session.WriteTimeout,
 		TLSClientConfig:  c.opts.tlsConf,
 	}
 
-	// 先关闭旧连接，防止资源泄漏
 	c.Close()
 
-	for {
-		select {
-		case <-c.opts.ctx.Done():
-			return c.opts.ctx.Err()
-		default:
-		}
-
+	for attempt := int32(1); ; attempt++ {
 		conn, _, err := dialer.DialContext(c.opts.ctx, c.url.String(), nil)
 		if err == nil {
 			c.retryCount.Store(0)
@@ -227,26 +192,24 @@ func (c *Client) Reconnect() error {
 			return nil
 		}
 
-		attempt := c.retryCount.Add(1)
-		if !c.canRetry() {
-			return fmt.Errorf("%v. attempts reached=%d", err, attempt)
+		if c.opts.retryMaxAttempt >= 0 && attempt >= c.opts.retryMaxAttempt {
+			return fmt.Errorf("reconnect failed after %d attempts: %w", attempt, err)
 		}
 
 		delay := c.calculateBackoff(attempt)
-		log.Warnf("Reconnect attempt %d failed, retrying in %s, error: %v", attempt, delay, err)
+		log.Warnf("websocket reconnect attempt %d failed, retrying in %v: %v", attempt, delay, err)
 
 		select {
 		case <-time.After(delay):
 		case <-c.opts.ctx.Done():
-			return c.opts.ctx.Err()
+			return fmt.Errorf("reconnect cancelled: %w", c.opts.ctx.Err())
 		}
 	}
 }
 
-// calculateBackoff 计算指数退避时间
+// calculateBackoff computes exponential backoff delay
 func (c *Client) calculateBackoff(attempt int32) time.Duration {
-	backoff := float64(c.opts.retryPolicy.baseDelay) * math.Pow(1.5, float64(attempt))
-	backoff = math.Min(backoff, float64(c.opts.retryPolicy.maxDelay))
+	backoff := float64(c.opts.retryDelay) * math.Pow(1.5, float64(attempt-1))
 	return time.Duration(backoff * (0.9 + 0.2*rand.Float64()))
 }
 
@@ -257,13 +220,13 @@ func (c *Client) OnSessionOpen(sess *Session) {
 	}
 }
 
-// OnSessionClose 连接关闭回调和重连逻辑
+// OnSessionClose handles connection close and auto-reconnect
 func (c *Client) OnSessionClose(sess *Session) {
 	if c.opts.disconnectFunc != nil {
 		safeCall(func() { c.opts.disconnectFunc(sess) })
 	}
 
-	if c.canRetry() {
+	if c.opts.retryMaxAttempt != 0 {
 		go func() {
 			if err := c.Reconnect(); err != nil {
 				log.Warnf("reconnect failed: %v", err)
@@ -272,7 +235,7 @@ func (c *Client) OnSessionClose(sess *Session) {
 	}
 }
 
-// Request 发送请求消息
+// Request sends a request message
 func (c *Client) Request(command int32, msg gproto.Message) error {
 	if !c.IsAlive() {
 		return ErrClosedRequest
@@ -289,72 +252,57 @@ func (c *Client) Request(command int32, msg gproto.Message) error {
 		return err
 	}
 
-	payload := proto.Payload{
+	c.reqPool.Store(seq, command)
+	return c.session.SendPayload(&proto.Payload{
 		Op:      proto.OpRequest,
 		Place:   proto.PlaceClient,
 		Seq:     seq,
-		Code:    0,
 		Command: command,
 		Body:    data,
-	}
-
-	// 缓存序列号对应的命令
-	c.reqPool.Store(seq, command)
-
-	// 发送请求
-	return c.session.SendPayload(&payload)
+	})
 }
 
-// DispatchMessage 消息分发，处理不同类型的消息
+// DispatchMessage handles incoming messages
 func (c *Client) DispatchMessage(sess *Session, data []byte) error {
 	var p proto.Payload
 	if err := gproto.Unmarshal(data, &p); err != nil {
-		return fmt.Errorf("unmarshal payload failed: %w", err)
+		return err
 	}
 
 	switch p.Op {
 	case proto.OpResponse:
-		cmdInterface, loaded := c.reqPool.LoadAndDelete(p.Seq)
-		if !loaded {
-			log.Warnf("unknown seq %d in reqPool, command=%d", p.Seq, p.Command)
-			return nil
-		}
-		command, ok := cmdInterface.(int32)
-		if !ok {
-			log.Warnf("invalid command type in reqPool for seq %d", p.Seq)
-			return nil
-		}
-
-		if handler, exists := c.opts.responseHandler[command]; exists {
-			safeCall(func() { handler(p.Body, p.Code) })
-		} else {
-			log.Warnf("no response handler for command %d", command)
-		}
-
+		c.handleResponse(&p)
 	case proto.OpPush:
-		if handler, exists := c.opts.pushHandler[p.Command]; exists {
-			safeCall(func() { handler(p.Body) })
-		} else {
-			log.Warnf("no push handler for command %d", p.Command)
-		}
-
+		c.handlePush(&p)
 	case proto.OpPing:
-		// 收到 Ping，回复 Pong
-		if err := sess.SendPayload(&proto.Payload{Op: proto.OpPong}); err != nil {
-			log.Warnf("failed to send pong: %v", err)
-		}
-
-	case proto.OpPong:
-		// 不处理，服务器的 Pong 包
-
-	default:
-		log.Warnf("unknown payload Op: %d", p.Op)
+		return sess.SendPayload(&proto.Payload{Op: proto.OpPong})
 	}
 
 	return nil
 }
 
-// Close 关闭客户端及其底层连接，清理请求池
+// handleResponse processes response messages
+func (c *Client) handleResponse(p *proto.Payload) {
+	cmdInterface, loaded := c.reqPool.LoadAndDelete(p.Seq)
+	if !loaded {
+		return
+	}
+
+	if command, ok := cmdInterface.(int32); ok {
+		if handler, exists := c.opts.responseHandler[command]; exists {
+			safeCall(func() { handler(p.Body, p.Code) })
+		}
+	}
+}
+
+// handlePush processes push messages
+func (c *Client) handlePush(p *proto.Payload) {
+	if handler, exists := c.opts.pushHandler[p.Command]; exists {
+		safeCall(func() { handler(p.Body) })
+	}
+}
+
+// Close closes the client and cleans up resources
 func (c *Client) Close(msg ...string) {
 	s := c.session
 	if s == nil {
@@ -371,7 +319,6 @@ func (c *Client) Close(msg ...string) {
 		c.reqPool.Delete(key)
 		return true
 	})
-	c.wg.Wait()
 }
 
 // safeCall 用于安全调用回调，避免panic导致崩溃

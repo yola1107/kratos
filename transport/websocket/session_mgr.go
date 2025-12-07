@@ -25,16 +25,20 @@ func (m *SessionManager) Len() int32 {
 
 func (m *SessionManager) Add(session *Session) {
 	if _, loaded := m.sessions.LoadOrStore(session.ID(), session); !loaded {
-		count := atomic.AddInt32(&m.count, 1)
-		log.Infof("start ws serve %q with %q key=%q sessions=%d",
-			session.conn.LocalAddr(), session.conn.RemoteAddr(), session.ID(), count)
+		atomic.AddInt32(&m.count, 1)
+		if session.conn != nil {
+			log.Infof("start ws serve %q with %q key=%q sessions=%d",
+				session.conn.LocalAddr(), session.conn.RemoteAddr(), session.ID(), atomic.LoadInt32(&m.count))
+		} else {
+			log.Infof("start ws serve key=%q sessions=%d", session.ID(), atomic.LoadInt32(&m.count))
+		}
 	}
 }
 
 func (m *SessionManager) Delete(session *Session) {
 	if _, loaded := m.sessions.LoadAndDelete(session.ID()); loaded {
-		count := atomic.AddInt32(&m.count, -1)
-		log.Infof("disconnected key=%q sessions=%d", session.ID(), count)
+		atomic.AddInt32(&m.count, -1)
+		log.Infof("disconnected key=%q sessions=%d", session.ID(), atomic.LoadInt32(&m.count))
 	}
 }
 
@@ -77,12 +81,14 @@ func (m *SessionManager) Broadcast(data []byte) {
 func (m *SessionManager) BroadcastAsync(data []byte) {
 	m.sessions.Range(func(_, v interface{}) bool {
 		session := v.(*Session)
-		go func() {
-			if err := session.Send(data); err != nil {
-				log.Errorf("Broadcast failed: %v", err)
-				// s.Delete(session)
+		// 异步发送，避免阻塞Range操作
+		go func(s *Session) {
+			if !s.Closed() {
+				if err := s.Send(data); err != nil {
+					log.Errorf("BroadcastAsync failed for session %s: %v", s.ID(), err)
+				}
 			}
-		}()
+		}(session)
 		return true
 	})
 }

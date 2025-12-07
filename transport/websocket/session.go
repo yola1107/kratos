@@ -8,12 +8,18 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
 	"github.com/yola1107/kratos/v2/library/xgo"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/transport/websocket/proto"
+
+	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 	gproto "google.golang.org/protobuf/proto"
+)
+
+const (
+	normalCloseReason = "Normal Close"
+	forceCloseReason  = "Force Close"
 )
 
 var (
@@ -83,7 +89,6 @@ func (s *Session) Send(data []byte) error {
 	case <-s.ctx.Done():
 		return errSessionClosed
 	default:
-		// 防止卡死或丢包时阻塞
 		log.Warnf("sessionID=%q sendChan full, dropping message", s.id)
 		return errSessionClosed
 	}
@@ -108,27 +113,19 @@ func (s *Session) Push(cmd int32, msg gproto.Message) error {
 	if err != nil {
 		return err
 	}
-	return s.SendPayload(&proto.Payload{
-		Op:      proto.OpPush,
-		Place:   proto.PlaceServer,
-		Command: cmd,
-		Body:    body,
-	})
+	return s.SendPayload(&proto.Payload{Op: proto.OpPush, Place: proto.PlaceServer, Command: cmd, Body: body})
 }
 
 func (s *Session) readLoop() {
 	defer xgo.RecoverFromError(nil)
 	defer s.Close(false)
 
-	for {
-		if s.Closed() {
-			return
-		}
-		_ = s.conn.SetReadDeadline(time.Now().Add(s.config.ReadDeadline))
+	for !s.Closed() {
+		s.conn.SetReadDeadline(time.Now().Add(s.config.ReadDeadline))
 		msgType, data, err := s.conn.ReadMessage()
 		if err != nil {
 			if !isNetworkClosedError(err) {
-				log.Warnf("sessionID=%q, %v", s.id, err)
+				log.Warnf("sessionID=%q read error: %v", s.id, err)
 			}
 			return
 		}
@@ -140,18 +137,20 @@ func (s *Session) readLoop() {
 				log.Warnf("sessionID=%q dispatch error: %v", s.id, err)
 			}
 		case websocket.PingMessage:
-			_ = s.writeControl(websocket.PongMessage, data)
-		case websocket.PongMessage:
+			s.writeControl(websocket.PongMessage, data)
 		case websocket.CloseMessage:
 			return
-		default:
-			log.Warnf("sessionID=%q unsupported message type: %d", s.id, msgType)
 		}
 	}
 }
 
 func (s *Session) writeLoop() {
-	defer s.Close(false)
+	defer func() {
+		// 只有在非正常关闭时才调用 Close
+		if !s.Closed() {
+			s.Close(false, "writeLoop exit")
+		}
+	}()
 
 	for {
 		select {
@@ -159,6 +158,7 @@ func (s *Session) writeLoop() {
 			return
 		case msg, ok := <-s.sendChan:
 			if !ok {
+				// sendChan 被关闭，退出循环
 				return
 			}
 			if err := s.writeMessage(websocket.BinaryMessage, msg); err != nil {
@@ -182,18 +182,15 @@ func (s *Session) heartbeat() {
 		case <-s.ctx.Done():
 			return
 		case <-ticker.C:
-			if s.Closed() {
-				return
-			}
-			if time.Since(s.LastActive()) > s.config.ReadDeadline {
-				log.Warnf("sessionID=%q heartbeat timeout", s.id)
-				s.Close(true, "Heartbeat Timeout")
-				return
-			}
-			if err := s.writeMessage(websocket.BinaryMessage, pingData); err != nil {
-				if !isNetworkClosedError(err) {
-					log.Errorf("sessionID=%q heartbeat write error: %v", s.id, err)
+			if s.Closed() || time.Since(s.LastActive()) > s.config.ReadDeadline {
+				if !s.Closed() {
+					log.Warnf("sessionID=%q heartbeat timeout", s.id)
+					s.Close(true, "Heartbeat Timeout")
 				}
+				return
+			}
+			if err := s.writeMessage(websocket.BinaryMessage, pingData); err != nil && !isNetworkClosedError(err) {
+				log.Errorf("sessionID=%q heartbeat error: %v", s.id, err)
 				s.Close(false)
 				return
 			}
@@ -207,11 +204,7 @@ func (s *Session) writeMessage(msgType int, data []byte) error {
 	}
 	s.connMu.Lock()
 	defer s.connMu.Unlock()
-
-	if err := s.conn.SetWriteDeadline(time.Now().Add(s.config.WriteTimeout)); err != nil {
-		return err
-	}
-	return s.conn.WriteMessage(msgType, data)
+	return s.writeWithDeadline(func() error { return s.conn.WriteMessage(msgType, data) })
 }
 
 func (s *Session) writeControl(msgType int, data []byte) error {
@@ -223,6 +216,14 @@ func (s *Session) writeControl(msgType int, data []byte) error {
 	return s.conn.WriteControl(msgType, data, time.Now().Add(s.config.WriteTimeout))
 }
 
+func (s *Session) writeWithDeadline(fn func() error) error {
+	deadline := time.Now().Add(s.config.WriteTimeout)
+	if err := s.conn.SetWriteDeadline(deadline); err != nil {
+		return err
+	}
+	return fn()
+}
+
 func (s *Session) Close(force bool, msg ...string) bool {
 	closed := false
 	s.closeOnce.Do(func() {
@@ -230,51 +231,57 @@ func (s *Session) Close(force bool, msg ...string) bool {
 		s.closed.Store(true)
 		s.cancel()
 
-		// 避免sendChan竞争 由ctx关闭send调用
-		// close(s.sendChan)
+		// Close send channel safely
+		defer func() { recover() }() // ignore panic if already closed
+		close(s.sendChan)
 
-		reason := websocket.FormatCloseMessage(websocket.CloseNormalClosure, closeReason(s, force, msg...))
+		// Send close frame and close connection
+		if s.conn != nil {
+			reason := websocket.FormatCloseMessage(websocket.CloseNormalClosure, closeReason(s, force, msg...))
+			s.connMu.Lock()
+			s.conn.WriteControl(websocket.CloseMessage, reason, time.Now().Add(s.config.WriteTimeout))
+			s.conn.Close()
+			s.connMu.Unlock()
+		}
 
-		s.connMu.Lock()
-		_ = s.conn.WriteControl(websocket.CloseMessage, reason, time.Now().Add(s.config.WriteTimeout))
-		_ = s.conn.Close()
-		s.connMu.Unlock()
+		// Notify handler
+		if s.h != nil {
+			s.h.OnSessionClose(s)
+		}
 
-		s.h.OnSessionClose(s)
+		log.Infof("session closed: id=%s, reason=%s", s.id, closeReason(s, force, msg...))
 	})
 	return closed
 }
 
 func closeReason(s *Session, force bool, msg ...string) string {
-	reason := "Normal Close"
+	reason := normalCloseReason
 	if force {
-		reason = "Force Close"
+		reason = forceCloseReason
 	}
 	if len(msg) > 0 {
-		return reason + ": " + strings.Join(msg, "; ")
+		reason += ": " + strings.Join(msg, "; ")
 	}
 	return reason
 }
 
-// 判断错误是否为连接已关闭或断开的错误。
+// isNetworkClosedError checks if error indicates network connection is closed
 func isNetworkClosedError(err error) bool {
 	if err == nil {
 		return false
 	}
-	msg := err.Error()
 
-	return errors.Is(err, errSessionClosed) || // 自定义的 session 已关闭错误
-		// gorilla/websocket 标准的关闭错误码，表示连接关闭流程中的正常状态
-		websocket.IsCloseError(err,
-			websocket.CloseGoingAway,       // 对端关闭连接，例如浏览器关闭页面
-			websocket.CloseNormalClosure,   // 正常关闭
-			websocket.CloseAbnormalClosure, // 异常关闭，但属于关闭流程
-		) ||
-		// 低层网络错误，通常为写操作时对端关闭连接导致
-		strings.Contains(msg, "broken pipe") || // 断开的管道，写时连接断开
-		strings.Contains(msg, "connection reset") || // 连接被重置，通常对端关闭
-		strings.Contains(msg, "use of closed network") || // 使用已关闭的连接
-		strings.Contains(msg, "connection closed") || // 连接关闭
-		strings.Contains(msg, "close sent") || // 已发送关闭帧
-		strings.Contains(msg, "EOF") // 读到文件末尾，连接关闭
+	if errors.Is(err, errSessionClosed) ||
+		websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure, websocket.CloseAbnormalClosure) {
+		return true
+	}
+
+	msg := err.Error()
+	closedMsgs := []string{"broken pipe", "connection reset", "use of closed network", "connection closed", "close sent", "EOF"}
+	for _, closedMsg := range closedMsgs {
+		if strings.Contains(msg, closedMsg) {
+			return true
+		}
+	}
+	return false
 }

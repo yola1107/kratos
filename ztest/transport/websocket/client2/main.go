@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/yola1107/kratos/v2/library/log/zap/conf"
 	"github.com/yola1107/kratos/v2/library/xgo"
 	"github.com/yola1107/kratos/v2/log"
@@ -14,8 +17,6 @@ import (
 	"github.com/yola1107/kratos/v2/transport/websocket"
 	wproto "github.com/yola1107/kratos/v2/transport/websocket/proto"
 	v1 "github.com/yola1107/kratos/v2/ztest/transport/api/helloworld/v1"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/yola1107/kratos/v2/library/log/zap"
 	// "github.com/yola1107/kratos/contrib/registry/etcd/v2"

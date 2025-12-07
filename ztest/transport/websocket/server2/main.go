@@ -11,7 +11,6 @@ import (
 	"github.com/yola1107/kratos/v2/library/log/zap/conf"
 	"github.com/yola1107/kratos/v2/library/work"
 	"github.com/yola1107/kratos/v2/log"
-	"github.com/yola1107/kratos/v2/middleware"
 	"github.com/yola1107/kratos/v2/middleware/ratelimit"
 	"github.com/yola1107/kratos/v2/middleware/recovery"
 	"github.com/yola1107/kratos/v2/transport/grpc"
@@ -137,27 +136,31 @@ func main() {
 
 	wsSrv := websocket.NewServer(
 		websocket.Address(":3102"),
-		websocket.Timeout(time.Second*5),
-		websocket.SentChanSize(1024), // client3压测 是1000个消息
-
+		websocket.Timeout(5*time.Second),
+		websocket.SessionConf(&websocket.SessionConfig{
+			WriteTimeout: 10 * time.Second,
+			PingInterval: 15 * time.Second,
+			ReadDeadline: 60 * time.Second,
+			SendChanSize: 1024, // for client3 stress test
+		}),
 		websocket.Middleware(
 			recovery.Recovery(),
 			// logging.Server(zapLogger),
 			ratelimit.Server(),
-			func(handler middleware.Handler) middleware.Handler {
-				return func(ctx context.Context, req any) (any, error) {
-					// log.Info("<M1>请求开始:")
-					// defer log.Info("<M1>请求结束")
-					return handler(ctx, req)
-				}
-			},
-			func(handler middleware.Handler) middleware.Handler {
-				return func(ctx context.Context, req any) (any, error) {
-					// log.Info("<logging>请求开始:")
-					// defer log.Info("<logging>请求结束:")
-					return handler(ctx, req)
-				}
-			},
+			/* func(handler middleware.Handler) middleware.Handler {
+			       return func(ctx context.Context, req any) (any, error) {
+			           // log.Info("<M1>请求开始:")
+			           // defer log.Info("<M1>请求结束")
+			           return handler(ctx, req)
+			       }
+			   },
+			   func(handler middleware.Handler) middleware.Handler {
+			       return func(ctx context.Context, req any) (any, error) {
+			           // log.Info("<logging>请求开始:")
+			           // defer log.Info("<logging>请求结束:")
+			           return handler(ctx, req)
+			       }
+			   },*/
 		),
 	)
 
