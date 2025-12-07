@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/wire"
+
 	"github.com/yola1107/kratos/v2/library/work"
 	"github.com/yola1107/kratos/v2/log"
 	"github.com/yola1107/kratos/v2/ztest/game/ludo/internal/biz/player"
@@ -54,7 +55,7 @@ func NewUsecase(repo DataRepo, logger log.Logger, c *conf.Room) (*Usecase, func(
 
 	// 初始化顺序：loop -> timer -> Table -> Player -> Robot
 	uc.loop = work.NewLoop(work.WithSize(defaultPendingNum))
-	uc.timer = work.NewWheelScheduler(work.WithContext(ctx), work.WithExecutor(uc.loop))
+	uc.timer = work.NewWheelScheduler(work.WithWheelContext(ctx), work.WithWheelExecutor(uc.loop))
 	uc.tm = table.NewManager(c, uc)
 	uc.pm = player.NewManager()
 	uc.rm = robot.NewManager(c, uc)

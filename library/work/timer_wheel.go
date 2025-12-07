@@ -16,10 +16,10 @@ const (
 	defaultWheelSize          = 128                    // 时间轮默认槽位数
 )
 
-// wheelPreciseEvery 实现精准的周期性定时器，防止时间漂移
+// wheelPreciseEvery 精准周期定时器，防止时间漂移
 type wheelPreciseEvery struct {
 	Interval time.Duration
-	last     atomic.Value // time.Time
+	last     atomic.Value // time.Time，上次执行时间
 }
 
 func (p *wheelPreciseEvery) Next(t time.Time) time.Time {
@@ -40,7 +40,6 @@ func (p *wheelPreciseEvery) Next(t time.Time) time.Time {
 	return next
 }
 
-// WheelSchedulerOption 调度器选项
 type WheelSchedulerOption func(*wheelScheduler)
 
 func WithTick(d time.Duration) WheelSchedulerOption {
@@ -63,12 +62,12 @@ func WithWheelSize(size int64) WheelSchedulerOption {
 	}
 }
 
-func WithContext(ctx context.Context) WheelSchedulerOption {
+func WithWheelContext(ctx context.Context) WheelSchedulerOption {
 	return func(s *wheelScheduler) { s.ctx = ctx }
 }
 
-func WithExecutor(exec IExecutor) WheelSchedulerOption {
-	return func(s *wheelScheduler) { s.executor = exec }
+func WithWheelExecutor(exec IExecutor) WheelSchedulerOption {
+	return func(s *wheelScheduler) { s.baseScheduler.executor = exec }
 }
 
 func WithStopTimeout(timeout time.Duration) WheelSchedulerOption {
@@ -79,31 +78,31 @@ func WithStopTimeout(timeout time.Duration) WheelSchedulerOption {
 	}
 }
 
-// wheelScheduler 定时任务调度器，基于时间轮实现
+// wheelScheduler 基于时间轮的定时任务调度器
 type wheelScheduler struct {
 	baseScheduler                          // 嵌入通用基础功能
-	tick          time.Duration            // 精度
-	wheelSize     int64                    // 槽位
-	tw            *timingwheel.TimingWheel // 时间轮
+	tick          time.Duration            // 时间轮精度
+	wheelSize     int64                    // 时间轮槽位数
+	tw            *timingwheel.TimingWheel // 时间轮实例
 	stopTimeout   time.Duration            // Stop 超时时间
-	tasks         sync.Map                 // map[int64]*wheelTaskEntry
-	nextID        atomic.Int64             // 任务ID递增
-	shutdown      atomic.Bool              // 是否关闭
-	ctx           context.Context
-	cancel        context.CancelFunc
-	wg            sync.WaitGroup
-	once          sync.Once
+	tasks         sync.Map                 // 任务映射，key为任务ID，value为*wheelTaskEntry
+	nextID        atomic.Int64             // 任务ID生成器
+	shutdown      atomic.Bool              // 调度器是否已关闭
+	ctx           context.Context          // 上下文，用于控制调度器生命周期
+	cancel        context.CancelFunc       // 取消函数
+	wg            sync.WaitGroup           // 等待所有任务完成
+	once          sync.Once                // 确保 Stop 只执行一次
 }
 
+// wheelTaskEntry 时间轮调度器任务项
 type wheelTaskEntry struct {
-	timer     *timingwheel.Timer
-	cancelled atomic.Bool
-	repeated  bool
-	executing atomic.Bool
-	task      func()
+	timer     *timingwheel.Timer // 时间轮定时器
+	cancelled atomic.Bool        // 是否已取消
+	repeated  bool               // 是否周期任务
+	executing atomic.Bool        // 是否正在执行
+	task      func()             // 任务函数
 }
 
-// NewWheelScheduler 创建时间轮调度器实例
 func NewWheelScheduler(opts ...WheelSchedulerOption) Scheduler {
 	s := &wheelScheduler{
 		tick:        defaultWheelTickPrecision,
@@ -115,7 +114,7 @@ func NewWheelScheduler(opts ...WheelSchedulerOption) Scheduler {
 		opt(s)
 	}
 
-	if s.executor == nil {
+	if s.baseScheduler.executor == nil {
 		log.Warn("[wheelScheduler] No executor provided, tasks will run in unlimited goroutines")
 	}
 
@@ -144,34 +143,29 @@ func (s *wheelScheduler) Running() int32 {
 
 func (s *wheelScheduler) Monitor() Monitor {
 	return Monitor{
-		Capacity: 0, // 时间轮调度器不提供容量信息
+		Capacity: 0,
 		Len:      s.Len(),
 		Running:  s.Running(),
 	}
 }
 
-// Once 注册一次性任务
 func (s *wheelScheduler) Once(delay time.Duration, f func()) int64 {
 	return s.schedule(delay, false, f)
 }
 
-// Forever 注册周期任务
 func (s *wheelScheduler) Forever(interval time.Duration, f func()) int64 {
 	return s.schedule(interval, true, f)
 }
 
-// ForeverNow 注册周期任务并立即执行一次
 func (s *wheelScheduler) ForeverNow(interval time.Duration, f func()) int64 {
-	s.executeAsync(f)
+	s.baseScheduler.executeAsync(f)
 	return s.schedule(interval, true, f)
 }
 
-// Cancel 取消指定任务
 func (s *wheelScheduler) Cancel(taskID int64) {
 	s.removeTask(taskID)
 }
 
-// CancelAll 取消所有任务
 func (s *wheelScheduler) CancelAll() {
 	s.tasks.Range(func(key, _ any) bool {
 		s.removeTask(key.(int64))
@@ -186,12 +180,10 @@ func (s *wheelScheduler) removeTask(taskID int64) {
 	}
 	entry := val.(*wheelTaskEntry)
 
-	// 标记为取消
 	if !entry.cancelled.CompareAndSwap(false, true) {
 		return
 	}
 
-	// 停止 timer
 	if entry.timer != nil {
 		entry.timer.Stop()
 		entry.timer = nil
@@ -206,14 +198,12 @@ func (s *wheelScheduler) removeTask(taskID int64) {
 	entry.task = nil
 }
 
-// Stop 停止调度器，等待正在执行任务完成
 func (s *wheelScheduler) Stop() {
 	s.once.Do(func() {
 		s.shutdown.Store(true)
 		s.cancel()
 		s.CancelAll()
 
-		// 等待任务完成
 		done := make(chan struct{})
 		go func() {
 			s.wg.Wait()
@@ -229,39 +219,34 @@ func (s *wheelScheduler) Stop() {
 		case <-done:
 			log.Info("[wheelScheduler] stopped gracefully")
 		case <-time.After(timeout):
-			log.Warnf("[wheelScheduler] shutdown timed out after %v, some tasks may still be running", timeout)
+			log.Warnf("[wheelScheduler] shutdown timed out after %v", timeout)
 		}
 	})
 }
 
-// schedule 注册任务
 func (s *wheelScheduler) schedule(delay time.Duration, repeated bool, f func()) int64 {
 	if s.shutdown.Load() || s.ctx.Err() != nil {
-		log.Warn("wheelScheduler is shut down; task rejected")
+		log.Warn("[wheelScheduler] is shut down; task rejected")
 		return -1
 	}
 
 	taskID := s.nextID.Add(1)
 	entry := &wheelTaskEntry{repeated: repeated, task: f}
-	s.tasks.Store(taskID, entry) // 先存储到 map，防止 timer 先触发 wrapped 导致 removeTask 找不到
+	s.tasks.Store(taskID, entry)
 	startAt := time.Now()
 
 	wrapped := func() {
 		wrappedAt := time.Now()
-
-		// 检查取消状态
 		if entry.cancelled.Load() {
 			return
 		}
-
-		// 仅对一次性任务防止重复执行
 		if !repeated && !entry.executing.CompareAndSwap(false, true) {
 			return
 		}
 		s.incrementRunning()
 		s.wg.Add(1)
 
-		s.executeAsync(func() {
+		s.baseScheduler.executeAsync(func() {
 			execAt := time.Now()
 			defer func() {
 				RecoverFromError(nil)
@@ -290,11 +275,6 @@ func (s *wheelScheduler) schedule(delay time.Duration, repeated bool, f func()) 
 	return taskID
 }
 
-func (s *wheelScheduler) executeAsync(f func()) {
-	s.baseScheduler.executeAsync(f)
-}
-
-// log debug
 func (s *wheelScheduler) lazy(taskID int64, delay time.Duration, startAt, execAt, wrappedAt time.Time) {
 	now := time.Now()
 	lazy := now.Sub(startAt)
@@ -303,7 +283,6 @@ func (s *wheelScheduler) lazy(taskID int64, delay time.Duration, startAt, execAt
 	if latency >= s.tick {
 		exec, wrapped := now.Sub(execAt), now.Sub(wrappedAt)
 		log.Errorf("[wheelScheduler] taskID=%d delay=%v precision=%v lazy=%v latency=%v exec=%+v wrap=%+v",
-			taskID, delay, s.tick, lazy, latency, exec, wrapped-exec,
-		)
+			taskID, delay, s.tick, lazy, latency, exec, wrapped-exec)
 	}
 }

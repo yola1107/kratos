@@ -36,7 +36,7 @@ func createScheduler(b *testing.B, timeout time.Duration) (context.Context, cont
 	loop := newMockExecutor(size)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	timer := NewWheelScheduler(WithExecutor(loop), WithContext(ctx))
+	timer := NewWheelScheduler(WithWheelExecutor(loop), WithWheelContext(ctx))
 
 	return ctx, cancel, &mockScheduler{
 		Context:       ctx,

@@ -14,7 +14,7 @@ const (
 	defaultHeapTickPrecision = 100 * time.Millisecond // 默认调度循环精度（堆实现）
 )
 
-// heapTaskEntry 堆调度器任务结构体
+// heapTaskEntry 堆调度器任务项
 type heapTaskEntry struct {
 	id        int64         // 任务ID
 	execAt    time.Time     // 下一次执行时间
@@ -25,14 +25,13 @@ type heapTaskEntry struct {
 	index     int           // 堆索引，用于从堆中删除
 }
 
-// taskQueue 小顶堆heap + map
+// taskQueue 任务队列，使用最小堆管理定时任务
 type taskQueue struct {
-	mu    sync.Mutex
-	heap  []*heapTaskEntry         // 最小堆，根据 execAt 排序
-	tasks map[int64]*heapTaskEntry // 任务映射
+	mu    sync.Mutex               // 保护并发访问
+	heap  []*heapTaskEntry         // 最小堆，按执行时间排序
+	tasks map[int64]*heapTaskEntry // 任务ID到任务的映射，用于快速查找
 }
 
-// newTaskQueue 创建优先任务队列
 func newTaskQueue() *taskQueue {
 	return &taskQueue{
 		heap:  make([]*heapTaskEntry, 0),
@@ -40,7 +39,7 @@ func newTaskQueue() *taskQueue {
 	}
 }
 
-// Len heap 接口实现
+// 实现 heap.Interface
 func (q *taskQueue) Len() int { return len(q.heap) }
 func (q *taskQueue) Less(i, j int) bool {
 	return q.heap[i].execAt.Before(q.heap[j].execAt)
@@ -50,15 +49,11 @@ func (q *taskQueue) Swap(i, j int) {
 	q.heap[i].index = i
 	q.heap[j].index = j
 }
-
-// Push heap 接口实现
 func (q *taskQueue) Push(x any) {
 	t := x.(*heapTaskEntry)
 	t.index = len(q.heap)
 	q.heap = append(q.heap, t)
 }
-
-// Pop heap 接口实现
 func (q *taskQueue) Pop() any {
 	n := len(q.heap)
 	t := q.heap[n-1]
@@ -67,28 +62,15 @@ func (q *taskQueue) Pop() any {
 	return t
 }
 
-// AddTask 新增任务并入堆，返回是否需要唤醒循环
-func (q *taskQueue) AddTask(t *heapTaskEntry) (needWake bool) {
+func (q *taskQueue) AddTask(t *heapTaskEntry) bool {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	q.tasks[t.id] = t
-
-	// 判断是否比堆顶任务更早
-	earliest := time.Time{}
-	if len(q.heap) > 0 {
-		earliest = q.heap[0].execAt
-	}
-
+	needWake := len(q.heap) == 0 || t.execAt.Before(q.heap[0].execAt)
 	heap.Push(q, t)
-
-	// 只有新任务更早或堆为空才唤醒
-	if earliest.IsZero() || t.execAt.Before(earliest) {
-		return true
-	}
-	return false
+	return needWake
 }
 
-// PopExpired 弹出所有到期任务
 func (q *taskQueue) PopExpired(now time.Time) []*heapTaskEntry {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -103,7 +85,6 @@ func (q *taskQueue) PopExpired(now time.Time) []*heapTaskEntry {
 	return expired
 }
 
-// RemoveTask 取消任务
 func (q *taskQueue) RemoveTask(taskID int64) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -111,123 +92,108 @@ func (q *taskQueue) RemoveTask(taskID int64) {
 	if !ok {
 		return
 	}
+	// 只标记为取消，不立即清空 task，避免正在执行的任务 panic
 	t.cancelled.Store(true)
-	t.task = nil // 释放任务函数引用，避免内存泄漏
 	delete(q.tasks, taskID)
 	if t.index >= 0 && t.index < len(q.heap) {
 		heap.Remove(q, t.index)
 	}
 }
 
-// TaskCount 返回当前任务数量
 func (q *taskQueue) TaskCount() int {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	return len(q.tasks)
 }
 
-// NextExecDuration 获取下一个任务间隔
 func (q *taskQueue) NextExecDuration(now time.Time) time.Duration {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	if len(q.heap) == 0 {
 		return time.Hour
 	}
-	d := q.heap[0].execAt.Sub(now)
-	if d < 0 {
-		return 0
+	if d := q.heap[0].execAt.Sub(now); d > 0 {
+		return d
 	}
-	return d
+	return 0
 }
 
-// HeapSchedulerOption 堆调度器选项
 type HeapSchedulerOption func(*heapScheduler)
 
-// WithHeapExecutor 设置自定义执行器（堆调度器）
 func WithHeapExecutor(exec IExecutor) HeapSchedulerOption {
-	return func(s *heapScheduler) { s.executor = exec }
+	return func(s *heapScheduler) { s.baseScheduler.executor = exec }
 }
 
-// WithHeapContext 设置上下文（堆调度器）
 func WithHeapContext(ctx context.Context) HeapSchedulerOption {
 	return func(s *heapScheduler) { s.ctx = ctx }
 }
 
 // heapScheduler 基于最小堆的定时任务调度器
 type heapScheduler struct {
-	executor IExecutor          // 可选自定义执行器
-	queue    *taskQueue         // 小顶堆
-	nextID   atomic.Int64       // 任务ID递增
-	running  atomic.Int32       // 当前执行任务数
-	shutdown atomic.Bool        // 调度器是否关闭
-	timer    *time.Timer        // 复用timer
-	ctx      context.Context    //
-	cancel   context.CancelFunc //
-	wg       sync.WaitGroup     //
-	wakeup   chan struct{}      // 唤醒循环的新任务信号
+	baseScheduler                    // 嵌入通用基础功能
+	queue         *taskQueue         // 任务队列
+	nextID        atomic.Int64       // 任务ID生成器
+	shutdown      atomic.Bool        // 调度器是否已关闭
+	timer         *time.Timer        // 定时器，用于等待下一个任务
+	ctx           context.Context    // 上下文，用于控制调度器生命周期
+	cancel        context.CancelFunc // 取消函数
+	wg            sync.WaitGroup     // 等待所有任务完成
+	wakeup        chan struct{}      // 唤醒信号通道，用于新任务唤醒循环
 }
 
-// NewHeapScheduler 创建基于最小堆的调度器实例
 func NewHeapScheduler(opts ...HeapSchedulerOption) Scheduler {
 	s := &heapScheduler{
 		queue:  newTaskQueue(),
 		wakeup: make(chan struct{}, 1),
 		ctx:    context.Background(),
 	}
-	// 应用选项
 	for _, opt := range opts {
 		opt(s)
 	}
 	s.ctx, s.cancel = context.WithCancel(s.ctx)
 	s.timer = time.NewTimer(time.Hour)
-	if !s.timer.Stop() {
-		select {
-		case <-s.timer.C:
-		default:
-		}
-	}
+	s.timer.Stop() // 立即停止，等待首次 Reset
 	go s.loop()
 	return s
 }
 
-// loop 主循环，按堆顶任务时间执行任务
 func (s *heapScheduler) loop() {
 	defer RecoverFromError(func(e any) { go s.loop() })
 	for {
-		now := time.Now()
-		expired := s.queue.PopExpired(now)
-
-		// 异步执行到期任务
+		expired := s.queue.PopExpired(time.Now())
 		for _, t := range expired {
-			s.running.Add(1)
+			// 先保存任务函数，避免在异步执行时访问可能被修改的字段
+			taskFn := t.task
+			if taskFn == nil {
+				continue
+			}
+
+			s.incrementRunning()
 			s.wg.Add(1)
 			task := t
-			s.executeAsync(func() {
+			s.baseScheduler.executeAsync(func() {
 				defer func() {
 					RecoverFromError(nil)
-					s.running.Add(-1)
+					s.decrementRunning()
 					s.wg.Done()
 				}()
-				task.task()
+				// 执行前再次检查是否已取消
+				if !task.cancelled.Load() {
+					taskFn()
+				}
 			})
 
-			// 周期任务重新入队
+			// 周期任务重新入队（需要加锁保护，避免与 CancelAll 竞争）
 			if task.repeated && !task.cancelled.Load() {
 				task.execAt = task.execAt.Add(task.interval)
-				if s.queue.AddTask(task) {
-					s.signalWakeup() // 仅在新任务更早时唤醒
+				// 重新入队前再次检查，避免在计算新时间时被取消
+				if !task.cancelled.Load() && s.queue.AddTask(task) {
+					s.wakeupLoop()
 				}
 			}
 		}
 
-		wait := s.queue.NextExecDuration(time.Now())
-		if !s.timer.Stop() {
-			select {
-			case <-s.timer.C:
-			default:
-			}
-		}
-		s.timer.Reset(wait)
+		s.resetTimer(s.queue.NextExecDuration(time.Now()))
 
 		select {
 		case <-s.timer.C:
@@ -238,13 +204,8 @@ func (s *heapScheduler) loop() {
 	}
 }
 
-// Len 当前任务数量
-func (s *heapScheduler) Len() int { return s.queue.TaskCount() }
-
-// Running 当前执行任务数量
-func (s *heapScheduler) Running() int32 { return s.running.Load() }
-
-// Monitor 获取任务池状态
+func (s *heapScheduler) Len() int       { return s.queue.TaskCount() }
+func (s *heapScheduler) Running() int32 { return s.getRunning() }
 func (s *heapScheduler) Monitor() Monitor {
 	s.queue.mu.Lock()
 	defer s.queue.mu.Unlock()
@@ -255,42 +216,36 @@ func (s *heapScheduler) Monitor() Monitor {
 	}
 }
 
-// Once 注册一次性任务
 func (s *heapScheduler) Once(delay time.Duration, f func()) int64 {
 	return s.schedule(delay, false, f)
 }
 
-// Forever 注册周期任务
 func (s *heapScheduler) Forever(interval time.Duration, f func()) int64 {
 	return s.schedule(interval, true, f)
 }
 
-// ForeverNow 注册周期任务并立即执行一次
 func (s *heapScheduler) ForeverNow(interval time.Duration, f func()) int64 {
-	s.executeAsync(f)
+	s.baseScheduler.executeAsync(f)
 	return s.schedule(interval, true, f)
 }
 
-// Cancel 取消任务
 func (s *heapScheduler) Cancel(taskID int64) {
 	s.queue.RemoveTask(taskID)
-	s.signalWakeup()
+	s.wakeupLoop()
 }
 
-// CancelAll 取消所有任务
 func (s *heapScheduler) CancelAll() {
 	s.queue.mu.Lock()
 	defer s.queue.mu.Unlock()
+	// 先标记所有任务为取消，不立即清空 task，避免正在执行的任务 panic
 	for _, t := range s.queue.tasks {
 		t.cancelled.Store(true)
-		t.task = nil // 释放函数引用
 	}
 	s.queue.heap = []*heapTaskEntry{}
 	s.queue.tasks = make(map[int64]*heapTaskEntry)
-	s.signalWakeup()
+	s.wakeupLoop()
 }
 
-// Stop 停止调度器
 func (s *heapScheduler) Stop() {
 	if !s.shutdown.CompareAndSwap(false, true) {
 		return
@@ -305,14 +260,13 @@ func (s *heapScheduler) Stop() {
 	select {
 	case <-done:
 	case <-time.After(500 * time.Millisecond):
-		log.Warn("wheelScheduler shutdown timed out, some tasks may still be running")
+		log.Warn("[heapScheduler] shutdown timed out")
 	}
 }
 
-// schedule 注册任务
 func (s *heapScheduler) schedule(delay time.Duration, repeated bool, f func()) int64 {
 	if s.shutdown.Load() || s.ctx.Err() != nil {
-		log.Warn("wheelScheduler is shut down; task rejected")
+		log.Warn("[heapScheduler] is shut down; task rejected")
 		return -1
 	}
 	taskID := s.nextID.Add(1)
@@ -324,28 +278,24 @@ func (s *heapScheduler) schedule(delay time.Duration, repeated bool, f func()) i
 		task:     f,
 	}
 	if s.queue.AddTask(t) {
-		s.signalWakeup() // 仅必要时唤醒
+		s.wakeupLoop()
 	}
 	return taskID
 }
 
-// executeAsync 异步执行任务
-func (s *heapScheduler) executeAsync(f func()) {
-	wrapped := func() {
-		defer RecoverFromError(nil)
-		f()
-	}
-	if s.executor != nil {
-		s.executor.Post(wrapped)
-	} else {
-		go wrapped()
-	}
-}
-
-// signalWakeup 发送唤醒信号
-func (s *heapScheduler) signalWakeup() {
+func (s *heapScheduler) wakeupLoop() {
 	select {
 	case s.wakeup <- struct{}{}:
 	default:
 	}
+}
+
+func (s *heapScheduler) resetTimer(d time.Duration) {
+	if !s.timer.Stop() {
+		select {
+		case <-s.timer.C:
+		default:
+		}
+	}
+	s.timer.Reset(d)
 }

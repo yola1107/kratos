@@ -30,8 +30,8 @@ func NewRunner(conf *LoadTest, logger *zap.Logger) *Runner {
 	ctx, cancel := context.WithCancel(context.Background())
 	loop := work.NewLoop(work.WithSize(10000))
 	timer := work.NewWheelScheduler(
-		work.WithContext(ctx),
-		work.WithExecutor(loop),
+		work.WithWheelContext(ctx),
+		work.WithWheelExecutor(loop),
 	)
 	r := &Runner{
 		loop:   loop,
