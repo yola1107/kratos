@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	defaultHeapTickPrecision = 100 * time.Millisecond // 默认调度循环精度（堆实现）
+	defaultHeapTickPrecision = 100 * time.Millisecond // 堆调度器默认精度
 )
 
 // heapTaskEntry 堆调度器任务结构体
@@ -297,6 +297,8 @@ func (s *heapScheduler) Stop() {
 	}
 	s.cancel()
 	s.CancelAll()
+
+	// 等待正在执行的任务完成，最多等待500ms
 	done := make(chan struct{})
 	go func() {
 		s.wg.Wait()
@@ -305,7 +307,7 @@ func (s *heapScheduler) Stop() {
 	select {
 	case <-done:
 	case <-time.After(500 * time.Millisecond):
-		log.Warn("wheelScheduler shutdown timed out, some tasks may still be running")
+		log.Warn("[heapScheduler] shutdown timed out, some tasks may still be running")
 	}
 }
 
@@ -331,15 +333,7 @@ func (s *heapScheduler) schedule(delay time.Duration, repeated bool, f func()) i
 
 // executeAsync 异步执行任务
 func (s *heapScheduler) executeAsync(f func()) {
-	wrapped := func() {
-		defer RecoverFromError(nil)
-		f()
-	}
-	if s.executor != nil {
-		s.executor.Post(wrapped)
-	} else {
-		go wrapped()
-	}
+	ExecuteAsync(s.executor, f)
 }
 
 // signalWakeup 发送唤醒信号

@@ -46,3 +46,28 @@ func RecoverFromError(cb func(e any)) {
 		}
 	}
 }
+
+// --- 默认调度器实现 ---
+
+// goroutineExecutor 简单的 go 协程执行器
+type goroutineExecutor struct{}
+
+func (g *goroutineExecutor) Post(job func()) {
+	go func() {
+		defer RecoverFromError(nil)
+		job()
+	}()
+}
+
+// ExecuteAsync 通用异步任务执行函数
+func ExecuteAsync(executor IExecutor, f func()) {
+	run := func() {
+		defer RecoverFromError(nil)
+		f()
+	}
+	if executor != nil {
+		executor.Post(run)
+	} else {
+		go run()
+	}
+}

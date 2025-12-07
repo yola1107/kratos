@@ -46,8 +46,8 @@ func createScheduler(b *testing.B, timeout time.Duration) (context.Context, cont
 	}
 }
 
-func taskDelay(i int) time.Duration {
-	return defaultTickPrecision + time.Duration(i%3)*defaultTickPrecision
+func wheelTaskDelay(i int) time.Duration {
+	return defaultWheelTickPrecision + time.Duration(i%3)*defaultWheelTickPrecision
 }
 
 // --- Benchmark 1: Once tasks
@@ -62,7 +62,7 @@ func BenchmarkOnceTasks(b *testing.B) {
 	target := int64(b.N)
 
 	for i := 0; i < b.N; i++ {
-		delay := taskDelay(i)
+		delay := wheelTaskDelay(i)
 		scheduler.Once(delay, func() {
 			if atomic.AddInt64(&counter, 1) == target {
 				onceClose.Do(func() { close(done) })
@@ -93,7 +93,7 @@ func BenchmarkForeverTasks(b *testing.B) {
 	target := int64(b.N)
 
 	for i := 0; i < b.N; i++ {
-		delay := taskDelay(i)
+		delay := wheelTaskDelay(i)
 		scheduler.Forever(delay, func() {
 			if atomic.AddInt64(&counter, 1) == target {
 				onceClose.Do(func() { close(done) })
@@ -124,8 +124,8 @@ func BenchmarkMixedTasks(b *testing.B) {
 	n := b.N
 
 	for i := 0; i < n; i++ {
-		onceDelay := taskDelay(i)
-		foreverDelay := defaultTickPrecision + time.Duration(i%5)*defaultTickPrecision
+		onceDelay := wheelTaskDelay(i)
+		foreverDelay := defaultWheelTickPrecision + time.Duration(i%5)*defaultWheelTickPrecision
 
 		scheduler.Once(onceDelay, func() {
 			atomic.AddInt64(&onceCounter, 1)
@@ -170,7 +170,7 @@ func BenchmarkSchedulerPrecision(b *testing.B) {
 	startTime := time.Now()
 
 	for i := 0; i < totalTasks; i++ {
-		delay := taskDelay(i)
+		delay := wheelTaskDelay(i)
 		expect := startTime.Add(delay)
 
 		scheduler.Once(delay, func() {

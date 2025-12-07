@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
 	"github.com/yola1107/kratos/v2/log"
 )
 
@@ -152,10 +153,10 @@ func TestTaskScheduler_BasicOperations(t *testing.T) {
 
 	t.Run("Once task executes", func(t *testing.T) {
 		done := make(chan struct{})
-		scheduler.Once(defaultTickPrecision, func() {
+		scheduler.Once(defaultWheelTickPrecision, func() {
 			close(done)
 		})
-		waitForChannel(t, done, defaultTickPrecision*2, "Once task did not execute")
+		waitForChannel(t, done, defaultWheelTickPrecision*2, "Once task did not execute")
 	})
 
 	t.Run("Forever task repeats", func(t *testing.T) {
@@ -165,7 +166,7 @@ func TestTaskScheduler_BasicOperations(t *testing.T) {
 		var count atomic.Int32
 		done := make(chan struct{})
 
-		id := scheduler.Forever(defaultTickPrecision, func() {
+		id := scheduler.Forever(defaultWheelTickPrecision, func() {
 			current := count.Add(1)
 			t.Logf("Task executed | Count: %d | Elapsed: %v", current, time.Since(start))
 
@@ -174,7 +175,7 @@ func TestTaskScheduler_BasicOperations(t *testing.T) {
 			}
 		})
 
-		waitForChannel(t, done, defaultTickPrecision*5, "Forever task timed out")
+		waitForChannel(t, done, defaultWheelTickPrecision*5, "Forever task timed out")
 		require.GreaterOrEqual(t, count.Load(), int32(3), "Expected at least 3 executions")
 
 		// Test cancellation
@@ -182,7 +183,7 @@ func TestTaskScheduler_BasicOperations(t *testing.T) {
 		scheduler.Cancel(id)
 
 		prev := count.Load()
-		time.Sleep(defaultTickPrecision * 2)
+		time.Sleep(defaultWheelTickPrecision * 2)
 		require.Equal(t, prev, count.Load(), "Task continued after cancellation")
 	})
 
@@ -190,13 +191,13 @@ func TestTaskScheduler_BasicOperations(t *testing.T) {
 		start := time.Now()
 		first := make(chan struct{})
 
-		id := scheduler.ForeverNow(defaultTickPrecision, func() {
-			if time.Since(start) < defaultTickPrecision {
+		id := scheduler.ForeverNow(defaultWheelTickPrecision, func() {
+			if time.Since(start) < defaultWheelTickPrecision {
 				close(first)
 			}
 		})
 
-		waitForChannel(t, first, defaultTickPrecision*2, "ForeverNow did not execute immediately")
+		waitForChannel(t, first, defaultWheelTickPrecision*2, "ForeverNow did not execute immediately")
 		scheduler.Cancel(id)
 	})
 }
@@ -211,11 +212,11 @@ func TestTaskScheduler_Cancellation(t *testing.T) {
 
 	t.Run("Cancel single task", func(t *testing.T) {
 		var executed atomic.Bool
-		id := scheduler.Once(defaultTickPrecision, func() {
+		id := scheduler.Once(defaultWheelTickPrecision, func() {
 			executed.Store(true)
 		})
 		scheduler.Cancel(id)
-		time.Sleep(defaultTickPrecision * 2)
+		time.Sleep(defaultWheelTickPrecision * 2)
 		require.False(t, executed.Load(), "Cancelled task was executed")
 	})
 
@@ -223,12 +224,12 @@ func TestTaskScheduler_Cancellation(t *testing.T) {
 		const taskCount = 5
 		var executed atomic.Int32
 		for i := 0; i < taskCount; i++ {
-			scheduler.Once(defaultTickPrecision, func() {
+			scheduler.Once(defaultWheelTickPrecision, func() {
 				executed.Add(1)
 			})
 		}
 		scheduler.CancelAll()
-		time.Sleep(defaultTickPrecision * 2)
+		time.Sleep(defaultWheelTickPrecision * 2)
 		require.Zero(t, executed.Load(), "Expected 0 executions after CancelAll")
 	})
 }
@@ -240,17 +241,17 @@ func TestTaskScheduler_Stop(t *testing.T) {
 	executor := newMockExecutor()
 	scheduler := NewWheelScheduler(WithExecutor(executor), WithContext(ctx))
 
-	scheduler.Once(defaultTickPrecision, func() { t.Error("Once task executed after shutdown") })
-	scheduler.Forever(defaultTickPrecision, func() { t.Error("Forever task executed after shutdown") })
+	scheduler.Once(defaultWheelTickPrecision, func() { t.Error("Once task executed after shutdown") })
+	scheduler.Forever(defaultWheelTickPrecision, func() { t.Error("Forever task executed after shutdown") })
 
 	scheduler.Stop()
 
-	id := scheduler.Once(defaultTickPrecision, func() {
+	id := scheduler.Once(defaultWheelTickPrecision, func() {
 		t.Error("New task executed after Stop")
 	})
 	require.Equal(t, int64(-1), id, "Expected -1 when scheduling after shutdown")
 
-	time.Sleep(defaultTickPrecision * 3)
+	time.Sleep(defaultWheelTickPrecision * 3)
 }
 
 func TestTaskScheduler_PanicRecovery(t *testing.T) {
@@ -263,17 +264,17 @@ func TestTaskScheduler_PanicRecovery(t *testing.T) {
 
 	t.Run("Recover from panic in Once task", func(t *testing.T) {
 		done := make(chan struct{})
-		scheduler.Once(defaultTickPrecision, func() {
+		scheduler.Once(defaultWheelTickPrecision, func() {
 			defer close(done)
 			panic("test panic")
 		})
-		waitForChannel(t, done, defaultTickPrecision*2, "Task did not execute")
+		waitForChannel(t, done, defaultWheelTickPrecision*2, "Task did not execute")
 	})
 
 	t.Run("Recover from panic in Forever task", func(t *testing.T) {
 		done := make(chan struct{})
 		var count atomic.Int32
-		id := scheduler.Forever(defaultTickPrecision, func() {
+		id := scheduler.Forever(defaultWheelTickPrecision, func() {
 			defer func() {
 				if r := recover(); r != nil {
 					t.Logf("Recovered from panic: %v", r)
@@ -285,7 +286,7 @@ func TestTaskScheduler_PanicRecovery(t *testing.T) {
 			count.Add(1)
 			panic("periodic panic")
 		})
-		waitForChannel(t, done, defaultTickPrecision*5, "Forever task timed out")
+		waitForChannel(t, done, defaultWheelTickPrecision*5, "Forever task timed out")
 		scheduler.Cancel(id)
 		require.GreaterOrEqual(t, count.Load(), int32(2), "Task should have executed multiple times")
 	})
@@ -299,12 +300,12 @@ func TestTaskScheduler_ContextCancel(t *testing.T) {
 
 	t.Run("Context cancel stops wheelScheduler", func(t *testing.T) {
 		var executed atomic.Bool
-		scheduler.Once(defaultTickPrecision, func() {
+		scheduler.Once(defaultWheelTickPrecision, func() {
 			executed.Store(true)
 		})
 
 		cancel()
-		time.Sleep(defaultTickPrecision * 3)
+		time.Sleep(defaultWheelTickPrecision * 3)
 		require.False(t, executed.Load(), "Task should not execute after context cancel")
 	})
 }
@@ -339,7 +340,7 @@ func TestTaskScheduler_TaskIDSequence_WithCancel(t *testing.T) {
 
 	for i := 0; i < count; i++ {
 		tk := &task{done: make(chan struct{})}
-		tk.id = scheduler.Once(defaultTickPrecision*2+time.Duration(i)*defaultTickPrecision, func() {
+		tk.id = scheduler.Once(defaultWheelTickPrecision*2+time.Duration(i)*defaultWheelTickPrecision, func() {
 			defer close(tk.done)
 			tk.triggered.Store(true)
 			t.Logf("任务 #%d 执行，taskID=%d", i, tk.id)
@@ -361,7 +362,7 @@ func TestTaskScheduler_TaskIDSequence_WithCancel(t *testing.T) {
 	}
 
 	t11 := &task{done: make(chan struct{})}
-	t11.id = scheduler.Once(defaultTickPrecision*5, func() {
+	t11.id = scheduler.Once(defaultWheelTickPrecision*5, func() {
 		defer close(t11.done)
 		t11.triggered.Store(true)
 		t.Logf("新任务执行，taskID=%d", t11.id)
@@ -369,7 +370,7 @@ func TestTaskScheduler_TaskIDSequence_WithCancel(t *testing.T) {
 	tasks = append(tasks, t11)
 	t.Logf("注册新任务, taskID=%d", t11.id)
 
-	timeout := time.After(defaultTickPrecision * 30)
+	timeout := time.After(defaultWheelTickPrecision * 30)
 	for i, ta := range tasks {
 		if i == cancelIdx || i == cancelEarlyIdx {
 			continue
@@ -415,7 +416,7 @@ func TestTaskScheduler_TaskIDSequence(t *testing.T) {
 	prevID := int64(0)
 	for i := 1; i <= 5; i++ {
 		i := i // fix closure capture
-		id := scheduler.Once(defaultTickPrecision/2, func() {
+		id := scheduler.Once(defaultWheelTickPrecision/2, func() {
 			t.Logf("exec %d", i)
 		})
 		t.Logf("注册任务 #%d, taskID=%d", i, id)
@@ -423,7 +424,7 @@ func TestTaskScheduler_TaskIDSequence(t *testing.T) {
 		prevID = id
 	}
 
-	time.Sleep(defaultTickPrecision * 2)
+	time.Sleep(defaultWheelTickPrecision * 2)
 
 	format := "2006-01-02 15:04:05.000"
 	t.Logf("start at: %v", time.Now().Format(format))
@@ -441,5 +442,5 @@ func TestTaskScheduler_TaskIDSequence(t *testing.T) {
 		t.Errorf("fast exec not triggered in time")
 	}
 
-	time.Sleep(defaultTickPrecision * 3)
+	time.Sleep(defaultWheelTickPrecision * 3)
 }

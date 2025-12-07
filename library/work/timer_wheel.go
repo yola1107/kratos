@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	defaultTickPrecision = 500 * time.Millisecond // 默认调度循环精度（时间轮实现）
-	defaultWheelSize     = 128                    // 默认时间轮槽位
+	defaultWheelTickPrecision = 500 * time.Millisecond // 时间轮调度器默认精度
+	defaultWheelSize          = 128                    // 时间轮默认槽位数
 )
 
 // wheelPreciseEvery 实现精准的周期性定时器，防止时间漂移
@@ -48,7 +48,7 @@ func WithTick(d time.Duration) WheelSchedulerOption {
 		if d > 0 {
 			s.tick = d
 		} else {
-			log.Warnf("Invalid tick %v, using default %v", d, defaultTickPrecision)
+			log.Warnf("Invalid tick %v, using default %v", d, defaultWheelTickPrecision)
 		}
 	}
 }
@@ -107,7 +107,7 @@ type wheelTaskEntry struct {
 // NewWheelScheduler 创建时间轮调度器实例
 func NewWheelScheduler(opts ...WheelSchedulerOption) Scheduler {
 	s := &wheelScheduler{
-		tick:        defaultTickPrecision,
+		tick:        defaultWheelTickPrecision,
 		wheelSize:   defaultWheelSize,
 		ctx:         context.Background(),
 		stopTimeout: 3 * time.Second, // 默认超时 3 秒
@@ -214,6 +214,7 @@ func (s *wheelScheduler) Stop() {
 		s.cancel()
 		s.CancelAll()
 
+		// 等待任务完成
 		done := make(chan struct{})
 		go func() {
 			s.wg.Wait()
@@ -291,15 +292,7 @@ func (s *wheelScheduler) schedule(delay time.Duration, repeated bool, f func()) 
 }
 
 func (s *wheelScheduler) executeAsync(f func()) {
-	run := func() {
-		defer RecoverFromError(nil)
-		f()
-	}
-	if s.executor != nil {
-		s.executor.Post(run)
-	} else {
-		go run()
-	}
+	ExecuteAsync(s.executor, f)
 }
 
 // log debug
