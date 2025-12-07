@@ -31,6 +31,7 @@ var (
 	conns    = flag.Int("c", defaultConns, "Number of concurrent connections")
 	totalMsg = flag.Int("n", defaultMsgCount, "Total messages per connection")
 	batch    = flag.Int("b", defaultBatch, "Connections per batch")
+	verbose  = flag.Bool("v", false, "Enable verbose logging")
 )
 
 // GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o client main.go
@@ -38,6 +39,10 @@ var (
 
 func main() {
 	flag.Parse()
+
+	if *conns <= 0 || *totalMsg <= 0 {
+		log.Fatal("Invalid parameters: connections and messages must be > 0")
+	}
 
 	var (
 		successCount int64
@@ -47,10 +52,26 @@ func main() {
 	)
 
 	start := time.Now()
-	log.Printf("Starting pressure test: %d conns * %d msg/conn = %d total\n",
-		*conns, *totalMsg, *conns**totalMsg)
+	totalMessages := *conns * *totalMsg
+	log.Printf("Starting WebSocket stress test:")
+	log.Printf("  URL: %s", *url)
+	log.Printf("  Connections: %d", *conns)
+	log.Printf("  Messages per connection: %d", *totalMsg)
+	log.Printf("  Total messages: %d", totalMessages)
+	log.Printf("  Batch size: %d", *batch)
 
 	// Create connections in batches
+	progressTicker := time.NewTicker(1 * time.Second)
+	defer progressTicker.Stop()
+	go func() {
+		for range progressTicker.C {
+			connCount := atomic.LoadInt64(&successConn)
+			msgCount := atomic.LoadInt64(&successCount)
+			log.Printf("Progress: %d/%d connections, %d messages sent",
+				connCount, *conns, msgCount)
+		}
+	}()
+
 	for i := 0; i < *conns; i++ {
 		if i%*batch == 0 {
 			time.Sleep(batchDelay)
@@ -59,21 +80,42 @@ func main() {
 
 		go func(id int) {
 			defer wg.Done()
-			if err := handleConnection(id, &successConn, &connectFail, &successCount); err != nil {
+			if err := handleConnection(id, &successConn, &connectFail, &successCount); err != nil && *verbose {
 				log.Printf("conn[%d] failed: %v", id, err)
 			}
 		}(i)
 	}
 
 	wg.Wait()
+	progressTicker.Stop()
 	elapsed := time.Since(start)
 
-	log.Println("========== Result ==========")
-	log.Printf("Connected successfully: %d / %d", successConn, *conns)
-	log.Printf("Connection failures: %d", connectFail)
-	log.Printf("Total messages sent: %d", successCount)
-	log.Printf("Total time: %v", elapsed)
-	log.Printf("QPS: %.2f", float64(successCount)/elapsed.Seconds())
+	// Calculate statistics
+	connSuccess := atomic.LoadInt64(&successConn)
+	connFail := atomic.LoadInt64(&connectFail)
+	msgSent := atomic.LoadInt64(&successCount)
+	qps := float64(msgSent) / elapsed.Seconds()
+
+	log.Println("\n========== Stress Test Results ==========")
+	log.Printf("Duration: %v", elapsed)
+	log.Printf("Connections: %d successful, %d failed (%.1f%% success rate)",
+		connSuccess, connFail, float64(connSuccess)/float64(*conns)*100)
+	log.Printf("Messages: %d sent, %d expected", msgSent, totalMessages)
+	if totalMessages > 0 {
+		log.Printf("Message success rate: %.1f%%", float64(msgSent)/float64(totalMessages)*100)
+	}
+	log.Printf("QPS (messages/second): %.0f", qps)
+	log.Printf("Average latency: %.2f ms per message", float64(elapsed.Nanoseconds()/1e6)/float64(msgSent))
+
+	// Check results
+	if connFail > 0 {
+		log.Printf("Warning: %d connections failed to establish", connFail)
+	}
+	if msgSent < int64(totalMessages) {
+		log.Printf("Warning: %d messages were not sent successfully", totalMessages-int(msgSent))
+	} else {
+		log.Println("✓ All messages sent successfully")
+	}
 }
 
 func handleConnection(id int, successConn, connectFail, successCount *int64) error {
@@ -83,18 +125,28 @@ func handleConnection(id int, successConn, connectFail, successCount *int64) err
 	conn, _, err := websocket.Dial(ctx, *url, nil)
 	if err != nil {
 		atomic.AddInt64(connectFail, 1)
-		return err
+		return fmt.Errorf("dial failed: %w", err)
 	}
-	defer conn.Close(websocket.StatusNormalClosure, "done")
+	defer conn.Close(websocket.StatusNormalClosure, "stress test completed")
 
 	atomic.AddInt64(successConn, 1)
+	if *verbose {
+		log.Printf("Connection %d established", id)
+	}
 
 	for seq := 0; seq < *totalMsg; seq++ {
 		msg := createMessage(id, seq)
 		if err := sendMessage(conn, msg); err != nil {
+			if *verbose {
+				log.Printf("Connection %d failed at message %d: %v", id, seq, err)
+			}
 			return err
 		}
 		atomic.AddInt64(successCount, 1)
+	}
+
+	if *verbose {
+		log.Printf("Connection %d completed all %d messages", id, *totalMsg)
 	}
 	return nil
 }
@@ -119,12 +171,15 @@ func sendMessage(conn *websocket.Conn, msg []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), msgTimeout)
 	defer cancel()
 
+	// Send message
 	if err := conn.Write(ctx, websocket.MessageBinary, msg); err != nil {
 		return fmt.Errorf("write failed: %w", err)
 	}
 
-	if _, _, err := conn.Read(ctx); err != nil {
-		return fmt.Errorf("read failed: %w", err)
+	// Read response
+	_, _, err := conn.Read(ctx)
+	if err != nil {
+		return fmt.Errorf("read response failed: %w", err)
 	}
 
 	return nil

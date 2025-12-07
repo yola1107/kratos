@@ -29,7 +29,7 @@ type Runner struct {
 func NewRunner(conf *LoadTest, logger *zap.Logger) *Runner {
 	ctx, cancel := context.WithCancel(context.Background())
 	loop := work.NewLoop(work.WithSize(10000))
-	timer := work.NewScheduler(
+	timer := work.NewWheelScheduler(
 		work.WithContext(ctx),
 		work.WithExecutor(loop),
 	)

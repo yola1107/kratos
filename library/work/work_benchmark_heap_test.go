@@ -8,25 +8,20 @@ import (
 	"time"
 )
 
-type iMockExecutor interface {
-	Post(job func())
-	Stop()
-}
-
-type mockScheduler struct {
+type heapMockScheduler struct {
 	context.Context
 	context.CancelFunc
 	iMockExecutor
 	Scheduler
 }
 
-func (s *mockScheduler) Stop() {
+func (s *heapMockScheduler) Stop() {
 	s.CancelFunc()
 	s.Scheduler.Stop()
 	s.iMockExecutor.Stop()
 }
 
-func createScheduler(b *testing.B, timeout time.Duration) (context.Context, context.CancelFunc, *mockScheduler) {
+func createHeapScheduler(b *testing.B, timeout time.Duration) (context.Context, context.CancelFunc, *heapMockScheduler) {
 	const size = 10000
 	// ants
 	// loop := NewLoop(WithSize(size))
@@ -36,9 +31,9 @@ func createScheduler(b *testing.B, timeout time.Duration) (context.Context, cont
 	loop := newMockExecutor(size)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	timer := NewWheelScheduler(WithExecutor(loop), WithContext(ctx))
+	timer := NewHeapScheduler(WithHeapExecutor(loop), WithHeapContext(ctx))
 
-	return ctx, cancel, &mockScheduler{
+	return ctx, cancel, &heapMockScheduler{
 		Context:       ctx,
 		CancelFunc:    cancel,
 		Scheduler:     timer,
@@ -46,13 +41,13 @@ func createScheduler(b *testing.B, timeout time.Duration) (context.Context, cont
 	}
 }
 
-func taskDelay(i int) time.Duration {
-	return defaultTickPrecision + time.Duration(i%3)*defaultTickPrecision
+func heapTaskDelay(i int) time.Duration {
+	return defaultHeapTickPrecision + time.Duration(i%3)*defaultHeapTickPrecision
 }
 
-// --- Benchmark 1: Once tasks
-func BenchmarkOnceTasks(b *testing.B) {
-	ctx, cancel, scheduler := createScheduler(b, 3*time.Second)
+// --- Benchmark 1: Once tasks (Heap Scheduler)
+func BenchmarkHeapOnceTasks(b *testing.B) {
+	ctx, cancel, scheduler := createHeapScheduler(b, 3*time.Second)
 	defer cancel()
 	defer scheduler.Stop()
 
@@ -62,7 +57,7 @@ func BenchmarkOnceTasks(b *testing.B) {
 	target := int64(b.N)
 
 	for i := 0; i < b.N; i++ {
-		delay := taskDelay(i)
+		delay := heapTaskDelay(i)
 		scheduler.Once(delay, func() {
 			if atomic.AddInt64(&counter, 1) == target {
 				onceClose.Do(func() { close(done) })
@@ -81,9 +76,9 @@ func BenchmarkOnceTasks(b *testing.B) {
 	}
 }
 
-// --- Benchmark 2: Forever tasks
-func BenchmarkForeverTasks(b *testing.B) {
-	ctx, cancel, scheduler := createScheduler(b, 3*time.Second)
+// --- Benchmark 2: Forever tasks (Heap Scheduler)
+func BenchmarkHeapForeverTasks(b *testing.B) {
+	ctx, cancel, scheduler := createHeapScheduler(b, 3*time.Second)
 	defer cancel()
 	defer scheduler.Stop()
 
@@ -93,7 +88,7 @@ func BenchmarkForeverTasks(b *testing.B) {
 	target := int64(b.N)
 
 	for i := 0; i < b.N; i++ {
-		delay := taskDelay(i)
+		delay := heapTaskDelay(i)
 		scheduler.Forever(delay, func() {
 			if atomic.AddInt64(&counter, 1) == target {
 				onceClose.Do(func() { close(done) })
@@ -112,9 +107,9 @@ func BenchmarkForeverTasks(b *testing.B) {
 	}
 }
 
-// --- Benchmark 3: Mixed tasks
-func BenchmarkMixedTasks(b *testing.B) {
-	ctx, cancel, scheduler := createScheduler(b, 5*time.Second)
+// --- Benchmark 3: Mixed tasks (Heap Scheduler)
+func BenchmarkHeapMixedTasks(b *testing.B) {
+	ctx, cancel, scheduler := createHeapScheduler(b, 5*time.Second)
 	defer cancel()
 	defer scheduler.Stop()
 
@@ -124,8 +119,8 @@ func BenchmarkMixedTasks(b *testing.B) {
 	n := b.N
 
 	for i := 0; i < n; i++ {
-		onceDelay := taskDelay(i)
-		foreverDelay := defaultTickPrecision + time.Duration(i%5)*defaultTickPrecision
+		onceDelay := heapTaskDelay(i)
+		foreverDelay := defaultHeapTickPrecision + time.Duration(i%5)*defaultHeapTickPrecision
 
 		scheduler.Once(onceDelay, func() {
 			atomic.AddInt64(&onceCounter, 1)
@@ -152,10 +147,10 @@ func BenchmarkMixedTasks(b *testing.B) {
 	}
 }
 
-func BenchmarkSchedulerPrecision(b *testing.B) {
-	const totalTasks = 30000 // 任务数量
+func BenchmarkHeapSchedulerPrecision(b *testing.B) {
+	const totalTasks = 10000 // 堆调度器适合较少任务，这里减少任务数量
 
-	_, cancel, scheduler := createScheduler(b, 10*time.Second)
+	_, cancel, scheduler := createHeapScheduler(b, 15*time.Second) // 增加超时时间
 	defer cancel()
 	defer scheduler.Stop()
 
@@ -170,7 +165,7 @@ func BenchmarkSchedulerPrecision(b *testing.B) {
 	startTime := time.Now()
 
 	for i := 0; i < totalTasks; i++ {
-		delay := taskDelay(i)
+		delay := heapTaskDelay(i)
 		expect := startTime.Add(delay)
 
 		scheduler.Once(delay, func() {

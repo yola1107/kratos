@@ -16,13 +16,13 @@ const (
 	defaultWheelSize     = 128                    // 默认时间轮槽位
 )
 
-// preciseEvery 实现精准的周期性定时器，防止时间漂移
-type preciseEvery struct {
+// wheelPreciseEvery 实现精准的周期性定时器，防止时间漂移
+type wheelPreciseEvery struct {
 	Interval time.Duration
 	last     atomic.Value // time.Time
 }
 
-func (p *preciseEvery) Next(t time.Time) time.Time {
+func (p *wheelPreciseEvery) Next(t time.Time) time.Time {
 	last, _ := p.last.Load().(time.Time)
 	if last.IsZero() {
 		last = t
@@ -32,7 +32,7 @@ func (p *preciseEvery) Next(t time.Time) time.Time {
 	for !next.After(t) {
 		next = next.Add(p.Interval)
 		if steps++; steps > maxIntervalJumps {
-			log.Warnf("[preciseEvery] skipped too many steps: %d", steps)
+			log.Warnf("[wheelPreciseEvery] skipped too many steps: %d", steps)
 			break
 		}
 	}
@@ -104,8 +104,8 @@ type wheelTaskEntry struct {
 	task      func()
 }
 
-// NewScheduler 创建调度器实例
-func NewScheduler(opts ...WheelSchedulerOption) Scheduler {
+// NewWheelScheduler 创建时间轮调度器实例
+func NewWheelScheduler(opts ...WheelSchedulerOption) Scheduler {
 	s := &wheelScheduler{
 		tick:        defaultTickPrecision,
 		wheelSize:   defaultWheelSize,
@@ -282,7 +282,7 @@ func (s *wheelScheduler) schedule(delay time.Duration, repeated bool, f func()) 
 	}
 
 	if repeated {
-		entry.timer = s.tw.ScheduleFunc(&preciseEvery{Interval: delay}, wrapped)
+		entry.timer = s.tw.ScheduleFunc(&wheelPreciseEvery{Interval: delay}, wrapped)
 	} else {
 		entry.timer = s.tw.AfterFunc(delay, wrapped)
 	}

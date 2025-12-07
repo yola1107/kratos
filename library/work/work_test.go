@@ -147,7 +147,7 @@ func TestTaskScheduler_BasicOperations(t *testing.T) {
 	defer cancel()
 
 	executor := newMockExecutor()
-	scheduler := NewScheduler(WithExecutor(executor), WithContext(ctx))
+	scheduler := NewWheelScheduler(WithExecutor(executor), WithContext(ctx))
 	defer scheduler.Stop()
 
 	t.Run("Once task executes", func(t *testing.T) {
@@ -206,7 +206,7 @@ func TestTaskScheduler_Cancellation(t *testing.T) {
 	defer cancel()
 
 	executor := newMockExecutor()
-	scheduler := NewScheduler(WithExecutor(executor), WithContext(ctx))
+	scheduler := NewWheelScheduler(WithExecutor(executor), WithContext(ctx))
 	defer scheduler.Stop()
 
 	t.Run("Cancel single task", func(t *testing.T) {
@@ -238,7 +238,7 @@ func TestTaskScheduler_Stop(t *testing.T) {
 	defer cancel()
 
 	executor := newMockExecutor()
-	scheduler := NewScheduler(WithExecutor(executor), WithContext(ctx))
+	scheduler := NewWheelScheduler(WithExecutor(executor), WithContext(ctx))
 
 	scheduler.Once(defaultTickPrecision, func() { t.Error("Once task executed after shutdown") })
 	scheduler.Forever(defaultTickPrecision, func() { t.Error("Forever task executed after shutdown") })
@@ -258,7 +258,7 @@ func TestTaskScheduler_PanicRecovery(t *testing.T) {
 	defer cancel()
 
 	executor := newMockExecutor()
-	scheduler := NewScheduler(WithExecutor(executor), WithContext(ctx))
+	scheduler := NewWheelScheduler(WithExecutor(executor), WithContext(ctx))
 	defer scheduler.Stop()
 
 	t.Run("Recover from panic in Once task", func(t *testing.T) {
@@ -294,7 +294,7 @@ func TestTaskScheduler_PanicRecovery(t *testing.T) {
 func TestTaskScheduler_ContextCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	executor := newMockExecutor()
-	scheduler := NewScheduler(WithExecutor(executor), WithContext(ctx))
+	scheduler := NewWheelScheduler(WithExecutor(executor), WithContext(ctx))
 	defer scheduler.Stop()
 
 	t.Run("Context cancel stops wheelScheduler", func(t *testing.T) {
@@ -322,7 +322,7 @@ func TestTaskScheduler_TaskIDSequence_WithCancel(t *testing.T) {
 	defer cancel()
 
 	executor := newMockExecutor()
-	scheduler := NewScheduler(WithExecutor(executor), WithContext(ctx))
+	scheduler := NewWheelScheduler(WithExecutor(executor), WithContext(ctx))
 	defer scheduler.Stop()
 
 	const count = 5
@@ -409,7 +409,7 @@ func TestTaskScheduler_TaskIDSequence(t *testing.T) {
 	defer cancel()
 
 	executor := newMockExecutor()
-	scheduler := NewScheduler(WithExecutor(executor), WithContext(ctx))
+	scheduler := NewWheelScheduler(WithExecutor(executor), WithContext(ctx))
 	defer scheduler.Stop()
 
 	prevID := int64(0)
