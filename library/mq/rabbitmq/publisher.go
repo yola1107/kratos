@@ -7,9 +7,10 @@ import (
 )
 
 type Publisher struct {
+	opts    Options
+	pubOpts PublisherOptions
 	conn    *amqp.Connection
 	ch      *amqp.Channel
-	pubOpts PublisherOptions
 }
 
 func NewPublisher(opts Options, pubOpts PublisherOptions) (*Publisher, error) {
@@ -20,7 +21,7 @@ func NewPublisher(opts Options, pubOpts PublisherOptions) (*Publisher, error) {
 
 	ch, err := conn.Channel()
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, err
 	}
 
@@ -30,8 +31,8 @@ func NewPublisher(opts Options, pubOpts PublisherOptions) (*Publisher, error) {
 			pubOpts.ExchangeType,
 			true, false, false, false, nil,
 		); err != nil {
-			ch.Close()
-			conn.Close()
+			_ = ch.Close()
+			_ = conn.Close()
 			return nil, err
 		}
 	}
@@ -39,6 +40,7 @@ func NewPublisher(opts Options, pubOpts PublisherOptions) (*Publisher, error) {
 	return &Publisher{
 		conn:    conn,
 		ch:      ch,
+		opts:    opts,
 		pubOpts: pubOpts,
 	}, nil
 }
@@ -59,6 +61,10 @@ func (p *Publisher) Publish(body []byte) error {
 }
 
 func (p *Publisher) Close() {
-	_ = p.ch.Close()
-	_ = p.conn.Close()
+	if p.ch != nil {
+		_ = p.ch.Close()
+	}
+	if p.conn != nil {
+		_ = p.conn.Close()
+	}
 }

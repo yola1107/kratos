@@ -37,7 +37,7 @@ func TestRabbitMQ_PublishConsume_Advanced(t *testing.T) {
 	}
 
 	// 创建消费者
-	consumer, err := NewConsumer(
+	consumer := NewConsumer(
 		opts,
 		consOpts,
 		func(body []byte) error {
@@ -46,9 +46,6 @@ func TestRabbitMQ_PublishConsume_Advanced(t *testing.T) {
 			return nil
 		},
 	)
-	if err != nil {
-		t.Fatalf("new consumer failed: %v", err)
-	}
 	defer consumer.Close()
 
 	go consumer.Start()
