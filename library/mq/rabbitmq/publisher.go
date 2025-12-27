@@ -1,7 +1,6 @@
 package rabbitmq
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/streadway/amqp"
@@ -9,29 +8,20 @@ import (
 
 type Publisher struct {
 	conn    *amqp.Connection
-	channel *amqp.Channel
-	options Options
+	ch      *amqp.Channel
 	pubOpts PublisherOptions
 }
 
-// NewPublisher 创建生产者
 func NewPublisher(opts Options, pubOpts PublisherOptions) (*Publisher, error) {
 	conn, err := amqp.Dial(opts.BuildURL())
 	if err != nil {
-		return nil, fmt.Errorf("连接RabbitMQ失败: %w", err)
+		return nil, err
 	}
 
 	ch, err := conn.Channel()
 	if err != nil {
 		conn.Close()
-		return nil, fmt.Errorf("创建通道失败: %w", err)
-	}
-
-	p := &Publisher{
-		conn:    conn,
-		channel: ch,
-		options: opts,
-		pubOpts: pubOpts,
+		return nil, err
 	}
 
 	if pubOpts.Exchange != "" {
@@ -40,17 +30,21 @@ func NewPublisher(opts Options, pubOpts PublisherOptions) (*Publisher, error) {
 			pubOpts.ExchangeType,
 			true, false, false, false, nil,
 		); err != nil {
-			p.Close()
+			ch.Close()
+			conn.Close()
 			return nil, err
 		}
 	}
 
-	return p, nil
+	return &Publisher{
+		conn:    conn,
+		ch:      ch,
+		pubOpts: pubOpts,
+	}, nil
 }
 
-// Publish 发送消息
 func (p *Publisher) Publish(body []byte) error {
-	return p.channel.Publish(
+	return p.ch.Publish(
 		p.pubOpts.Exchange,
 		p.pubOpts.RoutingKey,
 		p.pubOpts.Mandatory,
@@ -64,16 +58,7 @@ func (p *Publisher) Publish(body []byte) error {
 	)
 }
 
-// Close 关闭连接
-func (p *Publisher) Close() error {
-	var err error
-	if p.channel != nil {
-		err = p.channel.Close()
-	}
-	if p.conn != nil {
-		if e := p.conn.Close(); e != nil && err == nil {
-			err = e
-		}
-	}
-	return err
+func (p *Publisher) Close() {
+	_ = p.ch.Close()
+	_ = p.conn.Close()
 }

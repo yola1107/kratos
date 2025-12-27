@@ -3,137 +3,153 @@ package rabbitmq
 import (
 	"fmt"
 	"log"
+	"sync"
 
 	"github.com/streadway/amqp"
 )
 
-// MessageHandler 消息处理函数类型
 type MessageHandler func([]byte) error
 
 type Consumer struct {
-	conn     *amqp.Connection
-	channel  *amqp.Channel
-	options  Options
-	consOpts ConsumerOptions
-	handler  MessageHandler
-	msgs     <-chan amqp.Delivery
+	conn    *amqp.Connection
+	ch      *amqp.Channel
+	msgs    <-chan amqp.Delivery
+	opts    Options
+	copts   ConsumerOptions
+	handler MessageHandler
+
+	wg   sync.WaitGroup
+	quit chan struct{}
 }
 
-// NewConsumer 创建消费者
-func NewConsumer(opts Options, consOpts ConsumerOptions, handler MessageHandler) (*Consumer, error) {
+func NewConsumer(opts Options, copts ConsumerOptions, handler MessageHandler) (*Consumer, error) {
 	conn, err := amqp.Dial(opts.BuildURL())
 	if err != nil {
-		return nil, fmt.Errorf("连接RabbitMQ失败: %w", err)
+		return nil, fmt.Errorf("dial failed: %w", err)
 	}
 
 	ch, err := conn.Channel()
 	if err != nil {
 		conn.Close()
-		return nil, fmt.Errorf("创建通道失败: %w", err)
+		return nil, err
 	}
 
-	c := &Consumer{
-		conn:     conn,
-		channel:  ch,
-		options:  opts,
-		consOpts: consOpts,
-		handler:  handler,
+	if copts.Workers <= 0 {
+		copts.Workers = 1
+	}
+	if copts.PrefetchCount <= 0 {
+		copts.PrefetchCount = copts.Workers
 	}
 
-	if consOpts.Exchange != "" {
-		if err := c.channel.ExchangeDeclare(
-			consOpts.Exchange,
-			consOpts.ExchangeType,
+	if err := ch.Qos(copts.PrefetchCount, 0, false); err != nil {
+		ch.Close()
+		conn.Close()
+		return nil, err
+	}
+
+	if copts.Exchange != "" {
+		if err := ch.ExchangeDeclare(
+			copts.Exchange,
+			copts.ExchangeType,
 			true, false, false, false, nil,
 		); err != nil {
-			c.Close()
+			ch.Close()
+			conn.Close()
 			return nil, err
 		}
 	}
 
-	if _, err := c.channel.QueueDeclare(
-		consOpts.Queue,
+	if _, err := ch.QueueDeclare(
+		copts.Queue,
 		true, false, false, false, nil,
 	); err != nil {
-		c.Close()
+		ch.Close()
+		conn.Close()
 		return nil, err
 	}
 
-	if consOpts.Exchange != "" {
-		if err := c.channel.QueueBind(
-			consOpts.Queue,
-			consOpts.RoutingKey,
-			consOpts.Exchange,
+	if copts.Exchange != "" {
+		if err := ch.QueueBind(
+			copts.Queue,
+			copts.RoutingKey,
+			copts.Exchange,
 			false,
 			nil,
 		); err != nil {
-			c.Close()
+			ch.Close()
+			conn.Close()
 			return nil, err
 		}
 	}
 
-	if err := c.channel.Qos(consOpts.PrefetchCount, 0, false); err != nil {
-		c.Close()
-		return nil, err
-	}
-
-	msgs, err := c.channel.Consume(
-		consOpts.Queue,
-		consOpts.ConsumerTag,
-		consOpts.AutoAck,
-		false, false, false, nil,
+	msgs, err := ch.Consume(
+		copts.Queue,
+		copts.ConsumerTag,
+		copts.AutoAck,
+		false,
+		false,
+		false,
+		nil,
 	)
 	if err != nil {
-		c.Close()
+		ch.Close()
+		conn.Close()
 		return nil, err
 	}
-	c.msgs = msgs
 
-	return c, nil
+	return &Consumer{
+		conn:    conn,
+		ch:      ch,
+		msgs:    msgs,
+		opts:    opts,
+		copts:   copts,
+		handler: handler,
+		quit:    make(chan struct{}),
+	}, nil
 }
 
-// Start 开始消费
-func (c *Consumer) Start() error {
-	if c.handler == nil {
-		return fmt.Errorf("消息处理函数未设置")
+func (c *Consumer) Start() {
+	for i := 0; i < c.copts.Workers; i++ {
+		c.wg.Add(1)
+		go c.worker(i)
 	}
+}
 
-	log.Printf("[消费者] 开始消费队列: %s", c.consOpts.Queue)
-	for msg := range c.msgs {
-		if err := c.handler(msg.Body); err != nil {
-			log.Printf("[消费者] 处理消息失败: %v", err)
-			if !c.consOpts.AutoAck {
-				msg.Nack(false, true)
+func (c *Consumer) worker(id int) {
+	defer c.wg.Done()
+
+	for {
+		select {
+		case <-c.quit:
+			return
+
+		case d, ok := <-c.msgs:
+			if !ok {
+				return
 			}
-			continue
-		}
-		if !c.consOpts.AutoAck {
-			if err := msg.Ack(false); err != nil {
-				log.Printf("[消费者] 确认消息失败: %v", err)
+
+			if err := c.handler(d.Body); err != nil {
+				log.Printf("[worker-%d] handle error: %v", id, err)
+				if !c.copts.AutoAck {
+					_ = d.Nack(false, true)
+				}
+				continue
+			}
+
+			if !c.copts.AutoAck {
+				_ = d.Ack(false)
 			}
 		}
 	}
-	return nil
 }
 
-// Stop 停止消费
-func (c *Consumer) Stop() error {
-	if c.channel != nil {
-		return c.channel.Cancel(c.consOpts.ConsumerTag, false)
-	}
-	return nil
+func (c *Consumer) Stop() {
+	close(c.quit)
+	c.wg.Wait()
 }
 
-// Close 关闭连接
-func (c *Consumer) Close() error {
-	var err error
-	if c.channel != nil {
-		err = c.channel.Close()
-	}
-	if c.conn != nil {
-		if e := c.conn.Close(); e != nil && err == nil {
-			err = e
-		}
-	}
-	return err
+func (c *Consumer) Close() {
+	c.Stop()
+	_ = c.ch.Close()
+	_ = c.conn.Close()
 }

@@ -5,10 +5,6 @@ import (
 	"net/url"
 )
 
-// =====================
-// Connection Options
-// =====================
-
 type Options struct {
 	Host     string
 	Port     string
@@ -27,21 +23,24 @@ func DefaultOptions() Options {
 	}
 }
 
-// BuildURL 构建RabbitMQ连接URL
+// BuildURL 构建 amqp:// URI（不玩花活）
 func (o Options) BuildURL() string {
+	vhost := o.VHost
+	if vhost == "/" {
+		vhost = ""
+	}
+
 	return fmt.Sprintf(
 		"amqp://%s:%s@%s:%s/%s",
 		url.QueryEscape(o.Username),
 		url.QueryEscape(o.Password),
 		o.Host,
 		o.Port,
-		url.PathEscape(o.VHost), // 仅对VHost做路径编码
+		url.PathEscape(vhost),
 	)
 }
 
-// =====================
-// Consumer Options
-// =====================
+/************ Consumer Options ************/
 
 type ConsumerOptions struct {
 	Queue        string
@@ -52,24 +51,10 @@ type ConsumerOptions struct {
 	ConsumerTag   string
 	AutoAck       bool
 	PrefetchCount int
+	Workers       int
 }
 
-// 默认消费者选项
-func DefaultConsumerOptions() ConsumerOptions {
-	return ConsumerOptions{
-		Queue:         "default-queue",
-		Exchange:      "",
-		ExchangeType:  "direct",
-		RoutingKey:    "",
-		ConsumerTag:   "",
-		AutoAck:       false,
-		PrefetchCount: 1,
-	}
-}
-
-// =====================
-// Publisher Options
-// =====================
+/************ Publisher Options ************/
 
 type PublisherOptions struct {
 	Exchange     string
@@ -78,15 +63,4 @@ type PublisherOptions struct {
 
 	Mandatory bool
 	Immediate bool
-}
-
-// 默认生产者选项
-func DefaultPublisherOptions() PublisherOptions {
-	return PublisherOptions{
-		Exchange:     "",
-		ExchangeType: "direct",
-		RoutingKey:   "",
-		Mandatory:    false,
-		Immediate:    false,
-	}
 }

@@ -1,6 +1,7 @@
 package rabbitmq
 
 import (
+	"fmt"
 	"log"
 	"testing"
 	"time"
@@ -31,19 +32,25 @@ func TestRabbitMQ_PublishConsume_Advanced(t *testing.T) {
 		RoutingKey:    "test-key",
 		ConsumerTag:   "test-consumer",
 		AutoAck:       false,
-		PrefetchCount: 1,
+		Workers:       4,
+		PrefetchCount: 4,
 	}
 
 	// 创建消费者
-	consumer, err := NewConsumer(opts, consOpts, func(body []byte) error {
-		log.Printf("[消费者] 接收: %s", string(body))
-		time.Sleep(50 * time.Millisecond) // 模拟处理
-		return nil
-	})
+	consumer, err := NewConsumer(
+		opts,
+		consOpts,
+		func(body []byte) error {
+			log.Printf("[consumer] recv: %s", body)
+			time.Sleep(50 * time.Millisecond)
+			return nil
+		},
+	)
 	if err != nil {
-		t.Fatalf("创建消费者失败: %v", err)
+		t.Fatalf("new consumer failed: %v", err)
 	}
 	defer consumer.Close()
+
 	go consumer.Start()
 
 	time.Sleep(500 * time.Millisecond) // 等待消费者启动
@@ -51,17 +58,15 @@ func TestRabbitMQ_PublishConsume_Advanced(t *testing.T) {
 	// 创建生产者
 	publisher, err := NewPublisher(opts, pubOpts)
 	if err != nil {
-		t.Fatalf("创建生产者失败: %v", err)
+		t.Fatalf("new publisher failed: %v", err)
 	}
 	defer publisher.Close()
 
 	// 发送多条消息
-	for i := 1; i <= 100; i++ {
-		msg := []byte("消息 #" + string(rune(i)))
-		if err := publisher.Publish(msg); err != nil {
-			t.Errorf("发送消息失败: %v", err)
-		} else {
-			log.Printf("[生产者] 发送: %s", msg)
+	for i := 0; i < 100; i++ {
+		msg := fmt.Sprintf("msg-%d", i)
+		if err := publisher.Publish([]byte(msg)); err != nil {
+			t.Fatalf("publish failed: %v", err)
 		}
 		time.Sleep(100 * time.Millisecond) // 间隔发送
 	}
