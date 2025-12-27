@@ -10,7 +10,6 @@ import (
 // MessageHandler 消息处理函数类型
 type MessageHandler func([]byte) error
 
-// Consumer RabbitMQ消费者
 type Consumer struct {
 	conn     *amqp.Connection
 	channel  *amqp.Channel
@@ -20,20 +19,13 @@ type Consumer struct {
 	msgs     <-chan amqp.Delivery
 }
 
-// NewConsumer 创建新的消费者
-func NewConsumer(opts Options, consOpts ConsumerOptions, handler MessageHandler, options ...Option) (*Consumer, error) {
-	// 应用选项
-	for _, opt := range options {
-		opt(&opts)
-	}
-
-	// 连接RabbitMQ
+// NewConsumer 创建消费者
+func NewConsumer(opts Options, consOpts ConsumerOptions, handler MessageHandler) (*Consumer, error) {
 	conn, err := amqp.Dial(opts.BuildURL())
 	if err != nil {
 		return nil, fmt.Errorf("连接RabbitMQ失败: %w", err)
 	}
 
-	// 创建通道
 	ch, err := conn.Channel()
 	if err != nil {
 		conn.Close()
@@ -48,143 +40,86 @@ func NewConsumer(opts Options, consOpts ConsumerOptions, handler MessageHandler,
 		handler:  handler,
 	}
 
-	// 声明交换机（如果指定）
-	if consOpts.ExchangeName != "" {
-		if err := c.declareExchange(); err != nil {
+	if consOpts.Exchange != "" {
+		if err := c.channel.ExchangeDeclare(
+			consOpts.Exchange,
+			consOpts.ExchangeType,
+			true, false, false, false, nil,
+		); err != nil {
 			c.Close()
 			return nil, err
 		}
 	}
 
-	// 声明队列
-	if err := c.declareQueue(); err != nil {
+	if _, err := c.channel.QueueDeclare(
+		consOpts.Queue,
+		true, false, false, false, nil,
+	); err != nil {
 		c.Close()
 		return nil, err
 	}
 
-	// 绑定队列到交换机（如果指定了交换机）
-	if consOpts.ExchangeName != "" {
-		if err := c.bindQueue(); err != nil {
+	if consOpts.Exchange != "" {
+		if err := c.channel.QueueBind(
+			consOpts.Queue,
+			consOpts.RoutingKey,
+			consOpts.Exchange,
+			false,
+			nil,
+		); err != nil {
 			c.Close()
 			return nil, err
 		}
 	}
 
-	// 设置QoS
-	if err := c.setQoS(); err != nil {
+	if err := c.channel.Qos(consOpts.PrefetchCount, 0, false); err != nil {
 		c.Close()
 		return nil, err
 	}
 
-	// 开始消费
-	if err := c.startConsume(); err != nil {
+	msgs, err := c.channel.Consume(
+		consOpts.Queue,
+		consOpts.ConsumerTag,
+		consOpts.AutoAck,
+		false, false, false, nil,
+	)
+	if err != nil {
 		c.Close()
 		return nil, err
 	}
+	c.msgs = msgs
 
 	return c, nil
 }
 
-// declareExchange 声明交换机
-func (c *Consumer) declareExchange() error {
-	return c.channel.ExchangeDeclare(
-		c.consOpts.ExchangeName,
-		c.consOpts.ExchangeType,
-		true,  // 持久化
-		false, // 自动删除
-		false, // 内部
-		false, // 无等待
-		nil,   // 参数
-	)
-}
-
-// declareQueue 声明队列
-func (c *Consumer) declareQueue() error {
-	_, err := c.channel.QueueDeclare(
-		c.consOpts.QueueName,
-		true,  // 持久化
-		false, // 自动删除
-		false, // 排他
-		false, // 无等待
-		nil,   // 参数
-	)
-	return err
-}
-
-// bindQueue 绑定队列到交换机
-func (c *Consumer) bindQueue() error {
-	return c.channel.QueueBind(
-		c.consOpts.QueueName,
-		c.consOpts.RoutingKey,
-		c.consOpts.ExchangeName,
-		false,
-		nil,
-	)
-}
-
-// setQoS 设置QoS
-func (c *Consumer) setQoS() error {
-	return c.channel.Qos(
-		c.consOpts.PrefetchCount,
-		c.consOpts.PrefetchSize,
-		false,
-	)
-}
-
-// startConsume 开始消费
-func (c *Consumer) startConsume() error {
-	msgs, err := c.channel.Consume(
-		c.consOpts.QueueName,
-		c.consOpts.ConsumerTag,
-		c.consOpts.AutoAck,
-		false, // 排他
-		false, // 无本地
-		false, // 无等待
-		nil,   // 参数
-	)
-	if err != nil {
-		return err
-	}
-	c.msgs = msgs
-	return nil
-}
-
-// Start 开始处理消息
+// Start 开始消费
 func (c *Consumer) Start() error {
 	if c.handler == nil {
 		return fmt.Errorf("消息处理函数未设置")
 	}
 
-	log.Printf("[消费者] 开始消费队列: %s", c.consOpts.QueueName)
-
+	log.Printf("[消费者] 开始消费队列: %s", c.consOpts.Queue)
 	for msg := range c.msgs {
-		// 处理消息
 		if err := c.handler(msg.Body); err != nil {
 			log.Printf("[消费者] 处理消息失败: %v", err)
-			// 如果处理失败且未自动确认，则拒绝消息
 			if !c.consOpts.AutoAck {
-				msg.Nack(false, true) // 重新入队
+				msg.Nack(false, true)
 			}
 			continue
 		}
-
-		// 手动确认消息
 		if !c.consOpts.AutoAck {
 			if err := msg.Ack(false); err != nil {
 				log.Printf("[消费者] 确认消息失败: %v", err)
 			}
 		}
 	}
-
 	return nil
 }
 
 // Stop 停止消费
 func (c *Consumer) Stop() error {
 	if c.channel != nil {
-		if err := c.channel.Cancel(c.consOpts.ConsumerTag, false); err != nil {
-			return err
-		}
+		return c.channel.Cancel(c.consOpts.ConsumerTag, false)
 	}
 	return nil
 }
@@ -196,14 +131,9 @@ func (c *Consumer) Close() error {
 		err = c.channel.Close()
 	}
 	if c.conn != nil {
-		if closeErr := c.conn.Close(); closeErr != nil && err == nil {
-			err = closeErr
+		if e := c.conn.Close(); e != nil && err == nil {
+			err = e
 		}
 	}
 	return err
-}
-
-// IsClosed 检查连接是否已关闭
-func (c *Consumer) IsClosed() bool {
-	return c.conn == nil || c.conn.IsClosed()
 }
