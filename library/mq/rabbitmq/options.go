@@ -23,7 +23,7 @@ func DefaultOptions() Options {
 	}
 }
 
-// BuildURL 构建 amqp:// URI（不玩花活）
+// BuildURL 构建 amqp:// URI
 func (o Options) BuildURL() string {
 	vhost := o.VHost
 	if vhost == "/" {
