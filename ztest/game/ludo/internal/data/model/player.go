@@ -30,13 +30,13 @@ type PlayerBaseDataRaw struct {
 }
 
 // SaveStructToRedis saves a struct to Redis using redis tags.
-func SaveStructToRedis(ctx context.Context, rdb *redis.Client, key string, v any) error {
+func SaveStructToRedis(ctx context.Context, rdb redis.UniversalClient, key string, v any) error {
 	data := StructToRedisMap(v)
 	return rdb.HMSet(ctx, key, data).Err()
 }
 
 // LoadStructFromRedis loads data from Redis and maps it to a struct using redis tags.
-func LoadStructFromRedis[T any](ctx context.Context, rdb *redis.Client, key string) (*T, error) {
+func LoadStructFromRedis[T any](ctx context.Context, rdb redis.UniversalClient, key string) (*T, error) {
 	var zero T
 	tType := reflect.TypeOf(zero)
 	if tType.Kind() != reflect.Struct {

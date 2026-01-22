@@ -19,19 +19,19 @@ func TestRabbitMQ_PublishConsume_Advanced(t *testing.T) {
 
 	// 生产者选项
 	pubOpts := PublisherOptions{
-		Exchange:     "test-exchange",
+		Exchange:     "db-log",
 		ExchangeType: "direct",
-		RoutingKey:   "test-key",
+		RoutingKey:   "db-log",
 	}
 
 	// 消费者选项（手动确认）
 	consOpts := ConsumerOptions{
-		Queue:         "test-queue",
-		Exchange:      "test-exchange",
+		Queue:         "db-log",
+		Exchange:      "db-log",
 		ExchangeType:  "direct",
-		RoutingKey:    "test-key",
-		ConsumerTag:   "test-consumer",
-		AutoAck:       false,
+		RoutingKey:    "db-log",
+		ConsumerTag:   "consumer",
+		AutoAck:       true,
 		Workers:       4,
 		PrefetchCount: 4,
 	}
@@ -60,7 +60,7 @@ func TestRabbitMQ_PublishConsume_Advanced(t *testing.T) {
 	defer publisher.Close()
 
 	// 发送多条消息
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 100000; i++ {
 		msg := fmt.Sprintf("msg-%d", i)
 		if err := publisher.Publish([]byte(msg)); err != nil {
 			t.Fatalf("publish failed: %v", err)

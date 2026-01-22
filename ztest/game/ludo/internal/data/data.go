@@ -28,11 +28,11 @@ func NewDataRepo(data *Data, logger log.Logger) biz.DataRepo {
 // Data .
 type Data struct {
 	// TODO wrapped database client
-	redis *redis.Client
+	redis redis.UniversalClient
 }
 
 // NewData .
-func NewData(c *conf.Data, logger log.Logger, redis *redis.Client) (*Data, func(), error) {
+func NewData(c *conf.Data, logger log.Logger, redis redis.UniversalClient) (*Data, func(), error) {
 	cleanup := func() {
 		log.Info("closing the data resources")
 		if redis != nil {
@@ -43,7 +43,7 @@ func NewData(c *conf.Data, logger log.Logger, redis *redis.Client) (*Data, func(
 	return &Data{redis: redis}, cleanup, nil
 }
 
-func NewRedis(c *conf.Data) *redis.Client {
+func NewRedis(c *conf.Data) redis.UniversalClient {
 	rdb := kredis.NewClient(
 		kredis.WithAddress(c.Redis.Addr),
 		kredis.WithPassword(c.Redis.Password),
