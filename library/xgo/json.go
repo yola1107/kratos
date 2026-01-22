@@ -1,10 +1,13 @@
 package xgo
 
 import (
-	"encoding/json"
+	jsoniter "github.com/json-iterator/go"
 )
 
-// ToJSON json string
+var json = jsoniter.ConfigCompatibleWithStandardLibrary
+
+// ToJSON converts any value to a JSON string using high-performance sonic library.
+// If encoding fails, it returns the error string.
 func ToJSON(v any) string {
 	j, err := json.Marshal(v)
 	if err != nil {
