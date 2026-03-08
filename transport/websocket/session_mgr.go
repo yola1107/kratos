@@ -7,98 +7,148 @@ import (
 	"github.com/yola1107/kratos/v2/log"
 )
 
+const DefaultBucketSize = 32
+
+// SessionManager 会话管理器，使用分桶减少锁竞争
 type SessionManager struct {
-	count    int32
-	sessions sync.Map // sessionID -> *Session
+	buckets    []*SessionBucket
+	bucketSize int
+	count      atomic.Int64
 }
 
+// SessionBucket 会话桶
+type SessionBucket struct {
+	sync.RWMutex
+	sessions map[string]*Session
+}
+
+// NewSessionManager 创建会话管理器
 func NewSessionManager() *SessionManager {
-	return &SessionManager{
-		count:    0,
-		sessions: sync.Map{},
+	return NewSessionManagerWithBucket(DefaultBucketSize)
+}
+
+// NewSessionManagerWithBucket 创建指定桶数量的会话管理器
+func NewSessionManagerWithBucket(bucketSize int) *SessionManager {
+	m := &SessionManager{
+		buckets:    make([]*SessionBucket, bucketSize),
+		bucketSize: bucketSize,
 	}
-}
-
-func (m *SessionManager) Len() int32 {
-	return atomic.LoadInt32(&m.count)
-}
-
-func (m *SessionManager) Add(session *Session) {
-	if _, loaded := m.sessions.LoadOrStore(session.ID(), session); !loaded {
-		atomic.AddInt32(&m.count, 1)
-		if session.conn != nil {
-			log.Infof("start ws serve %q with %q key=%q sessions=%d",
-				session.conn.LocalAddr(), session.conn.RemoteAddr(), session.ID(), atomic.LoadInt32(&m.count))
-		} else {
-			log.Infof("start ws serve key=%q sessions=%d", session.ID(), atomic.LoadInt32(&m.count))
+	for i := 0; i < bucketSize; i++ {
+		m.buckets[i] = &SessionBucket{
+			sessions: make(map[string]*Session),
 		}
 	}
+	return m
 }
 
+func (m *SessionManager) bucket(key string) *SessionBucket {
+	return m.buckets[fnv32(key)%uint32(m.bucketSize)]
+}
+
+// fnv32 FNV-1a 哈希
+func fnv32(key string) uint32 {
+	h := uint32(2166136261)
+	const prime32 = uint32(16777619)
+	for i := 0; i < len(key); i++ {
+		h = (h ^ uint32(key[i])) * prime32
+	}
+	return h
+}
+
+// Len 返回会话总数
+func (m *SessionManager) Len() int32 {
+	return int32(m.count.Load())
+}
+
+// Add 添加会话
+func (m *SessionManager) Add(session *Session) {
+	b := m.bucket(session.ID())
+	b.Lock()
+	if _, exists := b.sessions[session.ID()]; !exists {
+		b.sessions[session.ID()] = session
+		m.count.Add(1)
+	}
+	b.Unlock()
+
+	if session.conn != nil {
+		log.Infof("[websocket] session connected: id=%s, remote=%s, total=%d",
+			session.ID(), session.GetRemoteIP(), m.Len())
+	} else {
+		log.Infof("[websocket] session connected: id=%s, total=%d",
+			session.ID(), m.Len())
+	}
+}
+
+// Delete 删除会话
 func (m *SessionManager) Delete(session *Session) {
-	if _, loaded := m.sessions.LoadAndDelete(session.ID()); loaded {
-		atomic.AddInt32(&m.count, -1)
-		log.Infof("disconnected key=%q sessions=%d", session.ID(), atomic.LoadInt32(&m.count))
+	b := m.bucket(session.ID())
+	b.Lock()
+	if _, exists := b.sessions[session.ID()]; exists {
+		delete(b.sessions, session.ID())
+		m.count.Add(-1)
 	}
+	b.Unlock()
+
+	log.Infof("[websocket] session disconnected: id=%s, total=%d",
+		session.ID(), m.Len())
 }
 
-func (m *SessionManager) Get(sessionId string) *Session {
-	v, ok := m.sessions.Load(sessionId)
-	if !ok {
-		return nil
-	}
-	session, ok := v.(*Session)
-	if !ok {
-		log.Errorf("Invalid session type: key=%s", sessionId)
-		m.sessions.Delete(sessionId) // 自动清理无效数据
-		return nil
-	}
+// Get 获取会话
+func (m *SessionManager) Get(sessionID string) *Session {
+	b := m.bucket(sessionID)
+	b.RLock()
+	session := b.sessions[sessionID]
+	b.RUnlock()
 	return session
 }
 
+// ForEach 遍历所有会话
 func (m *SessionManager) ForEach(fn func(*Session)) {
-	m.sessions.Range(func(k, v interface{}) bool {
-		if session, ok := v.(*Session); ok {
+	for _, b := range m.buckets {
+		b.RLock()
+		for _, session := range b.sessions {
 			fn(session)
 		}
-		return true
-	})
+		b.RUnlock()
+	}
 }
 
+// Broadcast 并行广播消息
 func (m *SessionManager) Broadcast(data []byte) {
-	m.sessions.Range(func(k, v interface{}) bool {
-		if session, ok := v.(*Session); ok {
-			if !session.Closed() {
-				if err := session.Send(data); err != nil {
-					log.Errorf("Broadcast failed: %v", err)
+	var wg sync.WaitGroup
+	wg.Add(m.bucketSize)
+
+	for i := 0; i < m.bucketSize; i++ {
+		go func(b *SessionBucket) {
+			defer wg.Done()
+			b.RLock()
+			for _, session := range b.sessions {
+				if !session.Closed() {
+					session.Send(data)
 				}
 			}
-		}
-		return true
-	})
+			b.RUnlock()
+		}(m.buckets[i])
+	}
+
+	wg.Wait()
 }
 
-func (m *SessionManager) BroadcastAsync(data []byte) {
-	m.sessions.Range(func(_, v interface{}) bool {
-		session := v.(*Session)
-		// 异步发送，避免阻塞Range操作
-		go func(s *Session) {
-			if !s.Closed() {
-				if err := s.Send(data); err != nil {
-					log.Errorf("BroadcastAsync failed for session %s: %v", s.ID(), err)
-				}
-			}
-		}(session)
-		return true
-	})
-}
-
+// CloseAllSessions 关闭所有会话
 func (m *SessionManager) CloseAllSessions() {
-	m.sessions.Range(func(_, v interface{}) bool {
-		if session, ok := v.(*Session); ok {
-			session.Close(true, "server closed")
-		}
-		return true
-	})
-	return
+	var wg sync.WaitGroup
+	wg.Add(m.bucketSize)
+
+	for i := 0; i < m.bucketSize; i++ {
+		go func(b *SessionBucket) {
+			defer wg.Done()
+			b.Lock()
+			for _, session := range b.sessions {
+				session.Close(true, "server shutdown")
+			}
+			b.Unlock()
+		}(m.buckets[i])
+	}
+
+	wg.Wait()
 }
